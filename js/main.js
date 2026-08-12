@@ -39,12 +39,17 @@ function goToMap(mapId) {
 }
 
 function handleTileAction(action) {
-  if (action === 'enterTown') return goToMap('town');
-  if (action === 'enterDungeon') return goToMap('dungeon');
-  if (action === 'exitMap') return goToMap('overworld');
+  if (action === 'enterTown') return enterMap('town');
+  if (action === 'enterDungeon') return enterMap('dungeon');
+  if (action === 'exitMap') return enterMap('overworld');
   if (action === 'enterShop') return goToShop();
   if (action === 'enterSmith') return goToSmith();
   if (action === 'bossBattle') return handleEncounter(dungeonMap.bossMonsterId);
+}
+
+function enterMap(mapId) {
+  state.position = { ...MAPS[mapId].startPosition };
+  goToMap(mapId);
 }
 
 function goToShop() {
