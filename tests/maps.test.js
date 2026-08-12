@@ -15,13 +15,14 @@ function assertValidMap(map) {
       assert.ok(TILES[map.legend[char]], `${map.id} legend points to unknown tile '${map.legend[char]}'`);
     }
   }
+
+  const { x, y } = map.startPosition;
+  const tileKey = map.legend[map.rows[y][x]];
+  assert.ok(TILES[tileKey].walkable, `${map.id} startPosition must be walkable`);
 }
 
 test('overworld map is well-formed and has a walkable start position', () => {
   assertValidMap(overworldMap);
-  const { x, y } = overworldMap.startPosition;
-  const tileKey = overworldMap.legend[overworldMap.rows[y][x]];
-  assert.ok(TILES[tileKey].walkable);
 });
 
 test('town map is well-formed and includes shop, smith, and exit tiles', () => {

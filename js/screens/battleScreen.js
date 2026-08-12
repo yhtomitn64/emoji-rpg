@@ -1,7 +1,7 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { calculateDamage, tickGauge, isReady } from '../systems/combat.js';
-import { getEquipmentBonuses } from '../systems/inventory.js';
+import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 
 let rootEl = null;
 let state = null;
@@ -37,6 +37,7 @@ function buildMonsterCombatant() {
 }
 
 function render() {
+  if (battleOver) return;
   rootEl.innerHTML = `
     <div class="battle-screen">
       <div class="combatant">${monsterCombatant.emoji} ${monsterCombatant.name} — HP ${monsterCombatant.hp}/${monsterCombatant.maxHp}</div>
@@ -80,8 +81,7 @@ function playerUseItem() {
     render();
     return;
   }
-  potionEntry.quantity -= 1;
-  state.inventory = state.inventory.filter((entry) => entry.quantity > 0);
+  Object.assign(state, removeItem(state, 'potion', 1));
   const heal = ITEMS.potion.heal;
   playerCombatant.hp = Math.min(playerCombatant.maxHp, playerCombatant.hp + heal);
   log.push(`You drink a potion and heal ${heal}.`);

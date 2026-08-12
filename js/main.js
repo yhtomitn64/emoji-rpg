@@ -8,9 +8,10 @@ import { overworldMap } from './maps/overworldMap.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
 import { MONSTERS } from './data/monsters.js';
+import { ITEMS } from './data/items.js';
 import { applyXp } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
-import { addGold, addItem } from './systems/inventory.js';
+import { addGold, addItem, equipItem } from './systems/inventory.js';
 
 const MAPS = { overworld: overworldMap, town: townMap, dungeon: dungeonMap };
 
@@ -44,11 +45,18 @@ function handleTileAction(action) {
   if (action === 'exitMap') return enterMap('overworld');
   if (action === 'enterShop') return goToShop();
   if (action === 'enterSmith') return goToSmith();
-  if (action === 'bossBattle') return handleEncounter(dungeonMap.bossMonsterId);
+  if (action === 'bossBattle') {
+    if (!state.flags.dungeonBossDefeated) {
+      handleEncounter(dungeonMap.bossMonsterId);
+    }
+    return;
+  }
 }
 
 function enterMap(mapId) {
   state.position = { ...MAPS[mapId].startPosition };
+  state.map = mapId;
+  saveState(state);
   goToMap(mapId);
 }
 
@@ -90,6 +98,10 @@ function handleBattleEnd(outcome, monsterId) {
     Object.assign(state, addGold(state, drop.gold));
     if (drop.item) {
       Object.assign(state, addItem(state, drop.item, 1));
+      const droppedItemDef = ITEMS[drop.item];
+      if (droppedItemDef.slot) {
+        Object.assign(state, equipItem(state, drop.item, droppedItemDef.slot));
+      }
     }
     if (monster.isBoss) {
       state.flags.dungeonBossDefeated = true;
