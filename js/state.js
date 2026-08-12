@@ -6,9 +6,10 @@ export function createNewGame() {
     equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory: null },
     upgrades: {},
     inventory: [{ itemId: 'potion', quantity: 2 }],
-    map: 'overworld',
+    map: 'center',
     position: null,
     flags: { dungeonBossDefeated: false },
+    visited: {},
   };
 }
 

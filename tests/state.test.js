@@ -14,7 +14,7 @@ test('createNewGame returns a fresh default state', () => {
   const state = createNewGame();
   assert.equal(state.player.level, 1);
   assert.equal(state.player.gold, 20);
-  assert.equal(state.map, 'overworld');
+  assert.equal(state.map, 'center');
   assert.equal(state.equipment.weapon, 'starterSword');
 });
 
