@@ -1,0 +1,4 @@
+* { box-sizing: border-box; font-family: sans-serif; }
+body { margin: 0; background: #222; color: #eee; }
+#hud { padding: 8px; background: #111; font-size: 1.1rem; }
+#app { padding: 8px; }
