@@ -2,3 +2,30 @@
 body { margin: 0; background: #222; color: #eee; }
 #hud { padding: 8px; background: #111; font-size: 1.1rem; }
 #app { padding: 8px; }
+
+.map-grid {
+  display: grid;
+  gap: 2px;
+}
+.map-tile {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: #333;
+}
+
+.battle-screen, .shop-screen, .smith-screen {
+  max-width: 480px;
+  margin: 0 auto;
+}
+.combatant { margin-bottom: 8px; font-size: 1.3rem; }
+.battle-log { min-height: 80px; background: #111; padding: 8px; margin: 8px 0; font-size: 0.9rem; }
+.battle-menu button, .shop-row button, .smith-row button, #btn-leave {
+  margin: 4px; padding: 8px 12px; font-size: 1rem;
+}
+.shop-row, .smith-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid #444;
+}
