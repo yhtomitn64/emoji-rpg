@@ -48,4 +48,16 @@ export const MONSTERS = {
     ],
     isBoss: true,
   },
+  orc: {
+    id: 'orc', name: 'Orc', emoji: '👹',
+    hp: 30, attack: 11, defense: 4, speed: 5,
+    xp: 28, goldRange: [8, 14],
+    dropTable: [{ itemId: 'orcTusk', chance: 0.3 }],
+  },
+  wraith: {
+    id: 'wraith', name: 'Wraith', emoji: '👻',
+    hp: 26, attack: 13, defense: 2, speed: 9,
+    xp: 30, goldRange: [8, 15],
+    dropTable: [{ itemId: 'wraithEssence', chance: 0.3 }],
+  },
 };

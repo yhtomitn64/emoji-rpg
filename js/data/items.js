@@ -32,4 +32,6 @@ export const ITEMS = {
   ironScrap: { id: 'ironScrap', name: 'Iron Scrap', emoji: '🔩', type: 'material' },
   wolfPelt: { id: 'wolfPelt', name: 'Wolf Pelt', emoji: '🐾', type: 'material' },
   spiderSilk: { id: 'spiderSilk', name: 'Spider Silk', emoji: '🕸️', type: 'material' },
+  orcTusk: { id: 'orcTusk', name: 'Orc Tusk', emoji: '🦷', type: 'material' },
+  wraithEssence: { id: 'wraithEssence', name: 'Wraith Essence', emoji: '💠', type: 'material' },
 };
