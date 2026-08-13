@@ -38,16 +38,17 @@ function buildMonsterCombatant() {
 
 function render() {
   if (battleOver) return;
+
   rootEl.innerHTML = `
-    <div class="battle-screen">
-      <div class="combatant">${monsterCombatant.emoji} ${monsterCombatant.name} — HP ${monsterCombatant.hp}/${monsterCombatant.maxHp}</div>
+    <div class="overlay-panel battle-screen">
+      <div class="combatant"><span class="battle-monster-emoji">${monsterCombatant.emoji}</span> ${monsterCombatant.name} — HP ${monsterCombatant.hp}/${monsterCombatant.maxHp}</div>
       <div class="combatant">${playerCombatant.emoji} You — HP ${playerCombatant.hp}/${playerCombatant.maxHp}</div>
       <div class="battle-log">${log.slice(-4).join('<br>')}</div>
       <div class="battle-menu" id="battle-menu"></div>
     </div>
   `;
 
-  if (isReady(playerCombatant.atb) && !battleOver) {
+  if (isReady(playerCombatant.atb)) {
     renderMenu();
   }
 }
