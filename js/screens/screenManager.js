@@ -15,6 +15,9 @@ export function mountScreen(screen, props) {
 }
 
 export function mountOverlay(overlay, props) {
+  if (activeOverlay) {
+    unmountOverlay();
+  }
   if (activeScreen && activeScreen.pause) {
     activeScreen.pause();
   }

@@ -49,6 +49,18 @@ if (!state.visited) {
   state.visited = {};
 }
 
+// True while a battle overlay is mounted. The Stats button sits behind the
+// full-viewport #overlay, so it is pointer-blocked but still keyboard-reachable;
+// opening stats mid-battle would tear down the live battle overlay.
+let battleActive = false;
+
+function setStatsButtonEnabled(enabled) {
+  const statsButton = document.getElementById('btn-open-stats');
+  if (statsButton) {
+    statsButton.disabled = !enabled;
+  }
+}
+
 function renderHud() {
   const bonuses = getEquipmentBonuses(state);
   const hud = document.getElementById('hud');
@@ -60,6 +72,7 @@ function renderHud() {
   const statsButton = document.createElement('button');
   statsButton.id = 'btn-open-stats';
   statsButton.textContent = '📊 Stats';
+  statsButton.disabled = battleActive;
   statsButton.onclick = openStats;
 
   hud.appendChild(label);
@@ -67,6 +80,7 @@ function renderHud() {
 }
 
 function openStats() {
+  if (battleActive) return;
   mountOverlay(statsPanel, {
     state,
     callbacks: { onClose: () => unmountOverlay() },
@@ -142,6 +156,8 @@ function goToSmith() {
 }
 
 function handleEncounter(monsterId) {
+  battleActive = true;
+  setStatsButtonEnabled(false);
   mountOverlay(battleScreen, {
     state,
     monsterId,
@@ -151,11 +167,16 @@ function handleEncounter(monsterId) {
 
 function handleBattleEnd(outcome, monsterId) {
   unmountOverlay();
+  battleActive = false;
+  setStatsButtonEnabled(true);
 
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];
-    const { player } = applyXp(state.player, monster.xp);
+    const { player, leveledUp } = applyXp(state.player, monster.xp);
     state.player = player;
+    if (leveledUp) {
+      state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+    }
 
     const drop = rollDrop(monster);
     Object.assign(state, addGold(state, drop.gold));

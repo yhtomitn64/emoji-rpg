@@ -73,5 +73,10 @@ export function getEquipmentBonuses(state) {
       bonuses[stat] += base + base * 0.25 * upgradeLevel;
     }
   }
+  // Upgrade scaling (0.25/level) is fractional for most items; round each total
+  // once so callers only ever see integer stats (HUD, battle, saved HP).
+  for (const stat of Object.keys(bonuses)) {
+    bonuses[stat] = Math.round(bonuses[stat]);
+  }
   return bonuses;
 }

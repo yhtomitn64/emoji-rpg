@@ -65,6 +65,12 @@ function tryMove(dx, dy) {
 
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
+
+  // Render before firing any callback: an action may swap screens and an
+  // encounter opens a battle *overlay* on top of this still-mounted map, so the
+  // world underneath must already show the tile the player just stepped onto.
+  render();
+
   callbacks.onMove(state.position);
 
   if (tile.action) {
@@ -75,10 +81,7 @@ function tryMove(dx, dy) {
   if (tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
     const monsterId = mapConfig.monsterTable[Math.floor(Math.random() * mapConfig.monsterTable.length)];
     callbacks.onEncounter(monsterId);
-    return;
   }
-
-  render();
 }
 
 function handleKeydown(event) {
