@@ -138,6 +138,18 @@ function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
   }, 220);
 }
 
+function handleKeydown(event) {
+  if (battleOver || !isReady(playerCombatant.atb)) return;
+  const key = event.key;
+  if (key === 'a' || key === 'A') {
+    playerAttack();
+  } else if (key === 'i' || key === 'I') {
+    playerUseItem();
+  } else if (key === 'Escape') {
+    playerFlee();
+  }
+}
+
 function playerAttack() {
   const isCrit = rollCrit();
   let damage = calculateDamage(playerCombatant, monsterCombatant);
@@ -242,9 +254,11 @@ export function mount(root, props) {
   updateLog();
   updateMenu();
   intervalId = setInterval(tick, 300);
+  window.addEventListener('keydown', handleKeydown);
 }
 
 export function unmount() {
   clearInterval(intervalId);
   clearTimeout(endBattleTimeoutId);
+  window.removeEventListener('keydown', handleKeydown);
 }
