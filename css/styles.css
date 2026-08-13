@@ -16,12 +16,97 @@ body { margin: 0; background: #222; color: #eee; }
   background: #333;
 }
 
-.battle-screen, .shop-screen, .smith-screen {
+.shop-screen, .smith-screen {
   max-width: 480px;
   margin: 0 auto;
 }
-.combatant { margin-bottom: 8px; font-size: 1.3rem; }
-.battle-log { min-height: 80px; background: #111; padding: 8px; margin: 8px 0; font-size: 0.9rem; }
+
+.overlay-panel.battle-screen {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  gap: 16px;
+}
+.battle-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.battle-combatant {
+  text-align: center;
+  position: relative;
+}
+.battle-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+.battle-name {
+  font-weight: 600;
+  margin-top: 4px;
+}
+.battle-divider {
+  font-size: 1.4rem;
+  color: #555;
+}
+.battle-hp-bar {
+  width: 200px;
+  background: #333;
+  border-radius: 4px;
+  height: 10px;
+  margin: 4px auto 0;
+  overflow: hidden;
+}
+.battle-hp-fill {
+  height: 100%;
+  background: #c0392b;
+  transition: width 0.2s;
+}
+.battle-hp-fill-hero {
+  background: #27ae60;
+}
+.battle-hp-text {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin-top: 2px;
+}
+.battle-atb-bar {
+  width: 200px;
+  background: #222;
+  border-radius: 4px;
+  height: 6px;
+  margin: 4px auto 0;
+  overflow: hidden;
+}
+.battle-atb-fill {
+  height: 100%;
+  background: #f1c40f;
+  transition: width 0.3s linear;
+}
+.battle-sidebar {
+  width: 180px;
+  background: #161616;
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+.battle-log-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+.battle-log {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #ccc;
+  max-height: 320px;
+}
 .battle-menu button, .shop-row button, .smith-row button, #btn-leave {
   margin: 4px; padding: 8px 12px; font-size: 1rem;
 }
@@ -60,7 +145,7 @@ body { margin: 0; background: #222; color: #eee; }
 }
 
 .battle-monster-emoji {
-  font-size: 2rem;
+  font-size: 4rem;
 }
 
 .stats-slot {

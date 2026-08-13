@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { calculateDamage, tickGauge, isReady } from '../systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 
 let rootEl = null;
@@ -12,6 +12,7 @@ let playerCombatant = null;
 let monsterCombatant = null;
 let battleOver = false;
 let log = [];
+let elements = {};
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -36,27 +37,77 @@ function buildMonsterCombatant() {
   };
 }
 
-function render() {
-  if (battleOver) return;
+function percent(value, max) {
+  return Math.max(0, Math.min(100, (value / max) * 100));
+}
 
+function buildDom() {
   rootEl.innerHTML = `
     <div class="overlay-panel battle-screen">
-      <div class="combatant"><span class="battle-monster-emoji">${monsterCombatant.emoji}</span> ${monsterCombatant.name} — HP ${monsterCombatant.hp}/${monsterCombatant.maxHp}</div>
-      <div class="combatant">${playerCombatant.emoji} You — HP ${playerCombatant.hp}/${playerCombatant.maxHp}</div>
-      <div class="battle-log">${log.slice(-4).join('<br>')}</div>
-      <div class="battle-menu" id="battle-menu"></div>
+      <div class="battle-main">
+        <div class="battle-combatant" id="battle-monster-zone">
+          <div class="battle-emoji battle-monster-emoji" id="battle-monster-emoji">${monsterCombatant.emoji}</div>
+          <div class="battle-name">${monsterCombatant.name}</div>
+          <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill"></div></div>
+          <div class="battle-hp-text" id="battle-monster-hp-text"></div>
+          <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-monster-atb-fill"></div></div>
+        </div>
+        <div class="battle-divider">⚔️</div>
+        <div class="battle-combatant" id="battle-hero-zone">
+          <div class="battle-emoji" id="battle-hero-emoji">${playerCombatant.emoji}</div>
+          <div class="battle-name">You</div>
+          <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
+          <div class="battle-hp-text" id="battle-hero-hp-text"></div>
+          <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
+        </div>
+        <div class="battle-menu" id="battle-menu"></div>
+      </div>
+      <div class="battle-sidebar">
+        <div class="battle-log-label">Battle Log</div>
+        <div class="battle-log" id="battle-log"></div>
+      </div>
     </div>
   `;
 
-  if (isReady(playerCombatant.atb)) {
-    renderMenu();
-  }
+  elements = {
+    monsterZone: document.getElementById('battle-monster-zone'),
+    monsterEmoji: document.getElementById('battle-monster-emoji'),
+    monsterHpFill: document.getElementById('battle-monster-hp-fill'),
+    monsterHpText: document.getElementById('battle-monster-hp-text'),
+    monsterAtbFill: document.getElementById('battle-monster-atb-fill'),
+    heroZone: document.getElementById('battle-hero-zone'),
+    heroEmoji: document.getElementById('battle-hero-emoji'),
+    heroHpFill: document.getElementById('battle-hero-hp-fill'),
+    heroHpText: document.getElementById('battle-hero-hp-text'),
+    heroAtbFill: document.getElementById('battle-hero-atb-fill'),
+    menu: document.getElementById('battle-menu'),
+    log: document.getElementById('battle-log'),
+  };
 }
 
-function renderMenu() {
-  const menu = document.getElementById('battle-menu');
-  if (!menu) return;
-  menu.innerHTML = `
+function updateHpBars() {
+  elements.monsterHpFill.style.width = `${percent(monsterCombatant.hp, monsterCombatant.maxHp)}%`;
+  elements.monsterHpText.textContent = `HP ${monsterCombatant.hp}/${monsterCombatant.maxHp}`;
+  elements.heroHpFill.style.width = `${percent(playerCombatant.hp, playerCombatant.maxHp)}%`;
+  elements.heroHpText.textContent = `HP ${playerCombatant.hp}/${playerCombatant.maxHp}`;
+}
+
+function updateAtbBars() {
+  elements.monsterAtbFill.style.width = `${percent(monsterCombatant.atb, ATB_MAX)}%`;
+  elements.heroAtbFill.style.width = `${percent(playerCombatant.atb, ATB_MAX)}%`;
+}
+
+function updateLog() {
+  elements.log.innerHTML = log.map((line) => `<div>${line}</div>`).join('');
+  elements.log.scrollTop = elements.log.scrollHeight;
+}
+
+function updateMenu() {
+  if (battleOver || !isReady(playerCombatant.atb)) {
+    elements.menu.innerHTML = '';
+    return;
+  }
+  elements.menu.innerHTML = `
     <button id="btn-attack">Attack</button>
     <button id="btn-item">Item</button>
     <button id="btn-flee">Flee</button>
@@ -71,15 +122,18 @@ function playerAttack() {
   monsterCombatant.hp = Math.max(0, monsterCombatant.hp - damage);
   log.push(`You hit ${monsterCombatant.name} for ${damage}.`);
   playerCombatant.atb = 0;
+  updateHpBars();
+  updateAtbBars();
+  updateLog();
   checkOutcome();
-  render();
+  updateMenu();
 }
 
 function playerUseItem() {
   const potionEntry = state.inventory.find((entry) => entry.itemId === 'potion' && entry.quantity > 0);
   if (!potionEntry) {
     log.push('No potions left.');
-    render();
+    updateLog();
     return;
   }
   Object.assign(state, removeItem(state, 'potion', 1));
@@ -87,14 +141,19 @@ function playerUseItem() {
   playerCombatant.hp = Math.min(playerCombatant.maxHp, playerCombatant.hp + heal);
   log.push(`You drink a potion and heal ${heal}.`);
   playerCombatant.atb = 0;
-  render();
+  updateHpBars();
+  updateAtbBars();
+  updateLog();
+  updateMenu();
 }
 
 function playerFlee() {
   if (MONSTERS[monsterId].isBoss) {
     log.push('You cannot flee from this battle!');
     playerCombatant.atb = 0;
-    render();
+    updateAtbBars();
+    updateLog();
+    updateMenu();
     return;
   }
   endBattle('fled');
@@ -105,6 +164,8 @@ function monsterAttack() {
   playerCombatant.hp = Math.max(0, playerCombatant.hp - damage);
   log.push(`${monsterCombatant.name} hits you for ${damage}.`);
   monsterCombatant.atb = 0;
+  updateHpBars();
+  updateLog();
   checkOutcome();
 }
 
@@ -125,13 +186,15 @@ function tick() {
     monsterAttack();
   }
 
-  render();
+  updateAtbBars();
+  updateMenu();
 }
 
 function endBattle(outcome) {
   battleOver = true;
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
+  updateMenu();
   callbacks.onBattleEnd(outcome, monsterId);
 }
 
@@ -144,7 +207,11 @@ export function mount(root, props) {
   log = [`A wild ${MONSTERS[monsterId].name} appears!`];
   playerCombatant = buildPlayerCombatant();
   monsterCombatant = buildMonsterCombatant();
-  render();
+  buildDom();
+  updateHpBars();
+  updateAtbBars();
+  updateLog();
+  updateMenu();
   intervalId = setInterval(tick, 300);
 }
 
