@@ -158,3 +158,36 @@ body { margin: 0; background: #222; color: #eee; }
   justify-content: space-between;
   align-items: center;
 }
+
+.battle-hit-flash {
+  filter: brightness(1.4) sepia(1) saturate(6) hue-rotate(-40deg);
+}
+@keyframes battle-shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+.battle-hit-shake {
+  animation: battle-shake 0.2s ease-in-out;
+}
+.battle-damage-number {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #ff5555;
+  pointer-events: none;
+  animation: battle-float-up 0.9s ease-out forwards;
+}
+.battle-damage-number-crit {
+  font-size: 1.8rem;
+  color: #e67e22;
+}
+@keyframes battle-float-up {
+  0% { transform: translate(-50%, 0); opacity: 1; }
+  100% { transform: translate(-50%, -40px); opacity: 0; }
+}

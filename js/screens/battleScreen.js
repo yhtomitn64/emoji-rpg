@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { calculateDamage, tickGauge, isReady, ATB_MAX } from '../systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 
 let rootEl = null;
@@ -117,14 +117,35 @@ function updateMenu() {
   document.getElementById('btn-flee').onclick = playerFlee;
 }
 
+function showDamageNumber(zoneEl, amount, isCrit) {
+  const numberEl = document.createElement('div');
+  numberEl.textContent = `-${amount}`;
+  numberEl.className = 'battle-damage-number' + (isCrit ? ' battle-damage-number-crit' : '');
+  zoneEl.appendChild(numberEl);
+  setTimeout(() => numberEl.remove(), 900);
+}
+
+function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
+  emojiEl.classList.add('battle-hit-flash');
+  zoneEl.classList.add('battle-hit-shake');
+  showDamageNumber(zoneEl, amount, isCrit);
+  setTimeout(() => {
+    emojiEl.classList.remove('battle-hit-flash');
+    zoneEl.classList.remove('battle-hit-shake');
+  }, 220);
+}
+
 function playerAttack() {
-  const damage = calculateDamage(playerCombatant, monsterCombatant);
+  const isCrit = rollCrit();
+  let damage = calculateDamage(playerCombatant, monsterCombatant);
+  damage = applyCritMultiplier(damage, isCrit);
   monsterCombatant.hp = Math.max(0, monsterCombatant.hp - damage);
-  log.push(`You hit ${monsterCombatant.name} for ${damage}.`);
+  log.push(isCrit ? `Critical! You hit ${monsterCombatant.name} for ${damage}!` : `You hit ${monsterCombatant.name} for ${damage}.`);
   playerCombatant.atb = 0;
   updateHpBars();
   updateAtbBars();
   updateLog();
+  playHitEffect(elements.monsterZone, elements.monsterEmoji, damage, isCrit);
   checkOutcome();
   updateMenu();
 }
@@ -160,12 +181,15 @@ function playerFlee() {
 }
 
 function monsterAttack() {
-  const damage = calculateDamage(monsterCombatant, playerCombatant);
+  const isCrit = rollCrit();
+  let damage = calculateDamage(monsterCombatant, playerCombatant);
+  damage = applyCritMultiplier(damage, isCrit);
   playerCombatant.hp = Math.max(0, playerCombatant.hp - damage);
-  log.push(`${monsterCombatant.name} hits you for ${damage}.`);
+  log.push(isCrit ? `Critical! ${monsterCombatant.name} hits you for ${damage}!` : `${monsterCombatant.name} hits you for ${damage}.`);
   monsterCombatant.atb = 0;
   updateHpBars();
   updateLog();
+  playHitEffect(elements.heroZone, elements.heroEmoji, damage, isCrit);
   checkOutcome();
 }
 
