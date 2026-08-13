@@ -1,28 +1,76 @@
 import { createNewGame, loadState, saveState } from './state.js';
-import { mountScreen } from './screens/screenManager.js';
+import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
 import * as shopScreen from './screens/shopScreen.js';
 import * as smithScreen from './screens/smithScreen.js';
-import { overworldMap } from './maps/overworldMap.js';
+import * as statsPanel from './screens/statsPanel.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
+import { centerMap } from './maps/wilderness/center.js';
+import { northMap } from './maps/wilderness/north.js';
+import { southMap } from './maps/wilderness/south.js';
+import { eastMap } from './maps/wilderness/east.js';
+import { westMap } from './maps/wilderness/west.js';
+import { northeastMap } from './maps/wilderness/northeast.js';
+import { northwestMap } from './maps/wilderness/northwest.js';
+import { southeastMap } from './maps/wilderness/southeast.js';
+import { southwestMap } from './maps/wilderness/southwest.js';
 import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
 import { applyXp } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
-import { addGold, addItem, equipItem } from './systems/inventory.js';
+import { addGold, addItem, equipItem, getEquipmentBonuses } from './systems/inventory.js';
+import { computeEdgeLandingPosition } from './systems/world.js';
 
-const MAPS = { overworld: overworldMap, town: townMap, dungeon: dungeonMap };
+const MAPS = {
+  town: townMap,
+  dungeon: dungeonMap,
+  center: centerMap,
+  north: northMap,
+  south: southMap,
+  east: eastMap,
+  west: westMap,
+  northeast: northeastMap,
+  northwest: northwestMap,
+  southeast: southeastMap,
+  southwest: southwestMap,
+};
 
 const state = loadState() || createNewGame();
+if (state.map === 'overworld') {
+  state.map = 'center';
+  state.position = null;
+}
 if (!state.position) {
   state.position = { ...MAPS[state.map].startPosition };
 }
+if (!state.visited) {
+  state.visited = {};
+}
 
 function renderHud() {
+  const bonuses = getEquipmentBonuses(state);
   const hud = document.getElementById('hud');
-  hud.textContent = `Lv.${state.player.level} HP:${state.player.hp}/${state.player.maxHp} Gold:${state.player.gold}`;
+  hud.innerHTML = '';
+
+  const label = document.createElement('span');
+  label.textContent = `Lv.${state.player.level} HP:${state.player.hp}/${state.player.maxHp + bonuses.maxHp} Gold:${state.player.gold}`;
+
+  const statsButton = document.createElement('button');
+  statsButton.id = 'btn-open-stats';
+  statsButton.textContent = '📊 Stats';
+  statsButton.onclick = openStats;
+
+  hud.appendChild(label);
+  hud.appendChild(statsButton);
+}
+
+function openStats() {
+  mountOverlay(statsPanel, {
+    state,
+    callbacks: { onClose: () => unmountOverlay() },
+  });
 }
 
 function goToMap(mapId) {
@@ -35,6 +83,7 @@ function goToMap(mapId) {
       onMove: () => saveState(state),
       onAction: handleTileAction,
       onEncounter: handleEncounter,
+      onEdgeTransition: handleEdgeTransition,
     },
   });
 }
@@ -42,7 +91,11 @@ function goToMap(mapId) {
 function handleTileAction(action) {
   if (action === 'enterTown') return enterMap('town');
   if (action === 'enterDungeon') return enterMap('dungeon');
-  if (action === 'exitMap') return enterMap('overworld');
+  if (action === 'exitMap') {
+    if (state.map === 'town') return enterMap('center');
+    if (state.map === 'dungeon') return enterMap('southeast');
+    return;
+  }
   if (action === 'enterShop') return goToShop();
   if (action === 'enterSmith') return goToSmith();
   if (action === 'bossBattle') {
@@ -58,6 +111,14 @@ function enterMap(mapId) {
   state.map = mapId;
   saveState(state);
   goToMap(mapId);
+}
+
+function handleEdgeTransition(neighborId, direction, currentPosition) {
+  const neighborMap = MAPS[neighborId];
+  state.position = computeEdgeLandingPosition(direction, currentPosition, neighborMap);
+  state.map = neighborId;
+  saveState(state);
+  goToMap(neighborId);
 }
 
 function goToShop() {
@@ -81,7 +142,7 @@ function goToSmith() {
 }
 
 function handleEncounter(monsterId) {
-  mountScreen(battleScreen, {
+  mountOverlay(battleScreen, {
     state,
     monsterId,
     callbacks: { onBattleEnd: handleBattleEnd },
@@ -89,6 +150,8 @@ function handleEncounter(monsterId) {
 }
 
 function handleBattleEnd(outcome, monsterId) {
+  unmountOverlay();
+
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];
     const { player } = applyXp(state.player, monster.xp);
@@ -109,18 +172,16 @@ function handleBattleEnd(outcome, monsterId) {
 
     saveState(state);
     renderHud();
-    goToMap(state.map);
   } else if (outcome === 'lost') {
     state.player.hp = state.player.maxHp;
-    state.map = 'town';
     state.position = { ...townMap.startPosition };
+    state.map = 'town';
     saveState(state);
     renderHud();
     goToMap('town');
   } else if (outcome === 'fled') {
     saveState(state);
     renderHud();
-    goToMap(state.map);
   }
 }
 

@@ -29,3 +29,47 @@ body { margin: 0; background: #222; color: #eee; }
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 0; border-bottom: 1px solid #444;
 }
+
+#overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+#overlay.open {
+  display: flex;
+}
+
+#app.dimmed {
+  filter: brightness(0.6);
+}
+
+.overlay-panel {
+  background: rgba(17, 17, 17, 0.97);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 480px;
+  width: 90%;
+}
+
+.map-tile.visited {
+  background: #3a3a3a;
+}
+
+.battle-monster-emoji {
+  font-size: 2rem;
+}
+
+.stats-slot {
+  padding: 4px 0;
+  border-bottom: 1px solid #333;
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
