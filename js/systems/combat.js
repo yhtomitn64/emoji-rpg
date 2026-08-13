@@ -13,3 +13,14 @@ export function tickGauge(currentAtb, speed, dt) {
 export function isReady(atb) {
   return atb >= ATB_MAX;
 }
+
+export const CRIT_CHANCE = 0.1;
+export const CRIT_MULTIPLIER = 1.5;
+
+export function rollCrit(rng = Math.random) {
+  return rng() < CRIT_CHANCE;
+}
+
+export function applyCritMultiplier(damage, isCrit) {
+  return isCrit ? Math.round(damage * CRIT_MULTIPLIER) : damage;
+}

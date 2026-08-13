@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -26,4 +26,14 @@ test('tickGauge increases atb by speed times dt, capped at ATB_MAX', () => {
 test('isReady is true once atb reaches ATB_MAX', () => {
   assert.equal(isReady(99), false);
   assert.equal(isReady(100), true);
+});
+
+test('rollCrit returns true below the crit chance threshold, false above it', () => {
+  assert.equal(rollCrit(() => 0.05), true);
+  assert.equal(rollCrit(() => 0.5), false);
+});
+
+test('applyCritMultiplier scales damage on a crit and leaves it unchanged otherwise', () => {
+  assert.equal(applyCritMultiplier(10, false), 10);
+  assert.equal(applyCritMultiplier(10, true), 15);
 });
