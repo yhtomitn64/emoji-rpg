@@ -41,6 +41,10 @@ Both the monster and the player get a visible gauge bar beneath their HP bar, fi
 
 Replaces the current "last 4 lines" log with a persistent, scrollable sidebar showing the entire fight's history from "A wild X appears!" onward. Auto-scrolls to the newest line as it grows.
 
+## Keyboard shortcuts
+
+Once the action menu is showing (ATB ready), **A** triggers Attack, **I** triggers Item, and **Esc** triggers Flee — same effect as clicking the corresponding button, no mouse required. Shortcuts are inert (no-op) when the menu isn't showing, i.e. while waiting for the gauge to fill.
+
 ## Victory/defeat pacing
 
 On a battle-ending outcome, the panel keeps showing the final state (the killing blow's flash/number, updated HP, log's last line) for roughly 1–1.5 seconds before closing/transitioning — long enough to register what happened, short enough not to feel like a delay. This is a fixed short timer, not a "press any key to continue" gate, matching the "don't slow the game down" constraint.
