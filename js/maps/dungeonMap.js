@@ -24,7 +24,7 @@ export const dungeonMap = {
   legend: LEGEND,
   rows: ROWS,
   startPosition: { x: 1, y: 1 },
-  encounterChance: 0.2,
-  monsterTable: ['direWolf', 'spider'],
+  encounterChance: 0.25,
+  monsterTable: ['orc', 'wraith'],
   bossMonsterId: 'dragon',
 };
