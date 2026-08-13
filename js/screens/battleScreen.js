@@ -3,6 +3,8 @@ import { ITEMS } from '../data/items.js';
 import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 
+const VICTORY_PAUSE_MS = 1200;
+
 let rootEl = null;
 let state = null;
 let monsterId = null;
@@ -13,6 +15,7 @@ let monsterCombatant = null;
 let battleOver = false;
 let log = [];
 let elements = {};
+let endBattleTimeoutId = null;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -219,7 +222,9 @@ function endBattle(outcome) {
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
   updateMenu();
-  callbacks.onBattleEnd(outcome, monsterId);
+  endBattleTimeoutId = setTimeout(() => {
+    callbacks.onBattleEnd(outcome, monsterId);
+  }, VICTORY_PAUSE_MS);
 }
 
 export function mount(root, props) {
@@ -241,4 +246,5 @@ export function mount(root, props) {
 
 export function unmount() {
   clearInterval(intervalId);
+  clearTimeout(endBattleTimeoutId);
 }
