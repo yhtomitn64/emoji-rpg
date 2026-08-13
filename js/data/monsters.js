@@ -40,7 +40,7 @@ export const MONSTERS = {
   },
   dragon: {
     id: 'dragon', name: 'Dragon', emoji: '🐉',
-    hp: 110, attack: 35, defense: 12, speed: 11,
+    hp: 110, attack: 34, defense: 12, speed: 11,
     xp: 150, goldRange: [50, 80],
     dropTable: [
       { itemId: 'dragonScaleMail', chance: 0.6 },
