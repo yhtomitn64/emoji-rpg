@@ -22,4 +22,4 @@ Requires Node.js 18+ (uses the built-in `node:test` runner — no dependencies t
 
 ## Controls
 
-Arrow keys or WASD to move. In battle, click the action buttons (Attack / Item / Flee) once your ATB gauge is full.
+Arrow keys or WASD to move. Walking off the edge of a screen crosses into the next one — the world is a 3x3 grid of screens centered on Town, and monsters get tougher the further you travel from it. Click the 📊 Stats button in the top bar to check your stats and equipment. In battle, click the action buttons (Attack / Item / Flee) once your ATB gauge is full.
