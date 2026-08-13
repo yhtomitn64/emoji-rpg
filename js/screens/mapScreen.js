@@ -1,4 +1,6 @@
 import { TILES } from '../tiles.js';
+import { directionFromDelta } from '../systems/world.js';
+import { markVisited, isVisited } from '../systems/exploration.js';
 
 let rootEl = null;
 let state = null;
@@ -20,6 +22,10 @@ function tileAt(x, y) {
   return TILES[mapConfig.legend[char]];
 }
 
+function isOutOfBounds(x, y) {
+  return y < 0 || y >= mapConfig.rows.length || x < 0 || x >= mapConfig.rows[0].length;
+}
+
 function render() {
   const cols = mapConfig.rows[0].length;
   const grid = document.createElement('div');
@@ -29,9 +35,9 @@ function render() {
   for (let y = 0; y < mapConfig.rows.length; y++) {
     for (let x = 0; x < cols; x++) {
       const cell = document.createElement('div');
-      cell.className = 'map-tile';
       const tile = tileAt(x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
+      cell.className = 'map-tile' + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '');
       cell.textContent = isPlayer ? '🧑' : tile.emoji;
       grid.appendChild(cell);
     }
@@ -44,10 +50,21 @@ function render() {
 function tryMove(dx, dy) {
   const nx = state.position.x + dx;
   const ny = state.position.y + dy;
+
+  if (isOutOfBounds(nx, ny)) {
+    const direction = directionFromDelta(dx, dy);
+    const neighborId = mapConfig.neighbors && mapConfig.neighbors[direction];
+    if (neighborId) {
+      callbacks.onEdgeTransition(neighborId, direction, { ...state.position });
+    }
+    return;
+  }
+
   const tile = tileAt(nx, ny);
   if (!tile || !tile.walkable) return;
 
   state.position = { x: nx, y: ny };
+  Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
   callbacks.onMove(state.position);
 
   if (tile.action) {
@@ -75,10 +92,19 @@ export function mount(root, props) {
   state = props.state;
   mapConfig = props.mapConfig;
   callbacks = props.callbacks;
+  Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
   render();
   window.addEventListener('keydown', handleKeydown);
 }
 
 export function unmount() {
   window.removeEventListener('keydown', handleKeydown);
+}
+
+export function pause() {
+  window.removeEventListener('keydown', handleKeydown);
+}
+
+export function resume() {
+  window.addEventListener('keydown', handleKeydown);
 }
