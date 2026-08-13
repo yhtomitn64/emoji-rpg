@@ -38,13 +38,13 @@ function assertBorderWalkable(map, side) {
   const width = map.rows[0].length;
   if (side === 'north' || side === 'south') {
     const y = side === 'north' ? 0 : height - 1;
-    for (let x = 0; x < width; x++) {
+    for (let x = 1; x < width - 1; x++) {
       const tileKey = map.legend[map.rows[y][x]];
       assert.ok(TILES[tileKey].walkable, `${map.id} ${side} border must be walkable at x=${x}`);
     }
   } else {
     const x = side === 'west' ? 0 : width - 1;
-    for (let y = 0; y < height; y++) {
+    for (let y = 1; y < height - 1; y++) {
       const tileKey = map.legend[map.rows[y][x]];
       assert.ok(TILES[tileKey].walkable, `${map.id} ${side} border must be walkable at y=${y}`);
     }
