@@ -173,7 +173,7 @@ function handleBattleEnd(outcome, monsterId) {
     saveState(state);
     renderHud();
   } else if (outcome === 'lost') {
-    state.player.hp = state.player.maxHp;
+    state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
     state.position = { ...townMap.startPosition };
     state.map = 'town';
     saveState(state);
