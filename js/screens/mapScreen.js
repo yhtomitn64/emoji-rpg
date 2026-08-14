@@ -74,6 +74,7 @@ function tryMove(dx, dy) {
   let cacheLoot = null;
   if (
     tile.encounter &&
+    !hasCache(state.caches, mapConfig.id, nx, ny) &&
     countCaches(state.caches, mapConfig.id) < CACHE_CAP_PER_SCREEN &&
     Math.random() < mapConfig.cacheChance
   ) {
