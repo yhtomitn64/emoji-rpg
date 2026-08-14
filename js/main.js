@@ -18,6 +18,8 @@ import { southeastMap } from './maps/wilderness/southeast.js';
 import { southwestMap } from './maps/wilderness/southwest.js';
 import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
+import { FLAVOR_TEXT } from './data/flavorText.js';
+import { showFlavorBanner } from './screens/flavorBanner.js';
 import { applyXp } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, equipItem, getEquipmentBonuses } from './systems/inventory.js';
@@ -47,6 +49,9 @@ if (!state.position) {
 }
 if (!state.visited) {
   state.visited = {};
+}
+if (!state.seenScreens) {
+  state.seenScreens = {};
 }
 
 // True while a battle overlay is mounted. The Stats button sits behind the
@@ -98,6 +103,7 @@ function goToMap(mapId) {
       onAction: handleTileAction,
       onEncounter: handleEncounter,
       onEdgeTransition: handleEdgeTransition,
+      onFirstVisit: handleFirstVisit,
     },
   });
 }
@@ -131,6 +137,14 @@ function handleEdgeTransition(neighborId, direction, currentPosition) {
   state.map = neighborId;
   saveState(state);
   goToMap(neighborId);
+}
+
+function handleFirstVisit(screenId) {
+  const text = FLAVOR_TEXT[screenId];
+  if (text) {
+    showFlavorBanner(text);
+  }
+  saveState(state);
 }
 
 function goToShop() {
