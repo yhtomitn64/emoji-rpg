@@ -56,6 +56,9 @@ if (!state.visited) {
 if (!state.seenScreens) {
   state.seenScreens = {};
 }
+if (!state.caches) {
+  state.caches = {};
+}
 
 // True while a battle overlay is mounted. The Stats button sits behind the
 // full-viewport #overlay, so it is pointer-blocked but still keyboard-reachable;

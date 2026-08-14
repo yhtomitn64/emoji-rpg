@@ -16,6 +16,7 @@ test('createNewGame returns a fresh default state', () => {
   assert.equal(state.player.gold, 20);
   assert.equal(state.map, 'center');
   assert.equal(state.equipment.weapon, 'starterSword');
+  assert.deepEqual(state.caches, {});
 });
 
 test('serializeState and deserializeState round-trip', () => {

@@ -11,6 +11,7 @@ export function createNewGame() {
     flags: { dungeonBossDefeated: false },
     visited: {},
     seenScreens: {},
+    caches: {},
   };
 }
 
