@@ -707,7 +707,7 @@ to:
         : tile.emoji;
 ```
 
-(A tile can never have both a cache and a mini-dungeon entrance recorded on it in practice — `shouldRevealCache` and `shouldRevealMiniDungeon` are checked as mutually exclusive alternatives in `tryMove`, Step 3 below — but the cache check stays first here regardless, since it was already there.)
+(Post-ship correction: the original claim here — "a tile can never have both a cache and a mini-dungeon entrance recorded on it in practice" — was wrong. Mutual exclusivity in `tryMove` holds per *step*, not per *tile*: a tile that already has a cache recorded still rolls `shouldRevealMiniDungeon` on every later visit, since that roll never consults `hasCache`. Over enough revisits a tile can end up with both recorded, and the marker priority matters. The final whole-branch review caught this and reordered `render()` to check `hasMiniDungeonEntrance` before `hasCache` — see the whole-branch review's fix commit — since the entrance marker is actionable and the cache marker is purely a historical memento.)
 
 - [ ] **Step 3: Update `tryMove()` to check for and roll mini-dungeon entrances**
 

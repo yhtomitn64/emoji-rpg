@@ -92,3 +92,7 @@ Both get backward-compatibility backfills in `main.js`'s existing init block, th
 - No mini-dungeons on town or the main dungeon map.
 - No difficulty scaling and no more than 1 discovered entrance per wilderness screen.
 - Treasure is one-time; monster encounters inside are not.
+
+## Post-ship amendment (whole-branch review)
+
+The original `0.005` `miniDungeonChance` applied uniformly to all 9 wilderness screens, including `center` — the explicit safe starting zone (`encounterChance: 0`, empty `monsterTable`). Since discovery is entry with no way to decline, and interior encounters are dungeon-tier (orc/wraith, capable of one-shotting a fresh level-1 character), the final whole-branch review flagged this as a real risk for a brand-new player rather than an implementation bug — the design's own "no difficulty scaling" non-goal, applied literally to `center`, left the safe zone not actually safe. Fixed by setting `center`'s `miniDungeonChance` to `0`, matching how it already excludes combat encounters. All other 8 wilderness screens are unaffected.
