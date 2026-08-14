@@ -247,7 +247,7 @@ function main() {
   console.log('Monster stats under test:');
   for (const id of MATCHUPS) {
     const m = monsters[id];
-    console.log(`  ${m.name.padEnd(8)} hp ${String(m.hp).padStart(3)}  atk ${String(m.attack).padStart(2)}  def ${String(m.defense).padStart(2)}  spd ${String(m.speed).padStart(2)}`);
+    console.log(`  ${m.name.padEnd(22)} hp ${String(m.hp).padStart(3)}  atk ${String(m.attack).padStart(2)}  def ${String(m.defense).padStart(2)}  spd ${String(m.speed).padStart(2)}`);
   }
 
   console.log('\nPlayer builds under test:');
@@ -255,20 +255,20 @@ function main() {
     console.log(`  ${b.name.padEnd(38)} hp ${String(b.maxHp).padStart(3)}  atk ${String(b.attack).padStart(2)}  def ${String(b.defense).padStart(2)}  spd ${String(b.speed).padStart(2)}  potions ${b.potions}  gear cost ${b.goldSpent}g`);
   }
 
-  console.log('\n' + 'build'.padEnd(38) + 'monster'.padEnd(10) + '  win   HP left  potions');
-  console.log('-'.repeat(76));
+  console.log('\n' + 'build'.padEnd(38) + 'monster'.padEnd(22) + '  win   HP left  potions');
+  console.log('-'.repeat(88));
   for (const build of BUILDS) {
     for (const id of MATCHUPS) {
       const r = runMatchup(build, monsters[id], trials);
       const stalemateNote = r.stalemateRate > 0 ? `  (stalemate ${pct(r.stalemateRate)})` : '';
       console.log(
         build.name.padEnd(38) +
-        monsters[id].name.padEnd(10) +
+        monsters[id].name.padEnd(22) +
         pct(r.winRate) + '   ' + pct(r.avgHpLeftOnWin) + '    ' + r.avgPotions.toFixed(1) +
         stalemateNote
       );
     }
-    console.log('-'.repeat(76));
+    console.log('-'.repeat(88));
   }
 }
 

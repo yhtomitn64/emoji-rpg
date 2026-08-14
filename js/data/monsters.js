@@ -57,6 +57,7 @@ export const MONSTERS = {
     hp: 40, attack: 26, defense: 8, speed: 8,
     xp: 40, goldRange: [12, 20],
     dropTable: [{ itemId: 'orcTusk', chance: 0.3 }],
+    // Optional field: dungeon-tier only. ~35% chance to replace generic "A wild X appears!" (see pickAppearLine in js/systems/combat.js).
     flavorLines: [
       'You smell burnt garlic bread. Super Mean Meatloaf has entered the room.',
       'Super Mean Meatloaf lumbers out of the shadows, still steaming with rage.',
