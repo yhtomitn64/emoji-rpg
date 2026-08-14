@@ -8,4 +8,9 @@ export const TILES = {
   smith: { emoji: '⚒️', walkable: true, encounter: false, action: 'enterSmith' },
   exit: { emoji: '🚪', walkable: true, encounter: false, action: 'exitMap' },
   boss: { emoji: '🐉', walkable: true, encounter: false, action: 'bossBattle' },
+  caveFloor: { emoji: '⬛', walkable: true, encounter: true },
+  caveWall: { emoji: '🪨', walkable: false, encounter: false },
+  cavePool: { emoji: '💧', walkable: false, encounter: false },
+  miniDungeonEntrance: { emoji: '🪜', walkable: true, encounter: false, action: 'exitMiniDungeon' },
+  miniDungeonTreasure: { emoji: '💰', walkable: true, encounter: false, action: 'collectTreasure' },
 };
