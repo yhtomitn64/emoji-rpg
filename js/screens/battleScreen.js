@@ -16,6 +16,7 @@ let battleOver = false;
 let log = [];
 let elements = {};
 let endBattleTimeoutId = null;
+let menuVisible = false;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -106,7 +107,11 @@ function updateLog() {
 }
 
 function updateMenu() {
-  if (battleOver || !isReady(playerCombatant.atb)) {
+  const shouldShow = !battleOver && isReady(playerCombatant.atb);
+  if (shouldShow === menuVisible) return;
+  menuVisible = shouldShow;
+
+  if (!shouldShow) {
     elements.menu.innerHTML = '';
     return;
   }
@@ -192,6 +197,8 @@ function playerFlee() {
     updateMenu();
     return;
   }
+  log.push('You got away safely!');
+  updateLog();
   endBattle('fled');
 }
 
@@ -245,6 +252,7 @@ export function mount(root, props) {
   monsterId = props.monsterId;
   callbacks = props.callbacks;
   battleOver = false;
+  menuVisible = false;
   log = [`A wild ${MONSTERS[monsterId].name} appears!`];
   playerCombatant = buildPlayerCombatant();
   monsterCombatant = buildMonsterCombatant();

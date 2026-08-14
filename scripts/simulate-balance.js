@@ -20,7 +20,7 @@
  * retunes were explored before being written into `js/data/monsters.js`.
  */
 
-import { calculateDamage, tickGauge, isReady } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, rollCrit, applyCritMultiplier } from '../js/systems/combat.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
 import { getEquipmentBonuses } from '../js/systems/inventory.js';
@@ -175,7 +175,10 @@ function simulateBattle(build, monsterStats) {
     monster.atb = tickGauge(monster.atb, monster.speed, 1);
 
     if (isReady(monster.atb) && !isReady(player.atb)) {
-      player.hp = Math.max(0, player.hp - calculateDamage(monster, player));
+      const isCrit = rollCrit();
+      let damage = calculateDamage(monster, player);
+      damage = applyCritMultiplier(damage, isCrit);
+      player.hp = Math.max(0, player.hp - damage);
       monster.atb = 0;
       if (player.hp <= 0) return { outcome: 'lost', hpLeft: 0, potionsUsed, ticks };
     }
@@ -186,7 +189,10 @@ function simulateBattle(build, monsterStats) {
         potionsUsed++;
         player.hp = Math.min(player.maxHp, player.hp + ITEMS.potion.heal);
       } else {
-        monster.hp = Math.max(0, monster.hp - calculateDamage(player, monster));
+        const isCrit = rollCrit();
+        let damage = calculateDamage(player, monster);
+        damage = applyCritMultiplier(damage, isCrit);
+        monster.hp = Math.max(0, monster.hp - damage);
         if (monster.hp <= 0) {
           return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
         }
