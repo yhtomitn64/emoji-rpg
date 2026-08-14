@@ -16,6 +16,9 @@ import { northeastMap } from './maps/wilderness/northeast.js';
 import { northwestMap } from './maps/wilderness/northwest.js';
 import { southeastMap } from './maps/wilderness/southeast.js';
 import { southwestMap } from './maps/wilderness/southwest.js';
+import { miniDungeonVariantA } from './maps/miniDungeons/variantA.js';
+import { miniDungeonVariantB } from './maps/miniDungeons/variantB.js';
+import { miniDungeonVariantC } from './maps/miniDungeons/variantC.js';
 import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
 import { FLAVOR_TEXT } from './data/flavorText.js';
@@ -24,6 +27,7 @@ import { applyXp } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, equipItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
+import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 
 const MAPS = {
   town: townMap,
@@ -37,6 +41,9 @@ const MAPS = {
   northwest: northwestMap,
   southeast: southeastMap,
   southwest: southwestMap,
+  miniDungeonA: miniDungeonVariantA,
+  miniDungeonB: miniDungeonVariantB,
+  miniDungeonC: miniDungeonVariantC,
 };
 
 const state = loadState() || createNewGame();
@@ -117,6 +124,7 @@ function goToMap(mapId) {
       onEdgeTransition: handleEdgeTransition,
       onFirstVisit: handleFirstVisit,
       onCacheFound: handleCacheFound,
+      onEnterMiniDungeon: handleEnterMiniDungeon,
     },
   });
 }
@@ -135,6 +143,8 @@ function handleTileAction(action) {
     handleEncounter(dungeonMap.bossMonsterId);
     return;
   }
+  if (action === 'exitMiniDungeon') return handleExitMiniDungeon();
+  if (action === 'collectTreasure') return handleTreasureFound();
 }
 
 function enterMap(mapId) {
@@ -169,6 +179,40 @@ function handleCacheFound(loot) {
   }
   message += '!';
   showFlavorBanner(message);
+  saveState(state);
+  renderHud();
+}
+
+function handleEnterMiniDungeon(screenId, x, y) {
+  const entrance = getMiniDungeonEntrance(state.miniDungeons, screenId, x, y);
+  state.activeMiniDungeon = { screenId, x, y };
+  state.position = { ...MAPS[entrance.variantId].startPosition };
+  state.map = entrance.variantId;
+  saveState(state);
+  goToMap(entrance.variantId);
+}
+
+function handleExitMiniDungeon() {
+  const { screenId, x, y } = state.activeMiniDungeon;
+  state.position = { x, y };
+  state.map = screenId;
+  state.activeMiniDungeon = null;
+  saveState(state);
+  goToMap(screenId);
+}
+
+function handleTreasureFound() {
+  const { screenId, x, y } = state.activeMiniDungeon;
+  if (isTreasureTaken(state.miniDungeons, screenId, x, y)) return;
+  Object.assign(state, { miniDungeons: markTreasureTaken(state.miniDungeons, screenId, x, y) });
+  const loot = rollMiniDungeonTreasure();
+  Object.assign(state, addGold(state, loot.gold));
+  Object.assign(state, addItem(state, loot.item, 1));
+  const itemDef = ITEMS[loot.item];
+  if (itemDef.slot) {
+    Object.assign(state, equipItem(state, loot.item, itemDef.slot));
+  }
+  showFlavorBanner(`You found a treasure: ${loot.gold} gold and a ${itemDef.name}!`);
   saveState(state);
   renderHud();
 }
