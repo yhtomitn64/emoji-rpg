@@ -8,6 +8,7 @@ import {
   countCaches,
   recordCache,
   rollCacheLoot,
+  shouldRevealCache,
 } from '../js/systems/caches.js';
 
 test('constants match the design', () => {
@@ -75,4 +76,24 @@ test('rollCacheLoot returns no item when the item roll exactly equals the chance
   const rng = () => values[i++];
   const loot = rollCacheLoot(rng);
   assert.equal(loot.item, null);
+});
+
+test('shouldRevealCache returns false for a tile that already has a cache, even under the cap', () => {
+  const caches = recordCache({}, 'center', 5, 5);
+  assert.equal(shouldRevealCache(caches, 'center', 5, 5, 1, () => 0), false);
+});
+
+test('shouldRevealCache returns false once the screen is at the cap, even for a fresh tile', () => {
+  let caches = recordCache({}, 'center', 1, 1);
+  caches = recordCache(caches, 'center', 2, 2);
+  caches = recordCache(caches, 'center', 3, 3);
+  assert.equal(shouldRevealCache(caches, 'center', 9, 9, 1, () => 0), false);
+});
+
+test('shouldRevealCache returns false when cacheChance is 0, even for a fresh tile under the cap', () => {
+  assert.equal(shouldRevealCache({}, 'center', 5, 5, 0, () => 0), false);
+});
+
+test('shouldRevealCache returns true for a fresh tile under the cap when the roll hits', () => {
+  assert.equal(shouldRevealCache({}, 'center', 5, 5, 1, () => 0), true);
 });

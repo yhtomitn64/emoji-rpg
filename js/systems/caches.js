@@ -18,6 +18,12 @@ export function recordCache(caches, screenId, x, y) {
   return { ...caches, [screenId]: screenCaches };
 }
 
+export function shouldRevealCache(caches, screenId, x, y, cacheChance, rng = Math.random) {
+  return !hasCache(caches, screenId, x, y)
+    && countCaches(caches, screenId) < CACHE_CAP_PER_SCREEN
+    && rng() < cacheChance;
+}
+
 export function rollCacheLoot(rng = Math.random) {
   const gold = 5 + Math.floor(rng() * 11);
   let item = null;

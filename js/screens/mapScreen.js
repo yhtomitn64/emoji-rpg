@@ -2,7 +2,7 @@ import { TILES } from '../tiles.js';
 import { directionFromDelta } from '../systems/world.js';
 import { markVisited, isVisited } from '../systems/exploration.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
-import { hasCache, countCaches, recordCache, rollCacheLoot, CACHE_CAP_PER_SCREEN } from '../systems/caches.js';
+import { hasCache, recordCache, rollCacheLoot, shouldRevealCache } from '../systems/caches.js';
 
 const CACHE_MARKER_EMOJI = '📦';
 
@@ -72,12 +72,9 @@ function tryMove(dx, dy) {
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
 
   let cacheLoot = null;
-  if (
-    tile.encounter &&
-    !hasCache(state.caches, mapConfig.id, nx, ny) &&
-    countCaches(state.caches, mapConfig.id) < CACHE_CAP_PER_SCREEN &&
-    Math.random() < mapConfig.cacheChance
-  ) {
+  // Safe only because no tile.action tile also has tile.encounter: true (see js/tiles.js) — an
+  // action tile hitting this branch would record a cache with no reward ever delivered.
+  if (tile.encounter && shouldRevealCache(state.caches, mapConfig.id, nx, ny, mapConfig.cacheChance)) {
     Object.assign(state, { caches: recordCache(state.caches, mapConfig.id, nx, ny) });
     cacheLoot = rollCacheLoot();
   }
