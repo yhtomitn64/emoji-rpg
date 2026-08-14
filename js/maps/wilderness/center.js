@@ -36,6 +36,7 @@ export const centerMap = {
   rows: ROWS,
   startPosition: { x: 15, y: 11 },
   encounterChance: 0,
+  cacheChance: 0.03,
   monsterTable: [],
   neighbors: { north: 'north', south: 'south', east: 'east', west: 'west' },
 };

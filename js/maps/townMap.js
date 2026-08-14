@@ -21,5 +21,6 @@ export const townMap = {
   rows: ROWS,
   startPosition: { x: 3, y: 3 },
   encounterChance: 0,
+  cacheChance: 0,
   monsterTable: [],
 };

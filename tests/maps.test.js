@@ -148,6 +148,19 @@ test('every wilderness screen border is walkable exactly where a neighbor exists
   }
 });
 
+test('every map has a valid cacheChance, and town has caches disabled', () => {
+  const allMaps = { ...WILDERNESS, town: townMap, dungeon: dungeonMap };
+  for (const [id, map] of Object.entries(allMaps)) {
+    assert.equal(typeof map.cacheChance, 'number', `${id} cacheChance must be a number`);
+    assert.ok(map.cacheChance >= 0 && map.cacheChance <= 1, `${id} cacheChance must be between 0 and 1`);
+  }
+  assert.equal(townMap.cacheChance, 0, 'town must have caches disabled');
+  assert.equal(dungeonMap.cacheChance, 0.04, 'dungeon cacheChance must be 0.04');
+  for (const [id, map] of Object.entries(WILDERNESS)) {
+    assert.equal(map.cacheChance, 0.03, `${id} cacheChance must be 0.03`);
+  }
+});
+
 test('wilderness screen neighbor links are symmetric', () => {
   const opposite = { north: 'south', south: 'north', east: 'west', west: 'east' };
   for (const [id, map] of Object.entries(WILDERNESS)) {

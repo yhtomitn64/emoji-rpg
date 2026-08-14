@@ -31,6 +31,7 @@ export const northeastMap = {
   rows: ROWS,
   startPosition: { x: 15, y: 11 },
   encounterChance: 0.15,
+  cacheChance: 0.03,
   monsterTable: ['direWolf', 'spider'],
   neighbors: { north: null, south: 'east', east: null, west: 'north' },
 };

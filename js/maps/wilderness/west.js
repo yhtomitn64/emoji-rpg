@@ -31,6 +31,7 @@ export const westMap = {
   rows: ROWS,
   startPosition: { x: 15, y: 11 },
   encounterChance: 0.1,
+  cacheChance: 0.03,
   monsterTable: ['boar', 'bat', 'snake', 'goblin'],
   neighbors: { north: 'northwest', south: 'southwest', east: 'center', west: null },
 };
