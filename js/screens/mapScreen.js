@@ -2,8 +2,9 @@ import { TILES } from '../tiles.js';
 import { directionFromDelta } from '../systems/world.js';
 import { markVisited, isVisited } from '../systems/exploration.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
-import { hasCache, recordCache, rollCacheLoot, shouldRevealCache } from '../systems/caches.js';
-import { hasMiniDungeonEntrance, recordMiniDungeonEntrance, shouldRevealMiniDungeon, pickMiniDungeonVariant } from '../systems/miniDungeons.js';
+import { hasCache } from '../systems/caches.js';
+import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
+import { resolveStepDiscovery } from '../systems/discovery.js';
 
 const CACHE_MARKER_EMOJI = '📦';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
@@ -44,10 +45,10 @@ function render() {
       const tile = tileAt(x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
       cell.className = 'map-tile' + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '');
-      const emoji = hasCache(state.caches, mapConfig.id, x, y)
-        ? CACHE_MARKER_EMOJI
-        : hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y)
+      const emoji = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y)
         ? MINI_DUNGEON_MARKER_EMOJI
+        : hasCache(state.caches, mapConfig.id, x, y)
+        ? CACHE_MARKER_EMOJI
         : tile.emoji;
       cell.textContent = isPlayer ? '🧑' : emoji;
       grid.appendChild(cell);
@@ -77,20 +78,12 @@ function tryMove(dx, dy) {
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
 
-  let cacheLoot = null;
-  let enteringMiniDungeon = false;
-  // Safe only because no tile.action tile also has tile.encounter: true (see js/tiles.js) — an
-  // action tile hitting this branch would record a cache or mini-dungeon entrance with no
-  // reward/entry ever delivered.
-  if (tile.encounter && hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, nx, ny)) {
-    enteringMiniDungeon = true;
-  } else if (tile.encounter && shouldRevealMiniDungeon(state.miniDungeons, mapConfig.id, nx, ny, mapConfig.miniDungeonChance)) {
-    const variantId = pickMiniDungeonVariant();
-    Object.assign(state, { miniDungeons: recordMiniDungeonEntrance(state.miniDungeons, mapConfig.id, nx, ny, variantId) });
-    enteringMiniDungeon = true;
-  } else if (tile.encounter && shouldRevealCache(state.caches, mapConfig.id, nx, ny, mapConfig.cacheChance)) {
-    Object.assign(state, { caches: recordCache(state.caches, mapConfig.id, nx, ny) });
-    cacheLoot = rollCacheLoot();
+  const discovery = resolveStepDiscovery(state, mapConfig, nx, ny, tile);
+  if (discovery.miniDungeons) {
+    Object.assign(state, { miniDungeons: discovery.miniDungeons });
+  }
+  if (discovery.caches) {
+    Object.assign(state, { caches: discovery.caches });
   }
 
   // Render before firing any callback: an action may swap screens and an
@@ -106,13 +99,13 @@ function tryMove(dx, dy) {
     return;
   }
 
-  if (enteringMiniDungeon) {
+  if (discovery.outcome === 'enterMiniDungeon') {
     callbacks.onEnterMiniDungeon(mapConfig.id, nx, ny);
     return;
   }
 
-  if (cacheLoot) {
-    callbacks.onCacheFound(cacheLoot);
+  if (discovery.outcome === 'cache') {
+    callbacks.onCacheFound(discovery.cacheLoot);
     return;
   }
 

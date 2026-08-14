@@ -37,7 +37,7 @@ export const centerMap = {
   startPosition: { x: 15, y: 11 },
   encounterChance: 0,
   cacheChance: 0.03,
-  miniDungeonChance: 0.005,
+  miniDungeonChance: 0,
   monsterTable: [],
   neighbors: { north: 'north', south: 'south', east: 'east', west: 'west' },
 };

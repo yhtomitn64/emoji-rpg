@@ -161,9 +161,10 @@ test('every map has a valid cacheChance, and town has caches disabled', () => {
   }
 });
 
-test('every wilderness screen has a miniDungeonChance of 0.005, town and dungeon do not have the field', () => {
+test('every wilderness screen has the correct miniDungeonChance, town and dungeon do not have the field', () => {
   for (const [id, map] of Object.entries(WILDERNESS)) {
-    assert.equal(map.miniDungeonChance, 0.005, `${id} miniDungeonChance must be 0.005`);
+    const expected = id === 'center' ? 0 : 0.005;
+    assert.equal(map.miniDungeonChance, expected, `${id} miniDungeonChance must be ${expected}`);
   }
   assert.equal(townMap.miniDungeonChance, undefined, 'town must not have a miniDungeonChance field');
   assert.equal(dungeonMap.miniDungeonChance, undefined, 'dungeon must not have a miniDungeonChance field');

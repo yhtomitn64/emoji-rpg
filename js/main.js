@@ -193,6 +193,9 @@ function handleEnterMiniDungeon(screenId, x, y) {
 }
 
 function handleExitMiniDungeon() {
+  if (!state.activeMiniDungeon) {
+    return enterMap('center');
+  }
   const { screenId, x, y } = state.activeMiniDungeon;
   state.position = { x, y };
   state.map = screenId;
@@ -202,6 +205,7 @@ function handleExitMiniDungeon() {
 }
 
 function handleTreasureFound() {
+  if (!state.activeMiniDungeon) return;
   const { screenId, x, y } = state.activeMiniDungeon;
   if (isTreasureTaken(state.miniDungeons, screenId, x, y)) return;
   Object.assign(state, { miniDungeons: markTreasureTaken(state.miniDungeons, screenId, x, y) });
@@ -209,7 +213,7 @@ function handleTreasureFound() {
   Object.assign(state, addGold(state, loot.gold));
   Object.assign(state, addItem(state, loot.item, 1));
   const itemDef = ITEMS[loot.item];
-  if (itemDef.slot) {
+  if (itemDef.slot && !state.equipment[itemDef.slot]) {
     Object.assign(state, equipItem(state, loot.item, itemDef.slot));
   }
   showFlavorBanner(`You found a treasure: ${loot.gold} gold and a ${itemDef.name}!`);
@@ -279,6 +283,7 @@ function handleBattleEnd(outcome, monsterId) {
     state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
     state.position = { ...townMap.startPosition };
     state.map = 'town';
+    state.activeMiniDungeon = null;
     saveState(state);
     renderHud();
     goToMap('town');
