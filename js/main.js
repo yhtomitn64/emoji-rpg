@@ -59,6 +59,12 @@ if (!state.seenScreens) {
 if (!state.caches) {
   state.caches = {};
 }
+if (!state.miniDungeons) {
+  state.miniDungeons = {};
+}
+if (!state.activeMiniDungeon) {
+  state.activeMiniDungeon = null;
+}
 
 // True while a battle overlay is mounted. The Stats button sits behind the
 // full-viewport #overlay, so it is pointer-blocked but still keyboard-reachable;
