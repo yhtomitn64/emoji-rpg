@@ -2,6 +2,9 @@ import { TILES } from '../tiles.js';
 import { directionFromDelta } from '../systems/world.js';
 import { markVisited, isVisited } from '../systems/exploration.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
+import { hasCache, countCaches, recordCache, rollCacheLoot, CACHE_CAP_PER_SCREEN } from '../systems/caches.js';
+
+const CACHE_MARKER_EMOJI = '📦';
 
 let rootEl = null;
 let state = null;
@@ -39,7 +42,8 @@ function render() {
       const tile = tileAt(x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
       cell.className = 'map-tile' + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '');
-      cell.textContent = isPlayer ? '🧑' : tile.emoji;
+      const emoji = hasCache(state.caches, mapConfig.id, x, y) ? CACHE_MARKER_EMOJI : tile.emoji;
+      cell.textContent = isPlayer ? '🧑' : emoji;
       grid.appendChild(cell);
     }
   }
@@ -67,15 +71,31 @@ function tryMove(dx, dy) {
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
 
+  let cacheLoot = null;
+  if (
+    tile.encounter &&
+    countCaches(state.caches, mapConfig.id) < CACHE_CAP_PER_SCREEN &&
+    Math.random() < mapConfig.cacheChance
+  ) {
+    Object.assign(state, { caches: recordCache(state.caches, mapConfig.id, nx, ny) });
+    cacheLoot = rollCacheLoot();
+  }
+
   // Render before firing any callback: an action may swap screens and an
   // encounter opens a battle *overlay* on top of this still-mounted map, so the
-  // world underneath must already show the tile the player just stepped onto.
+  // world underneath must already show the tile the player just stepped onto
+  // (including a freshly discovered cache marker).
   render();
 
   callbacks.onMove(state.position);
 
   if (tile.action) {
     callbacks.onAction(tile.action);
+    return;
+  }
+
+  if (cacheLoot) {
+    callbacks.onCacheFound(cacheLoot);
     return;
   }
 

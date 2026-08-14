@@ -110,6 +110,7 @@ function goToMap(mapId) {
       onEncounter: handleEncounter,
       onEdgeTransition: handleEdgeTransition,
       onFirstVisit: handleFirstVisit,
+      onCacheFound: handleCacheFound,
     },
   });
 }
@@ -151,6 +152,19 @@ function handleFirstVisit(screenId) {
     showFlavorBanner(text);
   }
   saveState(state);
+}
+
+function handleCacheFound(loot) {
+  Object.assign(state, addGold(state, loot.gold));
+  let message = `You found a stash: ${loot.gold} gold`;
+  if (loot.item) {
+    Object.assign(state, addItem(state, loot.item, 1));
+    message += `, 1 ${ITEMS[loot.item].name}`;
+  }
+  message += '!';
+  showFlavorBanner(message);
+  saveState(state);
+  renderHud();
 }
 
 function goToShop() {
