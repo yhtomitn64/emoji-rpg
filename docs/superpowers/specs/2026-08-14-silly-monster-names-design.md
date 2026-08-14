@@ -75,7 +75,7 @@ Extend `tests/data.test.js`'s existing "every monster has required fields" loop 
 - `monster.name` is a non-empty string.
 - If `monster.flavorLines` is present, it's a non-empty array of non-empty strings.
 
-No test needs to assert the *specific* chosen names (that would make the test fragile to future renames) — just structural validity.
+**Amendment (post-implementation):** the plan superseded this — it specified, and the implementation ships, a dedicated test asserting the exact approved names (including the dragon negative case). That test is the only check that the approved names actually landed, and it made the implementation's TDD red step meaningful; the "just structural validity" guidance above was the wrong call and is kept here only for history.
 
 Manual verification: fight a boar/bat/snake/goblin/direWolf/spider and confirm the new name shows in the battle screen, stats panel is unaffected (monsters don't appear there), and the combat log reads correctly with the new name substituted into existing template strings (e.g. "You hit Mean Meatball for 5."). Fight the dungeon tier a few times to see both the generic appears-line and (eventually) a flavor line for orc and wraith. Confirm the dragon still says "Dragon".
 
