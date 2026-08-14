@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier } from '../systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -253,7 +253,7 @@ export function mount(root, props) {
   callbacks = props.callbacks;
   battleOver = false;
   menuVisible = false;
-  log = [`A wild ${MONSTERS[monsterId].name} appears!`];
+  log = [pickAppearLine(MONSTERS[monsterId])];
   playerCombatant = buildPlayerCombatant();
   monsterCombatant = buildMonsterCombatant();
   buildDom();

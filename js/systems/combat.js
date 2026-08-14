@@ -24,3 +24,14 @@ export function rollCrit(rng = Math.random) {
 export function applyCritMultiplier(damage, isCrit) {
   return isCrit ? Math.round(damage * CRIT_MULTIPLIER) : damage;
 }
+
+export const FLAVOR_LINE_CHANCE = 0.35;
+
+export function pickAppearLine(monster, rng = Math.random) {
+  const lines = monster.flavorLines;
+  if (!lines || lines.length === 0 || rng() >= FLAVOR_LINE_CHANCE) {
+    return `A wild ${monster.name} appears!`;
+  }
+  const index = Math.floor(rng() * lines.length);
+  return lines[index];
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -36,4 +36,22 @@ test('rollCrit returns true below the crit chance threshold, false above it', ()
 test('applyCritMultiplier scales damage on a crit and leaves it unchanged otherwise', () => {
   assert.equal(applyCritMultiplier(10, false), 10);
   assert.equal(applyCritMultiplier(10, true), 15);
+});
+
+test('pickAppearLine returns the generic line when the monster has no flavorLines', () => {
+  const monster = { name: 'Snorty McPigface' };
+  assert.equal(pickAppearLine(monster, () => 0), 'A wild Snorty McPigface appears!');
+});
+
+test('pickAppearLine returns the generic line when the chance roll misses', () => {
+  const monster = { name: 'Super Mean Meatloaf', flavorLines: ['Line A', 'Line B'] };
+  assert.equal(pickAppearLine(monster, () => FLAVOR_LINE_CHANCE), 'A wild Super Mean Meatloaf appears!');
+});
+
+test('pickAppearLine picks a flavor line by index when the chance roll hits', () => {
+  const monster = { name: 'Ghost Apple Supreme', flavorLines: ['Line A', 'Line B', 'Line C'] };
+  const values = [0.1, 0.6];
+  let i = 0;
+  const rng = () => values[i++];
+  assert.equal(pickAppearLine(monster, rng), 'Line B');
 });
