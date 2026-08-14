@@ -10,6 +10,7 @@ export function createNewGame() {
     position: null,
     flags: { dungeonBossDefeated: false },
     visited: {},
+    seenScreens: {},
   };
 }
 
