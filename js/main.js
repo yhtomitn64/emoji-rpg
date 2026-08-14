@@ -113,9 +113,7 @@ function handleTileAction(action) {
   if (action === 'enterShop') return goToShop();
   if (action === 'enterSmith') return goToSmith();
   if (action === 'bossBattle') {
-    if (!state.flags.dungeonBossDefeated) {
-      handleEncounter(dungeonMap.bossMonsterId);
-    }
+    handleEncounter(dungeonMap.bossMonsterId);
     return;
   }
 }
