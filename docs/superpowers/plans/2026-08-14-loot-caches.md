@@ -16,7 +16,7 @@
 - `cacheChance` per map: `0` for town, `0.03` for all 9 wilderness screens, `0.04` for the dungeon.
 - Cache and monster-encounter rolls are mutually exclusive on the same step — cache is checked first; a cache hit skips that step's encounter roll entirely.
 - A cache, once recorded, is permanent and one-time-only — no further reward or interaction from revisiting that tile.
-- Marker emoji is 📦, overlaid on the tile's normal emoji in rendering only (the underlying map data/tile type is never modified).
+- Marker emoji is 📦, which replaces the tile's normal emoji in rendering only (the underlying map data/tile type is never modified).
 
 ---
 
@@ -155,7 +155,7 @@ export function rollCacheLoot(rng = Math.random) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm test`
-Expected: PASS, all 8 new tests plus the full existing suite.
+Expected: PASS, all 9 new tests plus the full existing suite.
 
 - [ ] **Step 5: Commit**
 
@@ -449,11 +449,9 @@ with:
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
 
   let cacheLoot = null;
-  if (
-    tile.encounter &&
-    countCaches(state.caches, mapConfig.id) < CACHE_CAP_PER_SCREEN &&
-    Math.random() < mapConfig.cacheChance
-  ) {
+  // Safe only because no tile.action tile also has tile.encounter: true (see js/tiles.js) — an
+  // action tile hitting this branch would record a cache with no reward ever delivered.
+  if (tile.encounter && shouldRevealCache(state.caches, mapConfig.id, nx, ny, mapConfig.cacheChance)) {
     Object.assign(state, { caches: recordCache(state.caches, mapConfig.id, nx, ny) });
     cacheLoot = rollCacheLoot();
   }
@@ -484,6 +482,8 @@ with:
 ```
 
 Note the cache roll and the encounter roll are mutually exclusive by construction: `cacheLoot` is only truthy when the cache branch already fired, and the final `if` block only runs when `cacheLoot` is falsy (the `if (cacheLoot) { ...; return; }` above it exits first).
+
+**Post-ship update:** this `if` condition originally shipped without a `!hasCache(...)` check, causing duplicate rewards on revisit — fixed in commit `336a840` by adding that check directly into the condition. A later whole-branch review flagged that the condition (the one place a real bug had already landed) had zero automated test coverage, since it lived inside this DOM-driving function. The four-clause decision was subsequently extracted into a pure, independently testable `shouldRevealCache(caches, screenId, x, y, cacheChance, rng = Math.random)` function in `js/systems/caches.js` (with `Math.random()` becoming an injectable `rng` parameter), and `tryMove()` was updated to call it as shown above. See `tests/caches.test.js` for the regression coverage this added.
 
 - [ ] **Step 4: Wire `onCacheFound` into `js/main.js`**
 
