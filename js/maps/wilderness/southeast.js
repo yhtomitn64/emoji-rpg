@@ -32,6 +32,7 @@ export const southeastMap = {
   startPosition: { x: 15, y: 11 },
   encounterChance: 0.15,
   cacheChance: 0.03,
+  miniDungeonChance: 0.005,
   monsterTable: ['direWolf', 'spider'],
   neighbors: { north: 'east', south: null, east: null, west: 'south' },
 };

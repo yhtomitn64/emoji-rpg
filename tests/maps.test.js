@@ -161,6 +161,14 @@ test('every map has a valid cacheChance, and town has caches disabled', () => {
   }
 });
 
+test('every wilderness screen has a miniDungeonChance of 0.005, town and dungeon do not have the field', () => {
+  for (const [id, map] of Object.entries(WILDERNESS)) {
+    assert.equal(map.miniDungeonChance, 0.005, `${id} miniDungeonChance must be 0.005`);
+  }
+  assert.equal(townMap.miniDungeonChance, undefined, 'town must not have a miniDungeonChance field');
+  assert.equal(dungeonMap.miniDungeonChance, undefined, 'dungeon must not have a miniDungeonChance field');
+});
+
 test('wilderness screen neighbor links are symmetric', () => {
   const opposite = { north: 'south', south: 'north', east: 'west', west: 'east' };
   for (const [id, map] of Object.entries(WILDERNESS)) {
