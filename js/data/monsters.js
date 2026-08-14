@@ -1,24 +1,24 @@
 export const MONSTERS = {
   boar: {
-    id: 'boar', name: 'Boar', emoji: '🐗',
+    id: 'boar', name: 'Snorty McPigface', emoji: '🐗',
     hp: 17, attack: 4, defense: 1, speed: 4,
     xp: 8, goldRange: [2, 5],
     dropTable: [{ itemId: 'leatherScrap', chance: 0.3 }],
   },
   bat: {
-    id: 'bat', name: 'Bat', emoji: '🦇',
+    id: 'bat', name: 'Spooky Pancake', emoji: '🦇',
     hp: 11, attack: 3, defense: 0, speed: 7,
     xp: 6, goldRange: [1, 4],
     dropTable: [{ itemId: 'batWing', chance: 0.25 }],
   },
   snake: {
-    id: 'snake', name: 'Snake', emoji: '🐍',
+    id: 'snake', name: 'Slippery Breadstick', emoji: '🐍',
     hp: 14, attack: 5, defense: 1, speed: 5,
     xp: 9, goldRange: [2, 6],
     dropTable: [{ itemId: 'snakeFang', chance: 0.25 }],
   },
   goblin: {
-    id: 'goblin', name: 'Goblin', emoji: '👺',
+    id: 'goblin', name: 'Mean Meatball', emoji: '👺',
     hp: 21, attack: 6, defense: 2, speed: 4,
     xp: 12, goldRange: [3, 8],
     dropTable: [
@@ -27,13 +27,13 @@ export const MONSTERS = {
     ],
   },
   direWolf: {
-    id: 'direWolf', name: 'Dire Wolf', emoji: '🐺',
+    id: 'direWolf', name: 'Mega Muffin', emoji: '🐺',
     hp: 30, attack: 8, defense: 3, speed: 6,
     xp: 20, goldRange: [5, 10],
     dropTable: [{ itemId: 'wolfPelt', chance: 0.3 }],
   },
   spider: {
-    id: 'spider', name: 'Giant Spider', emoji: '🕷️',
+    id: 'spider', name: 'Eight-Leg Eggroll', emoji: '🕷️',
     hp: 25, attack: 7, defense: 2, speed: 5,
     xp: 18, goldRange: [4, 9],
     dropTable: [{ itemId: 'spiderSilk', chance: 0.3 }],
@@ -53,15 +53,25 @@ export const MONSTERS = {
   // longer drops these to the calculateDamage 1-point floor. See
   // scripts/simulate-balance.js for the tuning evidence.
   orc: {
-    id: 'orc', name: 'Orc', emoji: '👹',
+    id: 'orc', name: 'Super Mean Meatloaf', emoji: '👹',
     hp: 40, attack: 26, defense: 8, speed: 8,
     xp: 40, goldRange: [12, 20],
     dropTable: [{ itemId: 'orcTusk', chance: 0.3 }],
+    flavorLines: [
+      'You smell burnt garlic bread. Super Mean Meatloaf has entered the room.',
+      'Super Mean Meatloaf lumbers out of the shadows, still steaming with rage.',
+      'Super Mean Meatloaf glares at you like you insulted its secret recipe.',
+    ],
   },
   wraith: {
-    id: 'wraith', name: 'Wraith', emoji: '👻',
+    id: 'wraith', name: 'Ghost Apple Supreme', emoji: '👻',
     hp: 38, attack: 26, defense: 4, speed: 11,
     xp: 42, goldRange: [12, 22],
     dropTable: [{ itemId: 'wraithEssence', chance: 0.3 }],
+    flavorLines: [
+      'A chill rolls in. Ghost Apple Supreme has come for seconds.',
+      'Ghost Apple Supreme drifts through the wall, unnervingly translucent and smelling faintly of cinnamon.',
+      'Ghost Apple Supreme rattles its core ominously.',
+    ],
   },
 };
