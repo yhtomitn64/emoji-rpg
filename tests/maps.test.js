@@ -13,6 +13,11 @@ import { northwestMap } from '../js/maps/wilderness/northwest.js';
 import { southeastMap } from '../js/maps/wilderness/southeast.js';
 import { southwestMap } from '../js/maps/wilderness/southwest.js';
 import { MONSTERS } from '../js/data/monsters.js';
+import { FLAVOR_TEXT } from '../js/data/flavorText.js';
+import { isWalkableAt } from '../js/systems/world.js';
+
+const WILDERNESS_WIDTH = 30;
+const WILDERNESS_HEIGHT = 22;
 
 const WILDERNESS = {
   center: centerMap, north: northMap, south: southMap, east: eastMap, west: westMap,
@@ -31,6 +36,40 @@ function assertValidMap(map) {
   const { x, y } = map.startPosition;
   const tileKey = map.legend[map.rows[y][x]];
   assert.ok(TILES[tileKey].walkable, `${map.id} startPosition must be walkable`);
+}
+
+function assertFullyReachable(map) {
+  const height = map.rows.length;
+  const width = map.rows[0].length;
+  const { x: startX, y: startY } = map.startPosition;
+
+  const visited = new Set();
+  const queue = [[startX, startY]];
+  visited.add(`${startX},${startY}`);
+
+  while (queue.length > 0) {
+    const [x, y] = queue.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const key = `${nx},${ny}`;
+      if (visited.has(key)) continue;
+      if (!isWalkableAt(map, nx, ny)) continue;
+      visited.add(key);
+      queue.push([nx, ny]);
+    }
+  }
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (isWalkableAt(map, x, y)) {
+        assert.ok(
+          visited.has(`${x},${y}`),
+          `${map.id} tile (${x},${y}) is walkable but unreachable from startPosition`
+        );
+      }
+    }
+  }
 }
 
 function assertBorderWalkable(map, side) {
@@ -71,6 +110,31 @@ test('dungeon map is well-formed, includes a boss tile, and references a real bo
 test('every wilderness screen is well-formed with a walkable start position', () => {
   for (const map of Object.values(WILDERNESS)) {
     assertValidMap(map);
+  }
+});
+
+test('every wilderness screen is exactly 30x22', () => {
+  for (const map of Object.values(WILDERNESS)) {
+    assert.equal(map.rows.length, WILDERNESS_HEIGHT, `${map.id} must have ${WILDERNESS_HEIGHT} rows`);
+    for (const row of map.rows) {
+      assert.equal(row.length, WILDERNESS_WIDTH, `${map.id} rows must be ${WILDERNESS_WIDTH} characters wide`);
+    }
+  }
+});
+
+test('every walkable tile on every wilderness screen is reachable from startPosition', () => {
+  for (const map of Object.values(WILDERNESS)) {
+    assertFullyReachable(map);
+  }
+});
+
+test('every FLAVOR_TEXT key is a real wilderness screen, and every wilderness screen has flavor text', () => {
+  const screenIds = Object.keys(WILDERNESS);
+  for (const key of Object.keys(FLAVOR_TEXT)) {
+    assert.ok(screenIds.includes(key), `FLAVOR_TEXT key '${key}' does not match a real wilderness screen id`);
+  }
+  for (const id of screenIds) {
+    assert.ok(FLAVOR_TEXT[id], `wilderness screen '${id}' is missing a FLAVOR_TEXT entry`);
   }
 });
 

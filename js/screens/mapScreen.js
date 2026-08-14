@@ -97,11 +97,11 @@ export function mount(root, props) {
   mapConfig = props.mapConfig;
   callbacks = props.callbacks;
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
+  render();
   if (!hasSeenScreen(state.seenScreens, mapConfig.id)) {
     Object.assign(state, { seenScreens: markScreenSeen(state.seenScreens, mapConfig.id) });
     callbacks.onFirstVisit(mapConfig.id);
   }
-  render();
   window.addEventListener('keydown', handleKeydown);
 }
 
