@@ -364,7 +364,7 @@ git commit -m "feat: add cacheChance to every map"
 - Modify: `js/main.js`
 
 **Interfaces:**
-- Consumes: `hasCache`, `countCaches`, `recordCache`, `rollCacheLoot`, `CACHE_CAP_PER_SCREEN` from `js/systems/caches.js` (Task 1); `state.caches` (Task 2); `mapConfig.cacheChance` (Task 3); `addGold(state, amount)` and `addItem(state, itemId, quantity)` from `js/systems/inventory.js` (pre-existing, same signatures already used in `handleBattleEnd`); `ITEMS[itemId].name` from `js/data/items.js` (pre-existing); `showFlavorBanner(text)` from `js/screens/flavorBanner.js` (pre-existing).
+- Consumes: `hasCache`, `recordCache`, `rollCacheLoot` from `js/systems/caches.js` (Task 1; post-ship also `shouldRevealCache`, see below); `state.caches` (Task 2); `mapConfig.cacheChance` (Task 3); `addGold(state, amount)` and `addItem(state, itemId, quantity)` from `js/systems/inventory.js` (pre-existing, same signatures already used in `handleBattleEnd`); `ITEMS[itemId].name` from `js/data/items.js` (pre-existing); `showFlavorBanner(text)` from `js/screens/flavorBanner.js` (pre-existing).
 - Produces: `callbacks.onCacheFound(loot)` — a new callback shape (`loot` is `{ gold, item }` from `rollCacheLoot`), fired by `mapScreen.js` and handled by `main.js`'s new `handleCacheFound(loot)`.
 
 This task has no dedicated automated test — `mapScreen.js` and `main.js` have no test files anywhere in this project (they're DOM-driving orchestration code with no test harness, same as `battleScreen.js`). Correctness here rests on the manual verification in Step 4 plus the fact that every piece of logic it calls (`caches.js`, `inventory.js`) is already unit-tested.
@@ -387,10 +387,12 @@ import { TILES } from '../tiles.js';
 import { directionFromDelta } from '../systems/world.js';
 import { markVisited, isVisited } from '../systems/exploration.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
-import { hasCache, countCaches, recordCache, rollCacheLoot, CACHE_CAP_PER_SCREEN } from '../systems/caches.js';
+import { hasCache, recordCache, rollCacheLoot, shouldRevealCache } from '../systems/caches.js';
 
 const CACHE_MARKER_EMOJI = '📦';
 ```
+
+(Post-ship: this import list was further updated when the cache-reveal decision was extracted into `shouldRevealCache` — see the Post-ship update note under Step 3 below. `countCaches`/`CACHE_CAP_PER_SCREEN` moved inside that function and are no longer imported directly here.)
 
 - [ ] **Step 2: Update `render()` to show the cache marker**
 
