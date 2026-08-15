@@ -32,6 +32,7 @@ import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDun
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
+import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
 
 const MAPS = {
   town: townMap,
@@ -267,13 +268,17 @@ function handleTreasureFound() {
 }
 
 function handleBossBattle() {
-  if (!shouldPromptForRematch(state)) {
+  const offerTierEscalation = shouldPromptForRematch(state);
+  const offerNgPlus = canStartNgPlus(state);
+  if (!offerTierEscalation && !offerNgPlus) {
     startBossFight(state.bossTier);
     return;
   }
   setStatsButtonEnabled(false);
   mountOverlay(bossPromptScreen, {
     text: pickBossReturnFlavor(),
+    showTierEscalation: offerTierEscalation,
+    showNgPlus: offerNgPlus,
     callbacks: {
       onAccept: () => {
         state.bossTier += 1;
@@ -282,6 +287,11 @@ function handleBossBattle() {
       },
       onDecline: () => {
         startBossFight(state.bossTier);
+      },
+      onStartNgPlus: () => {
+        Object.assign(state, resetWorldForNgPlus(state));
+        persist();
+        startGame(state, activeSlotId);
       },
     },
   });
@@ -322,10 +332,12 @@ function goToSmith() {
 function handleEncounter(monsterId, monsterOverrides = null) {
   battleActive = true;
   setStatsButtonEnabled(false);
+  const preScaled = { ...MONSTERS[monsterId], ...(monsterOverrides || {}) };
+  const ngPlusOverrides = getNgPlusCombatOverrides(preScaled, state.ngPlusCycle);
   mountOverlay(battleScreen, {
     state,
     monsterId,
-    monsterOverrides,
+    monsterOverrides: ngPlusOverrides,
     callbacks: { onBattleEnd: handleBattleEnd },
   });
 }
@@ -339,15 +351,19 @@ function handleBattleEnd(outcome, monsterId) {
 
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];
-    const xp = resolveBattleXp(bossTierXp, monster);
+    const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
+    const baseXp = resolveBattleXp(bossTierXp, monster);
+    const xp = Math.round(baseXp * rewardMultiplier.xp);
     const { player, leveledUp } = applyXp(state.player, xp);
     state.player = player;
     if (leveledUp) {
       state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
     }
 
-    const drop = rollDrop(monster);
-    Object.assign(state, addGold(state, drop.gold));
+    const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
+    const drop = rollDrop(scaledMonster);
+    const gold = Math.round(drop.gold * rewardMultiplier.gold);
+    Object.assign(state, addGold(state, gold));
     if (drop.item) {
       Object.assign(state, addItem(state, drop.item, 1));
       const droppedItemDef = ITEMS[drop.item];
