@@ -1,10 +1,11 @@
-import { createNewGame, loadState, saveState } from './state.js';
+import { loadState, saveState } from './state.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
 import * as shopScreen from './screens/shopScreen.js';
 import * as smithScreen from './screens/smithScreen.js';
 import * as statsPanel from './screens/statsPanel.js';
+import * as startScreen from './screens/startScreen.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
 import { centerMap } from './maps/wilderness/center.js';
@@ -30,6 +31,7 @@ import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
+import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 
 const MAPS = {
   town: townMap,
@@ -48,34 +50,67 @@ const MAPS = {
   miniDungeonC: miniDungeonVariantC,
 };
 
-const state = loadState() || createNewGame();
-if (state.map === 'overworld') {
-  state.map = 'center';
-  state.position = null;
+let state = null;
+let activeSlotId = null;
+
+function startGame(loadedState, slotId) {
+  state = loadedState;
+  activeSlotId = slotId;
+  if (state.map === 'overworld') {
+    state.map = 'center';
+    state.position = null;
+  }
+  if (!state.position) {
+    state.position = { ...MAPS[state.map].startPosition };
+  }
+  if (!isWalkableAt(MAPS[state.map], state.position.x, state.position.y)) {
+    state.position = { ...MAPS[state.map].startPosition };
+  }
+  if (!state.visited) {
+    state.visited = {};
+  }
+  if (!state.seenScreens) {
+    state.seenScreens = {};
+  }
+  if (!state.caches) {
+    state.caches = {};
+  }
+  if (!state.miniDungeons) {
+    state.miniDungeons = {};
+  }
+  if (!state.activeMiniDungeon) {
+    state.activeMiniDungeon = null;
+  }
+  if (!state.bossTier) {
+    state.bossTier = 0;
+  }
+  if (!state.ngPlusCycle) {
+    state.ngPlusCycle = 0;
+  }
+  renderHud();
+  goToMap(state.map);
 }
-if (!state.position) {
-  state.position = { ...MAPS[state.map].startPosition };
+
+function mountStartScreen() {
+  mountScreen(startScreen, {
+    slots: listSlots(),
+    callbacks: {
+      onContinue: (slotId) => startGame(loadState(slotId), slotId),
+      onNewGame: (name) => {
+        const created = createSlot(name);
+        startGame(created.state, created.id);
+      },
+      onDelete: (slotId) => {
+        deleteSlot(slotId);
+        mountStartScreen();
+      },
+    },
+  });
 }
-if (!isWalkableAt(MAPS[state.map], state.position.x, state.position.y)) {
-  state.position = { ...MAPS[state.map].startPosition };
-}
-if (!state.visited) {
-  state.visited = {};
-}
-if (!state.seenScreens) {
-  state.seenScreens = {};
-}
-if (!state.caches) {
-  state.caches = {};
-}
-if (!state.miniDungeons) {
-  state.miniDungeons = {};
-}
-if (!state.activeMiniDungeon) {
-  state.activeMiniDungeon = null;
-}
-if (!state.bossTier) {
-  state.bossTier = 0;
+
+function persist() {
+  saveState(state, activeSlotId);
+  touchSlot(activeSlotId, { level: state.player.level, ngPlusCycle: state.ngPlusCycle });
 }
 
 // True while a battle overlay is mounted. The Stats button sits behind the
@@ -128,7 +163,7 @@ function goToMap(mapId) {
     state,
     mapConfig: MAPS[mapId],
     callbacks: {
-      onMove: () => saveState(state),
+      onMove: () => persist(),
       onAction: handleTileAction,
       onEncounter: handleEncounter,
       onEdgeTransition: handleEdgeTransition,
@@ -160,7 +195,7 @@ function handleTileAction(action) {
 function enterMap(mapId) {
   state.position = { ...MAPS[mapId].startPosition };
   state.map = mapId;
-  saveState(state);
+  persist();
   goToMap(mapId);
 }
 
@@ -168,7 +203,7 @@ function handleEdgeTransition(neighborId, direction, currentPosition) {
   const neighborMap = MAPS[neighborId];
   state.position = computeEdgeLandingPosition(direction, currentPosition, neighborMap);
   state.map = neighborId;
-  saveState(state);
+  persist();
   goToMap(neighborId);
 }
 
@@ -177,7 +212,7 @@ function handleFirstVisit(screenId) {
   if (text) {
     showFlavorBanner(text);
   }
-  saveState(state);
+  persist();
 }
 
 function handleCacheFound(loot) {
@@ -189,7 +224,7 @@ function handleCacheFound(loot) {
   }
   message += '!';
   showFlavorBanner(message);
-  saveState(state);
+  persist();
   renderHud();
 }
 
@@ -198,7 +233,7 @@ function handleEnterMiniDungeon(screenId, x, y) {
   state.activeMiniDungeon = { screenId, x, y };
   state.position = { ...MAPS[entrance.variantId].startPosition };
   state.map = entrance.variantId;
-  saveState(state);
+  persist();
   goToMap(entrance.variantId);
 }
 
@@ -210,7 +245,7 @@ function handleExitMiniDungeon() {
   state.position = { x, y };
   state.map = screenId;
   state.activeMiniDungeon = null;
-  saveState(state);
+  persist();
   goToMap(screenId);
 }
 
@@ -227,7 +262,7 @@ function handleTreasureFound() {
     Object.assign(state, equipItem(state, loot.item, itemDef.slot));
   }
   showFlavorBanner(`You found a treasure: ${loot.gold} gold and a ${itemDef.name}!`);
-  saveState(state);
+  persist();
   renderHud();
 }
 
@@ -242,7 +277,7 @@ function handleBossBattle() {
     callbacks: {
       onAccept: () => {
         state.bossTier += 1;
-        saveState(state);
+        persist();
         startBossFight(state.bossTier);
       },
       onDecline: () => {
@@ -268,7 +303,7 @@ function goToShop() {
   mountScreen(shopScreen, {
     state,
     callbacks: {
-      onPurchase: () => { saveState(state); renderHud(); },
+      onPurchase: () => { persist(); renderHud(); },
       onLeave: () => goToMap('town'),
     },
   });
@@ -278,7 +313,7 @@ function goToSmith() {
   mountScreen(smithScreen, {
     state,
     callbacks: {
-      onUpgrade: () => { saveState(state); renderHud(); },
+      onUpgrade: () => { persist(); renderHud(); },
       onLeave: () => goToMap('town'),
     },
   });
@@ -324,21 +359,21 @@ function handleBattleEnd(outcome, monsterId) {
       state.flags.dungeonBossDefeated = true;
     }
 
-    saveState(state);
+    persist();
     renderHud();
   } else if (outcome === 'lost') {
     state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
     state.position = { ...townMap.startPosition };
     state.map = 'town';
     state.activeMiniDungeon = null;
-    saveState(state);
+    persist();
     renderHud();
     goToMap('town');
   } else if (outcome === 'fled') {
-    saveState(state);
+    persist();
     renderHud();
   }
 }
 
-renderHud();
-goToMap(state.map);
+migrateLegacySave();
+mountStartScreen();
