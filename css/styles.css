@@ -170,6 +170,15 @@ body { margin: 0; background: #222; color: #eee; }
   border-bottom: 1px solid #333;
 }
 
+.ngplus-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #6c3fa1;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
 #hud {
   display: flex;
   justify-content: space-between;

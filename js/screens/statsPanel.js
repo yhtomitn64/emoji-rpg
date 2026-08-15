@@ -20,9 +20,12 @@ function render() {
     return `<div class="stats-slot">${slot}: ${item.emoji} ${item.name} +${level}</div>`;
   }).join('');
 
+  const ngPlusBadge = state.ngPlusCycle > 0 ? `<div class="ngplus-badge">New Game+${state.ngPlusCycle}</div>` : '';
+
   rootEl.innerHTML = `
     <div class="overlay-panel stats-panel">
       <h2>Stats</h2>
+      ${ngPlusBadge}
       <div>Level ${state.player.level} (XP ${state.player.xp}/${xpNeeded})</div>
       <div>HP: ${state.player.hp}/${state.player.maxHp + bonuses.maxHp}</div>
       <div>Attack: ${state.player.attack + bonuses.attack}</div>
