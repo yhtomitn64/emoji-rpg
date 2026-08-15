@@ -13,6 +13,7 @@ function render(text) {
 
   document.getElementById('btn-boss-fight').onclick = () => callbacks.onAccept();
   document.getElementById('btn-boss-not-yet').onclick = () => callbacks.onDecline();
+  document.getElementById('btn-boss-fight').focus();
 }
 
 export function mount(root, props) {

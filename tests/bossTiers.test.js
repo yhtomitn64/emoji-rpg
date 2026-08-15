@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_BOSS_TIER, BOSS_TIER_FLAVOR_LINES, getBossTierStats, pickBossReturnFlavor } from '../js/systems/bossTiers.js';
+import { MAX_BOSS_TIER, BOSS_TIER_FLAVOR_LINES, getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from '../js/systems/bossTiers.js';
 import { MONSTERS } from '../js/data/monsters.js';
 
 test('constants match the design', () => {
@@ -26,4 +26,16 @@ test('getBossTierStats at tier 2 (max) compounds correctly', () => {
 test('pickBossReturnFlavor returns one of the known flavor lines by index', () => {
   assert.equal(pickBossReturnFlavor(() => 0), BOSS_TIER_FLAVOR_LINES[0]);
   assert.equal(pickBossReturnFlavor(() => 0.9999), BOSS_TIER_FLAVOR_LINES[4]);
+});
+
+test('shouldPromptForRematch is true only when defeated at least once and below the cap', () => {
+  assert.equal(shouldPromptForRematch({ flags: { dungeonBossDefeated: false }, bossTier: 0 }), false);
+  assert.equal(shouldPromptForRematch({ flags: { dungeonBossDefeated: true }, bossTier: 0 }), true);
+  assert.equal(shouldPromptForRematch({ flags: { dungeonBossDefeated: true }, bossTier: 1 }), true);
+  assert.equal(shouldPromptForRematch({ flags: { dungeonBossDefeated: true }, bossTier: 2 }), false);
+});
+
+test('resolveBattleXp uses the pending boss xp when set, otherwise falls back to the base monster xp', () => {
+  assert.equal(resolveBattleXp(600, MONSTERS.boar), 600);
+  assert.equal(resolveBattleXp(null, MONSTERS.boar), MONSTERS.boar.xp);
 });

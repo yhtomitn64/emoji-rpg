@@ -27,3 +27,11 @@ export function getBossTierStats(baseMonster, tier) {
 export function pickBossReturnFlavor(rng = Math.random) {
   return BOSS_TIER_FLAVOR_LINES[Math.floor(rng() * BOSS_TIER_FLAVOR_LINES.length)];
 }
+
+export function shouldPromptForRematch(state) {
+  return Boolean(state.flags.dungeonBossDefeated) && state.bossTier < MAX_BOSS_TIER;
+}
+
+export function resolveBattleXp(pendingBossXp, baseMonster) {
+  return pendingBossXp !== null ? pendingBossXp : baseMonster.xp;
+}

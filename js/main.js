@@ -28,7 +28,7 @@ import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, equipItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
-import { MAX_BOSS_TIER, getBossTierStats, pickBossReturnFlavor } from './systems/bossTiers.js';
+import { MAX_BOSS_TIER, getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 
 const MAPS = {
@@ -232,21 +232,20 @@ function handleTreasureFound() {
 }
 
 function handleBossBattle() {
-  if (!state.flags.dungeonBossDefeated || state.bossTier >= MAX_BOSS_TIER) {
+  if (!shouldPromptForRematch(state)) {
     startBossFight(state.bossTier);
     return;
   }
+  setStatsButtonEnabled(false);
   mountOverlay(bossPromptScreen, {
     text: pickBossReturnFlavor(),
     callbacks: {
       onAccept: () => {
         state.bossTier += 1;
         saveState(state);
-        unmountOverlay();
         startBossFight(state.bossTier);
       },
       onDecline: () => {
-        unmountOverlay();
         startBossFight(state.bossTier);
       },
     },
@@ -305,7 +304,7 @@ function handleBattleEnd(outcome, monsterId) {
 
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];
-    const xp = bossTierXp !== null ? bossTierXp : monster.xp;
+    const xp = resolveBattleXp(bossTierXp, monster);
     const { player, leveledUp } = applyXp(state.player, xp);
     state.player = player;
     if (leveledUp) {
