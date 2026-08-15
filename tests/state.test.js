@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createNewGame, serializeState, deserializeState, saveState, loadState } from '../js/state.js';
+import { createNewGame, serializeState, deserializeState, saveState, loadState, slotSaveKey } from '../js/state.js';
 
 function createFakeStorage() {
   const store = new Map();
@@ -20,6 +20,7 @@ test('createNewGame returns a fresh default state', () => {
   assert.deepEqual(state.miniDungeons, {});
   assert.equal(state.activeMiniDungeon, null);
   assert.equal(state.bossTier, 0);
+  assert.equal(state.ngPlusCycle, 0);
 });
 
 test('serializeState and deserializeState round-trip', () => {
@@ -29,16 +30,32 @@ test('serializeState and deserializeState round-trip', () => {
   assert.deepEqual(restored, state);
 });
 
-test('saveState writes to storage and loadState reads it back', () => {
+test('slotSaveKey builds a per-slot storage key', () => {
+  assert.equal(slotSaveKey('abc123'), 'emoji-rpg-save-abc123');
+});
+
+test('saveState writes to a slot-specific key and loadState reads it back', () => {
   const storage = createFakeStorage();
   const state = createNewGame();
   state.player.gold = 42;
-  saveState(state, storage);
-  const loaded = loadState(storage);
+  saveState(state, 'slot-1', storage);
+  const loaded = loadState('slot-1', storage);
   assert.equal(loaded.player.gold, 42);
 });
 
-test('loadState returns null when nothing saved', () => {
+test('saveState for one slot does not affect another slot', () => {
   const storage = createFakeStorage();
-  assert.equal(loadState(storage), null);
+  const stateA = createNewGame();
+  stateA.player.gold = 10;
+  const stateB = createNewGame();
+  stateB.player.gold = 20;
+  saveState(stateA, 'slot-a', storage);
+  saveState(stateB, 'slot-b', storage);
+  assert.equal(loadState('slot-a', storage).player.gold, 10);
+  assert.equal(loadState('slot-b', storage).player.gold, 20);
+});
+
+test('loadState returns null when nothing saved for that slot', () => {
+  const storage = createFakeStorage();
+  assert.equal(loadState('slot-1', storage), null);
 });

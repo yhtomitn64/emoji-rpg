@@ -15,6 +15,7 @@ export function createNewGame() {
     miniDungeons: {},
     activeMiniDungeon: null,
     bossTier: 0,
+    ngPlusCycle: 0,
   };
 }
 
@@ -26,12 +27,16 @@ export function deserializeState(json) {
   return JSON.parse(json);
 }
 
-export function saveState(state, storage = globalThis.localStorage) {
-  storage.setItem(STORAGE_KEY, serializeState(state));
+export function slotSaveKey(slotId) {
+  return `emoji-rpg-save-${slotId}`;
 }
 
-export function loadState(storage = globalThis.localStorage) {
-  const raw = storage.getItem(STORAGE_KEY);
+export function saveState(state, slotId, storage = globalThis.localStorage) {
+  storage.setItem(slotSaveKey(slotId), serializeState(state));
+}
+
+export function loadState(slotId, storage = globalThis.localStorage) {
+  const raw = storage.getItem(slotSaveKey(slotId));
   if (!raw) return null;
   return deserializeState(raw);
 }
