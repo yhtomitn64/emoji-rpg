@@ -8,6 +8,7 @@ const VICTORY_PAUSE_MS = 1200;
 let rootEl = null;
 let state = null;
 let monsterId = null;
+let monsterOverrides = null;
 let callbacks = null;
 let intervalId = null;
 let playerCombatant = null;
@@ -32,7 +33,7 @@ function buildPlayerCombatant() {
 }
 
 function buildMonsterCombatant() {
-  const monster = MONSTERS[monsterId];
+  const monster = { ...MONSTERS[monsterId], ...(monsterOverrides || {}) };
   return {
     name: monster.name, emoji: monster.emoji,
     hp: monster.hp, maxHp: monster.hp,
@@ -250,6 +251,7 @@ export function mount(root, props) {
   rootEl = root;
   state = props.state;
   monsterId = props.monsterId;
+  monsterOverrides = props.monsterOverrides || null;
   callbacks = props.callbacks;
   battleOver = false;
   menuVisible = false;
