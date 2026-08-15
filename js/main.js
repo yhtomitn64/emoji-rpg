@@ -28,7 +28,7 @@ import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, equipItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
-import { MAX_BOSS_TIER, getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
+import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 
 const MAPS = {
