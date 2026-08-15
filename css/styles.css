@@ -16,7 +16,7 @@ body { margin: 0; background: #222; color: #eee; }
   background: #333;
 }
 
-.shop-screen, .smith-screen {
+.shop-screen, .smith-screen, .start-screen {
   max-width: 480px;
   margin: 0 auto;
 }
@@ -107,13 +107,30 @@ body { margin: 0; background: #222; color: #eee; }
   color: #ccc;
   max-height: 320px;
 }
-.battle-menu button, .shop-row button, .smith-row button, #btn-leave {
+.battle-menu button, .shop-row button, .smith-row button, #btn-leave, .start-screen button {
   margin: 4px; padding: 8px 12px; font-size: 1rem;
 }
 .shop-row, .smith-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 0; border-bottom: 1px solid #444;
 }
+.slot-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid #444;
+}
+.slot-name { font-weight: 600; }
+.slot-meta { font-size: 0.8rem; color: #aaa; }
+.slot-ngplus-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #6c3fa1;
+  font-size: 0.7rem;
+}
+.no-slots { color: #888; padding: 12px 0; }
+.new-game-row { display: flex; gap: 8px; margin-top: 12px; }
+.new-game-row input { flex: 1; padding: 6px; font-size: 1rem; }
 
 #overlay {
   display: none;
