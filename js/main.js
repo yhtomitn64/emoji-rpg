@@ -28,6 +28,8 @@ import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, equipItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
+import { MAX_BOSS_TIER, getBossTierStats, pickBossReturnFlavor } from './systems/bossTiers.js';
+import * as bossPromptScreen from './screens/bossPromptScreen.js';
 
 const MAPS = {
   town: townMap,
@@ -80,6 +82,11 @@ if (!state.bossTier) {
 // full-viewport #overlay, so it is pointer-blocked but still keyboard-reachable;
 // opening stats mid-battle would tear down the live battle overlay.
 let battleActive = false;
+
+// Set just before a boss fight starts, holding that fight's tier-scaled XP
+// reward. handleBattleEnd reads and clears it (regardless of outcome) so it
+// can never leak into a subsequent non-boss encounter's XP calculation.
+let activeBossTierXp = null;
 
 function setStatsButtonEnabled(enabled) {
   const statsButton = document.getElementById('btn-open-stats');
@@ -143,7 +150,7 @@ function handleTileAction(action) {
   if (action === 'enterShop') return goToShop();
   if (action === 'enterSmith') return goToSmith();
   if (action === 'bossBattle') {
-    handleEncounter(dungeonMap.bossMonsterId);
+    handleBossBattle();
     return;
   }
   if (action === 'exitMiniDungeon') return handleExitMiniDungeon();
@@ -224,6 +231,40 @@ function handleTreasureFound() {
   renderHud();
 }
 
+function handleBossBattle() {
+  if (!state.flags.dungeonBossDefeated || state.bossTier >= MAX_BOSS_TIER) {
+    startBossFight(state.bossTier);
+    return;
+  }
+  mountOverlay(bossPromptScreen, {
+    text: pickBossReturnFlavor(),
+    callbacks: {
+      onAccept: () => {
+        state.bossTier += 1;
+        saveState(state);
+        unmountOverlay();
+        startBossFight(state.bossTier);
+      },
+      onDecline: () => {
+        unmountOverlay();
+        startBossFight(state.bossTier);
+      },
+    },
+  });
+}
+
+function startBossFight(tier) {
+  const monsterId = dungeonMap.bossMonsterId;
+  const tierStats = getBossTierStats(MONSTERS[monsterId], tier);
+  activeBossTierXp = tierStats.xp;
+  handleEncounter(monsterId, {
+    hp: tierStats.hp,
+    attack: tierStats.attack,
+    defense: tierStats.defense,
+    speed: tierStats.speed,
+  });
+}
+
 function goToShop() {
   mountScreen(shopScreen, {
     state,
@@ -244,12 +285,13 @@ function goToSmith() {
   });
 }
 
-function handleEncounter(monsterId) {
+function handleEncounter(monsterId, monsterOverrides = null) {
   battleActive = true;
   setStatsButtonEnabled(false);
   mountOverlay(battleScreen, {
     state,
     monsterId,
+    monsterOverrides,
     callbacks: { onBattleEnd: handleBattleEnd },
   });
 }
@@ -258,10 +300,13 @@ function handleBattleEnd(outcome, monsterId) {
   unmountOverlay();
   battleActive = false;
   setStatsButtonEnabled(true);
+  const bossTierXp = activeBossTierXp;
+  activeBossTierXp = null;
 
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];
-    const { player, leveledUp } = applyXp(state.player, monster.xp);
+    const xp = bossTierXp !== null ? bossTierXp : monster.xp;
+    const { player, leveledUp } = applyXp(state.player, xp);
     state.player = player;
     if (leveledUp) {
       state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
