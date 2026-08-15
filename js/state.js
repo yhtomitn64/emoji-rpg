@@ -14,6 +14,7 @@ export function createNewGame() {
     caches: {},
     miniDungeons: {},
     activeMiniDungeon: null,
+    bossTier: 0,
   };
 }
 

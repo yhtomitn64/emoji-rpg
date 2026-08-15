@@ -72,6 +72,9 @@ if (!state.miniDungeons) {
 if (!state.activeMiniDungeon) {
   state.activeMiniDungeon = null;
 }
+if (!state.bossTier) {
+  state.bossTier = 0;
+}
 
 // True while a battle overlay is mounted. The Stats button sits behind the
 // full-viewport #overlay, so it is pointer-blocked but still keyboard-reachable;
