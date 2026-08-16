@@ -5,6 +5,7 @@ import * as battleScreen from './screens/battleScreen.js';
 import * as shopScreen from './screens/shopScreen.js';
 import * as smithScreen from './screens/smithScreen.js';
 import * as statsPanel from './screens/statsPanel.js';
+import * as inventoryScreen from './screens/inventoryScreen.js';
 import * as startScreen from './screens/startScreen.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
@@ -26,7 +27,7 @@ import { FLAVOR_TEXT } from './data/flavorText.js';
 import { showFlavorBanner } from './screens/flavorBanner.js';
 import { applyXp } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
-import { addGold, addItem, equipItem, getEquipmentBonuses } from './systems/inventory.js';
+import { addGold, addItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
@@ -124,10 +125,14 @@ let battleActive = false;
 // can never leak into a subsequent non-boss encounter's XP calculation.
 let activeBossTierXp = null;
 
-function setStatsButtonEnabled(enabled) {
+function setHudButtonsEnabled(enabled) {
   const statsButton = document.getElementById('btn-open-stats');
   if (statsButton) {
     statsButton.disabled = !enabled;
+  }
+  const inventoryButton = document.getElementById('btn-open-inventory');
+  if (inventoryButton) {
+    inventoryButton.disabled = !enabled;
   }
 }
 
@@ -145,8 +150,15 @@ function renderHud() {
   statsButton.disabled = battleActive;
   statsButton.onclick = openStats;
 
+  const inventoryButton = document.createElement('button');
+  inventoryButton.id = 'btn-open-inventory';
+  inventoryButton.textContent = '🎒 Inventory';
+  inventoryButton.disabled = battleActive;
+  inventoryButton.onclick = openInventory;
+
   hud.appendChild(label);
   hud.appendChild(statsButton);
+  hud.appendChild(inventoryButton);
 }
 
 function openStats() {
@@ -154,6 +166,17 @@ function openStats() {
   mountOverlay(statsPanel, {
     state,
     callbacks: { onClose: () => unmountOverlay() },
+  });
+}
+
+function openInventory() {
+  if (battleActive) return;
+  mountOverlay(inventoryScreen, {
+    state,
+    callbacks: {
+      onChange: () => { persist(); renderHud(); },
+      onClose: () => unmountOverlay(),
+    },
   });
 }
 
@@ -259,9 +282,6 @@ function handleTreasureFound() {
   Object.assign(state, addGold(state, loot.gold));
   Object.assign(state, addItem(state, loot.item, 1));
   const itemDef = ITEMS[loot.item];
-  if (itemDef.slot && !state.equipment[itemDef.slot]) {
-    Object.assign(state, equipItem(state, loot.item, itemDef.slot));
-  }
   showFlavorBanner(`You found a treasure: ${loot.gold} gold and a ${itemDef.name}!`);
   persist();
   renderHud();
@@ -274,7 +294,7 @@ function handleBossBattle() {
     startBossFight(state.bossTier);
     return;
   }
-  setStatsButtonEnabled(false);
+  setHudButtonsEnabled(false);
   mountOverlay(bossPromptScreen, {
     text: pickBossReturnFlavor(),
     showTierEscalation: offerTierEscalation,
@@ -331,7 +351,7 @@ function goToSmith() {
 
 function handleEncounter(monsterId, monsterOverrides = null) {
   battleActive = true;
-  setStatsButtonEnabled(false);
+  setHudButtonsEnabled(false);
   const preScaled = { ...MONSTERS[monsterId], ...(monsterOverrides || {}) };
   const ngPlusOverrides = getNgPlusCombatOverrides(preScaled, state.ngPlusCycle);
   mountOverlay(battleScreen, {
@@ -345,7 +365,7 @@ function handleEncounter(monsterId, monsterOverrides = null) {
 function handleBattleEnd(outcome, monsterId) {
   unmountOverlay();
   battleActive = false;
-  setStatsButtonEnabled(true);
+  setHudButtonsEnabled(true);
   const bossTierXp = activeBossTierXp;
   activeBossTierXp = null;
 
@@ -366,10 +386,6 @@ function handleBattleEnd(outcome, monsterId) {
     Object.assign(state, addGold(state, gold));
     if (drop.item) {
       Object.assign(state, addItem(state, drop.item, 1));
-      const droppedItemDef = ITEMS[drop.item];
-      if (droppedItemDef.slot) {
-        Object.assign(state, equipItem(state, drop.item, droppedItemDef.slot));
-      }
     }
     if (monster.isBoss) {
       state.flags.dungeonBossDefeated = true;
