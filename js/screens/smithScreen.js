@@ -7,15 +7,14 @@ let rootEl = null;
 let state = null;
 let callbacks = null;
 
-function materialOptions() {
+function materialOptionsForSlot(slot) {
   return state.inventory.filter((entry) => {
     const item = ITEMS[entry.itemId];
-    return item.type === 'material' && entry.quantity > 0;
+    return item.type === 'material' && item.upgradeSlot === slot && entry.quantity > 0;
   });
 }
 
 function render() {
-  const materials = materialOptions();
   const rows = SLOTS.map((slot) => {
     const itemId = state.equipment[slot];
     if (!itemId) return `<div class="smith-row">${slot}: (empty)</div>`;
@@ -23,6 +22,7 @@ function render() {
     const item = ITEMS[itemId];
     const level = state.upgrades?.[itemId] || 0;
     const cost = upgradeCost(level);
+    const materials = materialOptionsForSlot(slot);
     const options = materials
       .map((m) => `<option value="${m.itemId}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)
       .join('');

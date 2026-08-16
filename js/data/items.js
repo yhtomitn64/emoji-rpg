@@ -26,12 +26,12 @@ export const ITEMS = {
   potion: { id: 'potion', name: 'Potion', emoji: '🧪', type: 'consumable', price: 10, heal: 15 },
 
   // Materials
-  leatherScrap: { id: 'leatherScrap', name: 'Leather Scrap', emoji: '🟫', type: 'material' },
-  batWing: { id: 'batWing', name: 'Bat Wing', emoji: '🦴', type: 'material' },
-  snakeFang: { id: 'snakeFang', name: 'Snake Fang', emoji: '🦷', type: 'material' },
-  ironScrap: { id: 'ironScrap', name: 'Iron Scrap', emoji: '🔩', type: 'material' },
-  wolfPelt: { id: 'wolfPelt', name: 'Wolf Pelt', emoji: '🐾', type: 'material' },
-  spiderSilk: { id: 'spiderSilk', name: 'Spider Silk', emoji: '🕸️', type: 'material' },
-  orcTusk: { id: 'orcTusk', name: 'Orc Tusk', emoji: '🦷', type: 'material' },
-  wraithEssence: { id: 'wraithEssence', name: 'Wraith Essence', emoji: '💠', type: 'material' },
+  leatherScrap: { id: 'leatherScrap', name: 'Leather Scrap', emoji: '🟫', type: 'material', upgradeSlot: 'body' },
+  batWing: { id: 'batWing', name: 'Bat Wing', emoji: '🦴', type: 'material', upgradeSlot: 'accessory' },
+  snakeFang: { id: 'snakeFang', name: 'Snake Fang', emoji: '🦷', type: 'material', upgradeSlot: 'weapon' },
+  ironScrap: { id: 'ironScrap', name: 'Iron Scrap', emoji: '🔩', type: 'material', upgradeSlot: 'weapon' },
+  wolfPelt: { id: 'wolfPelt', name: 'Wolf Pelt', emoji: '🐾', type: 'material', upgradeSlot: 'legs' },
+  spiderSilk: { id: 'spiderSilk', name: 'Spider Silk', emoji: '🕸️', type: 'material', upgradeSlot: 'head' },
+  orcTusk: { id: 'orcTusk', name: 'Orc Tusk', emoji: '🦷', type: 'material', upgradeSlot: 'weapon' },
+  wraithEssence: { id: 'wraithEssence', name: 'Wraith Essence', emoji: '💠', type: 'material', upgradeSlot: 'accessory' },
 };

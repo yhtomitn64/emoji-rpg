@@ -58,6 +58,8 @@ export function upgradeItem(state, slot, materialId, cost) {
   const itemId = state.equipment[slot];
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
 
+  if (ITEMS[materialId].upgradeSlot !== slot) throw new Error(`${materialId} cannot upgrade the ${slot} slot`);
+
   const hasMaterial = state.inventory.some((entry) => entry.itemId === materialId && entry.quantity > 0);
   if (!hasMaterial) throw new Error('Missing required material');
   if (state.player.gold < cost) throw new Error('Not enough gold');

@@ -55,17 +55,30 @@ test('upgradeCost scales with current upgrade level', () => {
 
 test('upgradeItem consumes gold and material, increasing upgrade level', () => {
   let state = createNewGame();
-  state = addItem(state, 'leatherScrap', 1);
-  state = upgradeItem(state, 'weapon', 'leatherScrap', 20);
+  state = addItem(state, 'ironScrap', 1);
+  state = upgradeItem(state, 'weapon', 'ironScrap', 20);
   assert.equal(state.upgrades.starterSword, 1);
   assert.equal(state.player.gold, 0);
-  const materialEntry = state.inventory.find((e) => e.itemId === 'leatherScrap');
+  const materialEntry = state.inventory.find((e) => e.itemId === 'ironScrap');
   assert.equal(materialEntry, undefined);
 });
 
 test('upgradeItem throws without the required material', () => {
   const state = createNewGame();
+  assert.throws(() => upgradeItem(state, 'weapon', 'ironScrap', 20));
+});
+
+test("upgradeItem throws when the material's upgradeSlot does not match the slot being upgraded", () => {
+  let state = createNewGame();
+  state = addItem(state, 'leatherScrap', 1); // upgradeSlot: body
   assert.throws(() => upgradeItem(state, 'weapon', 'leatherScrap', 20));
+});
+
+test('upgradeItem succeeds with a slot-matched material', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironScrap', 1); // upgradeSlot: weapon
+  state = upgradeItem(state, 'weapon', 'ironScrap', 20);
+  assert.equal(state.upgrades.starterSword, 1);
 });
 
 test('getEquipmentBonuses sums stats from equipped, upgraded gear', () => {
