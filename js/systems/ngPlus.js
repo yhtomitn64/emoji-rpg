@@ -3,7 +3,6 @@ export const NG_PLUS_HP_MULTIPLIER = 2;
 export const NG_PLUS_COMBAT_MULTIPLIER = 1.25;
 export const NG_PLUS_REWARD_MULTIPLIER = 1.5;
 export const NG_PLUS_DROP_CHANCE_MULTIPLIER = 1.5;
-export const NG_PLUS_DROP_CHANCE_CAP = 0.9;
 
 export function canStartNgPlus(state) {
   return Boolean(state.flags.dungeonBossDefeated) && state.ngPlusCycle < MAX_NG_PLUS_CYCLE;
@@ -27,10 +26,10 @@ export function getNgPlusRewardMultiplier(cycle) {
 
 export function scaleDropTable(dropTable, cycle) {
   const multiplier = NG_PLUS_DROP_CHANCE_MULTIPLIER ** cycle;
-  return dropTable.map((entry) => ({
-    ...entry,
-    chance: Math.min(NG_PLUS_DROP_CHANCE_CAP, entry.chance * multiplier),
-  }));
+  const scaled = dropTable.map((entry) => ({ ...entry, chance: entry.chance * multiplier }));
+  const total = scaled.reduce((sum, entry) => sum + entry.chance, 0);
+  if (total <= 1) return scaled;
+  return scaled.map((entry) => ({ ...entry, chance: entry.chance / total }));
 }
 
 export function resetWorldForNgPlus(state) {

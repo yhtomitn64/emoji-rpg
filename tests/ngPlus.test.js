@@ -49,16 +49,19 @@ test('scaleDropTable at cycle 0 leaves chances unchanged', () => {
   assert.deepEqual(scaled.map((e) => e.chance), [0.6, 0.4]);
 });
 
-test('scaleDropTable at cycle 1 scales chances up without hitting the cap', () => {
-  const scaled = scaleDropTable(MONSTERS.dragon.dropTable, 1);
-  assertClose(scaled[0].chance, 0.9);
-  assertClose(scaled[1].chance, 0.6);
+test('scaleDropTable at cycle 1 and 2 leaves a table that already sums to 1.0 unchanged (no headroom to improve)', () => {
+  const cycle1 = scaleDropTable(MONSTERS.dragon.dropTable, 1);
+  assertClose(cycle1[0].chance, 0.6);
+  assertClose(cycle1[1].chance, 0.4);
+  const cycle2 = scaleDropTable(MONSTERS.dragon.dropTable, 2);
+  assertClose(cycle2[0].chance, 0.6);
+  assertClose(cycle2[1].chance, 0.4);
 });
 
-test('scaleDropTable at cycle 2 caps every entry at 0.9', () => {
-  const scaled = scaleDropTable(MONSTERS.dragon.dropTable, 2);
-  assert.equal(scaled[0].chance, 0.9);
-  assert.equal(scaled[1].chance, 0.9);
+test('scaleDropTable scales up a table with headroom (sum under 1) without needing to normalize', () => {
+  const scaled = scaleDropTable(MONSTERS.goblin.dropTable, 1);
+  assertClose(scaled[0].chance, 0.225);
+  assertClose(scaled[1].chance, 0.3);
 });
 
 test('canStartNgPlus requires the boss defeated at least once and below the cap', () => {
