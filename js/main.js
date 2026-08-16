@@ -34,6 +34,8 @@ import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolve
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
+import { incrementQuestProgress } from './systems/quests.js';
+import * as questBoardScreen from './screens/questBoardScreen.js';
 
 const MAPS = {
   town: townMap,
@@ -219,6 +221,7 @@ function handleTileAction(action) {
   }
   if (action === 'enterShop') return goToShop();
   if (action === 'enterSmith') return goToSmith();
+  if (action === 'enterQuestBoard') return goToQuestBoard();
   if (action === 'bossBattle') {
     handleBossBattle();
     return;
@@ -360,6 +363,16 @@ function goToSmith() {
   });
 }
 
+function goToQuestBoard() {
+  mountScreen(questBoardScreen, {
+    state,
+    callbacks: {
+      onTurnIn: () => { persist(); renderHud(); },
+      onLeave: () => goToMap('town'),
+    },
+  });
+}
+
 function handleEncounter(monsterId, monsterOverrides = null) {
   battleActive = true;
   setHudButtonsEnabled(false);
@@ -401,6 +414,7 @@ function handleBattleEnd(outcome, monsterId) {
     if (monster.isBoss) {
       state.flags.dungeonBossDefeated = true;
     }
+    Object.assign(state, incrementQuestProgress(state, monsterId));
 
     persist();
     renderHud();
