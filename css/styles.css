@@ -107,7 +107,7 @@ body { margin: 0; background: #222; color: #eee; }
   color: #ccc;
   max-height: 320px;
 }
-.battle-menu button, .shop-row button, .smith-row button, #btn-leave, .start-screen button {
+.battle-menu button, .shop-row button, .smith-row button, #btn-leave, .start-screen button, .inventory-panel button {
   margin: 4px; padding: 8px 12px; font-size: 1rem;
 }
 .shop-row, .smith-row {
@@ -131,6 +131,12 @@ body { margin: 0; background: #222; color: #eee; }
 .no-slots { color: #888; padding: 12px 0; }
 .new-game-row { display: flex; gap: 8px; margin-top: 12px; }
 .new-game-row input { flex: 1; padding: 6px; font-size: 1rem; }
+
+.inventory-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid #444;
+}
+.inventory-empty { color: #888; padding: 6px 0; font-size: 0.85rem; }
 
 #overlay {
   display: none;
