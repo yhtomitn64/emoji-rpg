@@ -25,7 +25,7 @@ import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
 import { FLAVOR_TEXT } from './data/flavorText.js';
 import { showFlavorBanner } from './screens/flavorBanner.js';
-import { applyXp } from './systems/leveling.js';
+import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
@@ -398,10 +398,14 @@ function handleBattleEnd(outcome, monsterId) {
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
     const baseXp = resolveBattleXp(bossTierXp, monster);
     const xp = Math.round(baseXp * rewardMultiplier.xp);
+    const preLevelHp = state.player.hp;
     const { player, leveledUp } = applyXp(state.player, xp);
     state.player = player;
     if (leveledUp) {
-      state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+      const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+      state.player.hp = state.player.level >= LATE_GAME_LEVEL_THRESHOLD
+        ? Math.round(preLevelHp + (effectiveMaxHp - preLevelHp) * LEVEL_UP_PARTIAL_HEAL_FRACTION)
+        : effectiveMaxHp;
     }
 
     const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
