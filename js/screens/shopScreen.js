@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { spendGold, addItem, equipItem } from '../systems/inventory.js';
+import { spendGold, addItem } from '../systems/inventory.js';
 
 const CATALOG = [
   'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves',
@@ -39,9 +39,6 @@ function buyItem(itemId) {
 
   let next = spendGold(state, item.price);
   next = addItem(next, itemId, 1);
-  if (item.slot) {
-    next = equipItem(next, itemId, item.slot);
-  }
   Object.assign(state, next);
   callbacks.onPurchase();
   render();

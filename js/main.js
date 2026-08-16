@@ -174,7 +174,12 @@ function openInventory() {
   mountOverlay(inventoryScreen, {
     state,
     callbacks: {
-      onChange: () => { persist(); renderHud(); },
+      onChange: () => {
+        const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+        state.player.hp = Math.min(state.player.hp, effectiveMaxHp);
+        persist();
+        renderHud();
+      },
       onClose: () => unmountOverlay(),
     },
   });
