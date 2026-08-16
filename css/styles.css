@@ -16,7 +16,7 @@ body { margin: 0; background: #222; color: #eee; }
   background: #333;
 }
 
-.shop-screen, .smith-screen, .start-screen {
+.shop-screen, .smith-screen, .start-screen, .quest-board-screen {
   max-width: 480px;
   margin: 0 auto;
 }
@@ -107,7 +107,7 @@ body { margin: 0; background: #222; color: #eee; }
   color: #ccc;
   max-height: 320px;
 }
-.battle-menu button, .shop-row button, .smith-row button, #btn-leave, .start-screen button, .inventory-panel button {
+.battle-menu button, .shop-row button, .smith-row button, #btn-leave, .start-screen button, .inventory-panel button, .quest-board-screen button {
   margin: 4px; padding: 8px 12px; font-size: 1rem;
 }
 .shop-row, .smith-row {
@@ -137,6 +137,11 @@ body { margin: 0; background: #222; color: #eee; }
   padding: 6px 0; border-bottom: 1px solid #444;
 }
 .inventory-empty { color: #888; padding: 6px 0; font-size: 0.85rem; }
+
+.quest-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid #444;
+}
 
 #overlay {
   display: none;
