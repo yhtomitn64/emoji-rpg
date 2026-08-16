@@ -13,4 +13,5 @@ export const TILES = {
   cavePool: { emoji: '💧', walkable: false, encounter: false },
   miniDungeonEntrance: { emoji: '🪜', walkable: true, encounter: false, action: 'exitMiniDungeon' },
   miniDungeonTreasure: { emoji: '💰', walkable: true, encounter: false, action: 'collectTreasure' },
+  questBoard: { emoji: '📋', walkable: true, encounter: false, action: 'enterQuestBoard' },
 };

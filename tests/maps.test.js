@@ -90,12 +90,13 @@ function assertBorderWalkable(map, side) {
   }
 }
 
-test('town map is well-formed and includes shop, smith, and exit tiles', () => {
+test('town map is well-formed and includes shop, smith, quest board, and exit tiles', () => {
   assertValidMap(townMap);
   const chars = townMap.rows.join('');
   const tileKeys = [...chars].map((c) => townMap.legend[c]);
   assert.ok(tileKeys.includes('shop'));
   assert.ok(tileKeys.includes('smith'));
+  assert.ok(tileKeys.includes('questBoard'));
   assert.ok(tileKeys.includes('exit'));
 });
 

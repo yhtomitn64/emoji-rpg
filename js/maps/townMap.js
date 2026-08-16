@@ -3,12 +3,13 @@ const LEGEND = {
   '#': 'tree',
   S: 'shop',
   M: 'smith',
+  Q: 'questBoard',
   E: 'exit',
 };
 
 const ROWS = [
   '########',
-  '#......#',
+  '#..Q...#',
   '#.S..M.#',
   '#......#',
   '#..E...#',
