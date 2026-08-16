@@ -16,6 +16,10 @@ export function createNewGame() {
     activeMiniDungeon: null,
     bossTier: 0,
     ngPlusCycle: 0,
+    questProgress: {
+      boar: 0, bat: 0, snake: 0, goblin: 0,
+      direWolf: 0, spider: 0, orc: 0, wraith: 0,
+    },
   };
 }
 

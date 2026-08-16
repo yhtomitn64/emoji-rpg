@@ -21,6 +21,10 @@ test('createNewGame returns a fresh default state', () => {
   assert.equal(state.activeMiniDungeon, null);
   assert.equal(state.bossTier, 0);
   assert.equal(state.ngPlusCycle, 0);
+  assert.deepEqual(state.questProgress, {
+    boar: 0, bat: 0, snake: 0, goblin: 0,
+    direWolf: 0, spider: 0, orc: 0, wraith: 0,
+  });
 });
 
 test('serializeState and deserializeState round-trip', () => {
