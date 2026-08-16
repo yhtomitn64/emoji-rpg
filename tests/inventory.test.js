@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createNewGame } from '../js/state.js';
 import {
-  addGold, spendGold, addItem, removeItem, equipItem, upgradeItem, upgradeCost, getEquipmentBonuses,
+  addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
+  getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta,
 } from '../js/systems/inventory.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
@@ -71,4 +72,60 @@ test('getEquipmentBonuses sums stats from equipped, upgraded gear', () => {
   const state = createNewGame();
   const bonuses = getEquipmentBonuses(state);
   assert.equal(bonuses.attack, 3);
+});
+
+test('getItemEffectiveStats returns unrounded base stats at upgrade level 0', () => {
+  const stats = getItemEffectiveStats('starterSword', 0);
+  assert.deepEqual(stats, { attack: 3, defense: 0, maxHp: 0, speed: 0 });
+});
+
+test('getItemEffectiveStats scales fractionally per upgrade level without rounding', () => {
+  const stats = getItemEffectiveStats('powerRing', 1);
+  assert.equal(stats.attack, 2.5);
+});
+
+test('getEquipmentBonuses sums fractional per-item bonuses before rounding once (regression guard for the getItemEffectiveStats refactor)', () => {
+  let state = createNewGame();
+  state.upgrades.starterSword = 1; // weapon, equipped by default: base attack 3 -> 3 + 3*0.25*1 = 3.75
+  state = addItem(state, 'powerRing', 1);
+  state = equipItem(state, 'powerRing', 'accessory');
+  state.upgrades.powerRing = 1; // accessory: base attack 2 -> 2 + 2*0.25*1 = 2.5
+  const bonuses = getEquipmentBonuses(state);
+  // Correct (sum-then-round-once): 3.75 + 2.5 = 6.25 -> 6.
+  // A regression that rounds each item's contribution before summing would instead
+  // produce round(3.75) + round(2.5) = 4 + 3 = 7, failing this assertion.
+  assert.equal(bonuses.attack, 6);
+});
+
+test('getItemStatDelta compares a candidate item against the currently equipped item in its slot', () => {
+  const state = createNewGame(); // weapon: starterSword, attack 3, upgrade 0
+  const delta = getItemStatDelta(state, 'ironSword'); // weapon, attack 6, upgrade 0
+  assert.equal(delta.attack, 3);
+});
+
+test('getItemStatDelta compares against an empty slot as zero', () => {
+  const state = createNewGame(); // head slot is empty
+  const delta = getItemStatDelta(state, 'ironHelm'); // head, defense 3
+  assert.equal(delta.defense, 3);
+});
+
+test("getItemStatDelta uses the candidate item's own real upgrade level, not the equipped item's", () => {
+  let state = createNewGame();
+  state.upgrades.ironSword = 2; // ironSword sitting in inventory, previously upgraded
+  const delta = getItemStatDelta(state, 'ironSword');
+  // ironSword base attack 6 at upgrade 2 -> 6 + 6*0.25*2 = 9; equipped starterSword base 3 at upgrade 0 -> 3.
+  assert.equal(delta.attack, 6);
+});
+
+test('unequipItem moves the equipped item back to inventory and empties the slot', () => {
+  let state = createNewGame(); // weapon: starterSword equipped, not in inventory
+  state = unequipItem(state, 'weapon');
+  assert.equal(state.equipment.weapon, null);
+  const entry = state.inventory.find((e) => e.itemId === 'starterSword');
+  assert.equal(entry.quantity, 1);
+});
+
+test('unequipItem throws when the slot is already empty', () => {
+  const state = createNewGame(); // head slot empty
+  assert.throws(() => unequipItem(state, 'head'));
 });

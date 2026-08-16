@@ -42,6 +42,14 @@ export function equipItem(state, itemId, slot) {
   return next;
 }
 
+export function unequipItem(state, slot) {
+  const itemId = state.equipment[slot];
+  if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
+  let next = { ...state, equipment: { ...state.equipment, [slot]: null } };
+  next = addItem(next, itemId, 1);
+  return next;
+}
+
 export function upgradeCost(currentLevel) {
   return UPGRADE_BASE_COST * (currentLevel + 1);
 }
@@ -61,16 +69,25 @@ export function upgradeItem(state, slot, materialId, cost) {
   return next;
 }
 
+export function getItemEffectiveStats(itemId, upgradeLevel = 0) {
+  const item = ITEMS[itemId];
+  const stats = { attack: 0, defense: 0, maxHp: 0, speed: 0 };
+  for (const stat of Object.keys(stats)) {
+    const base = item.stats?.[stat] || 0;
+    stats[stat] = base + base * 0.25 * upgradeLevel;
+  }
+  return stats;
+}
+
 export function getEquipmentBonuses(state) {
   const bonuses = { attack: 0, defense: 0, maxHp: 0, speed: 0 };
   for (const slot of Object.keys(state.equipment)) {
     const itemId = state.equipment[slot];
     if (!itemId) continue;
-    const item = ITEMS[itemId];
     const upgradeLevel = state.upgrades?.[itemId] || 0;
+    const itemStats = getItemEffectiveStats(itemId, upgradeLevel);
     for (const stat of Object.keys(bonuses)) {
-      const base = item.stats?.[stat] || 0;
-      bonuses[stat] += base + base * 0.25 * upgradeLevel;
+      bonuses[stat] += itemStats[stat];
     }
   }
   // Upgrade scaling (0.25/level) is fractional for most items; round each total
@@ -79,4 +96,20 @@ export function getEquipmentBonuses(state) {
     bonuses[stat] = Math.round(bonuses[stat]);
   }
   return bonuses;
+}
+
+export function getItemStatDelta(state, itemId) {
+  const item = ITEMS[itemId];
+  const currentItemId = state.equipment[item.slot];
+  const currentUpgrade = currentItemId ? (state.upgrades?.[currentItemId] || 0) : 0;
+  const newUpgrade = state.upgrades?.[itemId] || 0;
+  const currentStats = currentItemId
+    ? getItemEffectiveStats(currentItemId, currentUpgrade)
+    : { attack: 0, defense: 0, maxHp: 0, speed: 0 };
+  const newStats = getItemEffectiveStats(itemId, newUpgrade);
+  const delta = {};
+  for (const stat of Object.keys(newStats)) {
+    delta[stat] = Math.round(newStats[stat] - currentStats[stat]);
+  }
+  return delta;
 }
