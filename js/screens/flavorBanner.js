@@ -18,5 +18,5 @@ export function showFlavorBanner(text) {
 }
 
 export function getMessageLog() {
-  return messageLog;
+  return [...messageLog];
 }
