@@ -7,7 +7,7 @@ import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
 import { resolveStepDiscovery } from '../systems/discovery.js';
 import { hasRequiredTool, getLockedGateMessage, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
 
-const CACHE_MARKER_EMOJI = '📦';
+const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
 
 let rootEl = null;
