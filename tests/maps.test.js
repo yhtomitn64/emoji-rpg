@@ -108,6 +108,12 @@ test('dungeon map is well-formed, includes a boss tile, and references a real bo
   assert.ok(MONSTERS[dungeonMap.bossMonsterId]);
 });
 
+test('dungeon map has an axe-gated thicket shortcut connecting the interior maze to the boss corridor', () => {
+  const tileKeys = [...dungeonMap.rows.join('')].map((c) => dungeonMap.legend[c]);
+  assert.ok(tileKeys.includes('thicket'), 'dungeon must have a thicket gate');
+  assert.equal(TILES.thicket.requiresTool, 'axe');
+});
+
 test('every wilderness screen is well-formed with a walkable start position', () => {
   for (const map of Object.values(WILDERNESS)) {
     assertValidMap(map);
