@@ -144,6 +144,11 @@ function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
   }, 220);
 }
 
+function playReviveEffect(zoneEl, emojiEl) {
+  emojiEl.classList.add('battle-revive-glow');
+  zoneEl.classList.add('battle-revive-glow');
+}
+
 function handleKeydown(event) {
   if (battleOver || !isReady(playerCombatant.atb)) return;
   const key = event.key;
@@ -241,6 +246,9 @@ function endBattle(outcome) {
   battleOver = true;
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
+  if (outcome === 'lost') {
+    playReviveEffect(elements.heroZone, elements.heroEmoji);
+  }
   updateMenu();
   endBattleTimeoutId = setTimeout(() => {
     callbacks.onBattleEnd(outcome, monsterId);

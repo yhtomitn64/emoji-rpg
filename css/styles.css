@@ -220,6 +220,14 @@ body { margin: 0; background: #222; color: #eee; }
 .battle-hit-shake {
   animation: battle-shake 0.2s ease-in-out;
 }
+.battle-revive-glow {
+  animation: battle-revive-pulse 1.1s ease-in-out;
+}
+@keyframes battle-revive-pulse {
+  0% { filter: none; }
+  40% { filter: drop-shadow(0 0 10px #4ade80) brightness(1.25); }
+  100% { filter: none; }
+}
 .battle-damage-number {
   position: absolute;
   top: 10px;
