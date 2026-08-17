@@ -24,6 +24,50 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-17
+
+First chunk of the Combat Pass backlog category.
+
+### Added
+- Potions are off the turn cooldown (drink anytime without losing your
+  turn) and can occasionally crit-heal, reusing the existing attack-crit
+  system instead of a new mechanic.
+- Landing a hit knocks the target's ATB gauge back (`ATB_KNOCKBACK`),
+  both ways — your attacks knock the enemy back, getting hit knocks you
+  back. Flat and clamped at 0, not stacking, so neither side can be
+  fully locked out.
+- Two new items for a "faster me" / "slower them" build choice: Wind
+  Greaves (legs, +4 speed) and Frost Charm (accessory, slows the
+  enemy's effective speed 15% via a new `enemySlowPercent` stat that
+  scales with smith upgrades like every other stat).
+- A small damage bonus once the player's speed crosses a threshold
+  (20, reachable through leveling and/or the new speed gear), so speed
+  stays worth chasing past the point it's already fast enough to act
+  often.
+- Battle screen visuals: fixed the environmental decoration actually
+  spreading across the background (it was one clustered text string,
+  not three separate elements — `justify-content` had nothing to
+  distribute), made it bigger/more visible/ground-anchored, added a
+  landscape ground-tint gradient, and widened the whole battle panel.
+
+### Changed
+- `scripts/simulate-balance.js` no longer hand-rolls its own copy of
+  the combat math. `js/systems/combat.js` gained
+  `resolvePlayerAttack`/`resolveMonsterAttack`/`resolvePotionUse`,
+  single functions covering the full crit/damage/knockback/speed-bonus/
+  heal sequence, called by both the real battle screen and the
+  simulator — the numbers can no longer silently drift apart the way
+  they had (the simulator still had the pre-fix turn-priority bug and
+  no knowledge of three new mechanics before this).
+
+### Fixed
+- Google Translate was offering to translate the page (usually as
+  Spanish) despite a correct `lang="en"` — the browser's own
+  content-based language detector was getting confused by a page
+  that's mostly short labels/numbers/emoji with very little real
+  English prose to sample. Added `<meta name="google"
+  content="notranslate">` to opt out of the prompt entirely.
+
 ## [0.4.0] - 2026-08-17
 
 Clears the entire Feature Requests backlog category in one pass — see
