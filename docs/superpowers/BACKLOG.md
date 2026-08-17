@@ -3,6 +3,18 @@
 Ideas, bugs, and follow-ups raised mid-session that aren't part of the
 current plan. Not prioritized — just captured so nothing gets lost.
 
+## Story / narrative
+
+### The game needs an actual story
+Right now there's no real narrative — just mechanics (town, dungeon,
+boss tiers, NG+). Timothy wants a story layer but **wants to write the
+narrative content himself, not have it AI-generated** — this is
+explicit and important: don't draft plot, lore, dialogue, or NPC
+writing unprompted. Implementation support (wiring whatever text he
+writes into dialogue screens, quest text, flavor lines, etc.) is fair
+game once there's something to wire up — the boundary is authorship of
+the words, not the engineering around them.
+
 ## Bugs
 
 ### Boss rematch: difficulty tier advances on accept, not on win
