@@ -72,33 +72,8 @@ one-off task.
 
 ## Bugs
 
-### Boss rematch: difficulty tier advances on accept, not on win
-`state.bossTier` is incremented in `js/main.js:359`
-(`handleBossBattle`'s `onAccept` callback) the moment the player accepts
-the escalation prompt — before the fight happens. If that fight is then
-lost, the tier bump is never rolled back, so the next rematch offer
-starts from the higher tier as if it had been cleared. Net effect: you
-can lose a tier and still "progress" past it.
-
-Fix should move the increment into `handleBattleEnd`'s `'won'` branch
-(js/main.js, near `state.flags.dungeonBossDefeated = true;` at line
-~460), gated on `monster.isBoss`, mirroring how `activeBossTierXp` is
-already tracked as in-flight state across a boss fight. Needs a unit
-test asserting `state.bossTier` does NOT advance on a boss loss, only on
-a win, using `js/systems/bossTiers.js`'s existing pure functions
-(`shouldPromptForRematch`, `getBossTierStats`) as the test surface —
-`MAX_BOSS_TIER = 2` (3 total tiers/difficulties).
-
-### Inventory panel can overflow off-screen with no way to scroll/close
-`.inventory-panel` (js/screens/inventoryScreen.js:74) uses the shared
-`.overlay-panel` class, which has no `max-height`/`overflow-y` (css/
-styles.css:162). `#overlay` itself is `position: fixed` with no scroll
-handling either. A long inventory list pushes the Close button below
-the viewport with no scrollbar to reach it. Same root cause class as
-the message-log scroll gap fixed in the comeback-mechanic plan (see
-`.message-log-list`, css/styles.css:171) — reuse that pattern
-(`max-height` + `overflow-y: auto` on the item-list container, not the
-whole panel, so the Close button stays pinned/reachable).
+*(none open right now — the boss-tier skip bug and the inventory-panel
+scroll bug were both fixed 2026-08-17, see CHANGELOG.)*
 
 ## Feature requests
 
@@ -106,8 +81,9 @@ whole panel, so the Close button stays pinned/reachable).
 When approaching the boss fight, show which tiers (0 through
 `MAX_BOSS_TIER`) have already been cleared — stars, trophies, or similar
 — likely on `bossPromptScreen` alongside the existing tier-escalation
-text. Depends on the difficulty-skip bug above being fixed first, since
-"beaten" needs to mean "actually won," not "tier counter advanced."
+text. No longer blocked — `state.bossTier` now only advances on an
+actual win (fixed 2026-08-17), so "tier cleared" is a trustworthy signal
+to build this on.
 
 ### Use a potion outside of combat
 Currently potions can only be used mid-battle. Add a way to consume one

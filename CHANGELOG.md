@@ -24,6 +24,16 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-17
+
+### Fixed
+- Boss rematch: `state.bossTier` previously advanced the moment an
+  escalation prompt was accepted, before the fight was even fought — a
+  loss never rolled it back, so you could lose a tier and still
+  "progress" past it. Now only advances on an actual win.
+- Inventory panel could grow past the viewport with a long item list,
+  pushing the Close button out of reach with no way to scroll to it.
+
 ## [0.1.0] - 2026-08-17
 
 Retrospective baseline covering everything built before changelog
