@@ -289,6 +289,19 @@ function handleTileAction(action) {
   }
   if (action === 'exitMiniDungeon') return handleExitMiniDungeon();
   if (action === 'collectTreasure') return handleTreasureFound();
+  if (action === 'useWell') return handleUseWell();
+}
+
+function handleUseWell() {
+  const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+  if (state.player.hp >= effectiveMaxHp) {
+    showFlavorBanner('You are already at full health.');
+    return;
+  }
+  state.player.hp = effectiveMaxHp;
+  persist();
+  renderHud();
+  showFlavorBanner('You rest at the well and feel fully restored.');
 }
 
 function enterMap(mapId) {

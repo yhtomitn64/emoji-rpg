@@ -5,13 +5,14 @@ const LEGEND = {
   M: 'smith',
   Q: 'questBoard',
   E: 'exit',
+  W: 'well',
 };
 
 const ROWS = [
   '########',
   '#..Q...#',
   '#.S..M.#',
-  '#......#',
+  '#.....W#',
   '#..E...#',
   '########',
 ];

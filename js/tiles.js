@@ -14,6 +14,7 @@ export const TILES = {
   miniDungeonEntrance: { emoji: '🪜', walkable: true, encounter: false, action: 'exitMiniDungeon', description: 'Ladder — climb back to the surface' },
   miniDungeonTreasure: { emoji: '💰', walkable: true, encounter: false, action: 'collectTreasure', description: 'Treasure — step here to collect it' },
   questBoard: { emoji: '📋', walkable: true, encounter: false, action: 'enterQuestBoard', description: 'Quest Board — turn in completed quests' },
+  well: { emoji: '⛲', walkable: true, encounter: false, action: 'useWell', description: 'Well — rest here to fully heal, free' },
   mountain: { emoji: '⛰️', walkable: false, encounter: false, requiresTool: 'miningPick', description: 'Mountain — needs a mining pick to clear' },
   mountainCache: { emoji: '⛰️', walkable: false, encounter: false, requiresTool: 'miningPick', hasReward: true, description: 'Mountain — needs a mining pick to clear' },
   thicket: { emoji: '🌳', walkable: false, encounter: false, requiresTool: 'axe', description: 'Thicket — needs an axe to clear' },
