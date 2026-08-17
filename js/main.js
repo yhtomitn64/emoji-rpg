@@ -357,15 +357,15 @@ function handleBossBattle() {
   setHudButtonsEnabled(false);
   mountOverlay(bossPromptScreen, {
     text: pickBossReturnFlavor(),
-    showTierEscalation: offerTierEscalation,
     showNgPlus: offerNgPlus,
     clearedTiers: getClearedTierList(state),
     callbacks: {
-      onAccept: () => {
-        startBossFight(nextBossTierToAttempt(state.bossTier));
+      onFight: () => {
+        startBossFight(offerTierEscalation ? nextBossTierToAttempt(state.bossTier) : state.bossTier);
       },
-      onDecline: () => {
-        startBossFight(state.bossTier);
+      onWalkAway: () => {
+        unmountOverlay();
+        setHudButtonsEnabled(true);
       },
       onStartNgPlus: () => {
         Object.assign(state, resetWorldForNgPlus(state));

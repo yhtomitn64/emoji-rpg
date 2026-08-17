@@ -1,12 +1,10 @@
 let rootEl = null;
 let callbacks = null;
 let text = null;
-let showTierEscalation = false;
 let showNgPlus = false;
 let clearedTiers = [];
 
 function renderMain() {
-  const fightButton = showTierEscalation ? '<button id="btn-boss-fight">Fight!</button>' : '';
   const ngPlusButton = showNgPlus ? '<button id="btn-boss-ngplus">Start New Game+</button>' : '';
   const tierIndicator = clearedTiers.length > 0
     ? `<div class="boss-tier-indicator">${clearedTiers.map((cleared) => (cleared ? '⭐' : '☆')).join(' ')}</div>`
@@ -17,22 +15,19 @@ function renderMain() {
       <h2>The Dragon Returns</h2>
       ${tierIndicator}
       <p>${text}</p>
-      ${fightButton}
+      <button id="btn-boss-fight">Fight!</button>
       <button id="btn-boss-not-yet">Not yet</button>
       ${ngPlusButton}
     </div>
   `;
 
-  if (showTierEscalation) {
-    document.getElementById('btn-boss-fight').onclick = () => callbacks.onAccept();
-  }
-  document.getElementById('btn-boss-not-yet').onclick = () => callbacks.onDecline();
+  document.getElementById('btn-boss-fight').onclick = () => callbacks.onFight();
+  document.getElementById('btn-boss-not-yet').onclick = () => callbacks.onWalkAway();
   if (showNgPlus) {
     document.getElementById('btn-boss-ngplus').onclick = renderConfirm;
   }
 
-  const focusTarget = showTierEscalation ? 'btn-boss-fight' : 'btn-boss-not-yet';
-  document.getElementById(focusTarget).focus();
+  document.getElementById('btn-boss-fight').focus();
 }
 
 function renderConfirm() {
@@ -54,7 +49,6 @@ export function mount(root, props) {
   rootEl = root;
   callbacks = props.callbacks;
   text = props.text;
-  showTierEscalation = props.showTierEscalation;
   showNgPlus = props.showNgPlus;
   clearedTiers = props.clearedTiers || [];
   renderMain();
