@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL } from '../systems/inventory.js';
+import { upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL, describeItem } from '../systems/inventory.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
 
@@ -24,18 +24,18 @@ function render() {
 
     if (level >= MAX_UPGRADE_LEVEL) {
       return `<div class="smith-row">
-      <span>${item.emoji} ${item.name} +${level} (MAX)</span>
+      <span title="${describeItem(itemId)}">${item.emoji} ${item.name} +${level} (MAX)</span>
     </div>`;
     }
 
     const cost = upgradeCost(level);
     const materials = materialOptionsForSlot(slot);
     const options = materials
-      .map((m) => `<option value="${m.itemId}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)
+      .map((m) => `<option value="${m.itemId}" title="${describeItem(m.itemId)}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)
       .join('');
 
     return `<div class="smith-row">
-      <span>${item.emoji} ${item.name} +${level}</span>
+      <span title="${describeItem(itemId)}">${item.emoji} ${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
       <button data-slot="${slot}" ${materials.length === 0 ? 'disabled' : ''}>Upgrade (${cost}g)</button>
     </div>`;

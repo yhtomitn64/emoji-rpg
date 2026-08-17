@@ -64,6 +64,18 @@ export function maxAffordableQuantity(gold, price, requested) {
   return Math.min(requested, Math.floor(gold / price));
 }
 
+export function describeItem(itemId) {
+  const item = ITEMS[itemId];
+  if (item.description) return `${item.name}: ${item.description}`;
+  if (item.stats) {
+    const statsText = Object.entries(item.stats).map(([stat, value]) => `${stat} +${value}`).join(', ');
+    if (statsText) return `${item.name}: ${statsText}`;
+  }
+  if (item.heal) return `${item.name}: heals ${item.heal} HP`;
+  if (item.upgradeSlot) return `${item.name}: upgrade material for ${item.upgradeSlot} gear`;
+  return item.name;
+}
+
 export function upgradeCost(currentLevel) {
   return UPGRADE_BASE_COST * (currentLevel + 1);
 }

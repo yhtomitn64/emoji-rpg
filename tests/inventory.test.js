@@ -4,7 +4,7 @@ import { createNewGame } from '../js/state.js';
 import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
-  maxAffordableQuantity,
+  maxAffordableQuantity, describeItem,
 } from '../js/systems/inventory.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
@@ -181,4 +181,21 @@ test('maxAffordableQuantity caps the requested quantity to what gold can afford'
   assert.equal(maxAffordableQuantity(100, 10, 5), 5);
   assert.equal(maxAffordableQuantity(5, 10, 100), 0);
   assert.equal(maxAffordableQuantity(100, 0, 5), 5);
+});
+
+test('describeItem summarizes stat-bearing gear', () => {
+  assert.equal(describeItem('ironSword'), 'Iron Sword: attack +6');
+  assert.equal(describeItem('clothTunic'), 'Cloth Tunic: defense +2, maxHp +4');
+});
+
+test('describeItem summarizes a heal-type consumable', () => {
+  assert.equal(describeItem('potion'), 'Potion: heals 15 HP');
+});
+
+test('describeItem summarizes an upgrade material by its slot', () => {
+  assert.equal(describeItem('ironScrap'), 'Iron Scrap: upgrade material for weapon gear');
+});
+
+test('describeItem prefers an explicit description field over inferred text', () => {
+  assert.equal(describeItem('miningPick'), 'Mining Pick: Clears mountain gates blocking the way');
 });
