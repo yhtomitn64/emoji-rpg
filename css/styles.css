@@ -168,6 +168,17 @@ body { margin: 0; background: #222; color: #eee; }
   width: 90%;
 }
 
+.message-log-list {
+  overflow-y: auto;
+  max-height: 320px;
+}
+.message-log-entry {
+  padding: 4px 0;
+  border-bottom: 1px solid #333;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .map-tile.visited {
   background: #5c4a35;
 }
