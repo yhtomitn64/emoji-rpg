@@ -21,6 +21,7 @@ export function createNewGame() {
       direWolf: 0, spider: 0, orc: 0, wraith: 0,
     },
     gateRewards: {},
+    lossStreak: 0,
   };
 }
 

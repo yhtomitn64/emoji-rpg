@@ -35,6 +35,7 @@ import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
 import { incrementQuestProgress } from './systems/quests.js';
+import { incrementLossStreak, potionsForStreak, getComebackMessage } from './systems/comeback.js';
 import * as questBoardScreen from './screens/questBoardScreen.js';
 
 const MAPS = {
@@ -99,6 +100,9 @@ function startGame(loadedState, slotId) {
   }
   if (!state.gateRewards) {
     state.gateRewards = {};
+  }
+  if (!state.lossStreak) {
+    state.lossStreak = 0;
   }
   renderHud();
   goToMap(state.map);
@@ -436,6 +440,7 @@ function handleBattleEnd(outcome, monsterId) {
       state.flags.dungeonBossDefeated = true;
     }
     Object.assign(state, incrementQuestProgress(state, monsterId));
+    state.lossStreak = 0;
 
     persist();
     renderHud();
@@ -444,6 +449,10 @@ function handleBattleEnd(outcome, monsterId) {
     state.position = { ...townMap.startPosition };
     state.map = 'town';
     state.activeMiniDungeon = null;
+    state.lossStreak = incrementLossStreak(state.lossStreak);
+    const potionsGranted = potionsForStreak(state.lossStreak);
+    Object.assign(state, addItem(state, 'potion', potionsGranted));
+    showFlavorBanner(getComebackMessage(potionsGranted));
     persist();
     renderHud();
     goToMap('town');
