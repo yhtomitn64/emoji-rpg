@@ -24,6 +24,18 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-17
+
+### Fixed
+- New characters had no idea armor was near-mandatory: a level-1
+  character with zero armor wins near-town fights 0-5% of the time
+  (confirmed via the balance simulator's new no-armor baseline build);
+  the one cloth piece the starting 20g affords jumps that to 97-100%.
+  Working as intended by the savage-early-game design, but never
+  communicated. Added a first-visit town banner that sets honest
+  expectations either way — gear up first, or lean on potions and
+  expect a few early deaths, which cost nothing but a trip home.
+
 ## [0.5.0] - 2026-08-17
 
 First chunk of the Combat Pass backlog category.
