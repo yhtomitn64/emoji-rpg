@@ -93,6 +93,33 @@ export function resolvePotionUse(player, healAmount, rng = Math.random) {
   };
 }
 
+// A monster the player can kill within this many hits (average damage roll)
+// is a candidate for surrendering/fleeing instead of fighting to the death -
+// see resolveWeakMobEncounter below.
+export const WEAK_MOB_HITS_TO_KILL_THRESHOLD = 3;
+export const WEAK_MOB_TRIGGER_CHANCE = 0.35;
+
+export function isMonsterOutclassed(player, monster) {
+  const averageDamage = calculateDamage(player, monster, () => 0.5);
+  const hitsToKill = Math.ceil(monster.hp / averageDamage);
+  return hitsToKill <= WEAK_MOB_HITS_TO_KILL_THRESHOLD;
+}
+
+// Bosses never surrender/flee (they already can't be fled from), so isBoss
+// short-circuits regardless of how outclassed they are. Otherwise, an
+// outclassed monster has a WEAK_MOB_TRIGGER_CHANCE shot at a three-way split:
+// giving up outright (full win rewards), fleeing but dropping loot on the way
+// out, or fleeing with nothing.
+export function resolveWeakMobEncounter(player, monster, isBoss, rng = Math.random) {
+  if (isBoss) return null;
+  if (!isMonsterOutclassed(player, monster)) return null;
+  if (rng() >= WEAK_MOB_TRIGGER_CHANCE) return null;
+  const roll = rng();
+  if (roll < 1 / 3) return 'surrender';
+  if (roll < 2 / 3) return 'fled-with-loot';
+  return 'fled-empty';
+}
+
 export const FLAVOR_LINE_CHANCE = 0.35;
 
 export function pickAppearLine(monster, rng = Math.random) {

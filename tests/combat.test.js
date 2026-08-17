@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -111,4 +111,61 @@ test('resolvePotionUse can crit-heal, reusing the same crit system as attacks', 
   assert.equal(result.isCrit, true);
   assert.equal(result.heal, Math.round(15 * 1.5));
   assert.equal(result.playerHp, 10 + Math.round(15 * 1.5));
+});
+
+test('isMonsterOutclassed is true when hits-to-kill is at or below the threshold', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 10 * WEAK_MOB_HITS_TO_KILL_THRESHOLD };
+  assert.equal(isMonsterOutclassed(player, monster), true);
+});
+
+test('isMonsterOutclassed is false once hits-to-kill exceeds the threshold', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 10 * WEAK_MOB_HITS_TO_KILL_THRESHOLD + 1 };
+  assert.equal(isMonsterOutclassed(player, monster), false);
+});
+
+test('resolveWeakMobEncounter returns null against a boss, even when outclassed and the trigger roll would hit', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 30 };
+  assert.equal(resolveWeakMobEncounter(player, monster, true, () => 0), null);
+});
+
+test('resolveWeakMobEncounter returns null when the monster is not outclassed', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 31 };
+  assert.equal(resolveWeakMobEncounter(player, monster, false, () => 0), null);
+});
+
+test('resolveWeakMobEncounter returns null when the trigger roll misses', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 30 };
+  assert.equal(resolveWeakMobEncounter(player, monster, false, () => WEAK_MOB_TRIGGER_CHANCE), null);
+});
+
+test('resolveWeakMobEncounter resolves to surrender on a low second roll', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 30 };
+  const values = [0, 0];
+  let i = 0;
+  const rng = () => values[i++];
+  assert.equal(resolveWeakMobEncounter(player, monster, false, rng), 'surrender');
+});
+
+test('resolveWeakMobEncounter resolves to fled-with-loot on a mid second roll', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 30 };
+  const values = [0, 0.5];
+  let i = 0;
+  const rng = () => values[i++];
+  assert.equal(resolveWeakMobEncounter(player, monster, false, rng), 'fled-with-loot');
+});
+
+test('resolveWeakMobEncounter resolves to fled-empty on a high second roll', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 30 };
+  const values = [0, 0.9];
+  let i = 0;
+  const rng = () => values[i++];
+  assert.equal(resolveWeakMobEncounter(player, monster, false, rng), 'fled-empty');
 });
