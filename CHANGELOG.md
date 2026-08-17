@@ -24,6 +24,43 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-17
+
+Clears the entire Feature Requests backlog category in one pass — see
+`docs/superpowers/BACKLOG.md` for what's left (Combat Pass, Balance
+gaps, Multi-zone, one Open Question).
+
+### Added
+- Potions can be drunk from the inventory screen outside of combat, not
+  just mid-battle.
+- Every non-dragon monster now has a 10% chance to drop a potion.
+- Shop: sell-back at half price for any owned catalog item, with
+  bulk-buy shortcuts (1x/5x/10x/100x), each disabled unless the full
+  quantity is affordable.
+- Quest board: a "Turn In All" button.
+- Character creation: pick your hero's emoji from a curated list
+  (`player.emoji`, backfilled for existing saves).
+- Hover tooltips on every map tile, explaining what it is/does.
+- Item tooltips everywhere an item renders (shop, inventory, smith,
+  quest rewards) via a shared `describeItem()` — closes the "buying
+  blind" gap as a side effect instead of a bespoke shop-only fix. Shop
+  rows also mark "✓ Equipped" when applicable.
+- A new "📖 Loot" HUD screen listing every item, what you own, and
+  where it's obtainable (monster drops, shop, mini-dungeon treasure).
+- A town well tile for free, unlimited healing outside of combat —
+  deliberately not an auto-heal-on-return, to keep the potion economy
+  meaningful.
+- Battle screen now shows faint environmental decoration (rocks/pickaxe
+  in the dungeon, trees in the wilderness) instead of a bare panel.
+- Two more mini-dungeon layouts (3 → 5 variants), cutting how often
+  cave discoveries repeat the same layout.
+
+### Fixed
+- The enemy's attack was blockable indefinitely: once the player's own
+  ATB gauge became ready, the enemy could never attack until the player
+  spent their turn — a player could sit on a full gauge forever and
+  never get hit. The enemy now attacks purely on its own timer.
+
 ## [0.3.0] - 2026-08-17
 
 ### Added

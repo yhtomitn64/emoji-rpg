@@ -93,9 +93,10 @@ one-off task.
   identical across all 3 boss-rematch tiers, so grinding harder tiers
   gets better odds/XP, not new gear. Mini-dungeon treasure
   (`js/systems/miniDungeons.js`) is the closest existing "random cave
-  find" analog but currently draws from a small 6-item pool shared
-  across all dungeon variants (see the mini-dungeon-variety item below —
-  same root gap, smaller scope). No puzzle-triggered special-encounter
+  find" analog — layout variety was fixed 2026-08-17 (3 → 5 variants,
+  see CHANGELOG), but the *reward* pool is still the same small 6-item
+  set shared across every variant; expanding that (or adding a genuinely
+  new reward tier) is still open. No puzzle-triggered special-encounter
   mechanic exists at all yet.
 
 ### Smaller, sooner: a dragon-zone (dungeon) shortcut using the axe, and better tool-drop flavor
@@ -125,106 +126,11 @@ scroll bug were both fixed 2026-08-17, see CHANGELOG.)*
 
 ## Feature requests
 
-### Use a potion outside of combat
-Currently potions can only be used mid-battle. Add a way to consume one
-from the inventory/town screens.
-
-### Enemies should sometimes drop potions
-Confirmed via `js/data/monsters.js`: no monster's `dropTable` currently
-includes `potion` at all — every drop table is material/tool-only (e.g.
-`ironScrap` at 0.3 chance, `axe` at 0.25). Potions are otherwise only
-obtainable from the shop, loot caches, or the comeback-mechanic's pity
-grant. Wants a modest drop chance added to some/all monster drop tables.
-
-### Enemy attacks immediately when its ATB bar fills (currently player
-can always flee)
-If the enemy's turn bar fills before the player's, the enemy should act
-immediately rather than waiting for the player's next input — as-is, the
-player can always choose to flee once the enemy is "ready," which
-defeats the tension of being caught off guard. Needs a look at the ATB
-tick/turn-resolution loop in `js/screens/battleScreen.js`.
-
-### Shop: sell-back for misclicks
-Buying an item by accident currently can't be undone. Add a sell-back
-option (likely at a discount) for the item just purchased, or generally.
-
-### Shop/inventory: distinguish "equipped" from "owned but unequipped"
-The shop and inventory screens don't currently make it visually obvious
-whether an owned item is the one currently equipped versus just sitting
-in inventory.
-
-### Shop sells items with no stat info ("buying blind")
-Shop rows currently render as just `${emoji} ${name} — ${price}g` with
-no stats — no way to tell what Lucky Charm does, or whether Iron Helm
-beats Cloth Cap, before buying. The Inventory screen already has
-stat-comparison logic for owned-but-unequipped items; this would reuse
-that against shop listings too.
-
-### Item tooltips wherever items are shown
-Raised separately from "buying blind" above but the same root gap:
-Timothy's words — "I don't know what different items do unless I'm
-looking in the wrong place." A hover tooltip (or equivalent) showing an
-item's effect/stats would need to work everywhere an item appears, not
-just the shop: inventory, smith material selection, quest rewards. Item
-data (`js/data/items.js`) already has `stats`/`heal`/`price` for this;
-consumables like potions would need it too (currently only
-`heal: 15`, no other descriptive text). Worth deciding whether this
-subsumes the "buying blind" item above or the two ship separately.
-
-### No way to heal outside of combat except losing a fight
-`state.player.hp` is only restored to max in `handleBattleEnd`'s
-`'lost'` branch (js/main.js:468) — winning doesn't heal, and there's no
-in-town rest option. Wants something like an inn, a town "well" tile, or
-auto-restore on returning to town.
-
-### Spice up the battle screen with environmental decoration (trees/cave/etc.)
-The battle screen is currently plain — wants some environmental flavor
-(trees, cave walls, terrain matching the encounter) rather than a bare
-background, so fights feel like they're happening somewhere.
-
-### Hover tooltips for map tiles
-Explain what each tile type does (water, tree, store, smith, cave, door,
-field, mountain, dungeon) on hover. Not implemented anywhere currently.
-
-### Hero emoji customization
-Let the player pick their own hero emoji. Explicitly framed as a future
-pass, not urgent.
-
-### Quest board needs a "turn in all" button
-Currently each completed quest presumably has to be turned in one at a
-time. Add a bulk turn-in action.
-
-### Shop needs bulk-buy buttons (1x / 5x / 10x / 100x)
-Buying currently appears to be one-at-a-time. Add quantity shortcut
-buttons so stocking up on potions/materials doesn't take repeated
-clicks.
-
-### A loot/bestiary reference — what you have, what exists, where it drops
-Timothy's own words: "I have a goblin club, not sure what else I can
-get." Wants a reference list showing owned items plus the full set of
-obtainable items with a hint at where/what drops them (which monster,
-which drop table). Related to the "buying blind" shop item above — both
-are "the player can't see the game's item space" gaps — but this one is
-broader: it's about discoverability of drops, not just shop stat
-comparison. `js/data/monsters.js`'s `dropTable` entries and
-`js/data/items.js` already hold everything this would need to read
-from; no new data model required, just a new read-only view.
-
-### Mini-dungeon caves feel like the same map every time
-Timothy's observation: discovering a cave feels like it leads to the
-same place each time. Checked against the code — not literally one
-shared map, but close enough to explain the feeling: there are exactly
-3 layout variants (`MINI_DUNGEON_VARIANT_IDS` = `miniDungeonA/B/C`,
-`js/systems/miniDungeons.js`), randomly assigned per discovered
-entrance, and only 1 mini-dungeon entrance can exist per wilderness
-screen at a time (`MINI_DUNGEON_CAP_PER_SCREEN = 1`). Find three or
-more caves across a playthrough and you're guaranteed to start
-repeating layouts. Treasure is similarly narrow — a single shared
-6-item pool (`MINI_DUNGEON_TREASURE_ITEM_POOL`) plus a 25-50 gold
-range, regardless of which variant. Wants each cave entrance to feel
-genuinely unique — more layout variants and/or per-cave reward variety,
-not just 3 layouts on rotation. Overlaps with the "non-store equipment
-across the zone" idea under Multi-zone progression above.
+*(all clear — every item that was in this section shipped 2026-08-17;
+see CHANGELOG. One thing was dropped rather than shipped: swapping
+monster emoji to match their silly food names — Timothy likes them as
+they are, e.g. "Slippery Breadstick" for the snake. Not tracked
+anywhere; revisit only if it comes up again for a future zone.)*
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
