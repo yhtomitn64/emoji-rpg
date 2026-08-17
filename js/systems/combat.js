@@ -1,3 +1,5 @@
+import { applyHeal } from './inventory.js';
+
 export const ATB_MAX = 100;
 
 export function calculateDamage(attacker, defender, rng = Math.random) {
@@ -43,6 +45,52 @@ export function rollCrit(rng = Math.random) {
 
 export function applyCritMultiplier(damage, isCrit) {
   return isCrit ? Math.round(damage * CRIT_MULTIPLIER) : damage;
+}
+
+// Single source of truth for "what happens when X attacks Y" - both
+// battleScreen.js (the real UI) and scripts/simulate-balance.js (the
+// headless balance report) call these exact functions, so the damage/crit/
+// knockback/speed-bonus/heal formulas can never drift out of sync between
+// what's shipped and what's being balance-tested. Only the surrounding loop
+// (whose turn it is, when to act) stays separate - that's driven by real
+// user input in one and an AI policy in the other, and can't be unified the
+// same way.
+
+export function resolvePlayerAttack(player, monster, rng = Math.random) {
+  const isCrit = rollCrit(rng);
+  let damage = calculateDamage(player, monster, rng);
+  damage = applyCritMultiplier(damage, isCrit);
+  damage = applySpeedDamageBonus(damage, player.speed);
+  return {
+    damage,
+    isCrit,
+    monsterHp: Math.max(0, monster.hp - damage),
+    monsterAtb: applyKnockback(monster.atb, ATB_KNOCKBACK),
+    playerAtb: 0,
+  };
+}
+
+export function resolveMonsterAttack(monster, player, rng = Math.random) {
+  const isCrit = rollCrit(rng);
+  let damage = calculateDamage(monster, player, rng);
+  damage = applyCritMultiplier(damage, isCrit);
+  return {
+    damage,
+    isCrit,
+    playerHp: Math.max(0, player.hp - damage),
+    playerAtb: applyKnockback(player.atb, ATB_KNOCKBACK),
+    monsterAtb: 0,
+  };
+}
+
+export function resolvePotionUse(player, healAmount, rng = Math.random) {
+  const isCrit = rollCrit(rng);
+  const heal = applyCritMultiplier(healAmount, isCrit);
+  return {
+    heal,
+    isCrit,
+    playerHp: applyHeal(player.hp, player.maxHp, heal),
+  };
 }
 
 export const FLAVOR_LINE_CHANCE = 0.35;

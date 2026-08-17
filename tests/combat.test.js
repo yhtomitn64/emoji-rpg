@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -71,4 +71,44 @@ test('applyEnemySlow reduces speed by the given percent, never below 1', () => {
   assert.equal(applyEnemySlow(10, 15), 9);
   assert.equal(applyEnemySlow(10, 0), 10);
   assert.equal(applyEnemySlow(1, 90), 1);
+});
+
+test('resolvePlayerAttack composes damage, crit, speed bonus, and knockback into one result - the single source both battleScreen.js and scripts/simulate-balance.js call', () => {
+  const player = { attack: 10, defense: 4, speed: SPEED_DAMAGE_BONUS_THRESHOLD, atb: 0 };
+  const monster = { hp: 30, defense: 2, atb: 50 };
+  const result = resolvePlayerAttack(player, monster, () => 0.5);
+  // base 10-2=8, variance 0.85+0.5*0.3=1.0 -> 8, no crit, speed bonus: round(8*1.1)=9
+  assert.equal(result.damage, 9);
+  assert.equal(result.isCrit, false);
+  assert.equal(result.monsterHp, 21);
+  assert.equal(result.monsterAtb, 50 - ATB_KNOCKBACK);
+  assert.equal(result.playerAtb, 0);
+});
+
+test('resolveMonsterAttack composes damage, crit, and knockback the same way, without the player-only speed bonus', () => {
+  const monster = { attack: 8, defense: 2, atb: 0 };
+  const player = { hp: 20, defense: 4, atb: 60 };
+  const result = resolveMonsterAttack(monster, player, () => 0.5);
+  // base 8-4=4, variance 1.0 -> 4, no crit, no speed bonus applies to the monster
+  assert.equal(result.damage, 4);
+  assert.equal(result.isCrit, false);
+  assert.equal(result.playerHp, 16);
+  assert.equal(result.playerAtb, 60 - ATB_KNOCKBACK);
+  assert.equal(result.monsterAtb, 0);
+});
+
+test('resolvePotionUse heals by the given amount, capped at maxHp', () => {
+  const player = { hp: 10, maxHp: 20 };
+  const result = resolvePotionUse(player, 15, () => 0.5);
+  assert.equal(result.isCrit, false);
+  assert.equal(result.heal, 15);
+  assert.equal(result.playerHp, 20);
+});
+
+test('resolvePotionUse can crit-heal, reusing the same crit system as attacks', () => {
+  const player = { hp: 10, maxHp: 100 };
+  const result = resolvePotionUse(player, 15, () => 0);
+  assert.equal(result.isCrit, true);
+  assert.equal(result.heal, Math.round(15 * 1.5));
+  assert.equal(result.playerHp, 10 + Math.round(15 * 1.5));
 });

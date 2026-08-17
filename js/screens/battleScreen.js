@@ -1,7 +1,7 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, applyEnemySlow } from '../systems/combat.js';
-import { getEquipmentBonuses, removeItem, applyHeal } from '../systems/inventory.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse } from '../systems/combat.js';
+import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 
 const VICTORY_PAUSE_MS = 1200;
 
@@ -178,18 +178,17 @@ function handleKeydown(event) {
 }
 
 function playerAttack() {
-  const isCrit = rollCrit();
-  let damage = calculateDamage(playerCombatant, monsterCombatant);
-  damage = applyCritMultiplier(damage, isCrit);
-  damage = applySpeedDamageBonus(damage, playerCombatant.speed);
-  monsterCombatant.hp = Math.max(0, monsterCombatant.hp - damage);
-  log.push(isCrit ? `Critical! You hit ${monsterCombatant.name} for ${damage}!` : `You hit ${monsterCombatant.name} for ${damage}.`);
-  playerCombatant.atb = 0;
-  monsterCombatant.atb = applyKnockback(monsterCombatant.atb, ATB_KNOCKBACK);
+  const result = resolvePlayerAttack(playerCombatant, monsterCombatant);
+  monsterCombatant.hp = result.monsterHp;
+  monsterCombatant.atb = result.monsterAtb;
+  playerCombatant.atb = result.playerAtb;
+  log.push(result.isCrit
+    ? `Critical! You hit ${monsterCombatant.name} for ${result.damage}!`
+    : `You hit ${monsterCombatant.name} for ${result.damage}.`);
   updateHpBars();
   updateAtbBars();
   updateLog();
-  playHitEffect(elements.monsterZone, elements.monsterEmoji, damage, isCrit);
+  playHitEffect(elements.monsterZone, elements.monsterEmoji, result.damage, result.isCrit);
   checkOutcome();
   updateMenu();
 }
@@ -202,10 +201,11 @@ function playerUseItem() {
     return;
   }
   Object.assign(state, removeItem(state, 'potion', 1));
-  const isCrit = rollCrit();
-  const heal = applyCritMultiplier(ITEMS.potion.heal, isCrit);
-  playerCombatant.hp = applyHeal(playerCombatant.hp, playerCombatant.maxHp, heal);
-  log.push(isCrit ? `Critical! You drink a potion and heal ${heal}!` : `You drink a potion and heal ${heal}.`);
+  const result = resolvePotionUse(playerCombatant, ITEMS.potion.heal);
+  playerCombatant.hp = result.playerHp;
+  log.push(result.isCrit
+    ? `Critical! You drink a potion and heal ${result.heal}!`
+    : `You drink a potion and heal ${result.heal}.`);
   updateHpBars();
   updateLog();
   updateMenu();
@@ -226,16 +226,16 @@ function playerFlee() {
 }
 
 function monsterAttack() {
-  const isCrit = rollCrit();
-  let damage = calculateDamage(monsterCombatant, playerCombatant);
-  damage = applyCritMultiplier(damage, isCrit);
-  playerCombatant.hp = Math.max(0, playerCombatant.hp - damage);
-  log.push(isCrit ? `Critical! ${monsterCombatant.name} hits you for ${damage}!` : `${monsterCombatant.name} hits you for ${damage}.`);
-  monsterCombatant.atb = 0;
-  playerCombatant.atb = applyKnockback(playerCombatant.atb, ATB_KNOCKBACK);
+  const result = resolveMonsterAttack(monsterCombatant, playerCombatant);
+  playerCombatant.hp = result.playerHp;
+  playerCombatant.atb = result.playerAtb;
+  monsterCombatant.atb = result.monsterAtb;
+  log.push(result.isCrit
+    ? `Critical! ${monsterCombatant.name} hits you for ${result.damage}!`
+    : `${monsterCombatant.name} hits you for ${result.damage}.`);
   updateHpBars();
   updateLog();
-  playHitEffect(elements.heroZone, elements.heroEmoji, damage, isCrit);
+  playHitEffect(elements.heroZone, elements.heroEmoji, result.damage, result.isCrit);
   checkOutcome();
 }
 

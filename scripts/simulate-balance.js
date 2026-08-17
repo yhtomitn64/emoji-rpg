@@ -20,7 +20,7 @@
  * retunes were explored before being written into `js/data/monsters.js`.
  */
 
-import { calculateDamage, tickGauge, isReady, rollCrit, applyCritMultiplier } from '../js/systems/combat.js';
+import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse } from '../js/systems/combat.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
 import { getEquipmentBonuses } from '../js/systems/inventory.js';
@@ -164,14 +164,24 @@ const MAX_TICKS = 3000;
 const POTION_THRESHOLD = 0.4; // drink when below 40% of max HP
 
 /**
- * Replays battleScreen.js's tick loop:
- *   1. both gauges tick
- *   2. the monster attacks only if it is ready AND the player is not
- *   3. the player acts as soon as their gauge is full
+ * Replays battleScreen.js's tick loop. The actual combat math (damage, crit,
+ * knockback, speed bonus, heal) is NOT reimplemented here - it calls
+ * resolvePlayerAttack/resolveMonsterAttack/resolvePotionUse from
+ * js/systems/combat.js, the exact same functions battleScreen.js calls, so
+ * this script's numbers can't silently drift from the shipped mechanics the
+ * way they did before 2026-08-17 (this file used to hand-roll the same
+ * formulas, and quietly fell behind a battleScreen.js turn-priority fix and
+ * three new combat-pass mechanics before anyone noticed).
  *
- * Step 3 models a player who acts promptly. Stalling on a full gauge freezes
- * the monster forever (step 2's `!isReady(player)` guard), so "acts promptly"
- * is the honest model of real play rather than an exploit.
+ * What's still hand-rolled here, necessarily: the loop *structure* - whose
+ * turn it is, and the "drink a potion when below 40% HP, otherwise attack"
+ * policy. That's an AI stand-in for a human clicking buttons and has no real
+ * battleScreen.js equivalent to share.
+ *   1. both gauges tick
+ *   2. the monster attacks the instant it is ready, unconditionally
+ *   3. potions are off the turn cooldown - drink whenever HP is low,
+ *      independent of gauge readiness
+ *   4. the player attacks as soon as their gauge is full
  */
 function simulateBattle(build, monsterStats) {
   const player = {
@@ -190,30 +200,28 @@ function simulateBattle(build, monsterStats) {
     player.atb = tickGauge(player.atb, player.speed, 1);
     monster.atb = tickGauge(monster.atb, monster.speed, 1);
 
-    if (isReady(monster.atb) && !isReady(player.atb)) {
-      const isCrit = rollCrit();
-      let damage = calculateDamage(monster, player);
-      damage = applyCritMultiplier(damage, isCrit);
-      player.hp = Math.max(0, player.hp - damage);
-      monster.atb = 0;
+    if (potions > 0 && player.hp < player.maxHp * POTION_THRESHOLD) {
+      potions--;
+      potionsUsed++;
+      player.hp = resolvePotionUse(player, ITEMS.potion.heal).playerHp;
+    }
+
+    if (isReady(monster.atb)) {
+      const result = resolveMonsterAttack(monster, player);
+      player.hp = result.playerHp;
+      player.atb = result.playerAtb;
+      monster.atb = result.monsterAtb;
       if (player.hp <= 0) return { outcome: 'lost', hpLeft: 0, potionsUsed, ticks };
     }
 
     if (isReady(player.atb)) {
-      if (potions > 0 && player.hp < player.maxHp * POTION_THRESHOLD) {
-        potions--;
-        potionsUsed++;
-        player.hp = Math.min(player.maxHp, player.hp + ITEMS.potion.heal);
-      } else {
-        const isCrit = rollCrit();
-        let damage = calculateDamage(player, monster);
-        damage = applyCritMultiplier(damage, isCrit);
-        monster.hp = Math.max(0, monster.hp - damage);
-        if (monster.hp <= 0) {
-          return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
-        }
+      const result = resolvePlayerAttack(player, monster);
+      monster.hp = result.monsterHp;
+      monster.atb = result.monsterAtb;
+      player.atb = result.playerAtb;
+      if (monster.hp <= 0) {
+        return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
       }
-      player.atb = 0;
     }
   }
   return { outcome: 'stalemate', hpLeft: player.hp / player.maxHp, potionsUsed, ticks: MAX_TICKS };
