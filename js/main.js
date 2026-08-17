@@ -6,6 +6,7 @@ import * as shopScreen from './screens/shopScreen.js';
 import * as smithScreen from './screens/smithScreen.js';
 import * as statsPanel from './screens/statsPanel.js';
 import * as inventoryScreen from './screens/inventoryScreen.js';
+import * as messageLogScreen from './screens/messageLogScreen.js';
 import * as startScreen from './screens/startScreen.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
@@ -149,6 +150,10 @@ function setHudButtonsEnabled(enabled) {
   if (inventoryButton) {
     inventoryButton.disabled = !enabled;
   }
+  const logButton = document.getElementById('btn-open-log');
+  if (logButton) {
+    logButton.disabled = !enabled;
+  }
 }
 
 function renderHud() {
@@ -171,9 +176,16 @@ function renderHud() {
   inventoryButton.disabled = battleActive;
   inventoryButton.onclick = openInventory;
 
+  const logButton = document.createElement('button');
+  logButton.id = 'btn-open-log';
+  logButton.textContent = '📜 Log';
+  logButton.disabled = battleActive;
+  logButton.onclick = openMessageLog;
+
   hud.appendChild(label);
   hud.appendChild(statsButton);
   hud.appendChild(inventoryButton);
+  hud.appendChild(logButton);
 }
 
 function openStats() {
@@ -197,6 +209,14 @@ function openInventory() {
       },
       onClose: () => unmountOverlay(),
     },
+  });
+}
+
+function openMessageLog() {
+  if (battleActive) return;
+  mountOverlay(messageLogScreen, {
+    state,
+    callbacks: { onClose: () => unmountOverlay() },
   });
 }
 
