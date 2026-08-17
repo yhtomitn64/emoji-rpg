@@ -272,6 +272,7 @@ function goToMap(mapId) {
       onCacheFound: handleCacheFound,
       onEnterMiniDungeon: handleEnterMiniDungeon,
       onLockedGate: handleLockedGate,
+      onToolGateCleared: handleToolGateCleared,
       onGateReward: handleGateReward,
     },
   });
@@ -347,6 +348,23 @@ function handleCacheFound(loot) {
 
 function handleLockedGate(message) {
   showFlavorBanner(message);
+}
+
+function handleToolGateCleared(message) {
+  showFlavorBanner(message);
+}
+
+// A tool item (miningPick, axe) permanently unlocks something the moment
+// you first get it, unlike a regular material - worth a first-time
+// celebration that tells the player what they can now do. Any repeat drop
+// of a tool the player already carries is a quiet, ordinary pickup.
+function grantDropItem(itemId) {
+  const item = ITEMS[itemId];
+  const isNewTool = item.type === 'tool' && !state.inventory.some((entry) => entry.itemId === itemId && entry.quantity > 0);
+  Object.assign(state, addItem(state, itemId, 1));
+  if (isNewTool) {
+    playCelebration(item.emoji, `You found a ${item.name}! ${item.description}.`);
+  }
 }
 
 function handleGateReward(loot) {
@@ -525,7 +543,7 @@ function handleBattleEnd(outcome, monsterId) {
     const gold = Math.round(drop.gold * rewardMultiplier.gold);
     Object.assign(state, addGold(state, gold));
     if (drop.item) {
-      Object.assign(state, addItem(state, drop.item, 1));
+      grantDropItem(drop.item);
     }
     if (monster.isBoss) {
       state.flags.dungeonBossDefeated = true;
@@ -558,7 +576,7 @@ function handleBattleEnd(outcome, monsterId) {
     const gold = Math.round(drop.gold * rewardMultiplier.gold);
     Object.assign(state, addGold(state, gold));
     if (drop.item) {
-      Object.assign(state, addItem(state, drop.item, 1));
+      grantDropItem(drop.item);
     }
     persist();
     renderHud();

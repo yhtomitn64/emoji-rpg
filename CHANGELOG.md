@@ -25,6 +25,14 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Dungeon has its first tool-gated shortcut: an axe-gated thicket tile at
+  `(15, 7)` connects the interior maze directly into the boss corridor,
+  instead of looping back through the top rows. Clearing any tool gate
+  (thicket or mountain) with the required tool now shows a flavor banner
+  ("You cut through the thicket with an Axe!"), symmetric with the
+  existing locked-gate message. First-ever pickup of a tool item
+  (`miningPick`, `axe`) now triggers the celebration effect, telling the
+  player what they can do with it.
 - Outclassed weak mobs can now give up instead of fighting to the death.
   A non-boss monster killable within 3 average hits has a 35% chance per
   encounter to surrender (full win rewards), flee dropping loot

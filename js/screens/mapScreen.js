@@ -5,7 +5,7 @@ import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
 import { resolveStepDiscovery } from '../systems/discovery.js';
-import { hasRequiredTool, getLockedGateMessage, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
+import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
 
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
@@ -82,6 +82,7 @@ function tryMove(dx, dy) {
       callbacks.onLockedGate(getLockedGateMessage(tile.requiresTool));
       return;
     }
+    callbacks.onToolGateCleared(getToolClearedMessage(tile.requiresTool));
   }
 
   state.position = { x: nx, y: ny };
