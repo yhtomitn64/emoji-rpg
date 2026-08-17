@@ -79,3 +79,20 @@ test('every quest-eligible monster still has at least one material drop', () => 
     assert.ok(hasMaterial, `${monsterId} has no material-type drop entry`);
   }
 });
+
+test('orc drops a mining pick and wraith drops an axe, alongside their existing material drop', () => {
+  const orcTools = MONSTERS.orc.dropTable.filter((entry) => ITEMS[entry.itemId].type === 'tool');
+  assert.equal(orcTools.length, 1);
+  assert.equal(orcTools[0].itemId, 'miningPick');
+  assert.equal(orcTools[0].chance, 0.25);
+
+  const wraithTools = MONSTERS.wraith.dropTable.filter((entry) => ITEMS[entry.itemId].type === 'tool');
+  assert.equal(wraithTools.length, 1);
+  assert.equal(wraithTools[0].itemId, 'axe');
+  assert.equal(wraithTools[0].chance, 0.25);
+
+  assert.equal(ITEMS.miningPick.type, 'tool');
+  assert.equal(ITEMS.miningPick.price, 0);
+  assert.equal(ITEMS.axe.type, 'tool');
+  assert.equal(ITEMS.axe.price, 0);
+});
