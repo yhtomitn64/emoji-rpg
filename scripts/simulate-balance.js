@@ -78,6 +78,22 @@ function makeBuild({ name, level, equipment, potions }) {
 }
 
 const BUILDS = [
+  // Near-town tier baseline for the savage-early-game rework: the cheapest
+  // armor piece a level-1 character can actually afford (clothTunic spends
+  // the entire 20g starting purse).
+  makeBuild({
+    name: 'L1 (starter sword + cloth tunic)',
+    level: 1,
+    equipment: { weapon: 'starterSword', body: 'clothTunic' },
+    potions: 2,
+  }),
+  // Far-corner tier baseline: a couple levels and a second cloth piece in.
+  makeBuild({
+    name: 'L4 (starter sword + cloth tunic + cloth cap)',
+    level: 4,
+    equipment: { weapon: 'starterSword', body: 'clothTunic', head: 'clothCap' },
+    potions: 3,
+  }),
   // Rushed the dungeon: barely bought anything, just the free starting sword
   // and the cheapest hat. This is the "under-prepared arrival".
   makeBuild({
@@ -140,7 +156,7 @@ const BUILDS = [
   }),
 ];
 
-const MATCHUPS = ['orc', 'wraith', 'dragon'];
+const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc', 'wraith', 'dragon'];
 
 // --- Battle simulation -------------------------------------------------
 
