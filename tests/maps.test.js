@@ -194,3 +194,23 @@ test('center screen has the town entrance and southeast screen has the dungeon e
   const southeastTileKeys = [...southeastMap.rows.join('')].map((c) => southeastMap.legend[c]);
   assert.ok(southeastTileKeys.includes('dungeonEntrance'));
 });
+
+test('tool-gated tiles appear on the correct screens with the correct tool requirement and reward flag', () => {
+  const eastTileKeys = [...eastMap.rows.join('')].map((c) => eastMap.legend[c]);
+  assert.ok(eastTileKeys.includes('mountain'), 'east must have a mountain gate');
+  assert.equal(TILES.mountain.requiresTool, 'miningPick');
+  assert.equal(TILES.mountain.hasReward, undefined);
+
+  const southwestTileKeys = [...southwestMap.rows.join('')].map((c) => southwestMap.legend[c]);
+  assert.ok(southwestTileKeys.includes('thicketCache'), 'southwest must have a thicketCache gate');
+  assert.equal(TILES.thicketCache.requiresTool, 'axe');
+  assert.equal(TILES.thicketCache.hasReward, true);
+
+  const northwestTileKeys = [...northwestMap.rows.join('')].map((c) => northwestMap.legend[c]);
+  assert.ok(northwestTileKeys.includes('mountainCache'), 'northwest must have a mountainCache gate');
+  assert.equal(TILES.mountainCache.requiresTool, 'miningPick');
+  assert.equal(TILES.mountainCache.hasReward, true);
+
+  const northTileKeys = [...northMap.rows.join('')].map((c) => northMap.legend[c]);
+  assert.ok(northTileKeys.includes('thicketCache'), 'north must have a thicketCache gate');
+});
