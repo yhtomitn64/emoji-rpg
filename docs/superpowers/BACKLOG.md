@@ -24,6 +24,23 @@ mark the first sense of progression. Likely a `state.flags`-style
 one-shot flag (matching the existing `dungeonBossDefeated` flag
 pattern) checked in `handleBattleEnd`'s `'won'` branch.
 
+### Level-up needs to feel special
+Currently a level-up is just stat numbers changing quietly. Wants a real
+moment: a cool animation on the hero emoji, flavor text, "light shooting
+out somewhere or something." Natural pairing with the first-kill
+celebration above — both are "make a progression moment actually land"
+asks, could reasonably share a design pass (e.g. a small reusable
+celebration-effect helper rather than two bespoke animations). Hook
+point is the `leveledUp` branch in `handleBattleEnd` (js/main.js), same
+place the existing partial-heal-at-late-game logic already lives.
+
+### Fun animation for items landing in inventory
+Wants something like items visibly "flying into" the inventory when
+received (a drop, a quest turn-in, etc.) instead of just appearing in a
+list. A third "make the moment land" polish ask alongside the two
+above — could plausibly share the same small celebration/effect
+infrastructure if one gets built.
+
 ### Early-game pace ramps up too fast; the dragon fell quickly
 Timothy's read: the early game *felt* good — genuinely hard, then you
 visibly get stronger — but the ramp accelerates too fast and he had the
@@ -70,6 +87,26 @@ one-off task.
   "Zone 2/3/4" means genuinely new content, not reuse — a much bigger
   scope than anything else currently in this backlog.
 
+### Smaller, sooner: a dragon-zone (dungeon) shortcut using the axe, and better tool-drop flavor
+Two related, more immediately actionable ideas raised alongside the
+multi-zone discussion — smaller than a new zone, could happen well
+before that bigger pass:
+
+- **A shortcut in the dungeon/boss area usable once you have the axe.**
+  The existing tool-gating pass (`docs/superpowers/specs/2026-08-16-
+  metroidvania-tool-gating-design.md`) explicitly only touched the 9
+  wilderness screens, not the dungeon itself — this would be the first
+  gate placed in dungeon territory.
+- **It's currently not obvious you can even use the axe/pick, or where.**
+  Wants flavor text when standing in a zone/tile where a tool-gate is
+  usable, so the player notices the option instead of walking past it.
+  Also wants the *drop moment itself* to be made special — right now
+  `miningPick` (orc, `js/data/monsters.js:59`) and `axe` (wraith,
+  `js/data/monsters.js:71`) drop like any other material, with no
+  indication of what they unlock. Wants a distinct "this is a big deal"
+  moment on pickup that tells the player what they're about to be able
+  to do with it.
+
 ## Bugs
 
 *(none open right now — the boss-tier skip bug and the inventory-panel
@@ -77,17 +114,16 @@ scroll bug were both fixed 2026-08-17, see CHANGELOG.)*
 
 ## Feature requests
 
-### Visual indicator for which dragon difficulty tiers have been beaten
-When approaching the boss fight, show which tiers (0 through
-`MAX_BOSS_TIER`) have already been cleared — stars, trophies, or similar
-— likely on `bossPromptScreen` alongside the existing tier-escalation
-text. No longer blocked — `state.bossTier` now only advances on an
-actual win (fixed 2026-08-17), so "tier cleared" is a trustworthy signal
-to build this on.
-
 ### Use a potion outside of combat
 Currently potions can only be used mid-battle. Add a way to consume one
 from the inventory/town screens.
+
+### Enemies should sometimes drop potions
+Confirmed via `js/data/monsters.js`: no monster's `dropTable` currently
+includes `potion` at all — every drop table is material/tool-only (e.g.
+`ironScrap` at 0.3 chance, `axe` at 0.25). Potions are otherwise only
+obtainable from the shop, loot caches, or the comeback-mechanic's pity
+grant. Wants a modest drop chance added to some/all monster drop tables.
 
 ### Enemy attacks immediately when its ATB bar fills (currently player
 can always flee)
@@ -119,6 +155,11 @@ that against shop listings too.
 in-town rest option. Wants something like an inn, a town "well" tile, or
 auto-restore on returning to town.
 
+### Spice up the battle screen with environmental decoration (trees/cave/etc.)
+The battle screen is currently plain — wants some environmental flavor
+(trees, cave walls, terrain matching the encounter) rather than a bare
+background, so fights feel like they're happening somewhere.
+
 ### Hover tooltips for map tiles
 Explain what each tile type does (water, tree, store, smith, cave, door,
 field, mountain, dungeon) on hover. Not implemented anywhere currently.
@@ -126,6 +167,26 @@ field, mountain, dungeon) on hover. Not implemented anywhere currently.
 ### Hero emoji customization
 Let the player pick their own hero emoji. Explicitly framed as a future
 pass, not urgent.
+
+### Quest board needs a "turn in all" button
+Currently each completed quest presumably has to be turned in one at a
+time. Add a bulk turn-in action.
+
+### Shop needs bulk-buy buttons (1x / 5x / 10x / 100x)
+Buying currently appears to be one-at-a-time. Add quantity shortcut
+buttons so stocking up on potions/materials doesn't take repeated
+clicks.
+
+### A loot/bestiary reference — what you have, what exists, where it drops
+Timothy's own words: "I have a goblin club, not sure what else I can
+get." Wants a reference list showing owned items plus the full set of
+obtainable items with a hint at where/what drops them (which monster,
+which drop table). Related to the "buying blind" shop item above — both
+are "the player can't see the game's item space" gaps — but this one is
+broader: it's about discoverability of drops, not just shop stat
+comparison. `js/data/monsters.js`'s `dropTable` entries and
+`js/data/items.js` already hold everything this would need to read
+from; no new data model required, just a new read-only view.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
@@ -158,6 +219,16 @@ through in a dedicated future combat pass rather than one-off adds:
   "fought a boar, lost" can't help diagnose whether combat numbers are
   behaving as designed without knowing effective attack/defense/HP and
   equipped gear at that moment.
+- **Outclassed weak mobs should give up or flee, not just always fight
+  to the death.** When the player is much stronger than the enemy, wants
+  a chance the mob just surrenders/dies outright and drops loot, or
+  flees (either dropping loot on the way out, or getting away with
+  nothing) — each with its own flavor text and a small unique animation
+  (emoji shrinking, moving away, etc.), rather than every mismatched
+  fight playing out identically. Overlaps with the existing "faster
+  timer against weaker enemies" open question below — both are about
+  trivial fights against outclassed enemies feeling like padding: worth
+  considering together rather than as two unrelated builds.
 
 ### Backburner / uncertain value
 - **Roaming rare monster + mob leveling.** A rare monster that randomly
@@ -171,21 +242,6 @@ through in a dedicated future combat pass rather than one-off adds:
   no multi-monster support at all. Called out as backburner.
 
 ## Balance / design gaps
-
-### Equipment upgrades have no level cap
-`upgradeItem` (js/systems/inventory.js:57-72) and `getItemEffectiveStats`
-(js/systems/inventory.js:74-82) never cap `upgradeLevel` — each upgrade
-just keeps costing more (`upgradeCost` = `UPGRADE_BASE_COST *
-(currentLevel + 1)`, linear, not accelerating) and keeps adding a flat
-+25%/level to the item's stats, forever. Timothy's concern: without a
-cap, there's no reason to ever switch to a new drop — you can just keep
-paying to upgrade your current item to match or beat it, so new loot
-loses its point. Fix direction: add a `MAX_UPGRADE_LEVEL` constant (a
-"few levels" per Timothy) in `js/systems/inventory.js`, have
-`upgradeItem` reject/no-op past the cap, and cover it with a unit test
-(upgrade to cap succeeds, one more attempt past the cap is rejected,
-stats stop increasing past the cap). Confirmed via code read — this
-isn't a maybe, the cap genuinely doesn't exist today.
 
 ### NG+ doesn't reset `lossStreak`
 `resetWorldForNgPlus` (js/systems/ngPlus.js:45-59) resets `bossTier`,
