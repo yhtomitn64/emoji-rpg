@@ -267,16 +267,18 @@ through in a dedicated future combat pass rather than one-off adds:
   "fought a boar, lost" can't help diagnose whether combat numbers are
   behaving as designed without knowing effective attack/defense/HP and
   equipped gear at that moment.
-- **Outclassed weak mobs should give up or flee, not just always fight
-  to the death.** When the player is much stronger than the enemy, wants
-  a chance the mob just surrenders/dies outright and drops loot, or
-  flees (either dropping loot on the way out, or getting away with
-  nothing) — each with its own flavor text and a small unique animation
-  (emoji shrinking, moving away, etc.), rather than every mismatched
-  fight playing out identically. Overlaps with the existing "faster
-  timer against weaker enemies" open question below — both are about
-  trivial fights against outclassed enemies feeling like padding: worth
-  considering together rather than as two unrelated builds.
+- ~~**Outclassed weak mobs should give up or flee, not just always fight
+  to the death.**~~ **Shipped 2026-08-17.** A non-boss monster killable
+  within 3 average hits now has a 35% chance per encounter to surrender
+  (full win rewards), flee dropping loot (gold/item only), or flee
+  empty-handed (nothing) — each with its own battle-log line and a
+  shrink-and-slide flee animation on the monster's emoji. See
+  `isMonsterOutclassed`/`resolveWeakMobEncounter` in `js/systems/combat.js`
+  and the CHANGELOG. Verified end-to-end in-browser (all three outcomes),
+  not just unit tests. Still overlaps with the "faster timer against
+  weaker enemies" open question below for the fights below the surrender
+  threshold that aren't quite trivial either — see the synthesis further
+  down this file for how the two relate.
 
 ### Monster name/stat variants, and a rare near-dragon elite encounter
 A significantly fleshed-out follow-up to the "roaming rare monster" idea
@@ -359,16 +361,23 @@ rather than as three separate builds:
    enemies, but the question of whether that's enough, or whether a
    "quick battle" auto-resolve is wanted, is still open.
 3. **"Outclassed weak mobs should give up or flee"** (Combat pass ideas,
-   above) — a mob-surrender/flee mechanic for exactly this trivial-fight
-   scenario.
+   above) — **shipped 2026-08-17**, a mob-surrender/flee mechanic for
+   exactly this trivial-fight scenario. Doesn't touch monster stats, so
+   it doesn't fight the "zone 1 should keep getting easier" goal below —
+   it just makes the fights you've outgrown resolve faster instead of
+   staying full-length.
 
-Content Scaling (monsters get stronger as the player does) and
-speeding-up-trivial-fights are two different responses to the same
-"old content feels like padding" complaint — worth explicitly deciding
-which one (or both) before building either, rather than picking one
-in isolation. This needs Timothy's steer, not a unilateral retune —
-touches core player-growth-curve/monster-stat constants that shape the
-whole game's feel.
+**Steer (2026-08-17):** Timothy does not want zone 1 to scale to match
+the player — it should keep getting *easier* over time, not track him.
+That rules out Content Scaling as specced (monsters get stronger as the
+player does directly contradicts "easier and easier"). Current lean:
+skip Content Scaling as its own project; the shipped surrender mechanic
+already answers the "old content feels like padding" complaint without
+a treadmill, and the remaining gap (fights below the 3-hit surrender
+threshold that aren't quite trivial either) is what the "faster battle
+timer" open question below would address instead of monster-stat
+scaling. Not fully decided — flagged here so the next session picks up
+the thread instead of re-deriving it.
 
 ## Balance / design gaps
 
