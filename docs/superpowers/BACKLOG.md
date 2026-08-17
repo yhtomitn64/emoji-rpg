@@ -115,6 +115,17 @@ one-off task.
   boss (the dragon, with 3 tiers via the existing boss-rematch system).
   "Zone 2/3/4" means genuinely new content, not reuse — a much bigger
   scope than anything else currently in this backlog.
+- **Randomize the dungeon entrance's location per new character.**
+  Currently hardcoded to one fixed tile on the southeast wilderness
+  screen (`D` in `js/maps/wilderness/southeast.js`'s static map data) —
+  the same spot for every save, always. Wilderness maps aren't
+  per-character-instanced at all today (static shared modules, not
+  generated per playthrough), so this needs either randomly picking
+  which of the 4 corner screens hosts the entrance, or generating/
+  storing a per-save entrance position — a real architecture change,
+  not a data tweak. Natural to bundle with multi-zone work if/when that
+  happens, since new zones will need some kind of per-save placement
+  logic anyway.
 - **Non-store equipment earned from the whole zone, to prep for the next
   one.** Timothy wants unique gear obtainable other ways than the shop:
   a random cave find, clearing tree/mountain terrain with a tool, a
@@ -182,6 +193,16 @@ modifier (person/hand gestures do; animals, objects don't) — worth
 checking which of a larger candidate list actually renders distinct
 tones across browsers before committing to a big list, since a modifier
 silently no-ops on unsupported base emoji.
+
+### Shop: equip gear right after buying it, or offer to
+Buying a piece of gear currently just adds it to inventory — you have
+to separately open Inventory and equip it. Wants either auto-equip on
+purchase, or (Timothy's own "even better") a "Equip now?" prompt right
+after the buy. Note: auto-equipping outright would reverse a deliberate
+call from `docs/superpowers/specs/2026-08-16-inventory-equipment-
+design.md`, which specifically *removed* auto-equip on pickup in favor
+of manual choice — so an opt-in per-purchase prompt (not silent
+auto-equip) is the version that doesn't relitigate that decision.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
@@ -280,6 +301,50 @@ separable pieces:
   with target selection. Depends on a much bigger feature that doesn't
   exist yet — battles are strictly one `monsterId` per encounter today,
   no multi-monster support at all. Called out as backburner.
+
+### The player outpaces near-town/far-corner content well before dungeon tier — three related threads converging on the same gap
+Timothy, 2026-08-17: "leveling up makes you attack so much harder too
+quickly and before I have a chance to really upgrade gear I'm killing
+guys with a few hits and no potions" — reported live at level 5, full
+cloth set, starter sword never upgraded at the smith. Confirmed with
+the balance simulator (new `L5 (starter sword unupgraded, full cloth)`
+baseline, 3000 trials): 100% win / 95-97% HP left / **0 potions used**
+against every near-town monster, and still 70-94% HP left against
+far-corner monsters. Meanwhile dungeon-tier (orc/wraith) and the dragon
+are still a flat 0% win rate at this build — so there's a real cliff:
+near-town/far-corner content goes trivial well before dungeon-tier
+content becomes reachable at all, with seemingly no stretch in between.
+
+This isn't a new problem — it was **explicitly anticipated and
+deliberately deferred**: `docs/superpowers/specs/2026-08-16-player-
+growth-curve-design.md`'s scope section says outright: "Making regular
+(non-dragon) monsters scale with the player — that's the deliberately
+separate, sequenced-next 'Content Scaling' project." That project was
+named but never actually specced or built — grepped the whole
+`docs/superpowers/` tree, it only exists as that one line. Real
+evidence now says it's needed.
+
+Three backlog threads are all pointing at the same underlying gap
+(monsters are static, the player isn't) and are worth deciding together
+rather than as three separate builds:
+1. **This item** — regular monster stats don't scale with the player at
+   all, so old-tier content has a hard trivialization point.
+2. **"Faster battle timer against weaker enemies?"** (Open question,
+   below) — already-informed finding that the existing speed-stat
+   system organically produces *some* speed-up against outleveled
+   enemies, but the question of whether that's enough, or whether a
+   "quick battle" auto-resolve is wanted, is still open.
+3. **"Outclassed weak mobs should give up or flee"** (Combat pass ideas,
+   above) — a mob-surrender/flee mechanic for exactly this trivial-fight
+   scenario.
+
+Content Scaling (monsters get stronger as the player does) and
+speeding-up-trivial-fights are two different responses to the same
+"old content feels like padding" complaint — worth explicitly deciding
+which one (or both) before building either, rather than picking one
+in isolation. This needs Timothy's steer, not a unilateral retune —
+touches core player-growth-curve/monster-stat constants that shape the
+whole game's feel.
 
 ## Balance / design gaps
 
