@@ -262,6 +262,20 @@ through in a dedicated future combat pass rather than one-off adds:
   combat than the current "dragon warrior style." No ability system
   exists anywhere in `js/` today — this is the biggest of the group,
   foundational for some of the others (e.g. multi-enemy targeting below).
+- **Research: how do other games avoid pure exponential stat inflation?**
+  Timothy, 2026-08-17, raised alongside the pacing-curve discussion —
+  rather than only fighting "numbers get big and trivialize old content"
+  by tuning the XP/stat curve tighter and tighter, look at how other
+  games sidestep the problem structurally. Rough idea: as the player
+  progresses, power could come increasingly from *ability/skill
+  synergies* (qualitative build choices) rather than ever-bigger raw
+  attack/defense numbers, so late-game power growth can stay flatter
+  without old content going stale as fast. Directly depends on the
+  ability system above existing first. If abilities get real cooldowns
+  or cast-timing, keep those loose/tight enough that active-ability play
+  doesn't gate less-skilled or more-casual players out of viable builds.
+  Explicitly rough/unrefined — a research question to explore before any
+  design doc, not a spec'd idea yet.
 - **Status log could snapshot effective stats/gear per entry.** A
   refinement of the now-shipped status log — right now an entry like
   "fought a boar, lost" can't help diagnose whether combat numbers are
