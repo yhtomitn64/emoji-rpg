@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createNewGame } from '../js/state.js';
 import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
-  getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL,
+  getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal,
 } from '../js/systems/inventory.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
@@ -161,4 +161,10 @@ test('unequipItem moves the equipped item back to inventory and empties the slot
 test('unequipItem throws when the slot is already empty', () => {
   const state = createNewGame(); // head slot empty
   assert.throws(() => unequipItem(state, 'head'));
+});
+
+test('applyHeal adds the amount without exceeding maxHp', () => {
+  assert.equal(applyHeal(10, 20, 5), 15);
+  assert.equal(applyHeal(18, 20, 15), 20);
+  assert.equal(applyHeal(20, 20, 15), 20);
 });

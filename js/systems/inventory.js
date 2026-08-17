@@ -51,6 +51,10 @@ export function unequipItem(state, slot) {
   return next;
 }
 
+export function applyHeal(hp, maxHp, amount) {
+  return Math.min(maxHp, hp + amount);
+}
+
 export function upgradeCost(currentLevel) {
   return UPGRADE_BASE_COST * (currentLevel + 1);
 }

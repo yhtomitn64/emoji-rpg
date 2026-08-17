@@ -1,7 +1,7 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine } from '../systems/combat.js';
-import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
+import { getEquipmentBonuses, removeItem, applyHeal } from '../systems/inventory.js';
 
 const VICTORY_PAUSE_MS = 1200;
 
@@ -185,7 +185,7 @@ function playerUseItem() {
   }
   Object.assign(state, removeItem(state, 'potion', 1));
   const heal = ITEMS.potion.heal;
-  playerCombatant.hp = Math.min(playerCombatant.maxHp, playerCombatant.hp + heal);
+  playerCombatant.hp = applyHeal(playerCombatant.hp, playerCombatant.maxHp, heal);
   log.push(`You drink a potion and heal ${heal}.`);
   playerCombatant.atb = 0;
   updateHpBars();

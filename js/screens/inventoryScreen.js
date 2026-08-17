@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { getItemStatDelta, equipItem, unequipItem } from '../systems/inventory.js';
+import { getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses } from '../systems/inventory.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
 
@@ -54,9 +54,14 @@ function renderMaterialRows() {
 function renderConsumableRows() {
   const consumableEntries = state.inventory.filter((entry) => ITEMS[entry.itemId].type === 'consumable');
   if (consumableEntries.length === 0) return '<div class="inventory-empty">No potions.</div>';
+  const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+  const atFullHp = state.player.hp >= effectiveMaxHp;
   return consumableEntries.map((entry) => {
     const item = ITEMS[entry.itemId];
-    return `<div class="inventory-row">${item.emoji} ${item.name} x${entry.quantity}</div>`;
+    return `<div class="inventory-row">
+      <span>${item.emoji} ${item.name} x${entry.quantity}</span>
+      <button data-use="${entry.itemId}" ${atFullHp ? 'disabled' : ''}>Use</button>
+    </div>`;
   }).join('');
 }
 
@@ -100,6 +105,17 @@ function render() {
   rootEl.querySelectorAll('button[data-unequip]').forEach((btn) => {
     btn.onclick = () => {
       Object.assign(state, unequipItem(state, btn.dataset.unequip));
+      callbacks.onChange();
+      render();
+    };
+  });
+  rootEl.querySelectorAll('button[data-use]').forEach((btn) => {
+    btn.onclick = () => {
+      const itemId = btn.dataset.use;
+      const item = ITEMS[itemId];
+      const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+      Object.assign(state, removeItem(state, itemId, 1));
+      state.player.hp = applyHeal(state.player.hp, effectiveMaxHp, item.heal);
       callbacks.onChange();
       render();
     };
