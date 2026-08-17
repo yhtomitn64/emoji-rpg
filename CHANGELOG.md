@@ -24,6 +24,36 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-17
+
+### Changed
+- Buttons across the whole game now have real styling (background,
+  border, rounded corners, hover/active/disabled states) instead of bare
+  default browser buttons, and overlay panels / shop / smith / quest /
+  start screens use much more of the viewport (`min(90vw, 720px)`
+  instead of a fixed 480px) so they no longer look tiny on a large
+  monitor. Inner scroll areas (message log, inventory) now cap at 55vh
+  instead of a fixed 320px for the same reason.
+
+## [0.2.1] - 2026-08-17
+
+### Fixed
+- Boss rematch prompt: "Not yet" previously meant "decline the tier
+  escalation, but fight anyway" — once a player was already at max
+  tier there was nothing to decline, so the same button silently
+  started a fight. Buttons are now honest: Fight always fights, Not
+  yet always walks away with no fight, New Game+ unchanged.
+
+## [0.2.0] - 2026-08-17
+
+### Added
+- Equipment upgrades are now capped at `MAX_UPGRADE_LEVEL = 3` — gear
+  could previously be upgraded indefinitely, removing any incentive to
+  switch to a new drop.
+- The boss rematch prompt now shows which dragon difficulty tiers have
+  actually been cleared (stars), now that tier progress only advances on
+  a real win.
+
 ## [0.1.1] - 2026-08-17
 
 ### Fixed
