@@ -26,7 +26,8 @@ import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
 import { FLAVOR_TEXT } from './data/flavorText.js';
 import { showFlavorBanner } from './screens/flavorBanner.js';
-import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION } from './systems/leveling.js';
+import { playCelebration } from './screens/celebrationEffect.js';
+import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
@@ -104,6 +105,9 @@ function startGame(loadedState, slotId) {
   }
   if (!state.lossStreak) {
     state.lossStreak = 0;
+  }
+  if (state.flags.firstKillCelebrated === undefined) {
+    state.flags.firstKillCelebrated = hasEverKilledSomething(state.player);
   }
   renderHud();
   goToMap(state.map);
@@ -443,6 +447,10 @@ function handleBattleEnd(outcome, monsterId) {
 
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];
+    if (!state.flags.firstKillCelebrated) {
+      state.flags.firstKillCelebrated = true;
+      playCelebration('🎉', 'First blood! You feel like a real adventurer now.');
+    }
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
     const baseXp = resolveBattleXp(bossTierXp, monster);
     const xp = Math.round(baseXp * rewardMultiplier.xp);
@@ -454,6 +462,7 @@ function handleBattleEnd(outcome, monsterId) {
       state.player.hp = state.player.level >= LATE_GAME_LEVEL_THRESHOLD
         ? Math.round(preLevelHp + (effectiveMaxHp - preLevelHp) * LEVEL_UP_PARTIAL_HEAL_FRACTION)
         : effectiveMaxHp;
+      playCelebration('⭐', `Level up! You are now level ${state.player.level}.`);
     }
 
     const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };

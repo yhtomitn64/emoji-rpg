@@ -8,7 +8,7 @@ export function createNewGame() {
     inventory: [{ itemId: 'potion', quantity: 2 }],
     map: 'center',
     position: null,
-    flags: { dungeonBossDefeated: false },
+    flags: { dungeonBossDefeated: false, firstKillCelebrated: false },
     visited: {},
     seenScreens: {},
     caches: {},

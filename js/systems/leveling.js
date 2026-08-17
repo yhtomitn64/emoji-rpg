@@ -43,3 +43,7 @@ export function applyXp(player, xpGained) {
     leveledUp,
   };
 }
+
+export function hasEverKilledSomething(player) {
+  return player.level > 1 || player.xp > 0;
+}

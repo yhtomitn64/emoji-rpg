@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { xpForLevel, applyXp } from '../js/systems/leveling.js';
+import { xpForLevel, applyXp, hasEverKilledSomething } from '../js/systems/leveling.js';
 
 test('xpForLevel increases with level', () => {
   assert.ok(xpForLevel(2) > xpForLevel(1));
@@ -91,4 +91,13 @@ test('applyXp on a multi-level jump crossing the level-10 boundary uses partial 
   assert.equal(next.defense, 12);
   assert.equal(next.speed, 13);
   assert.equal(next.hp, 25);
+});
+
+test('hasEverKilledSomething is false only for a brand-new, untouched character', () => {
+  assert.equal(hasEverKilledSomething({ level: 1, xp: 0 }), false);
+});
+
+test('hasEverKilledSomething is true once a character has any level or xp progress', () => {
+  assert.equal(hasEverKilledSomething({ level: 2, xp: 0 }), true);
+  assert.equal(hasEverKilledSomething({ level: 1, xp: 5 }), true);
 });
