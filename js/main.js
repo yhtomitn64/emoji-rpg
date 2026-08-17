@@ -97,6 +97,9 @@ function startGame(loadedState, slotId) {
       direWolf: 0, spider: 0, orc: 0, wraith: 0,
     };
   }
+  if (!state.gateRewards) {
+    state.gateRewards = {};
+  }
   renderHud();
   goToMap(state.map);
 }

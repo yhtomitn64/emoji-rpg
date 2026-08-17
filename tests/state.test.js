@@ -25,6 +25,7 @@ test('createNewGame returns a fresh default state', () => {
     boar: 0, bat: 0, snake: 0, goblin: 0,
     direWolf: 0, spider: 0, orc: 0, wraith: 0,
   });
+  assert.deepEqual(state.gateRewards, {});
 });
 
 test('serializeState and deserializeState round-trip', () => {
