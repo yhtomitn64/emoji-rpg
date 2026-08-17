@@ -47,10 +47,32 @@ starting at level 10) — it deliberately left levels 1-9 untouched,
 reasoning "already tuned, nobody complained about it." This is new
 feedback that may reopen that boundary, or may be a different axis
 entirely (time/levels-to-reach-the-dragon, not per-level power vs. a
-fixed monster). Before any change, re-run
-`scripts/simulate-balance.js` (already exists, used for exactly this
-kind of tuning question) to see where the actual numbers land, rather
-than guessing at new constants.
+fixed monster).
+
+**Update (2026-08-17):** Timothy separately reported a fresh new game
+feeling like "can't actually beat any guys until you die a few times" —
+possibly the opposite complaint (too hard at the very start) rather
+than too easy. Investigated with `scripts/simulate-balance.js` (which
+this session also fixed to share its combat math directly with
+`js/systems/combat.js` instead of a hand-rolled, drifted copy — see
+CHANGELOG). Real numbers for a level-1 character with the one armor
+piece the starting 20g affords, 3000 trials each: boar 100% win (57%
+HP left avg), bat 100% (54%), snake 97% (39%), goblin 100% (54%). Every
+near-town matchup in isolation is genuinely winnable.
+
+The simulator only tests fights **in isolation** — full HP and full
+potions every trial. Real play doesn't work that way: HP/potions carry
+over fight to fight until a town trip (winning doesn't heal; the only
+free out-of-combat heal is the town well added earlier this session),
+so a string of several 97%-favorable fights back to back can plausibly
+compound into real death risk even though no single matchup is unfair.
+This is a real hypothesis, not confirmed — nobody has simulated a
+*sequence* of fights with carried-over HP/potions between town trips,
+only single isolated ones. Worth asking Timothy directly (did he buy
+armor first? how many fights before returning to town?) and/or
+extending the simulator to model a multi-fight sequence before changing
+any monster stats — the single-fight data doesn't support "too hard,"
+so don't retune blind.
 
 ## Multi-zone progression (big idea — needs its own design pass)
 
@@ -126,11 +148,29 @@ scroll bug were both fixed 2026-08-17, see CHANGELOG.)*
 
 ## Feature requests
 
-*(all clear — every item that was in this section shipped 2026-08-17;
+*(Everything that was originally in this section shipped 2026-08-17;
 see CHANGELOG. One thing was dropped rather than shipped: swapping
 monster emoji to match their silly food names — Timothy likes them as
 they are, e.g. "Slippery Breadstick" for the snake. Not tracked
-anywhere; revisit only if it comes up again for a future zone.)*
+anywhere; revisit only if it comes up again for a future zone. Two new
+items below, raised mid-combat-pass.)*
+
+### Log out / back to title screen, to switch characters
+No way to leave the current character and get back to the start
+screen's slot list without closing the tab. Needs a HUD/menu action
+that unmounts back to `mountStartScreen()` (js/main.js) — presumably
+with a confirmation given it's mid-game, not a destructive action but
+an unexpected one if triggered accidentally.
+
+### Hero emoji picker needs way more options, including skin tones
+The current picker (`HERO_EMOJI_OPTIONS` in js/state.js) is a curated
+list of 8 emoji with no skin-tone variants. Wants a much larger
+selection and real skin-tone support. Unicode skin-tone modifiers
+(U+1F3FB–U+1F3FF) only apply to emoji that support the Fitzpatrick
+modifier (person/hand gestures do; animals, objects don't) — worth
+checking which of a larger candidate list actually renders distinct
+tones across browsers before committing to a big list, since a modifier
+silently no-ops on unsupported base emoji.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
