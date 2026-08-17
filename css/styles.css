@@ -294,6 +294,13 @@ button:focus-visible {
   40% { filter: drop-shadow(0 0 10px #4ade80) brightness(1.25); }
   100% { filter: none; }
 }
+.battle-flee-shrink {
+  animation: battle-flee-shrink 0.9s ease-in forwards;
+}
+@keyframes battle-flee-shrink {
+  0% { transform: scale(1) translateX(0); opacity: 1; }
+  100% { transform: scale(0.2) translateX(60px); opacity: 0; }
+}
 .battle-damage-number {
   position: absolute;
   top: 10px;

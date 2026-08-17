@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -162,6 +162,19 @@ function playReviveEffect(zoneEl, emojiEl) {
   zoneEl.classList.add('battle-revive-glow');
 }
 
+const WEAK_MOB_LOG_MESSAGES = {
+  surrender: (name) => `${name} surrenders!`,
+  'fled-with-loot': (name) => `${name} flees, dropping loot!`,
+  'fled-empty': (name) => `${name} flees!`,
+};
+
+function playWeakMobFleeEffect(emojiEl) {
+  // Only the emoji animates (shrink + slide away) - it's nested inside the
+  // zone, so adding the transform to both would compound into a double
+  // shrink/translate instead of one clean flee motion.
+  emojiEl.classList.add('battle-flee-shrink');
+}
+
 function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
@@ -286,6 +299,16 @@ export function mount(root, props) {
   buildDom();
   updateHpBars();
   updateAtbBars();
+
+  const weakMobOutcome = resolveWeakMobEncounter(playerCombatant, monsterCombatant, Boolean(MONSTERS[monsterId].isBoss));
+  if (weakMobOutcome) {
+    log.push(WEAK_MOB_LOG_MESSAGES[weakMobOutcome](monsterCombatant.name));
+    updateLog();
+    playWeakMobFleeEffect(elements.monsterEmoji);
+    endBattle(weakMobOutcome);
+    return;
+  }
+
   updateLog();
   updateMenu();
   intervalId = setInterval(tick, 300);

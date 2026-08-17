@@ -24,6 +24,15 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- Outclassed weak mobs can now give up instead of fighting to the death.
+  A non-boss monster killable within 3 average hits has a 35% chance per
+  encounter to surrender (full win rewards), flee dropping loot
+  (gold/item only), or flee empty-handed (nothing) — each with its own
+  battle-log line and a shrink-and-slide-away animation on the monster's
+  emoji, resolved instantly in `battleScreen.js`'s `mount()` before the
+  normal ATB tick loop starts.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed

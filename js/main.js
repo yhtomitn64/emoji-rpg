@@ -500,7 +500,7 @@ function handleBattleEnd(outcome, monsterId) {
   };
   showFlavorBanner(formatBattleOutcomeMessage(outcome, MONSTERS[monsterId].name, playerSnapshot));
 
-  if (outcome === 'won') {
+  if (outcome === 'won' || outcome === 'surrender') {
     const monster = MONSTERS[monsterId];
     if (!state.flags.firstKillCelebrated) {
       state.flags.firstKillCelebrated = true;
@@ -550,7 +550,19 @@ function handleBattleEnd(outcome, monsterId) {
     persist();
     renderHud();
     goToMap('town');
-  } else if (outcome === 'fled') {
+  } else if (outcome === 'fled-with-loot') {
+    const monster = MONSTERS[monsterId];
+    const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
+    const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
+    const drop = rollDrop(scaledMonster);
+    const gold = Math.round(drop.gold * rewardMultiplier.gold);
+    Object.assign(state, addGold(state, gold));
+    if (drop.item) {
+      Object.assign(state, addItem(state, drop.item, 1));
+    }
+    persist();
+    renderHud();
+  } else if (outcome === 'fled' || outcome === 'fled-empty') {
     persist();
     renderHud();
   }
