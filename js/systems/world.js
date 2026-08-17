@@ -9,6 +9,15 @@ export function isWalkableAt(map, x, y) {
   return Boolean(tile && tile.walkable);
 }
 
+export function isValidSavedPosition(map, x, y) {
+  const row = map.rows[y];
+  if (!row) return false;
+  const char = row[x];
+  if (!char) return false;
+  const tile = TILES[map.legend[char]];
+  return Boolean(tile && (tile.walkable || tile.requiresTool));
+}
+
 export function directionFromDelta(dx, dy) {
   if (dx === 1) return 'east';
   if (dx === -1) return 'west';

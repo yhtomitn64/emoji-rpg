@@ -1,3 +1,5 @@
+import { ITEMS } from '../data/items.js';
+
 export const MAX_NG_PLUS_CYCLE = 2;
 export const NG_PLUS_HP_MULTIPLIER = 2;
 export const NG_PLUS_COMBAT_MULTIPLIER = 1.25;
@@ -26,10 +28,18 @@ export function getNgPlusRewardMultiplier(cycle) {
 
 export function scaleDropTable(dropTable, cycle) {
   const multiplier = NG_PLUS_DROP_CHANCE_MULTIPLIER ** cycle;
-  const scaled = dropTable.map((entry) => ({ ...entry, chance: entry.chance * multiplier }));
-  const total = scaled.reduce((sum, entry) => sum + entry.chance, 0);
+  const isTool = (entry) => ITEMS[entry.itemId] && ITEMS[entry.itemId].type === 'tool';
+
+  const scaled = dropTable.map((entry) => (
+    isTool(entry) ? entry : { ...entry, chance: entry.chance * multiplier }
+  ));
+
+  const total = scaled.reduce((sum, entry) => (isTool(entry) ? sum : sum + entry.chance), 0);
   if (total <= 1) return scaled;
-  return scaled.map((entry) => ({ ...entry, chance: entry.chance / total }));
+
+  return scaled.map((entry) => (
+    isTool(entry) ? entry : { ...entry, chance: entry.chance / total }
+  ));
 }
 
 export function resetWorldForNgPlus(state) {
@@ -39,6 +49,7 @@ export function resetWorldForNgPlus(state) {
     visited: {},
     seenScreens: {},
     caches: {},
+    gateRewards: {},
     miniDungeons: {},
     activeMiniDungeon: null,
     bossTier: 0,

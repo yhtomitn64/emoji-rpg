@@ -64,6 +64,25 @@ test('scaleDropTable scales up a table with headroom (sum under 1) without needi
   assertClose(scaled[1].chance, 0.3);
 });
 
+test('scaleDropTable leaves a tool entry untouched and excludes it from the normalization sum', () => {
+  // Orc's real dropTable: [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'miningPick', chance: 0.25 }]
+  // At cycle 2 (1.5^2 = 2.25), naive scaling would total 0.55 * 2.25 = 1.2375 and trigger
+  // normalization, cutting orcTusk's chance. With the tool entry excluded from scaling and
+  // from the normalization sum, orcTusk alone (0.3 * 2.25 = 0.675) never exceeds 1.
+  const scaled = scaleDropTable(MONSTERS.orc.dropTable, 2);
+  const tuskEntry = scaled.find((e) => e.itemId === 'orcTusk');
+  const pickEntry = scaled.find((e) => e.itemId === 'miningPick');
+  assert.equal(pickEntry.chance, 0.25);
+  assertClose(tuskEntry.chance, 0.675);
+});
+
+test('scaleDropTable preserves entry order and does not mutate the original table', () => {
+  const original = MONSTERS.orc.dropTable.map((e) => ({ ...e }));
+  const scaled = scaleDropTable(MONSTERS.orc.dropTable, 2);
+  assert.deepEqual(scaled.map((e) => e.itemId), ['orcTusk', 'miningPick']);
+  assert.deepEqual(MONSTERS.orc.dropTable, original);
+});
+
 test('canStartNgPlus requires the boss defeated at least once and below the cap', () => {
   assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: false }, ngPlusCycle: 0 }), false);
   assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: true }, ngPlusCycle: 0 }), true);
@@ -82,6 +101,7 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   state.visited = { center: { '1,1': true } };
   state.seenScreens = { center: true };
   state.caches = { center: { '2,2': true } };
+  state.gateRewards = { center: { '4,4': true } };
   state.miniDungeons = { center: { '3,3': { variantId: 'miniDungeonA', treasureTaken: false } } };
   state.activeMiniDungeon = { screenId: 'center', x: 3, y: 3 };
   state.bossTier = 2;
@@ -101,6 +121,7 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   assert.deepEqual(reset.visited, {});
   assert.deepEqual(reset.seenScreens, {});
   assert.deepEqual(reset.caches, {});
+  assert.deepEqual(reset.gateRewards, {});
   assert.deepEqual(reset.miniDungeons, {});
   assert.equal(reset.activeMiniDungeon, null);
   assert.equal(reset.bossTier, 0);

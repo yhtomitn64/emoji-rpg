@@ -28,7 +28,7 @@ import { showFlavorBanner } from './screens/flavorBanner.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, getEquipmentBonuses } from './systems/inventory.js';
-import { computeEdgeLandingPosition, isWalkableAt } from './systems/world.js';
+import { computeEdgeLandingPosition, isWalkableAt, isValidSavedPosition } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
@@ -67,7 +67,7 @@ function startGame(loadedState, slotId) {
   if (!state.position) {
     state.position = { ...MAPS[state.map].startPosition };
   }
-  if (!isWalkableAt(MAPS[state.map], state.position.x, state.position.y)) {
+  if (!isValidSavedPosition(MAPS[state.map], state.position.x, state.position.y)) {
     state.position = { ...MAPS[state.map].startPosition };
   }
   if (!state.visited) {
