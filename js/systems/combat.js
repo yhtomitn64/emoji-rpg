@@ -14,6 +14,12 @@ export function isReady(atb) {
   return atb >= ATB_MAX;
 }
 
+export const ATB_KNOCKBACK = 15;
+
+export function applyKnockback(atb, amount) {
+  return Math.max(0, atb - amount);
+}
+
 export const CRIT_CHANCE = 0.1;
 export const CRIT_MULTIPLIER = 1.5;
 

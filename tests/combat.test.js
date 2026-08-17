@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -54,4 +54,10 @@ test('pickAppearLine picks a flavor line by index when the chance roll hits', ()
   let i = 0;
   const rng = () => values[i++];
   assert.equal(pickAppearLine(monster, rng), 'Line B');
+});
+
+test('applyKnockback subtracts a flat amount from atb, never going below 0', () => {
+  assert.equal(applyKnockback(50, ATB_KNOCKBACK), 50 - ATB_KNOCKBACK);
+  assert.equal(applyKnockback(5, ATB_KNOCKBACK), 0);
+  assert.equal(applyKnockback(0, ATB_KNOCKBACK), 0);
 });
