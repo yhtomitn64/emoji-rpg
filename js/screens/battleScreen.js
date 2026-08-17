@@ -46,9 +46,15 @@ function percent(value, max) {
   return Math.max(0, Math.min(100, (value / max) * 100));
 }
 
+function battleDecoration() {
+  const isCave = state.map === 'dungeon' || state.map.startsWith('miniDungeon');
+  return isCave ? '🪨 ⛏️ 🪨' : '🌲 🌳 🌲';
+}
+
 function buildDom() {
   rootEl.innerHTML = `
     <div class="overlay-panel battle-screen">
+      <div class="battle-decoration">${battleDecoration()}</div>
       <div class="battle-main">
         <div class="battle-combatant" id="battle-monster-zone">
           <div class="battle-emoji battle-monster-emoji" id="battle-monster-emoji">${monsterCombatant.emoji}</div>
