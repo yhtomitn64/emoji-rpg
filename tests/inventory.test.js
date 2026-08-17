@@ -4,6 +4,7 @@ import { createNewGame } from '../js/state.js';
 import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
+  maxAffordableQuantity,
 } from '../js/systems/inventory.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
@@ -173,4 +174,11 @@ test('sellPrice is half the listed price, rounded down', () => {
   assert.equal(sellPrice(30), 15);
   assert.equal(sellPrice(15), 7);
   assert.equal(sellPrice(0), 0);
+});
+
+test('maxAffordableQuantity caps the requested quantity to what gold can afford', () => {
+  assert.equal(maxAffordableQuantity(100, 10, 100), 10);
+  assert.equal(maxAffordableQuantity(100, 10, 5), 5);
+  assert.equal(maxAffordableQuantity(5, 10, 100), 0);
+  assert.equal(maxAffordableQuantity(100, 0, 5), 5);
 });

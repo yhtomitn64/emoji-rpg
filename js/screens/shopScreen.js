@@ -1,5 +1,7 @@
 import { ITEMS } from '../data/items.js';
-import { spendGold, addItem, removeItem, addGold, sellPrice } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity } from '../systems/inventory.js';
+
+const BUY_QUANTITIES = [1, 5, 10, 100];
 
 const CATALOG = [
   'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves',
@@ -15,10 +17,16 @@ function render() {
     const item = ITEMS[itemId];
     const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId);
     const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
+    const buyButtons = BUY_QUANTITIES.map((qty) => {
+      const affordable = maxAffordableQuantity(state.player.gold, item.price, qty) === qty;
+      return `<button data-item="${itemId}" data-qty="${qty}" ${affordable ? '' : 'disabled'}>Buy ${qty}x</button>`;
+    }).join('');
     return `<div class="shop-row">
       <span>${item.emoji} ${item.name} — ${item.price}g${ownedQty > 0 ? ` (own ${ownedQty})` : ''}</span>
-      <button data-item="${itemId}">Buy</button>
-      <button data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
+      <span class="shop-row-buttons">
+        ${buyButtons}
+        <button data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
+      </span>
     </div>`;
   }).join('');
 
@@ -31,7 +39,7 @@ function render() {
   `;
 
   rootEl.querySelectorAll('button[data-item]').forEach((btn) => {
-    btn.onclick = () => buyItem(btn.dataset.item);
+    btn.onclick = () => buyItem(btn.dataset.item, Number(btn.dataset.qty));
   });
   rootEl.querySelectorAll('button[data-sell]').forEach((btn) => {
     btn.onclick = () => sellItem(btn.dataset.sell);
@@ -39,12 +47,13 @@ function render() {
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
 }
 
-function buyItem(itemId) {
+function buyItem(itemId, quantity = 1) {
   const item = ITEMS[itemId];
-  if (state.player.gold < item.price) return;
+  const affordableQty = maxAffordableQuantity(state.player.gold, item.price, quantity);
+  if (affordableQty < quantity) return;
 
-  let next = spendGold(state, item.price);
-  next = addItem(next, itemId, 1);
+  let next = spendGold(state, item.price * quantity);
+  next = addItem(next, itemId, quantity);
   Object.assign(state, next);
   callbacks.onPurchase();
   render();

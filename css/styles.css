@@ -137,6 +137,13 @@ button:focus-visible {
 .shop-row, .smith-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 0; border-bottom: 1px solid #444;
+  gap: 12px;
+}
+.shop-row-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
 }
 .slot-row {
   display: flex; justify-content: space-between; align-items: center;

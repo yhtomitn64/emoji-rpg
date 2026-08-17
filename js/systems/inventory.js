@@ -59,6 +59,11 @@ export function sellPrice(price) {
   return Math.floor(price / 2);
 }
 
+export function maxAffordableQuantity(gold, price, requested) {
+  if (price <= 0) return requested;
+  return Math.min(requested, Math.floor(gold / price));
+}
+
 export function upgradeCost(currentLevel) {
   return UPGRADE_BASE_COST * (currentLevel + 1);
 }
