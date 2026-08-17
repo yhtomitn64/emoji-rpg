@@ -234,7 +234,7 @@ function tick() {
   playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
   monsterCombatant.atb = tickGauge(monsterCombatant.atb, monsterCombatant.speed, 1);
 
-  if (isReady(monsterCombatant.atb) && !isReady(playerCombatant.atb)) {
+  if (isReady(monsterCombatant.atb)) {
     monsterAttack();
   }
 
