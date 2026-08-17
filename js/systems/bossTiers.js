@@ -40,6 +40,15 @@ export function resolveBossTierAfterWin(currentTier, attemptedTier) {
   return Math.max(currentTier, attemptedTier);
 }
 
+export function getClearedTierList(state) {
+  const defeated = Boolean(state.flags.dungeonBossDefeated);
+  const tiers = [];
+  for (let tier = 0; tier <= MAX_BOSS_TIER; tier += 1) {
+    tiers.push(defeated && tier <= state.bossTier);
+  }
+  return tiers;
+}
+
 export function resolveBattleXp(pendingBossXp, baseMonster) {
   return pendingBossXp !== null ? pendingBossXp : baseMonster.xp;
 }

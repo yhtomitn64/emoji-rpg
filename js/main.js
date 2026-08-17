@@ -31,7 +31,7 @@ import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
-import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, nextBossTierToAttempt, resolveBossTierAfterWin } from './systems/bossTiers.js';
+import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, nextBossTierToAttempt, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
@@ -359,6 +359,7 @@ function handleBossBattle() {
     text: pickBossReturnFlavor(),
     showTierEscalation: offerTierEscalation,
     showNgPlus: offerNgPlus,
+    clearedTiers: getClearedTierList(state),
     callbacks: {
       onAccept: () => {
         startBossFight(nextBossTierToAttempt(state.bossTier));

@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { upgradeCost, upgradeItem } from '../systems/inventory.js';
+import { upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL } from '../systems/inventory.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
 
@@ -21,6 +21,13 @@ function render() {
 
     const item = ITEMS[itemId];
     const level = state.upgrades?.[itemId] || 0;
+
+    if (level >= MAX_UPGRADE_LEVEL) {
+      return `<div class="smith-row">
+      <span>${item.emoji} ${item.name} +${level} (MAX)</span>
+    </div>`;
+    }
+
     const cost = upgradeCost(level);
     const materials = materialOptionsForSlot(slot);
     const options = materials

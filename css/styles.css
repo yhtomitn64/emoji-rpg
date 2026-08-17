@@ -176,6 +176,11 @@ body { margin: 0; background: #222; color: #eee; }
   overflow-y: auto;
   max-height: 320px;
 }
+.boss-tier-indicator {
+  font-size: 1.3rem;
+  letter-spacing: 4px;
+  margin: 6px 0;
+}
 .message-log-entry {
   padding: 4px 0;
   border-bottom: 1px solid #333;

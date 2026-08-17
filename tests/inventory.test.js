@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createNewGame } from '../js/state.js';
 import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
-  getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta,
+  getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL,
 } from '../js/systems/inventory.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
@@ -61,6 +61,26 @@ test('upgradeItem consumes gold and material, increasing upgrade level', () => {
   assert.equal(state.player.gold, 0);
   const materialEntry = state.inventory.find((e) => e.itemId === 'ironScrap');
   assert.equal(materialEntry, undefined);
+});
+
+test('upgradeItem rejects upgrading past MAX_UPGRADE_LEVEL', () => {
+  let state = createNewGame();
+  state = addGold(state, 1000);
+  state = addItem(state, 'ironScrap', MAX_UPGRADE_LEVEL);
+  for (let i = 0; i < MAX_UPGRADE_LEVEL; i += 1) {
+    const cost = upgradeCost(state.upgrades?.starterSword || 0);
+    state = upgradeItem(state, 'weapon', 'ironScrap', cost);
+  }
+  assert.equal(state.upgrades.starterSword, MAX_UPGRADE_LEVEL);
+
+  state = addItem(state, 'ironScrap', 1);
+  const goldBefore = state.player.gold;
+  const materialBefore = state.inventory.find((e) => e.itemId === 'ironScrap').quantity;
+  assert.throws(() => upgradeItem(state, 'weapon', 'ironScrap', upgradeCost(MAX_UPGRADE_LEVEL)));
+  // Level, gold, and material are unchanged by the rejected attempt.
+  assert.equal(state.upgrades.starterSword, MAX_UPGRADE_LEVEL);
+  assert.equal(state.player.gold, goldBefore);
+  assert.equal(state.inventory.find((e) => e.itemId === 'ironScrap').quantity, materialBefore);
 });
 
 test('upgradeItem throws without the required material', () => {

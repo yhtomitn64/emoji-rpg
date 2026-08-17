@@ -3,14 +3,19 @@ let callbacks = null;
 let text = null;
 let showTierEscalation = false;
 let showNgPlus = false;
+let clearedTiers = [];
 
 function renderMain() {
   const fightButton = showTierEscalation ? '<button id="btn-boss-fight">Fight!</button>' : '';
   const ngPlusButton = showNgPlus ? '<button id="btn-boss-ngplus">Start New Game+</button>' : '';
+  const tierIndicator = clearedTiers.length > 0
+    ? `<div class="boss-tier-indicator">${clearedTiers.map((cleared) => (cleared ? '⭐' : '☆')).join(' ')}</div>`
+    : '';
 
   rootEl.innerHTML = `
     <div class="overlay-panel boss-prompt-panel">
       <h2>The Dragon Returns</h2>
+      ${tierIndicator}
       <p>${text}</p>
       ${fightButton}
       <button id="btn-boss-not-yet">Not yet</button>
@@ -51,6 +56,7 @@ export function mount(root, props) {
   text = props.text;
   showTierEscalation = props.showTierEscalation;
   showNgPlus = props.showNgPlus;
+  clearedTiers = props.clearedTiers || [];
   renderMain();
 }
 

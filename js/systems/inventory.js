@@ -1,6 +1,7 @@
 import { ITEMS } from '../data/items.js';
 
 export const UPGRADE_BASE_COST = 20;
+export const MAX_UPGRADE_LEVEL = 3;
 
 export function addGold(state, amount) {
   return { ...state, player: { ...state.player, gold: state.player.gold + amount } };
@@ -57,6 +58,8 @@ export function upgradeCost(currentLevel) {
 export function upgradeItem(state, slot, materialId, cost) {
   const itemId = state.equipment[slot];
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
+
+  if ((state.upgrades?.[itemId] || 0) >= MAX_UPGRADE_LEVEL) throw new Error(`${itemId} is already at max upgrade level`);
 
   if (ITEMS[materialId].upgradeSlot !== slot) throw new Error(`${materialId} cannot upgrade the ${slot} slot`);
 
