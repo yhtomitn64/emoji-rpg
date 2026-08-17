@@ -221,6 +221,14 @@ through in a dedicated future combat pass rather than one-off adds:
   (`rollCrit`/`applyCritMultiplier`, `CRIT_CHANCE`/`CRIT_MULTIPLIER` in
   js/systems/combat.js). Wants an occasional bonus-heal roll reusing
   that same crit system rather than a bespoke mechanic.
+- **Themed attack animations per monster — projectile vs. melee.**
+  Eight-Leg Eggroll (spider) should animate throwing eggrolls at the
+  player; Mean Meatball (goblin) throwing meatballs; etc. — matching
+  each monster's silly name/flavor rather than the generic hit-flash
+  every monster currently shares (`playHitEffect`,
+  js/screens/battleScreen.js). Longer-term: some monsters throw things
+  (ranged), others should visibly move in to melee, rather than every
+  attack playing out identically regardless of monster type.
 - **Attack-mash fatigue.** Repeatedly mashing the attack button should
   incur an "out of breath" penalty, discouraging pure spam-clicking.
 - **Swing-timer knockback on hit.** Landing a hit knocks the enemy's ATB
