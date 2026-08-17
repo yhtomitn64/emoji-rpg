@@ -60,6 +60,15 @@ function renderConsumableRows() {
   }).join('');
 }
 
+function renderToolRows() {
+  const toolEntries = state.inventory.filter((entry) => ITEMS[entry.itemId].type === 'tool');
+  if (toolEntries.length === 0) return '<div class="inventory-empty">No tools.</div>';
+  return toolEntries.map((entry) => {
+    const item = ITEMS[entry.itemId];
+    return `<div class="inventory-row">${item.emoji} ${item.name}</div>`;
+  }).join('');
+}
+
 function render() {
   rootEl.innerHTML = `
     <div class="overlay-panel inventory-panel">
@@ -72,6 +81,8 @@ function render() {
       ${renderMaterialRows()}
       <h3>Potions</h3>
       ${renderConsumableRows()}
+      <h3>Tools</h3>
+      ${renderToolRows()}
       <button id="btn-close-inventory">Close</button>
     </div>
   `;
