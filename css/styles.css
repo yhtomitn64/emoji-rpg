@@ -22,21 +22,29 @@ body { margin: 0; background: #222; color: #eee; }
 }
 
 .overlay-panel.battle-screen {
-  max-width: 640px;
+  max-width: min(92vw, 860px);
   margin: 0 auto;
   display: flex;
   gap: 16px;
   position: relative;
   overflow: hidden;
 }
+.battle-screen-forest {
+  background: linear-gradient(to bottom, rgba(17, 17, 17, 0.97) 0%, rgba(17, 17, 17, 0.97) 62%, rgba(28, 48, 30, 0.9) 100%);
+}
+.battle-screen-cave {
+  background: linear-gradient(to bottom, rgba(17, 17, 17, 0.97) 0%, rgba(17, 17, 17, 0.97) 62%, rgba(46, 42, 36, 0.9) 100%);
+}
 .battle-decoration {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-around;
-  font-size: 2.2rem;
-  opacity: 0.12;
+  align-items: flex-end;
+  justify-content: space-evenly;
+  font-size: 5rem;
+  line-height: 1;
+  padding-bottom: 4px;
+  opacity: 0.32;
   pointer-events: none;
   z-index: 0;
 }
