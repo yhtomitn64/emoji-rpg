@@ -5,6 +5,7 @@ import {
   GATE_REWARD_GOLD_RANGE,
   hasRequiredTool,
   getLockedGateMessage,
+  getToolClearedMessage,
   isGateRewardCollected,
   markGateRewardCollected,
   rollGateReward,
@@ -33,6 +34,11 @@ test('hasRequiredTool is false when the inventory entry exists but has zero quan
 test('getLockedGateMessage names the correct tool with correct a/an grammar', () => {
   assert.equal(getLockedGateMessage('miningPick'), 'You need a Mining Pick to get through here.');
   assert.equal(getLockedGateMessage('axe'), 'You need an Axe to get through here.');
+});
+
+test('getToolClearedMessage names the tool cleared and what it cut through', () => {
+  assert.equal(getToolClearedMessage('axe'), 'You cut through the thicket with an Axe!');
+  assert.equal(getToolClearedMessage('miningPick'), 'You clear the mountain with a Mining Pick!');
 });
 
 test('isGateRewardCollected/markGateRewardCollected round-trip, immutably', () => {

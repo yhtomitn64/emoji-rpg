@@ -14,6 +14,18 @@ export function getLockedGateMessage(toolId) {
   return `You need ${article} ${name} to get through here.`;
 }
 
+const TOOL_CLEAR_VERBS = {
+  axe: 'cut through the thicket',
+  miningPick: 'clear the mountain',
+};
+
+export function getToolClearedMessage(toolId) {
+  const name = ITEMS[toolId].name;
+  const article = /^[AEIOU]/.test(name) ? 'an' : 'a';
+  const verb = TOOL_CLEAR_VERBS[toolId] || 'clear the way';
+  return `You ${verb} with ${article} ${name}!`;
+}
+
 export function isGateRewardCollected(gateRewards, screenId, x, y) {
   return Boolean(gateRewards[screenId] && gateRewards[screenId][`${x},${y}`]);
 }
