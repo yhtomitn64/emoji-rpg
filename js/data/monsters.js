@@ -3,19 +3,19 @@ export const MONSTERS = {
     id: 'boar', name: 'Snorty McPigface', emoji: '🐗',
     hp: 77, attack: 10, defense: 1, speed: 4,
     xp: 16, goldRange: [4, 8],
-    dropTable: [{ itemId: 'leatherScrap', chance: 0.3 }],
+    dropTable: [{ itemId: 'leatherScrap', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
   },
   bat: {
     id: 'bat', name: 'Spooky Pancake', emoji: '🦇',
     hp: 55, attack: 9, defense: 0, speed: 7,
     xp: 11, goldRange: [2, 7],
-    dropTable: [{ itemId: 'batWing', chance: 0.25 }],
+    dropTable: [{ itemId: 'batWing', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
   },
   snake: {
     id: 'snake', name: 'Slippery Breadstick', emoji: '🐍',
     hp: 60, attack: 10, defense: 1, speed: 5,
     xp: 16, goldRange: [4, 9],
-    dropTable: [{ itemId: 'snakeFang', chance: 0.25 }],
+    dropTable: [{ itemId: 'snakeFang', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
   },
   goblin: {
     id: 'goblin', name: 'Mean Meatball', emoji: '👺',
@@ -24,19 +24,20 @@ export const MONSTERS = {
     dropTable: [
       { itemId: 'goblinClub', chance: 0.15 },
       { itemId: 'ironScrap', chance: 0.2 },
+      { itemId: 'potion', chance: 0.1 },
     ],
   },
   direWolf: {
     id: 'direWolf', name: 'Mega Muffin', emoji: '🐺',
     hp: 100, attack: 14, defense: 3, speed: 6,
     xp: 32, goldRange: [8, 15],
-    dropTable: [{ itemId: 'wolfPelt', chance: 0.3 }],
+    dropTable: [{ itemId: 'wolfPelt', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
   },
   spider: {
     id: 'spider', name: 'Eight-Leg Eggroll', emoji: '🕷️',
     hp: 85, attack: 12, defense: 2, speed: 5,
     xp: 29, goldRange: [7, 14],
-    dropTable: [{ itemId: 'spiderSilk', chance: 0.3 }],
+    dropTable: [{ itemId: 'spiderSilk', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
   },
   dragon: {
     id: 'dragon', name: 'Dragon', emoji: '🐉',
@@ -56,7 +57,7 @@ export const MONSTERS = {
     id: 'orc', name: 'Super Mean Meatloaf', emoji: '👹',
     hp: 180, attack: 32, defense: 8, speed: 8,
     xp: 60, goldRange: [18, 28],
-    dropTable: [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'miningPick', chance: 0.25 }],
+    dropTable: [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'miningPick', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
     // Optional field: dungeon-tier only. ~35% chance to replace generic "A wild X appears!" (see pickAppearLine in js/systems/combat.js).
     flavorLines: [
       'You smell burnt garlic bread. Super Mean Meatloaf has entered the room.',
@@ -68,7 +69,7 @@ export const MONSTERS = {
     id: 'wraith', name: 'Ghost Apple Supreme', emoji: '👻',
     hp: 170, attack: 32, defense: 4, speed: 11,
     xp: 63, goldRange: [18, 30],
-    dropTable: [{ itemId: 'wraithEssence', chance: 0.3 }, { itemId: 'axe', chance: 0.25 }],
+    dropTable: [{ itemId: 'wraithEssence', chance: 0.3 }, { itemId: 'axe', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
     flavorLines: [
       'A chill rolls in. Ghost Apple Supreme has come for seconds.',
       'Ghost Apple Supreme drifts through the wall, unnervingly translucent and smelling faintly of cinnamon.',

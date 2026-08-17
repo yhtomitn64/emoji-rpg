@@ -79,7 +79,7 @@ test('scaleDropTable leaves a tool entry untouched and excludes it from the norm
 test('scaleDropTable preserves entry order and does not mutate the original table', () => {
   const original = MONSTERS.orc.dropTable.map((e) => ({ ...e }));
   const scaled = scaleDropTable(MONSTERS.orc.dropTable, 2);
-  assert.deepEqual(scaled.map((e) => e.itemId), ['orcTusk', 'miningPick']);
+  assert.deepEqual(scaled.map((e) => e.itemId), ['orcTusk', 'miningPick', 'potion']);
   assert.deepEqual(MONSTERS.orc.dropTable, original);
 });
 
