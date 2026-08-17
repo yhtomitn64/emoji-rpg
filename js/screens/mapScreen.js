@@ -9,6 +9,8 @@ import { hasRequiredTool, getLockedGateMessage, isGateRewardCollected, markGateR
 
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
+const CACHE_MARKER_DESCRIPTION = 'A stash of gold (maybe an item too) — step here to collect it';
+const MINI_DUNGEON_MARKER_DESCRIPTION = 'A mysterious opening — explore it';
 
 let rootEl = null;
 let state = null;
@@ -46,12 +48,11 @@ function render() {
       const tile = tileAt(x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
       cell.className = 'map-tile' + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '');
-      const emoji = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y)
-        ? MINI_DUNGEON_MARKER_EMOJI
-        : hasCache(state.caches, mapConfig.id, x, y)
-        ? CACHE_MARKER_EMOJI
-        : tile.emoji;
+      const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
+      const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
+      const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : tile.emoji;
       cell.textContent = isPlayer ? state.player.emoji : emoji;
+      cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
       grid.appendChild(cell);
     }
   }
