@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createNewGame } from '../js/state.js';
 import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
-  getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal,
+  getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
 } from '../js/systems/inventory.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
@@ -167,4 +167,10 @@ test('applyHeal adds the amount without exceeding maxHp', () => {
   assert.equal(applyHeal(10, 20, 5), 15);
   assert.equal(applyHeal(18, 20, 15), 20);
   assert.equal(applyHeal(20, 20, 15), 20);
+});
+
+test('sellPrice is half the listed price, rounded down', () => {
+  assert.equal(sellPrice(30), 15);
+  assert.equal(sellPrice(15), 7);
+  assert.equal(sellPrice(0), 0);
 });

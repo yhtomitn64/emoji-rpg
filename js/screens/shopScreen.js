@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { spendGold, addItem } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice } from '../systems/inventory.js';
 
 const CATALOG = [
   'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves',
@@ -13,9 +13,12 @@ let callbacks = null;
 function render() {
   const rows = CATALOG.map((itemId) => {
     const item = ITEMS[itemId];
+    const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId);
+    const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
     return `<div class="shop-row">
-      <span>${item.emoji} ${item.name} — ${item.price}g</span>
+      <span>${item.emoji} ${item.name} — ${item.price}g${ownedQty > 0 ? ` (own ${ownedQty})` : ''}</span>
       <button data-item="${itemId}">Buy</button>
+      <button data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
     </div>`;
   }).join('');
 
@@ -30,6 +33,9 @@ function render() {
   rootEl.querySelectorAll('button[data-item]').forEach((btn) => {
     btn.onclick = () => buyItem(btn.dataset.item);
   });
+  rootEl.querySelectorAll('button[data-sell]').forEach((btn) => {
+    btn.onclick = () => sellItem(btn.dataset.sell);
+  });
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
 }
 
@@ -39,6 +45,17 @@ function buyItem(itemId) {
 
   let next = spendGold(state, item.price);
   next = addItem(next, itemId, 1);
+  Object.assign(state, next);
+  callbacks.onPurchase();
+  render();
+}
+
+function sellItem(itemId) {
+  const owned = state.inventory.some((entry) => entry.itemId === itemId && entry.quantity > 0);
+  if (!owned) return;
+
+  let next = removeItem(state, itemId, 1);
+  next = addGold(next, sellPrice(ITEMS[itemId].price));
   Object.assign(state, next);
   callbacks.onPurchase();
   render();

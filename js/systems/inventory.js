@@ -55,6 +55,10 @@ export function applyHeal(hp, maxHp, amount) {
   return Math.min(maxHp, hp + amount);
 }
 
+export function sellPrice(price) {
+  return Math.floor(price / 2);
+}
+
 export function upgradeCost(currentLevel) {
   return UPGRADE_BASE_COST * (currentLevel + 1);
 }
