@@ -17,7 +17,7 @@ import {
 
 test('constants match the design', () => {
   assert.equal(MINI_DUNGEON_CAP_PER_SCREEN, 1);
-  assert.deepEqual(MINI_DUNGEON_VARIANT_IDS, ['miniDungeonA', 'miniDungeonB', 'miniDungeonC']);
+  assert.deepEqual(MINI_DUNGEON_VARIANT_IDS, ['miniDungeonA', 'miniDungeonB', 'miniDungeonC', 'miniDungeonD', 'miniDungeonE']);
   assert.deepEqual(MINI_DUNGEON_TREASURE_ITEM_POOL, [
     'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves', 'powerRing', 'luckyCharm',
   ]);
@@ -82,8 +82,10 @@ test('shouldRevealMiniDungeon returns true for a fresh tile under the cap when t
 
 test('pickMiniDungeonVariant picks by index across the full range', () => {
   assert.equal(pickMiniDungeonVariant(() => 0), 'miniDungeonA');
-  assert.equal(pickMiniDungeonVariant(() => 0.5), 'miniDungeonB');
-  assert.equal(pickMiniDungeonVariant(() => 0.9999), 'miniDungeonC');
+  assert.equal(pickMiniDungeonVariant(() => 0.3), 'miniDungeonB');
+  assert.equal(pickMiniDungeonVariant(() => 0.5), 'miniDungeonC');
+  assert.equal(pickMiniDungeonVariant(() => 0.7), 'miniDungeonD');
+  assert.equal(pickMiniDungeonVariant(() => 0.9999), 'miniDungeonE');
 });
 
 test('rollMiniDungeonTreasure rolls gold in the 25-50 range and always includes an item', () => {

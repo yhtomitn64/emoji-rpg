@@ -4,6 +4,8 @@ import { TILES } from '../js/tiles.js';
 import { miniDungeonVariantA } from '../js/maps/miniDungeons/variantA.js';
 import { miniDungeonVariantB } from '../js/maps/miniDungeons/variantB.js';
 import { miniDungeonVariantC } from '../js/maps/miniDungeons/variantC.js';
+import { miniDungeonVariantD } from '../js/maps/miniDungeons/variantD.js';
+import { miniDungeonVariantE } from '../js/maps/miniDungeons/variantE.js';
 import { isWalkableAt } from '../js/systems/world.js';
 import { MINI_DUNGEON_VARIANT_IDS } from '../js/systems/miniDungeons.js';
 
@@ -11,6 +13,8 @@ const VARIANTS = {
   miniDungeonA: miniDungeonVariantA,
   miniDungeonB: miniDungeonVariantB,
   miniDungeonC: miniDungeonVariantC,
+  miniDungeonD: miniDungeonVariantD,
+  miniDungeonE: miniDungeonVariantE,
 };
 
 function assertValidMap(map) {

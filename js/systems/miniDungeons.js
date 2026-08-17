@@ -1,5 +1,5 @@
 export const MINI_DUNGEON_CAP_PER_SCREEN = 1;
-export const MINI_DUNGEON_VARIANT_IDS = ['miniDungeonA', 'miniDungeonB', 'miniDungeonC'];
+export const MINI_DUNGEON_VARIANT_IDS = ['miniDungeonA', 'miniDungeonB', 'miniDungeonC', 'miniDungeonD', 'miniDungeonE'];
 export const MINI_DUNGEON_TREASURE_ITEM_POOL = [
   'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves', 'powerRing', 'luckyCharm',
 ];

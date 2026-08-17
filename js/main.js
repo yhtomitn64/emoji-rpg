@@ -23,6 +23,8 @@ import { southwestMap } from './maps/wilderness/southwest.js';
 import { miniDungeonVariantA } from './maps/miniDungeons/variantA.js';
 import { miniDungeonVariantB } from './maps/miniDungeons/variantB.js';
 import { miniDungeonVariantC } from './maps/miniDungeons/variantC.js';
+import { miniDungeonVariantD } from './maps/miniDungeons/variantD.js';
+import { miniDungeonVariantE } from './maps/miniDungeons/variantE.js';
 import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
 import { FLAVOR_TEXT } from './data/flavorText.js';
@@ -56,6 +58,8 @@ const MAPS = {
   miniDungeonA: miniDungeonVariantA,
   miniDungeonB: miniDungeonVariantB,
   miniDungeonC: miniDungeonVariantC,
+  miniDungeonD: miniDungeonVariantD,
+  miniDungeonE: miniDungeonVariantE,
 };
 
 let state = null;

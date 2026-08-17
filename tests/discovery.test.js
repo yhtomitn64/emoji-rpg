@@ -31,7 +31,7 @@ test('resolveStepDiscovery discovers and records a fresh mini-dungeon entrance w
   const rng = () => values[i++];
   const result = resolveStepDiscovery(state, mapConfig, 5, 5, tile, rng);
   assert.equal(result.outcome, 'enterMiniDungeon');
-  assert.deepEqual(getMiniDungeonEntrance(result.miniDungeons, 'north', 5, 5), { variantId: 'miniDungeonB', treasureTaken: false });
+  assert.deepEqual(getMiniDungeonEntrance(result.miniDungeons, 'north', 5, 5), { variantId: 'miniDungeonC', treasureTaken: false });
 });
 
 test('resolveStepDiscovery falls through to a cache when the mini-dungeon roll misses', () => {
