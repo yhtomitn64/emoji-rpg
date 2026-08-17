@@ -10,17 +10,17 @@ test('constants match the design', () => {
 
 test('getBossTierStats at tier 0 matches the base dragon stats exactly', () => {
   const stats = getBossTierStats(MONSTERS.dragon, 0);
-  assert.deepEqual(stats, { hp: 110, attack: 34, defense: 12, speed: 11, xp: 150 });
+  assert.deepEqual(stats, { hp: 150, attack: 34, defense: 12, speed: 11, xp: 200 });
 });
 
 test('getBossTierStats at tier 1 doubles hp/xp and raises attack/defense by ~25%', () => {
   const stats = getBossTierStats(MONSTERS.dragon, 1);
-  assert.deepEqual(stats, { hp: 220, attack: 43, defense: 15, speed: 11, xp: 300 });
+  assert.deepEqual(stats, { hp: 300, attack: 43, defense: 15, speed: 11, xp: 400 });
 });
 
 test('getBossTierStats at tier 2 (max) compounds correctly', () => {
   const stats = getBossTierStats(MONSTERS.dragon, 2);
-  assert.deepEqual(stats, { hp: 440, attack: 53, defense: 19, speed: 11, xp: 600 });
+  assert.deepEqual(stats, { hp: 600, attack: 53, defense: 19, speed: 11, xp: 800 });
 });
 
 test('pickBossReturnFlavor returns one of the known flavor lines by index', () => {

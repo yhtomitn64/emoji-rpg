@@ -21,17 +21,17 @@ test('MAX_NG_PLUS_CYCLE is 2', () => {
 
 test('getNgPlusCombatOverrides at cycle 0 matches the base monster exactly', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 0);
-  assert.deepEqual(stats, { hp: 110, attack: 34, defense: 12, speed: 11 });
+  assert.deepEqual(stats, { hp: 150, attack: 34, defense: 12, speed: 11 });
 });
 
 test('getNgPlusCombatOverrides at cycle 1 doubles hp and raises attack/defense ~25%', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 1);
-  assert.deepEqual(stats, { hp: 220, attack: 43, defense: 15, speed: 11 });
+  assert.deepEqual(stats, { hp: 300, attack: 43, defense: 15, speed: 11 });
 });
 
 test('getNgPlusCombatOverrides at cycle 2 (max) compounds correctly', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 2);
-  assert.deepEqual(stats, { hp: 440, attack: 53, defense: 19, speed: 11 });
+  assert.deepEqual(stats, { hp: 600, attack: 53, defense: 19, speed: 11 });
 });
 
 test('getNgPlusRewardMultiplier compounds 1.5x per cycle', () => {
