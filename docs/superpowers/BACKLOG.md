@@ -82,6 +82,21 @@ one-off task.
   boss (the dragon, with 3 tiers via the existing boss-rematch system).
   "Zone 2/3/4" means genuinely new content, not reuse — a much bigger
   scope than anything else currently in this backlog.
+- **Non-store equipment earned from the whole zone, to prep for the next
+  one.** Timothy wants unique gear obtainable other ways than the shop:
+  a random cave find, clearing tree/mountain terrain with a tool, a
+  special encounter reached via a puzzle, or repeated dragon kills —
+  so a player is meaningfully geared up by the time a new zone opens,
+  not just leveled. Partial precedent already exists: the dragon's own
+  drop table (`js/data/monsters.js:41-49`) already grants unique,
+  zero-price gear (`dragonScaleMail`, `dragonFang`) — but that table is
+  identical across all 3 boss-rematch tiers, so grinding harder tiers
+  gets better odds/XP, not new gear. Mini-dungeon treasure
+  (`js/systems/miniDungeons.js`) is the closest existing "random cave
+  find" analog but currently draws from a small 6-item pool shared
+  across all dungeon variants (see the mini-dungeon-variety item below —
+  same root gap, smaller scope). No puzzle-triggered special-encounter
+  mechanic exists at all yet.
 
 ### Smaller, sooner: a dragon-zone (dungeon) shortcut using the axe, and better tool-drop flavor
 Two related, more immediately actionable ideas raised alongside the
@@ -194,6 +209,22 @@ broader: it's about discoverability of drops, not just shop stat
 comparison. `js/data/monsters.js`'s `dropTable` entries and
 `js/data/items.js` already hold everything this would need to read
 from; no new data model required, just a new read-only view.
+
+### Mini-dungeon caves feel like the same map every time
+Timothy's observation: discovering a cave feels like it leads to the
+same place each time. Checked against the code — not literally one
+shared map, but close enough to explain the feeling: there are exactly
+3 layout variants (`MINI_DUNGEON_VARIANT_IDS` = `miniDungeonA/B/C`,
+`js/systems/miniDungeons.js`), randomly assigned per discovered
+entrance, and only 1 mini-dungeon entrance can exist per wilderness
+screen at a time (`MINI_DUNGEON_CAP_PER_SCREEN = 1`). Find three or
+more caves across a playthrough and you're guaranteed to start
+repeating layouts. Treasure is similarly narrow — a single shared
+6-item pool (`MINI_DUNGEON_TREASURE_ITEM_POOL`) plus a 25-50 gold
+range, regardless of which variant. Wants each cave entrance to feel
+genuinely unique — more layout variants and/or per-cave reward variety,
+not just 3 layouts on rotation. Overlaps with the "non-store equipment
+across the zone" idea under Multi-zone progression above.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
