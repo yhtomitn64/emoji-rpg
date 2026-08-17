@@ -66,13 +66,24 @@ over fight to fight until a town trip (winning doesn't heal; the only
 free out-of-combat heal is the town well added earlier this session),
 so a string of several 97%-favorable fights back to back can plausibly
 compound into real death risk even though no single matchup is unfair.
-This is a real hypothesis, not confirmed — nobody has simulated a
-*sequence* of fights with carried-over HP/potions between town trips,
-only single isolated ones. Worth asking Timothy directly (did he buy
-armor first? how many fights before returning to town?) and/or
-extending the simulator to model a multi-fight sequence before changing
-any monster stats — the single-fight data doesn't support "too hard,"
-so don't retune blind.
+**Resolved (2026-08-17):** confirmed directly — Timothy's first
+playthrough skipped armor entirely and leaned on potions. Added a new
+"no armor" baseline build to the simulator and re-ran it: 0-5% win rate
+against every near-town monster with zero armor, vs. 97-100% with the
+one 20g cloth piece the starting gold affords. Not a gradual curve — a
+cliff, and an *intentional* one (the savage-early-game design doc says
+outright "buying at least minimal armor stops being optional"). The
+gap was never the numbers, it was that the game never told the player
+this before they found out the hard way.
+
+Fixed with a first-visit town banner (`js/data/flavorText.js`'s new
+`town` key) that doesn't push armor as the only good choice — Timothy
+was explicit that potions-only is a fine playstyle — but sets honest
+expectations: expect to die a few times figuring it out, and a loss
+just sends you home to rest (full HP, no real penalty), not to ruin.
+The dragon-fell-quickly half of this item (the very first paragraph
+above) is still open — that's a different axis (late-game pace, not
+first-fight difficulty) and wasn't part of what got resolved here.
 
 ## Multi-zone progression (big idea — needs its own design pass)
 
