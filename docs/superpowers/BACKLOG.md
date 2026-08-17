@@ -182,12 +182,49 @@ through in a dedicated future combat pass rather than one-off adds:
   trivial fights against outclassed enemies feeling like padding: worth
   considering together rather than as two unrelated builds.
 
+### Monster name/stat variants, and a rare near-dragon elite encounter
+A significantly fleshed-out follow-up to the "roaming rare monster" idea
+below — Timothy's view on it has clearly moved from "backburner,
+questionable value" to a concrete, wanted feature. Two related but
+separable pieces:
+
+- **Named stat variants per monster type.** Wants ~5 variations of each
+  regular monster (not per silly-name — within a type, e.g. goblin),
+  each with a distinct name and slightly different HP/attack stats, so
+  encounters of "the same monster" feel a little different fight to
+  fight instead of always being numerically identical. Presumably still
+  counts as the same `monsterId` for quest progress/drop tables — only
+  display name and stats vary per spawn, similar in spirit to how boss
+  tiers already vary the dragon's stats, but applied to regular
+  encounters and randomly picked rather than player-escalated.
+- **A rare, near-dragon-difficulty elite encounter**, roughly 1-in-20
+  fights (5% chance), replacing a normal encounter in the current zone.
+  Unique emoji, distinct from every existing monster/dragon emoji.
+  Source of unique loot — ties directly into the "non-store equipment
+  earned from the whole zone" idea under Multi-zone progression above,
+  which named "repeated dragon kills" and "special encounters" as
+  desired loot sources; this would be the special-encounter half of
+  that. The player must be able to flee this fight if they judge
+  themselves not ready — unlike the dungeon boss, which already
+  disallows fleeing (`playerFlee()` in js/screens/battleScreen.js
+  blocks fleeing when `MONSTERS[monsterId].isBoss`), so this needs its
+  own non-boss-shaped "but still fleeable" treatment.
+- **Adaptive flavor text based on estimated win chance.** The encounter
+  text should shift based on how the player's current power compares to
+  the elite's stats — from "no way you can beat me" (near-zero odds) up
+  through something like "if you're skilled enough you might get me"
+  as the matchup gets closer to fair. This needs an actual confidence
+  heuristic (comparing effective attack/defense/HP, roughly the same
+  inputs `scripts/simulate-balance.js` already reasons about for build
+  tuning) — worth deciding whether to reuse/extend that script's logic
+  or build a lighter in-game estimate; a full battle-outcome simulation
+  every time the elite appears is probably overkill.
+
 ### Backburner / uncertain value
-- **Roaming rare monster + mob leveling.** A rare monster that randomly
-  spawns in already-visited areas, drops a unique weapon; paired with an
-  idea that heavily-farmed mobs could slowly level up too. Timothy
-  explicitly called this backburner and questioned its own value
-  ("without hard content to keep grinding for, seems silly").
+- **Mob leveling.** The other half of the original "roaming rare
+  monster" idea — heavily-farmed regular mobs could slowly level up
+  too. Left here since the "roaming rare monster" part above graduated
+  out of backburner status, but this half wasn't specifically revisited.
 - **Multi-enemy battle targeting.** Abilities that hit multiple enemies
   with target selection. Depends on a much bigger feature that doesn't
   exist yet — battles are strictly one `monsterId` per encounter today,
