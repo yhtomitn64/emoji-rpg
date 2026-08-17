@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_BOSS_TIER, BOSS_TIER_FLAVOR_LINES, getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from '../js/systems/bossTiers.js';
+import { MAX_BOSS_TIER, BOSS_TIER_FLAVOR_LINES, getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, nextBossTierToAttempt, resolveBossTierAfterWin } from '../js/systems/bossTiers.js';
 import { MONSTERS } from '../js/data/monsters.js';
 
 test('constants match the design', () => {
@@ -38,4 +38,21 @@ test('shouldPromptForRematch is true only when defeated at least once and below 
 test('resolveBattleXp uses the pending boss xp when set, otherwise falls back to the base monster xp', () => {
   assert.equal(resolveBattleXp(600, MONSTERS.boar), 600);
   assert.equal(resolveBattleXp(null, MONSTERS.boar), MONSTERS.boar.xp);
+});
+
+test('nextBossTierToAttempt is always exactly one tier above the current tier', () => {
+  assert.equal(nextBossTierToAttempt(0), 1);
+  assert.equal(nextBossTierToAttempt(1), 2);
+});
+
+test('resolveBossTierAfterWin advances the tier on a win, and never skips or regresses it', () => {
+  // Normal re-fight at the current (already-cleared) tier: no change.
+  assert.equal(resolveBossTierAfterWin(0, 0), 0);
+  // Won an escalation attempt one tier above current: advance by exactly one.
+  assert.equal(resolveBossTierAfterWin(0, 1), 1);
+  assert.equal(resolveBossTierAfterWin(1, 2), 2);
+  // Re-winning an already-cleared tier is idempotent, not a regression.
+  assert.equal(resolveBossTierAfterWin(1, 1), 1);
+  // Defensive: an attempted tier below current never regresses the cleared tier.
+  assert.equal(resolveBossTierAfterWin(1, 0), 1);
 });

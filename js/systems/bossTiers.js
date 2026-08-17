@@ -32,6 +32,14 @@ export function shouldPromptForRematch(state) {
   return Boolean(state.flags.dungeonBossDefeated) && state.bossTier < MAX_BOSS_TIER;
 }
 
+export function nextBossTierToAttempt(currentTier) {
+  return currentTier + 1;
+}
+
+export function resolveBossTierAfterWin(currentTier, attemptedTier) {
+  return Math.max(currentTier, attemptedTier);
+}
+
 export function resolveBattleXp(pendingBossXp, baseMonster) {
   return pendingBossXp !== null ? pendingBossXp : baseMonster.xp;
 }

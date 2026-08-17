@@ -73,16 +73,18 @@ function render() {
   rootEl.innerHTML = `
     <div class="overlay-panel inventory-panel">
       <h2>Inventory</h2>
-      <h3>Equipment</h3>
-      ${renderEquippedRows()}
-      <h3>Gear</h3>
-      ${renderGearRows()}
-      <h3>Materials</h3>
-      ${renderMaterialRows()}
-      <h3>Potions</h3>
-      ${renderConsumableRows()}
-      <h3>Tools</h3>
-      ${renderToolRows()}
+      <div class="inventory-scroll-area">
+        <h3>Equipment</h3>
+        ${renderEquippedRows()}
+        <h3>Gear</h3>
+        ${renderGearRows()}
+        <h3>Materials</h3>
+        ${renderMaterialRows()}
+        <h3>Potions</h3>
+        ${renderConsumableRows()}
+        <h3>Tools</h3>
+        ${renderToolRows()}
+      </div>
       <button id="btn-close-inventory">Close</button>
     </div>
   `;

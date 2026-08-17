@@ -31,7 +31,7 @@ import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
-import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp } from './systems/bossTiers.js';
+import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, nextBossTierToAttempt, resolveBossTierAfterWin } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
@@ -140,6 +140,11 @@ let battleActive = false;
 // reward. handleBattleEnd reads and clears it (regardless of outcome) so it
 // can never leak into a subsequent non-boss encounter's XP calculation.
 let activeBossTierXp = null;
+// Tier being attempted in the in-flight boss fight, mirroring activeBossTierXp.
+// state.bossTier only advances on a win (handleBattleEnd resolves it via
+// resolveBossTierAfterWin) — a loss leaves it untouched, so accepting a
+// rematch escalation and losing never skips a tier you haven't actually beaten.
+let activeBossTierAttempt = null;
 
 function setHudButtonsEnabled(enabled) {
   const statsButton = document.getElementById('btn-open-stats');
@@ -356,9 +361,7 @@ function handleBossBattle() {
     showNgPlus: offerNgPlus,
     callbacks: {
       onAccept: () => {
-        state.bossTier += 1;
-        persist();
-        startBossFight(state.bossTier);
+        startBossFight(nextBossTierToAttempt(state.bossTier));
       },
       onDecline: () => {
         startBossFight(state.bossTier);
@@ -376,6 +379,7 @@ function startBossFight(tier) {
   const monsterId = dungeonMap.bossMonsterId;
   const tierStats = getBossTierStats(MONSTERS[monsterId], tier);
   activeBossTierXp = tierStats.xp;
+  activeBossTierAttempt = tier;
   handleEncounter(monsterId, {
     hp: tierStats.hp,
     attack: tierStats.attack,
@@ -433,6 +437,8 @@ function handleBattleEnd(outcome, monsterId) {
   setHudButtonsEnabled(true);
   const bossTierXp = activeBossTierXp;
   activeBossTierXp = null;
+  const bossTierAttempt = activeBossTierAttempt;
+  activeBossTierAttempt = null;
 
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];
@@ -458,6 +464,9 @@ function handleBattleEnd(outcome, monsterId) {
     }
     if (monster.isBoss) {
       state.flags.dungeonBossDefeated = true;
+      if (bossTierAttempt !== null) {
+        state.bossTier = resolveBossTierAfterWin(state.bossTier, bossTierAttempt);
+      }
     }
     Object.assign(state, incrementQuestProgress(state, monsterId));
     state.lossStreak = 0;

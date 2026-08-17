@@ -172,6 +172,10 @@ body { margin: 0; background: #222; color: #eee; }
   overflow-y: auto;
   max-height: 320px;
 }
+.inventory-scroll-area {
+  overflow-y: auto;
+  max-height: 320px;
+}
 .message-log-entry {
   padding: 4px 0;
   border-bottom: 1px solid #333;
