@@ -15,6 +15,61 @@ writes into dialogue screens, quest text, flavor lines, etc.) is fair
 game once there's something to wire up — the boundary is authorship of
 the words, not the engineering around them.
 
+## Pacing / progression
+
+### Celebration animation on your first-ever kill
+A one-time celebration effect the very first time the player defeats an
+enemy (distinct from every subsequent kill) — a small, cheap way to
+mark the first sense of progression. Likely a `state.flags`-style
+one-shot flag (matching the existing `dungeonBossDefeated` flag
+pattern) checked in `handleBattleEnd`'s `'won'` branch.
+
+### Early-game pace ramps up too fast; the dragon fell quickly
+Timothy's read: the early game *felt* good — genuinely hard, then you
+visibly get stronger — but the ramp accelerates too fast and he had the
+dragon down quickly. Worth noting: `docs/superpowers/specs/2026-08-16-
+player-growth-curve-design.md` already reworked the curve, but
+specifically to fix *post-level-10* trivialization (tapering stat gains
+starting at level 10) — it deliberately left levels 1-9 untouched,
+reasoning "already tuned, nobody complained about it." This is new
+feedback that may reopen that boundary, or may be a different axis
+entirely (time/levels-to-reach-the-dragon, not per-level power vs. a
+fixed monster). Before any change, re-run
+`scripts/simulate-balance.js` (already exists, used for exactly this
+kind of tuning question) to see where the actual numbers land, rather
+than guessing at new constants.
+
+## Multi-zone progression (big idea — needs its own design pass)
+
+Several related ideas raised together about giving zones 2/3/4 distinct
+identities instead of "more of zone 1, but harder." This is bigger than
+a quick backlog item — flagging the shape of it now so it's not lost,
+but it should get a real design doc before implementation, not a
+one-off task.
+
+- **Each new zone is allowed to be a partial gear-check reset.** Explicit
+  permission from Timothy: it's fine if reaching zone 2 requires more
+  zone-1 grinding even after beating the first boss — a new zone doesn't
+  have to be immediately viable the moment its gate unlocks.
+- **Zones shouldn't share the same gameplay loop.** Wants variety
+  zone-to-zone: puzzle-solving, a labyrinth, new abilities/mechanics,
+  other metroidvania-style ideas beyond straight combat — not just a
+  reskinned wilderness grid with tougher numbers.
+- **Zone unlocks gated by tools earned from boss kills.** Builds directly
+  on the tool-gating system already shipped
+  (`docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-design.md`
+  — mining pick and axe, dropped by dungeon-tier monsters, currently
+  unlock shortcuts/loot *within* the single existing 9-screen wilderness
+  grid). That doc explicitly scoped out "any new map screens, zones, or
+  terrain features" — this idea is the natural next step past that
+  scope: new tools (or the existing ones) unlocking entirely new zones
+  after a boss kill, not just backtracking loot in the current one.
+- Currently there is exactly one zone (the 3x3 wilderness grid from
+  `docs/superpowers/specs/2026-08-12-world-expansion-design.md`) and one
+  boss (the dragon, with 3 tiers via the existing boss-rematch system).
+  "Zone 2/3/4" means genuinely new content, not reuse — a much bigger
+  scope than anything else currently in this backlog.
+
 ## Bugs
 
 ### Boss rematch: difficulty tier advances on accept, not on win
