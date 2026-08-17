@@ -50,3 +50,19 @@ test('formatBattleOutcomeMessage phrases a loss and a flee differently, same sta
     'Fled from Mean Meatball. (Lv.3 ATK 12 DEF 5 HP 10/24)'
   );
 });
+
+test('formatBattleOutcomeMessage phrases the three weak-mob-surrender outcomes distinctly, same stat snapshot format', () => {
+  const snapshot = { level: 3, attack: 12, defense: 5, hp: 24, maxHp: 24 };
+  assert.equal(
+    formatBattleOutcomeMessage('surrender', 'Mean Meatball', snapshot),
+    'Mean Meatball surrenders! (Lv.3 ATK 12 DEF 5 HP 24/24)'
+  );
+  assert.equal(
+    formatBattleOutcomeMessage('fled-with-loot', 'Mean Meatball', snapshot),
+    'Mean Meatball flees, dropping loot! (Lv.3 ATK 12 DEF 5 HP 24/24)'
+  );
+  assert.equal(
+    formatBattleOutcomeMessage('fled-empty', 'Mean Meatball', snapshot),
+    'Mean Meatball flees! (Lv.3 ATK 12 DEF 5 HP 24/24)'
+  );
+});

@@ -12,6 +12,9 @@ const OUTCOME_VERBS = {
   won: (monsterName) => `Defeated ${monsterName}!`,
   lost: (monsterName) => `${monsterName} defeated you.`,
   fled: (monsterName) => `Fled from ${monsterName}.`,
+  surrender: (monsterName) => `${monsterName} surrenders!`,
+  'fled-with-loot': (monsterName) => `${monsterName} flees, dropping loot!`,
+  'fled-empty': (monsterName) => `${monsterName} flees!`,
 };
 
 export function formatBattleOutcomeMessage(outcome, monsterName, player) {
