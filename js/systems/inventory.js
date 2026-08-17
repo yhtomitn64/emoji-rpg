@@ -101,7 +101,7 @@ export function upgradeItem(state, slot, materialId, cost) {
 
 export function getItemEffectiveStats(itemId, upgradeLevel = 0) {
   const item = ITEMS[itemId];
-  const stats = { attack: 0, defense: 0, maxHp: 0, speed: 0 };
+  const stats = { attack: 0, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 };
   for (const stat of Object.keys(stats)) {
     const base = item.stats?.[stat] || 0;
     stats[stat] = base + base * 0.25 * upgradeLevel;
@@ -110,7 +110,7 @@ export function getItemEffectiveStats(itemId, upgradeLevel = 0) {
 }
 
 export function getEquipmentBonuses(state) {
-  const bonuses = { attack: 0, defense: 0, maxHp: 0, speed: 0 };
+  const bonuses = { attack: 0, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 };
   for (const slot of Object.keys(state.equipment)) {
     const itemId = state.equipment[slot];
     if (!itemId) continue;

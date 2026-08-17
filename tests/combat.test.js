@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -60,4 +60,15 @@ test('applyKnockback subtracts a flat amount from atb, never going below 0', () 
   assert.equal(applyKnockback(50, ATB_KNOCKBACK), 50 - ATB_KNOCKBACK);
   assert.equal(applyKnockback(5, ATB_KNOCKBACK), 0);
   assert.equal(applyKnockback(0, ATB_KNOCKBACK), 0);
+});
+
+test('applySpeedDamageBonus boosts damage once speed reaches the threshold, otherwise leaves it unchanged', () => {
+  assert.equal(applySpeedDamageBonus(10, SPEED_DAMAGE_BONUS_THRESHOLD - 1), 10);
+  assert.equal(applySpeedDamageBonus(10, SPEED_DAMAGE_BONUS_THRESHOLD), 11);
+});
+
+test('applyEnemySlow reduces speed by the given percent, never below 1', () => {
+  assert.equal(applyEnemySlow(10, 15), 9);
+  assert.equal(applyEnemySlow(10, 0), 10);
+  assert.equal(applyEnemySlow(1, 90), 1);
 });

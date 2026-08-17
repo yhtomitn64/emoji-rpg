@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, applyKnockback, ATB_KNOCKBACK } from '../systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, applyEnemySlow } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem, applyHeal } from '../systems/inventory.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -33,10 +33,12 @@ function buildPlayerCombatant() {
 
 function buildMonsterCombatant() {
   const monster = { ...MONSTERS[monsterId], ...(monsterOverrides || {}) };
+  const enemySlowPercent = getEquipmentBonuses(state).enemySlowPercent;
+  const speed = applyEnemySlow(monster.speed, enemySlowPercent);
   return {
     name: monster.name, emoji: monster.emoji,
     hp: monster.hp, maxHp: monster.hp,
-    attack: monster.attack, defense: monster.defense, speed: monster.speed,
+    attack: monster.attack, defense: monster.defense, speed,
     atb: 0,
   };
 }
@@ -179,6 +181,7 @@ function playerAttack() {
   const isCrit = rollCrit();
   let damage = calculateDamage(playerCombatant, monsterCombatant);
   damage = applyCritMultiplier(damage, isCrit);
+  damage = applySpeedDamageBonus(damage, playerCombatant.speed);
   monsterCombatant.hp = Math.max(0, monsterCombatant.hp - damage);
   log.push(isCrit ? `Critical! You hit ${monsterCombatant.name} for ${damage}!` : `You hit ${monsterCombatant.name} for ${damage}.`);
   playerCombatant.atb = 0;

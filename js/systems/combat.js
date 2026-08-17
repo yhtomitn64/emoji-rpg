@@ -20,6 +20,20 @@ export function applyKnockback(atb, amount) {
   return Math.max(0, atb - amount);
 }
 
+// A player who has invested enough in speed (leveling and/or gear like Wind
+// Greaves) to reach this threshold gets a small damage bonus, so speed stays
+// worth chasing past the point where it's already fast enough to act often.
+export const SPEED_DAMAGE_BONUS_THRESHOLD = 20;
+export const SPEED_DAMAGE_BONUS_MULTIPLIER = 1.1;
+
+export function applySpeedDamageBonus(damage, speed) {
+  return speed >= SPEED_DAMAGE_BONUS_THRESHOLD ? Math.round(damage * SPEED_DAMAGE_BONUS_MULTIPLIER) : damage;
+}
+
+export function applyEnemySlow(speed, slowPercent) {
+  return Math.max(1, Math.round(speed * (1 - slowPercent / 100)));
+}
+
 export const CRIT_CHANCE = 0.1;
 export const CRIT_MULTIPLIER = 1.5;
 

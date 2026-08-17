@@ -110,7 +110,7 @@ test('getEquipmentBonuses sums stats from equipped, upgraded gear', () => {
 
 test('getItemEffectiveStats returns unrounded base stats at upgrade level 0', () => {
   const stats = getItemEffectiveStats('starterSword', 0);
-  assert.deepEqual(stats, { attack: 3, defense: 0, maxHp: 0, speed: 0 });
+  assert.deepEqual(stats, { attack: 3, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 });
 });
 
 test('getItemEffectiveStats scales fractionally per upgrade level without rounding', () => {

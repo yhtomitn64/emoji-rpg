@@ -1,6 +1,7 @@
 export const SHOP_CATALOG = [
   'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves',
   'powerRing', 'clothCap', 'clothTunic', 'clothPants', 'luckyCharm', 'potion',
+  'windGreaves', 'frostCharm',
 ];
 
 export const ITEMS = {
@@ -22,10 +23,12 @@ export const ITEMS = {
   // Legs
   clothPants: { id: 'clothPants', name: 'Cloth Pants', emoji: '👖', slot: 'legs', price: 15, stats: { defense: 1, speed: 1 } },
   ironGreaves: { id: 'ironGreaves', name: 'Iron Greaves', emoji: '🦵', slot: 'legs', price: 30, stats: { defense: 3 } },
+  windGreaves: { id: 'windGreaves', name: 'Wind Greaves', emoji: '👢', slot: 'legs', price: 40, stats: { defense: 1, speed: 4 } },
 
   // Accessory
   luckyCharm: { id: 'luckyCharm', name: 'Lucky Charm', emoji: '🍀', slot: 'accessory', price: 25, stats: { speed: 2 } },
   powerRing: { id: 'powerRing', name: 'Power Ring', emoji: '💍', slot: 'accessory', price: 40, stats: { attack: 2 } },
+  frostCharm: { id: 'frostCharm', name: 'Frost Charm', emoji: '❄️', slot: 'accessory', price: 40, stats: { enemySlowPercent: 15 }, description: "Slows the enemy's attack timer by 15%" },
 
   // Consumables
   potion: { id: 'potion', name: 'Potion', emoji: '🧪', type: 'consumable', price: 10, heal: 15 },
