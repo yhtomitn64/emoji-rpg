@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_BOSS_TIER, BOSS_TIER_FLAVOR_LINES, getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, nextBossTierToAttempt, resolveBossTierAfterWin } from '../js/systems/bossTiers.js';
+import { MAX_BOSS_TIER, BOSS_TIER_FLAVOR_LINES, getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, nextBossTierToAttempt, resolveBossTierAfterWin, getClearedTierList } from '../js/systems/bossTiers.js';
 import { MONSTERS } from '../js/data/monsters.js';
 
 test('constants match the design', () => {
@@ -43,6 +43,17 @@ test('resolveBattleXp uses the pending boss xp when set, otherwise falls back to
 test('nextBossTierToAttempt is always exactly one tier above the current tier', () => {
   assert.equal(nextBossTierToAttempt(0), 1);
   assert.equal(nextBossTierToAttempt(1), 2);
+});
+
+test('getClearedTierList reports no cleared tiers before the boss has ever been beaten', () => {
+  const state = { flags: { dungeonBossDefeated: false }, bossTier: 0 };
+  assert.deepEqual(getClearedTierList(state), [false, false, false]);
+});
+
+test('getClearedTierList marks tiers 0 through the current bossTier as cleared, once defeated', () => {
+  assert.deepEqual(getClearedTierList({ flags: { dungeonBossDefeated: true }, bossTier: 0 }), [true, false, false]);
+  assert.deepEqual(getClearedTierList({ flags: { dungeonBossDefeated: true }, bossTier: 1 }), [true, true, false]);
+  assert.deepEqual(getClearedTierList({ flags: { dungeonBossDefeated: true }, bossTier: 2 }), [true, true, true]);
 });
 
 test('resolveBossTierAfterWin advances the tier on a win, and never skips or regresses it', () => {
