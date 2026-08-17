@@ -197,6 +197,14 @@ through in a dedicated future combat pass rather than one-off adds:
   `playerCombatant.atb = 0`, same as `playerAttack()`. Wants potions
   taken off the shared turn-cooldown so you can drink one anytime
   without losing your turn.
+- **Potions should be able to crit-heal occasionally.** Currently a
+  potion always heals a flat amount with zero variance
+  (`ITEMS.potion.heal = 15`, js/data/items.js:26, applied directly with
+  no roll at js/screens/battleScreen.js:187-189) — no crit chance, no
+  damage-style variance like attacks already have
+  (`rollCrit`/`applyCritMultiplier`, `CRIT_CHANCE`/`CRIT_MULTIPLIER` in
+  js/systems/combat.js). Wants an occasional bonus-heal roll reusing
+  that same crit system rather than a bespoke mechanic.
 - **Attack-mash fatigue.** Repeatedly mashing the attack button should
   incur an "out of breath" penalty, discouraging pure spam-clicking.
 - **Swing-timer knockback on hit.** Landing a hit knocks the enemy's ATB
