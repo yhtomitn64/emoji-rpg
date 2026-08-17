@@ -210,6 +210,8 @@ function goToMap(mapId) {
       onFirstVisit: handleFirstVisit,
       onCacheFound: handleCacheFound,
       onEnterMiniDungeon: handleEnterMiniDungeon,
+      onLockedGate: handleLockedGate,
+      onGateReward: handleGateReward,
     },
   });
 }
@@ -265,6 +267,18 @@ function handleCacheFound(loot) {
   }
   message += '!';
   showFlavorBanner(message);
+  persist();
+  renderHud();
+}
+
+function handleLockedGate(message) {
+  showFlavorBanner(message);
+}
+
+function handleGateReward(loot) {
+  Object.assign(state, addGold(state, loot.gold));
+  Object.assign(state, addItem(state, loot.item, 1));
+  showFlavorBanner(`You clear the way and find a stash: ${loot.gold} gold and 1 ${ITEMS[loot.item].name}!`);
   persist();
   renderHud();
 }

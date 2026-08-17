@@ -5,6 +5,7 @@ import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
 import { resolveStepDiscovery } from '../systems/discovery.js';
+import { hasRequiredTool, getLockedGateMessage, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
 
 const CACHE_MARKER_EMOJI = '📦';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
@@ -73,7 +74,14 @@ function tryMove(dx, dy) {
   }
 
   const tile = tileAt(nx, ny);
-  if (!tile || !tile.walkable) return;
+  if (!tile) return;
+  if (!tile.walkable) {
+    if (!tile.requiresTool) return;
+    if (!hasRequiredTool(tile, state.inventory)) {
+      callbacks.onLockedGate(getLockedGateMessage(tile.requiresTool));
+      return;
+    }
+  }
 
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
@@ -86,6 +94,12 @@ function tryMove(dx, dy) {
     Object.assign(state, { caches: discovery.caches });
   }
 
+  let gateReward = null;
+  if (tile.hasReward && !isGateRewardCollected(state.gateRewards, mapConfig.id, nx, ny)) {
+    Object.assign(state, { gateRewards: markGateRewardCollected(state.gateRewards, mapConfig.id, nx, ny) });
+    gateReward = rollGateReward();
+  }
+
   // Render before firing any callback: an action may swap screens and an
   // encounter opens a battle *overlay* on top of this still-mounted map, so the
   // world underneath must already show the tile the player just stepped onto
@@ -93,6 +107,11 @@ function tryMove(dx, dy) {
   render();
 
   callbacks.onMove(state.position);
+
+  if (gateReward) {
+    callbacks.onGateReward(gateReward);
+    return;
+  }
 
   if (tile.action) {
     callbacks.onAction(tile.action);
