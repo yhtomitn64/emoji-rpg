@@ -226,6 +226,27 @@ genuinely unique — more layout variants and/or per-cave reward variety,
 not just 3 layouts on rotation. Overlaps with the "non-store equipment
 across the zone" idea under Multi-zone progression above.
 
+### Monster emoji don't match their silly names anymore
+Timothy's example: "the meatball is some goofy face and not actually a
+meatball." Confirmed in `js/data/monsters.js` — the Silly Monster Names
+pass explicitly kept "emoji, stats, and drop tables... unchanged" and
+only swapped display names to goofy food/object names, so most monsters
+now show their *original* creature emoji next to a name that no longer
+matches it:
+
+- Mean Meatball (goblin) → 👺, not a meatball
+- Super Mean Meatloaf (orc) → 👹, not a meatloaf
+- Spooky Pancake (bat) → 🦇, not a pancake
+- Slippery Breadstick (snake) → 🐍, not a breadstick
+- Mega Muffin (dire wolf) → 🐺, not a muffin
+- Eight-Leg Eggroll (spider) → 🕷️ (the "eight-leg" part still fits)
+- Ghost Apple Supreme (wraith) → 👻 (the "ghost" part still fits)
+
+Boar (🐗) and the Dragon (🐉, name untouched) are the only ones that
+still read fine. Wants the emoji swapped to actually match the new
+names (e.g. 🍖/🍡 for a meatball, 🥩 for meatloaf, 🥞 for a pancake) —
+same emoji-only-swap scope as the original pass, no name/stat changes.
+
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
 through in a dedicated future combat pass rather than one-off adds:
