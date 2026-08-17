@@ -103,6 +103,16 @@ const BUILDS = [
     equipment: { weapon: 'starterSword', body: 'clothTunic', head: 'clothCap' },
     potions: 3,
   }),
+  // Timothy's exact 2026-08-17 report: level 5, full cloth set, starter
+  // sword never upgraded at the smith - "killing guys with a few hits and
+  // no potions" (i.e. leveling alone is trivializing fights before gear
+  // has caught up at all).
+  makeBuild({
+    name: "L5 (starter sword unupgraded, full cloth)",
+    level: 5,
+    equipment: { weapon: 'starterSword', body: 'clothTunic', head: 'clothCap', legs: 'clothPants' },
+    potions: 3,
+  }),
   // Rushed the dungeon: barely bought anything, just the free starting sword
   // and the cheapest hat. This is the "under-prepared arrival".
   makeBuild({
