@@ -78,6 +78,15 @@ function makeBuild({ name, level, equipment, potions }) {
 }
 
 const BUILDS = [
+  // The true fresh-start baseline: no shop trip at all, just the starting
+  // sword and starting potions. Added 2026-08-17 after Timothy reported his
+  // actual first playthrough skipped armor entirely and leaned on potions.
+  makeBuild({
+    name: 'L1 (starter sword only, no armor)',
+    level: 1,
+    equipment: { weapon: 'starterSword' },
+    potions: 2,
+  }),
   // Near-town tier baseline for the savage-early-game rework: the cheapest
   // armor piece a level-1 character can actually afford (clothTunic spends
   // the entire 20g starting purse).

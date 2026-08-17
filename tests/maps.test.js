@@ -129,10 +129,16 @@ test('every walkable tile on every wilderness screen is reachable from startPosi
   }
 });
 
-test('every FLAVOR_TEXT key is a real wilderness screen, and every wilderness screen has flavor text', () => {
+test('every FLAVOR_TEXT key is a real wilderness screen or an explicitly allowed extra, and every wilderness screen has flavor text', () => {
   const screenIds = Object.keys(WILDERNESS);
+  // 'town' is a deliberate addition (a first-visit nudge to buy armor before
+  // heading out, added 2026-08-17) - not a wilderness screen, but a real map id.
+  const allowedExtraKeys = ['town'];
   for (const key of Object.keys(FLAVOR_TEXT)) {
-    assert.ok(screenIds.includes(key), `FLAVOR_TEXT key '${key}' does not match a real wilderness screen id`);
+    assert.ok(
+      screenIds.includes(key) || allowedExtraKeys.includes(key),
+      `FLAVOR_TEXT key '${key}' does not match a real wilderness screen id or an allowed extra`
+    );
   }
   for (const id of screenIds) {
     assert.ok(FLAVOR_TEXT[id], `wilderness screen '${id}' is missing a FLAVOR_TEXT entry`);

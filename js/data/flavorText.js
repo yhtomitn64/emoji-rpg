@@ -1,4 +1,5 @@
 export const FLAVOR_TEXT = {
+  town: "The shop and smith wait here if you'd rather gear up first — or skip it and lean on potions instead; you'll likely die a few times figuring that out, but a loss just sends you home to rest, not to ruin.",
   center: "The town's outer fields stretch quiet and safe in every direction.",
   north: 'Tall grass sways under an open sky — the road north feels calm enough.',
   south: 'A well-worn path winds south, birdsong drifting from the treeline.',
