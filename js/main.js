@@ -29,6 +29,7 @@ import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
 import { FLAVOR_TEXT } from './data/flavorText.js';
 import { showFlavorBanner } from './screens/flavorBanner.js';
+import { formatBattleOutcomeMessage } from './systems/messageLog.js';
 import { playCelebration } from './screens/celebrationEffect.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
@@ -484,6 +485,20 @@ function handleBattleEnd(outcome, monsterId) {
   activeBossTierXp = null;
   const bossTierAttempt = activeBossTierAttempt;
   activeBossTierAttempt = null;
+
+  // Snapshot effective stats as they stood at the moment combat ended (state.player.hp
+  // already reflects the battle's outcome here - battleScreen.js's endBattle() synced it
+  // before this callback fires), before any post-battle reward/heal mutations below change
+  // them, so the log entry reflects what actually fought this battle, not what you have now.
+  const bonuses = getEquipmentBonuses(state);
+  const playerSnapshot = {
+    level: state.player.level,
+    attack: state.player.attack + bonuses.attack,
+    defense: state.player.defense + bonuses.defense,
+    hp: state.player.hp,
+    maxHp: state.player.maxHp + bonuses.maxHp,
+  };
+  showFlavorBanner(formatBattleOutcomeMessage(outcome, MONSTERS[monsterId].name, playerSnapshot));
 
   if (outcome === 'won') {
     const monster = MONSTERS[monsterId];

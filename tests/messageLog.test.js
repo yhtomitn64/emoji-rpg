@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MESSAGE_LOG_CAP, appendMessage } from '../js/systems/messageLog.js';
+import { MESSAGE_LOG_CAP, appendMessage, formatBattleOutcomeMessage } from '../js/systems/messageLog.js';
 
 test('MESSAGE_LOG_CAP is 50', () => {
   assert.equal(MESSAGE_LOG_CAP, 50);
@@ -31,4 +31,22 @@ test('appendMessage keeps growing up to exactly the cap without dropping', () =>
   assert.equal(next.length, MESSAGE_LOG_CAP);
   assert.equal(next[0], 'msg0');
   assert.equal(next[next.length - 1], 'last-room');
+});
+
+test('formatBattleOutcomeMessage includes the effective stat snapshot for a win', () => {
+  const snapshot = { level: 3, attack: 12, defense: 5, hp: 18, maxHp: 24 };
+  const msg = formatBattleOutcomeMessage('won', 'Mean Meatball', snapshot);
+  assert.equal(msg, 'Defeated Mean Meatball! (Lv.3 ATK 12 DEF 5 HP 18/24)');
+});
+
+test('formatBattleOutcomeMessage phrases a loss and a flee differently, same stat snapshot format', () => {
+  const snapshot = { level: 3, attack: 12, defense: 5, hp: 0, maxHp: 24 };
+  assert.equal(
+    formatBattleOutcomeMessage('lost', 'Mean Meatball', snapshot),
+    'Mean Meatball defeated you. (Lv.3 ATK 12 DEF 5 HP 0/24)'
+  );
+  assert.equal(
+    formatBattleOutcomeMessage('fled', 'Mean Meatball', { ...snapshot, hp: 10 }),
+    'Fled from Mean Meatball. (Lv.3 ATK 12 DEF 5 HP 10/24)'
+  );
 });
