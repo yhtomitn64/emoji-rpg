@@ -20,10 +20,13 @@ function render() {
     </div>`;
   }).join('');
 
+  const anyComplete = Object.keys(QUEST_REQUIREMENTS).some((monsterId) => canTurnInQuest(state, monsterId));
+
   rootEl.innerHTML = `
     <div class="quest-board-screen">
       <h2>Quest Board</h2>
       ${rows}
+      <button id="btn-turn-in-all" ${anyComplete ? '' : 'disabled'}>Turn In All</button>
       <button id="btn-leave">Leave</button>
     </div>
   `;
@@ -31,12 +34,23 @@ function render() {
   rootEl.querySelectorAll('button[data-monster]').forEach((btn) => {
     btn.onclick = () => turnIn(btn.dataset.monster);
   });
+  document.getElementById('btn-turn-in-all').onclick = turnInAll;
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
 }
 
 function turnIn(monsterId) {
   if (!canTurnInQuest(state, monsterId)) return;
   Object.assign(state, turnInQuest(state, monsterId));
+  callbacks.onTurnIn();
+  render();
+}
+
+function turnInAll() {
+  for (const monsterId of Object.keys(QUEST_REQUIREMENTS)) {
+    if (canTurnInQuest(state, monsterId)) {
+      Object.assign(state, turnInQuest(state, monsterId));
+    }
+  }
   callbacks.onTurnIn();
   render();
 }
