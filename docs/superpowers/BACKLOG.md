@@ -17,29 +17,25 @@ the words, not the engineering around them.
 
 ## Pacing / progression
 
-### Celebration animation on your first-ever kill
-A one-time celebration effect the very first time the player defeats an
-enemy (distinct from every subsequent kill) — a small, cheap way to
-mark the first sense of progression. Likely a `state.flags`-style
-one-shot flag (matching the existing `dungeonBossDefeated` flag
-pattern) checked in `handleBattleEnd`'s `'won'` branch.
-
-### Level-up needs to feel special
-Currently a level-up is just stat numbers changing quietly. Wants a real
-moment: a cool animation on the hero emoji, flavor text, "light shooting
-out somewhere or something." Natural pairing with the first-kill
-celebration above — both are "make a progression moment actually land"
-asks, could reasonably share a design pass (e.g. a small reusable
-celebration-effect helper rather than two bespoke animations). Hook
-point is the `leveledUp` branch in `handleBattleEnd` (js/main.js), same
-place the existing partial-heal-at-late-game logic already lives.
+*(First-kill and level-up celebrations shipped 2026-08-17 — see
+CHANGELOG. Both fire from a new shared, screen-independent celebration
+effect: `js/screens/celebrationEffect.js`.)*
 
 ### Fun animation for items landing in inventory
 Wants something like items visibly "flying into" the inventory when
 received (a drop, a quest turn-in, etc.) instead of just appearing in a
-list. A third "make the moment land" polish ask alongside the two
-above — could plausibly share the same small celebration/effect
-infrastructure if one gets built.
+list. Deliberately **not** built alongside the first-kill/level-up
+celebrations above, even though it was originally grouped with them —
+those two are screen-independent (a generic burst + banner, fireable
+from anywhere, no specific DOM element required). This one is
+different in kind: "flying into inventory" implies an actual animated
+path toward a real target, and the only always-present, stable target
+is the HUD's Inventory button — but the natural trigger point (a drop
+resolving in `handleBattleEnd`) already runs *after* the battle screen
+has unmounted, so there's no live "item icon" starting position to
+animate from. Needs its own small design pass (e.g. a lighter toast/pop
+near the HUD button instead of a literal cross-screen flight path)
+rather than reusing the burst effect as-is.
 
 ### Early-game pace ramps up too fast; the dragon fell quickly
 Timothy's read: the early game *felt* good — genuinely hard, then you
@@ -148,6 +144,17 @@ no stats — no way to tell what Lucky Charm does, or whether Iron Helm
 beats Cloth Cap, before buying. The Inventory screen already has
 stat-comparison logic for owned-but-unequipped items; this would reuse
 that against shop listings too.
+
+### Item tooltips wherever items are shown
+Raised separately from "buying blind" above but the same root gap:
+Timothy's words — "I don't know what different items do unless I'm
+looking in the wrong place." A hover tooltip (or equivalent) showing an
+item's effect/stats would need to work everywhere an item appears, not
+just the shop: inventory, smith material selection, quest rewards. Item
+data (`js/data/items.js`) already has `stats`/`heal`/`price` for this;
+consumables like potions would need it too (currently only
+`heal: 15`, no other descriptive text). Worth deciding whether this
+subsumes the "buying blind" item above or the two ship separately.
 
 ### No way to heal outside of combat except losing a fight
 `state.player.hp` is only restored to max in `handleBattleEnd`'s

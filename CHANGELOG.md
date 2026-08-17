@@ -24,6 +24,15 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-17
+
+### Added
+- First kill and every level-up now trigger a celebration effect (emoji
+  burst + flavor banner), via a new screen-independent
+  `js/screens/celebrationEffect.js`. First kill is a one-shot flag,
+  correctly backfilled for existing characters so it doesn't misfire on
+  a save that's already made progress.
+
 ## [0.2.2] - 2026-08-17
 
 ### Changed
