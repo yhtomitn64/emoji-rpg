@@ -1,6 +1,11 @@
+export const SHOP_CATALOG = [
+  'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves',
+  'powerRing', 'clothCap', 'clothTunic', 'clothPants', 'luckyCharm', 'potion',
+];
+
 export const ITEMS = {
   // Weapons
-  starterSword: { id: 'starterSword', name: 'Starter Sword', emoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 3 } },
+  starterSword: { id: 'starterSword', name: 'Starter Sword', emoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 3 }, startingItem: true },
   ironSword: { id: 'ironSword', name: 'Iron Sword', emoji: '⚔️', slot: 'weapon', price: 30, stats: { attack: 6 } },
   goblinClub: { id: 'goblinClub', name: 'Goblin Club', emoji: '🏏', slot: 'weapon', price: 0, stats: { attack: 8 } },
   dragonFang: { id: 'dragonFang', name: 'Dragon Fang Blade', emoji: '🦷', slot: 'weapon', price: 0, stats: { attack: 14 } },

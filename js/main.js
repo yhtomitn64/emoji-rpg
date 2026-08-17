@@ -7,6 +7,7 @@ import * as smithScreen from './screens/smithScreen.js';
 import * as statsPanel from './screens/statsPanel.js';
 import * as inventoryScreen from './screens/inventoryScreen.js';
 import * as messageLogScreen from './screens/messageLogScreen.js';
+import * as lootReferenceScreen from './screens/lootReferenceScreen.js';
 import * as startScreen from './screens/startScreen.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
@@ -166,6 +167,10 @@ function setHudButtonsEnabled(enabled) {
   if (logButton) {
     logButton.disabled = !enabled;
   }
+  const lootButton = document.getElementById('btn-open-loot-reference');
+  if (lootButton) {
+    lootButton.disabled = !enabled;
+  }
 }
 
 function renderHud() {
@@ -194,10 +199,17 @@ function renderHud() {
   logButton.disabled = battleActive;
   logButton.onclick = openMessageLog;
 
+  const lootButton = document.createElement('button');
+  lootButton.id = 'btn-open-loot-reference';
+  lootButton.textContent = '📖 Loot';
+  lootButton.disabled = battleActive;
+  lootButton.onclick = openLootReference;
+
   hud.appendChild(label);
   hud.appendChild(statsButton);
   hud.appendChild(inventoryButton);
   hud.appendChild(logButton);
+  hud.appendChild(lootButton);
 }
 
 function openStats() {
@@ -227,6 +239,14 @@ function openInventory() {
 function openMessageLog() {
   if (battleActive) return;
   mountOverlay(messageLogScreen, {
+    state,
+    callbacks: { onClose: () => unmountOverlay() },
+  });
+}
+
+function openLootReference() {
+  if (battleActive) return;
+  mountOverlay(lootReferenceScreen, {
     state,
     callbacks: { onClose: () => unmountOverlay() },
   });

@@ -1,19 +1,14 @@
-import { ITEMS } from '../data/items.js';
+import { ITEMS, SHOP_CATALOG } from '../data/items.js';
 import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem } from '../systems/inventory.js';
 
 const BUY_QUANTITIES = [1, 5, 10, 100];
-
-const CATALOG = [
-  'ironSword', 'ironHelm', 'ironArmor', 'ironGreaves',
-  'powerRing', 'clothCap', 'clothTunic', 'clothPants', 'luckyCharm', 'potion',
-];
 
 let rootEl = null;
 let state = null;
 let callbacks = null;
 
 function render() {
-  const rows = CATALOG.map((itemId) => {
+  const rows = SHOP_CATALOG.map((itemId) => {
     const item = ITEMS[itemId];
     const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId);
     const ownedQty = ownedEntry ? ownedEntry.quantity : 0;

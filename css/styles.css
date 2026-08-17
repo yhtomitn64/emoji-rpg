@@ -168,6 +168,7 @@ button:focus-visible {
   padding: 6px 0; border-bottom: 1px solid #444;
 }
 .inventory-empty { color: #888; padding: 6px 0; font-size: 0.85rem; }
+.loot-source { color: #888; font-size: 0.8rem; text-align: right; }
 
 .quest-row {
   display: flex; justify-content: space-between; align-items: center;
