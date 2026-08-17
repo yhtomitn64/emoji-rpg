@@ -17,7 +17,6 @@ let battleOver = false;
 let log = [];
 let elements = {};
 let endBattleTimeoutId = null;
-let menuVisible = false;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -46,15 +45,20 @@ function percent(value, max) {
   return Math.max(0, Math.min(100, (value / max) * 100));
 }
 
-function battleDecoration() {
-  const isCave = state.map === 'dungeon' || state.map.startsWith('miniDungeon');
-  return isCave ? '🪨 ⛏️ 🪨' : '🌲 🌳 🌲';
+function isCaveBattle() {
+  return state.map === 'dungeon' || state.map.startsWith('miniDungeon');
+}
+
+function battleDecorationHtml() {
+  const emoji = isCaveBattle() ? ['🪨', '⛏️', '🪨', '🪨'] : ['🌲', '🌳', '🌲', '🌳'];
+  return emoji.map((e) => `<span>${e}</span>`).join('');
 }
 
 function buildDom() {
+  const envClass = isCaveBattle() ? 'battle-screen-cave' : 'battle-screen-forest';
   rootEl.innerHTML = `
-    <div class="overlay-panel battle-screen">
-      <div class="battle-decoration">${battleDecoration()}</div>
+    <div class="overlay-panel battle-screen ${envClass}">
+      <div class="battle-decoration">${battleDecorationHtml()}</div>
       <div class="battle-main">
         <div class="battle-combatant" id="battle-monster-zone">
           <div class="battle-emoji battle-monster-emoji" id="battle-monster-emoji">${monsterCombatant.emoji}</div>
@@ -114,22 +118,23 @@ function updateLog() {
 }
 
 function updateMenu() {
-  const shouldShow = !battleOver && isReady(playerCombatant.atb);
-  if (shouldShow === menuVisible) return;
-  menuVisible = shouldShow;
-
-  if (!shouldShow) {
+  if (battleOver) {
     elements.menu.innerHTML = '';
     return;
   }
+  const ready = isReady(playerCombatant.atb);
+  const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
+
   elements.menu.innerHTML = `
-    <button id="btn-attack">Attack</button>
-    <button id="btn-item">Item</button>
-    <button id="btn-flee">Flee</button>
+    ${ready ? '<button id="btn-attack">Attack</button>' : ''}
+    <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item</button>
+    ${ready ? '<button id="btn-flee">Flee</button>' : ''}
   `;
-  document.getElementById('btn-attack').onclick = playerAttack;
+  if (ready) {
+    document.getElementById('btn-attack').onclick = playerAttack;
+    document.getElementById('btn-flee').onclick = playerFlee;
+  }
   document.getElementById('btn-item').onclick = playerUseItem;
-  document.getElementById('btn-flee').onclick = playerFlee;
 }
 
 function showDamageNumber(zoneEl, amount, isCrit) {
@@ -156,12 +161,15 @@ function playReviveEffect(zoneEl, emojiEl) {
 }
 
 function handleKeydown(event) {
-  if (battleOver || !isReady(playerCombatant.atb)) return;
+  if (battleOver) return;
   const key = event.key;
+  if (key === 'i' || key === 'I') {
+    playerUseItem();
+    return;
+  }
+  if (!isReady(playerCombatant.atb)) return;
   if (key === 'a' || key === 'A') {
     playerAttack();
-  } else if (key === 'i' || key === 'I') {
-    playerUseItem();
   } else if (key === 'Escape') {
     playerFlee();
   }
@@ -190,12 +198,11 @@ function playerUseItem() {
     return;
   }
   Object.assign(state, removeItem(state, 'potion', 1));
-  const heal = ITEMS.potion.heal;
+  const isCrit = rollCrit();
+  const heal = applyCritMultiplier(ITEMS.potion.heal, isCrit);
   playerCombatant.hp = applyHeal(playerCombatant.hp, playerCombatant.maxHp, heal);
-  log.push(`You drink a potion and heal ${heal}.`);
-  playerCombatant.atb = 0;
+  log.push(isCrit ? `Critical! You drink a potion and heal ${heal}!` : `You drink a potion and heal ${heal}.`);
   updateHpBars();
-  updateAtbBars();
   updateLog();
   updateMenu();
 }
@@ -268,7 +275,6 @@ export function mount(root, props) {
   monsterOverrides = props.monsterOverrides || null;
   callbacks = props.callbacks;
   battleOver = false;
-  menuVisible = false;
   log = [pickAppearLine(MONSTERS[monsterId])];
   playerCombatant = buildPlayerCombatant();
   monsterCombatant = buildMonsterCombatant();
