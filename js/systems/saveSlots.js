@@ -1,4 +1,4 @@
-import { createNewGame, saveState, slotSaveKey, STORAGE_KEY, deserializeState } from '../state.js';
+import { createNewGame, saveState, slotSaveKey, STORAGE_KEY, deserializeState, DEFAULT_HERO_EMOJI } from '../state.js';
 
 const SLOTS_KEY = 'emoji-rpg-slots';
 
@@ -19,9 +19,9 @@ export function listSlots(storage = globalThis.localStorage) {
   return readRegistry(storage);
 }
 
-export function createSlot(name, storage = globalThis.localStorage) {
+export function createSlot(name, heroEmoji = DEFAULT_HERO_EMOJI, storage = globalThis.localStorage) {
   const id = generateSlotId();
-  const state = createNewGame();
+  const state = createNewGame(heroEmoji);
   const now = Date.now();
   const entries = readRegistry(storage);
   entries.push({ id, name, createdAt: now, lastPlayed: now, level: state.player.level, ngPlusCycle: state.ngPlusCycle });

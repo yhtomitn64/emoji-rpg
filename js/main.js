@@ -1,4 +1,4 @@
-import { loadState, saveState } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI } from './state.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
@@ -109,6 +109,9 @@ function startGame(loadedState, slotId) {
   if (state.flags.firstKillCelebrated === undefined) {
     state.flags.firstKillCelebrated = hasEverKilledSomething(state.player);
   }
+  if (!state.player.emoji) {
+    state.player.emoji = DEFAULT_HERO_EMOJI;
+  }
   renderHud();
   goToMap(state.map);
 }
@@ -118,8 +121,8 @@ function mountStartScreen() {
     slots: listSlots(),
     callbacks: {
       onContinue: (slotId) => startGame(loadState(slotId), slotId),
-      onNewGame: (name) => {
-        const created = createSlot(name);
+      onNewGame: (name, heroEmoji) => {
+        const created = createSlot(name, heroEmoji);
         startGame(created.state, created.id);
       },
       onDelete: (slotId) => {

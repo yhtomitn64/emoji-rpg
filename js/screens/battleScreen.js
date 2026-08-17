@@ -22,7 +22,7 @@ let menuVisible = false;
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
   return {
-    emoji: '🧑',
+    emoji: state.player.emoji,
     hp: state.player.hp,
     maxHp: state.player.maxHp + bonuses.maxHp,
     attack: state.player.attack + bonuses.attack,

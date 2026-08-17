@@ -1,3 +1,5 @@
+import { HERO_EMOJI_OPTIONS, DEFAULT_HERO_EMOJI } from '../state.js';
+
 let rootEl = null;
 let slots = [];
 let callbacks = null;
@@ -35,9 +37,11 @@ function renderSlotRow(slot) {
 
 function render() {
   const slotRows = slots.map(renderSlotRow).join('');
+  const emojiOptions = HERO_EMOJI_OPTIONS.map((emoji) => `<option value="${emoji}">${emoji}</option>`).join('');
   const newGameSection = newGameOpen
     ? `<div class="new-game-row">
         <input type="text" id="new-game-name" placeholder="Character name" />
+        <select id="new-game-emoji" aria-label="Hero emoji">${emojiOptions}</select>
         <button id="btn-create-slot">Create</button>
       </div>`
     : `<button id="btn-open-new-game">+ New Game</button>`;
@@ -71,7 +75,8 @@ function render() {
     input.focus();
     document.getElementById('btn-create-slot').onclick = () => {
       const name = input.value.trim() || 'New Game';
-      callbacks.onNewGame(name);
+      const heroEmoji = document.getElementById('new-game-emoji').value || DEFAULT_HERO_EMOJI;
+      callbacks.onNewGame(name, heroEmoji);
     };
   } else {
     document.getElementById('btn-open-new-game').onclick = () => {

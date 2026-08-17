@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createNewGame, serializeState, deserializeState, saveState, loadState, slotSaveKey } from '../js/state.js';
+import { createNewGame, serializeState, deserializeState, saveState, loadState, slotSaveKey, DEFAULT_HERO_EMOJI } from '../js/state.js';
 
 function createFakeStorage() {
   const store = new Map();
@@ -26,6 +26,12 @@ test('createNewGame returns a fresh default state', () => {
     direWolf: 0, spider: 0, orc: 0, wraith: 0,
   });
   assert.deepEqual(state.gateRewards, {});
+  assert.equal(state.player.emoji, DEFAULT_HERO_EMOJI);
+});
+
+test('createNewGame uses the passed hero emoji instead of the default', () => {
+  const state = createNewGame('🧙');
+  assert.equal(state.player.emoji, '🧙');
 });
 
 test('serializeState and deserializeState round-trip', () => {

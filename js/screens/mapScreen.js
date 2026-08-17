@@ -51,7 +51,7 @@ function render() {
         : hasCache(state.caches, mapConfig.id, x, y)
         ? CACHE_MARKER_EMOJI
         : tile.emoji;
-      cell.textContent = isPlayer ? '🧑' : emoji;
+      cell.textContent = isPlayer ? state.player.emoji : emoji;
       grid.appendChild(cell);
     }
   }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from '../js/systems/saveSlots.js';
-import { STORAGE_KEY, serializeState, createNewGame, loadState } from '../js/state.js';
+import { STORAGE_KEY, serializeState, createNewGame, loadState, DEFAULT_HERO_EMOJI } from '../js/state.js';
 
 function createFakeStorage() {
   const store = new Map();
@@ -19,7 +19,7 @@ test('listSlots returns an empty array when nothing has been created', () => {
 
 test('createSlot adds a registry entry and a fresh save', () => {
   const storage = createFakeStorage();
-  const { id, state } = createSlot('Hero', storage);
+  const { id, state } = createSlot('Hero', DEFAULT_HERO_EMOJI, storage);
   assert.equal(state.player.level, 1);
   const slots = listSlots(storage);
   assert.equal(slots.length, 1);
@@ -31,16 +31,23 @@ test('createSlot adds a registry entry and a fresh save', () => {
   assert.equal(loaded.player.level, 1);
 });
 
+test('createSlot passes the chosen hero emoji through to the saved state', () => {
+  const storage = createFakeStorage();
+  const { id, state } = createSlot('Wizard', '🧙', storage);
+  assert.equal(state.player.emoji, '🧙');
+  assert.equal(loadState(id, storage).player.emoji, '🧙');
+});
+
 test('createSlot generates unique ids across calls', () => {
   const storage = createFakeStorage();
-  const first = createSlot('One', storage);
-  const second = createSlot('Two', storage);
+  const first = createSlot('One', DEFAULT_HERO_EMOJI, storage);
+  const second = createSlot('Two', DEFAULT_HERO_EMOJI, storage);
   assert.notEqual(first.id, second.id);
 });
 
 test('deleteSlot removes the registry entry and the save', () => {
   const storage = createFakeStorage();
-  const { id } = createSlot('Hero', storage);
+  const { id } = createSlot('Hero', DEFAULT_HERO_EMOJI, storage);
   deleteSlot(id, storage);
   assert.deepEqual(listSlots(storage), []);
   assert.equal(loadState(id, storage), null);
@@ -48,8 +55,8 @@ test('deleteSlot removes the registry entry and the save', () => {
 
 test('deleteSlot leaves other slots untouched', () => {
   const storage = createFakeStorage();
-  const { id: keepId } = createSlot('Keep', storage);
-  const { id: deleteId } = createSlot('Delete', storage);
+  const { id: keepId } = createSlot('Keep', DEFAULT_HERO_EMOJI, storage);
+  const { id: deleteId } = createSlot('Delete', DEFAULT_HERO_EMOJI, storage);
   deleteSlot(deleteId, storage);
   const slots = listSlots(storage);
   assert.equal(slots.length, 1);
@@ -59,7 +66,7 @@ test('deleteSlot leaves other slots untouched', () => {
 
 test('touchSlot updates level, ngPlusCycle, and lastPlayed for the matching slot', () => {
   const storage = createFakeStorage();
-  const { id } = createSlot('Hero', storage);
+  const { id } = createSlot('Hero', DEFAULT_HERO_EMOJI, storage);
   const before = listSlots(storage)[0].lastPlayed;
   touchSlot(id, { level: 5, ngPlusCycle: 1 }, storage);
   const after = listSlots(storage)[0];
@@ -70,7 +77,7 @@ test('touchSlot updates level, ngPlusCycle, and lastPlayed for the matching slot
 
 test('touchSlot on an unknown id is a no-op', () => {
   const storage = createFakeStorage();
-  createSlot('Hero', storage);
+  createSlot('Hero', DEFAULT_HERO_EMOJI, storage);
   touchSlot('nonexistent', { level: 5, ngPlusCycle: 1 }, storage);
   assert.equal(listSlots(storage).length, 1);
   assert.equal(listSlots(storage)[0].level, 1);
@@ -98,7 +105,7 @@ test('migrateLegacySave is a no-op when there is no legacy save', () => {
 
 test('migrateLegacySave is a no-op when a registry already exists', () => {
   const storage = createFakeStorage();
-  createSlot('Existing', storage);
+  createSlot('Existing', DEFAULT_HERO_EMOJI, storage);
   const legacy = createNewGame();
   storage.setItem(STORAGE_KEY, serializeState(legacy));
   migrateLegacySave(storage);
