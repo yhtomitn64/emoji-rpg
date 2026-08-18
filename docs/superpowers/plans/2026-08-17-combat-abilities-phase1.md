@@ -656,7 +656,7 @@ git commit -m "feat: render level-gated ability buttons with per-battle cooldown
 
 **Interfaces:**
 - Consumes: `resolveAbilityUse` from `js/systems/abilities.js`.
-- Produces: `playerUseAbility(abilityId)`, wired as the `onclick` handler for every ability button. For this task, the timing-hit argument is hardcoded to `false` — Task 11 replaces that stub with the real timing-minigame result.
+- Produces: `playerUseAbility(abilityId)`, wired as the `onclick` handler for every ability button. For this task, the timing-hit argument is hardcoded to `false` — Task 12 replaces that stub with the real timing-minigame result.
 
 - [ ] **Step 1: Add the import**
 
@@ -673,7 +673,7 @@ Add a new function near `playerAttack()` in `js/screens/battleScreen.js`:
 ```js
 function playerUseAbility(abilityId) {
   const ability = ABILITIES.find((a) => a.id === abilityId);
-  if (ability.type !== 'damage') return; // superScream (buff) is handled in Task 10
+  if (ability.type !== 'damage') return; // superScream (buff) is handled in Task 11
   const result = resolveAbilityUse(playerCombatant, monsterCombatant, ability, buffState.active, false);
   monsterCombatant.hp = result.monsterHp;
   monsterCombatant.atb = result.monsterAtb;
@@ -839,7 +839,188 @@ git commit -m "feat: wire Slash's delayed bleed tick and Sweep's defense-shred d
 
 ---
 
-## Task 10: Wire Super Scream (buff activation + indicator)
+## Task 10: Numbered ability shortcuts, always-visible buttons, and trees behind combatants
+
+**Files:**
+- Modify: `js/screens/battleScreen.js`
+- Modify: `css/styles.css`
+
+**Interfaces:**
+- Consumes: `ABILITIES` (already imported).
+- Produces: `abilityButtonsHtml()` reworked to iterate the full, fixed `ABILITIES` array (not `getUnlockedAbilities`) so every ability has a permanent slot number (`ABILITIES` index + 1) that never changes as more abilities unlock; `updateMenu()` reworked so Attack/ability/Flee buttons are always present in the DOM (disabled, never removed) so the menu never resizes; `handleKeydown` gains digit-key (`1`-`5`) shortcuts mirroring the button numbers; `buildDom()`'s template restructured so the decorative trees sit behind the combatant row specifically, not behind the whole panel (which today visually places them behind the button row at the bottom).
+
+This task lands between Tasks 9 and 11 in build order — it changes the button-rendering shape that Task 11 (Super Scream indicator) and Task 12 (timing minigame) build on top of, so it must land first even though it was added to the plan after those two were originally written.
+
+- [ ] **Step 1: Fixed numbered ability slots with always-enabled-when-possible buttons**
+
+Replace `abilityButtonsHtml()` and `updateMenu()` (built across Tasks 7-9) with:
+
+```js
+function abilityButtonsHtml() {
+  const ready = isReady(playerCombatant.atb);
+  return ABILITIES.map((ability, index) => {
+    const slot = index + 1;
+    const locked = state.player.level < ability.unlockLevel;
+    const cooldownRemaining = abilityCooldowns[ability.id] || 0;
+    const disabled = locked || cooldownRemaining > 0 || !ready;
+    const cooldownSuffix = cooldownRemaining > 0 ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
+    const label = `${ability.name} (${slot})${cooldownSuffix}`;
+    return `<button id="btn-ability-${ability.id}" class="battle-ability-button" ${disabled ? 'disabled' : ''}>${label}</button>`;
+  }).join('');
+}
+
+function updateMenu() {
+  if (battleOver) {
+    elements.menu.innerHTML = '';
+    return;
+  }
+  const ready = isReady(playerCombatant.atb);
+  const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
+
+  elements.menu.innerHTML = `
+    <button id="btn-attack" ${ready ? '' : 'disabled'}>Attack</button>
+    ${abilityButtonsHtml()}
+    <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item</button>
+    <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee</button>
+  `;
+  document.getElementById('btn-attack').onclick = playerAttack;
+  document.getElementById('btn-flee').onclick = playerFlee;
+  document.getElementById('btn-item').onclick = playerUseItem;
+  for (const ability of ABILITIES) {
+    const btn = document.getElementById(`btn-ability-${ability.id}`);
+    if (btn) {
+      btn.onclick = () => playerUseAbility(ability.id);
+    }
+  }
+}
+```
+
+Ability buttons now always render for all five abilities (locked ones show disabled with no countdown, since `cooldownRemaining` is `0` for an ability the player has never unlocked and thus never started a cooldown for). `onclick` handlers are now assigned unconditionally — a `disabled` button already ignores clicks natively in the DOM, so there's no need to gate the assignment itself, matching how `btn-item` already behaved before this task.
+
+- [ ] **Step 2: Digit-key shortcuts**
+
+Replace `handleKeydown` (unchanged since before this plan) with:
+
+```js
+function handleKeydown(event) {
+  if (battleOver) return;
+  const key = event.key;
+  if (key === 'i' || key === 'I') {
+    playerUseItem();
+    return;
+  }
+  if (!isReady(playerCombatant.atb)) return;
+  if (key === 'a' || key === 'A') {
+    playerAttack();
+  } else if (key === 'Escape') {
+    playerFlee();
+  } else if (key >= '1' && key <= '5') {
+    const ability = ABILITIES[Number(key) - 1];
+    const locked = state.player.level < ability.unlockLevel;
+    const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
+    if (!locked && !onCooldown) {
+      playerUseAbility(ability.id);
+    }
+  }
+}
+```
+
+- [ ] **Step 3: Move the trees behind the combatant row only**
+
+Today `.battle-decoration` is a direct child of `.overlay-panel.battle-screen`, absolutely positioned to cover the *entire* panel including the button row below it — since it's bottom-aligned (`align-items: flex-end`), the trees visually end up behind the buttons rather than behind the monster/hero emoji. Scope the decoration to just the combatant row by wrapping the monster zone, divider, and hero zone in a new container and moving `.battle-decoration` inside it.
+
+In `buildDom()`'s template, change:
+
+```html
+      <div class="battle-decoration">${battleDecorationHtml()}</div>
+      <div class="battle-main">
+        <div class="battle-combatant" id="battle-monster-zone">
+```
+
+to:
+
+```html
+      <div class="battle-main">
+        <div class="battle-combatants-row">
+          <div class="battle-decoration">${battleDecorationHtml()}</div>
+          <div class="battle-combatant" id="battle-monster-zone">
+```
+
+and change the existing closing tags right after the hero zone's closing `</div>` (immediately before `<div class="battle-menu" id="battle-menu"></div>`) from:
+
+```html
+        </div>
+        <div class="battle-menu" id="battle-menu"></div>
+```
+
+to:
+
+```html
+        </div>
+        </div>
+        <div class="battle-menu" id="battle-menu"></div>
+```
+
+(This closes the new `.battle-combatants-row` wrapper right after the hero zone, before the menu — the menu stays a sibling of the row, outside the decoration's bounds.)
+
+In `css/styles.css`, change:
+
+```css
+.battle-decoration {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-evenly;
+  font-size: 5rem;
+  line-height: 1;
+  padding-bottom: 4px;
+  opacity: 0.32;
+  pointer-events: none;
+  z-index: 0;
+}
+```
+
+to:
+
+```css
+.battle-combatants-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.battle-decoration {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  font-size: 5rem;
+  line-height: 1;
+  opacity: 0.32;
+  pointer-events: none;
+  z-index: 0;
+}
+```
+
+(`.battle-decoration` keeps the same absolute/z-index approach, just scoped to the new smaller `.battle-combatants-row` instead of the whole panel — no change needed to `.battle-main`'s existing `position: relative; z-index: 1;`, it's harmless now but not worth removing in this task.)
+
+- [ ] **Step 4: Manually verify**
+
+Using a level-10 test character (same `localStorage` technique as prior tasks): confirm all five ability buttons are always visible in the menu, including before ATB is ready (greyed/disabled rather than absent) and confirm the menu's height doesn't visibly change as ATB fills and the buttons re-enable. Confirm each button's label shows its number, e.g. "Stab (1)", "Super Scream (5)". Press `1` through `5` on the keyboard during a ready turn and confirm each triggers the matching ability exactly like clicking its button. Visually confirm the trees now render behind the monster/hero emoji and HP/ATB bars, not overlapping or appearing near the button row.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add js/screens/battleScreen.js css/styles.css
+git commit -m "feat: fixed numbered ability slots, always-visible buttons, trees behind combatants"
+```
+
+---
+
+## Task 11: Wire Super Scream (buff activation + indicator)
 
 **Files:**
 - Modify: `js/screens/battleScreen.js`
@@ -926,7 +1107,7 @@ git commit -m "feat: wire Super Scream buff activation and battle-screen indicat
 
 ---
 
-## Task 11: Timing minigame UI
+## Task 12: Timing minigame UI
 
 **Files:**
 - Modify: `js/screens/battleScreen.js`
@@ -1010,7 +1191,7 @@ function runTimingMeter() {
 
 - [ ] **Step 3: Route ability use through the timing meter**
 
-Change `playerUseAbility` (from Tasks 8-10) from a synchronous function into an `async` one, and use the real timing result in place of the Task 8 stub. Replace the function signature and the `resolveAbilityUse` call site:
+Change `playerUseAbility` (built across Tasks 8-9 and 11) from a synchronous function into an `async` one, and use the real timing result in place of the Task 8 stub. Replace the function signature and the `resolveAbilityUse` call site:
 
 ```js
 async function playerUseAbility(abilityId) {
@@ -1032,7 +1213,7 @@ async function playerUseAbility(abilityId) {
 }
 ```
 
-Update the click-handler wiring in `updateMenu()` (Task 8, Step 3) — `onclick = () => playerUseAbility(ability.id)` already works unchanged with an `async` function; no change needed there.
+The click-handler wiring in `updateMenu()` (Task 10) already assigns `onclick = () => playerUseAbility(ability.id)` unconditionally — this already works unchanged with an `async` function; no change needed there.
 
 - [ ] **Step 4: Add CSS for the meter**
 
@@ -1079,7 +1260,7 @@ git commit -m "feat: add never-fails timing minigame to ability activation"
 
 ---
 
-## Task 12: Full playtest pass
+## Task 13: Full playtest pass
 
 **Files:** none (verification only).
 
@@ -1090,11 +1271,11 @@ Expected: all tests pass, including the ~22 new `abilities.test.js` tests and ev
 
 - [ ] **Step 2: Fresh-character progression playtest**
 
-Start a brand-new character (no `localStorage` manipulation this time — real leveling) and play far enough to level up naturally through 2, 4, 6, 8, and 10 (grinding near-town monsters is fine). At each threshold, confirm the newly-unlocked ability appears in battle and none of the later ones do yet.
+Start a brand-new character (no `localStorage` manipulation this time — real leveling) and play far enough to level up naturally through 2, 4, 6, 8, and 10 (grinding near-town monsters is fine). At each threshold, confirm the newly-unlocked ability's button becomes enabled (it should already be visible, just disabled, per Task 10 — confirm it was never absent) and that later, still-locked abilities remain visibly present but disabled with their correct slot number.
 
 - [ ] **Step 3: Full-kit combat playtest at level 10**
 
-In a real battle: use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately.
+In a real battle: confirm the menu's size stays visually constant as ATB fills and buttons enable/disable (no resizing); use each of the five keyboard shortcuts (`1`-`5`) at least once and confirm they match their buttons; use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately; confirm the trees render behind the combatants, not overlapping the button row.
 
 - [ ] **Step 4: Confirm nothing outside battle changed**
 
@@ -1114,5 +1295,9 @@ git commit -m "docs: changelog entry for Phase 1 combat abilities"
 ## Plan self-review notes
 
 - **Spec coverage:** every named mechanic in the spec (roster/schedule, real-time cooldowns independent of ATB, rotation bonus, timing minigame with no hard fail, Slash/Sweep secondary effects, damage composition order, zero save-data changes) maps to a task above. Multi-enemy targeting is confirmed out of scope throughout (no task references a second monster).
-- **Type consistency check:** `resolveAbilityUse`'s return shape (`damage/isCrit/monsterHp/monsterAtb/playerAtb`) is defined once in Task 5 and consumed identically in Tasks 8-11 without renaming any field. `BuffState`'s shape (`active/remainingMs/multiplier`) and `DefenseDebuff`'s shape (`active/multiplier/remainingMs`) are likewise defined once (Tasks 3 and 6) and never reshaped later.
+- **Type consistency check:** `resolveAbilityUse`'s return shape (`damage/isCrit/monsterHp/monsterAtb/playerAtb`) is defined once in Task 5 and consumed identically in Tasks 8-9 and 11-12 without renaming any field. `BuffState`'s shape (`active/remainingMs/multiplier`) and `DefenseDebuff`'s shape (`active/multiplier/remainingMs`) are likewise defined once (Tasks 3 and 6) and never reshaped later.
 - **No placeholders:** every step includes literal code, not a description of code.
+
+## Amendment (2026-08-17, mid-execution)
+
+Task 10 (numbered ability shortcuts, always-visible buttons, trees behind combatants) was inserted after Task 9 and before the original Task 10, based on user feedback watching Tasks 7-9 run live in the browser. The original Task 10 (Super Scream) and Task 11 (timing minigame) were renumbered to 11 and 12; the original Task 12 (full playtest) became Task 13, with its manual-verification steps extended to cover the new UI. Cross-references throughout the plan (Task 8's forward-reference comment, Task 12's references to where click-wiring lives) were updated to match. This insertion works because Task 10 only reshapes button *rendering* (`updateMenu`/`abilityButtonsHtml`/`handleKeydown`) and the decoration DOM structure — it does not touch `playerUseAbility`'s internal logic, so Tasks 11-12's edits to that function's body remain valid unchanged against the post-Task-10 file.
