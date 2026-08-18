@@ -266,6 +266,22 @@ through in a dedicated future combat pass rather than one-off adds:
   scales high enough, grant a small damage bonus too, so speed stays
   worth investing in past a soft cap. Raised more tentatively than the
   others ("more for our combat pass to think through").
+- **Parry mechanic, raised 2026-08-18.** A swing-timer bar for the
+  *enemy's* attack (distinct from the player's own ATB gauge) with a
+  parry-able zone near the end — landing it inside that window lets the
+  player parry. Timothy's preferred payoff: reflect half the incoming
+  hit back at the attacker, calculated before defense mitigation; if
+  that doesn't balance in practice, a fallback of "some smaller
+  reflected-damage number, plus 50% less damage taken on that hit"
+  instead. Wants it to start out easy to land, with the real difficulty
+  coming from trying to parry *while* also managing an ability rotation
+  (ties directly into the just-shipped Phase 1 abilities' cooldown
+  juggling) — not from the parry timing itself being hard in isolation.
+  No enemy-side swing-timer/telegraph of any kind exists yet — monster
+  attacks currently just fire the instant their own ATB gauge fills,
+  with no player-visible wind-up. Needs its own design pass: at minimum,
+  a decision on whether monster attacks need a visible telegraph/wind-up
+  before parrying can hook into anything.
 - ~~**Abilities gained on level-up.**~~ **Shipped 2026-08-18 (Phase 1,
   single-target).** Five fixed-order abilities — Stab (2), Chop (4),
   Slash (6), Sweep (8), Super Scream (10) — each with its own real-time
