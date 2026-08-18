@@ -26,3 +26,11 @@ export const ABILITIES = [
 export function getUnlockedAbilities(level) {
   return ABILITIES.filter((ability) => ability.unlockLevel <= level);
 }
+
+export function tickCooldowns(cooldowns, dt) {
+  const next = {};
+  for (const [id, remainingMs] of Object.entries(cooldowns)) {
+    next[id] = Math.max(0, remainingMs - dt);
+  }
+  return next;
+}
