@@ -279,6 +279,15 @@ function handleKeydown(event) {
 }
 
 function playerAttack() {
+  // Same re-entrancy hazard as playerUseAbility's own guard, but from the other
+  // direction: while an ability's timing meter is pending, playerCombatant.atb
+  // hasn't been reset and updateMenu() hasn't re-rendered, so Attack (button or
+  // the 'a' keydown path) is still clickable/pressable. Left unguarded, a
+  // resolvePlayerAttack() here could end the battle (checkOutcome -> endBattle)
+  // while the pending ability's await is still outstanding - see the
+  // `if (battleOver) return;` added after that await below for the other half
+  // of this fix.
+  if (abilityActionInFlight) return;
   const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff));
   monsterCombatant.hp = result.monsterHp;
   monsterCombatant.atb = result.monsterAtb;
@@ -319,6 +328,12 @@ async function playerUseAbility(abilityId) {
       return;
     }
     const timingHit = await runTimingMeter();
+    // The battle can end while this await is outstanding - e.g. the monster's
+    // own ATB-driven attack (tick() -> monsterAttack(), which is intentionally
+    // NOT gated by abilityActionInFlight) can kill the player mid-swing. If it
+    // did, don't resolve this ability's damage or call checkOutcome()/endBattle()
+    // a second time.
+    if (battleOver) return;
     const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff), ability, buffState.active, timingHit);
     monsterCombatant.hp = result.monsterHp;
     monsterCombatant.atb = result.monsterAtb;
@@ -363,6 +378,9 @@ function playerUseItem() {
 }
 
 function playerFlee() {
+  // Same re-entrancy hazard as playerAttack's guard above: block Flee (button
+  // or Escape) while an ability's timing meter is still pending.
+  if (abilityActionInFlight) return;
   if (MONSTERS[monsterId].isBoss) {
     log.push('You cannot flee from this battle!');
     playerCombatant.atb = 0;
