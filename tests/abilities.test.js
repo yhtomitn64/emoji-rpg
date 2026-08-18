@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order', () => {
@@ -112,4 +112,31 @@ test('resolveAbilityUse knocks the monster\'s ATB back and never drops HP below 
   const result = resolveAbilityUse(player, monster, chop, false, false, () => 0.5);
   assert.equal(result.monsterHp, 0);
   assert.equal(result.monsterAtb, 50 - ATB_KNOCKBACK);
+});
+
+test('resolveDelayedHit computes Slash\'s follow-up tick as a fraction of the original hit', () => {
+  const slash = ABILITIES.find((a) => a.id === 'slash');
+  assert.equal(resolveDelayedHit(100, slash), 20); // round(100 * 0.2)
+});
+
+test('createDefenseDebuff starts active using the ability\'s own multiplier and duration', () => {
+  const sweep = ABILITIES.find((a) => a.id === 'sweep');
+  assert.deepEqual(createDefenseDebuff(sweep), { active: true, multiplier: 0.85, remainingMs: 6000 });
+});
+
+test('tickDefenseDebuff counts down and expires to null', () => {
+  const debuff = { active: true, multiplier: 0.85, remainingMs: 200 };
+  assert.deepEqual(tickDefenseDebuff(debuff, 100), { active: true, multiplier: 0.85, remainingMs: 100 });
+  assert.equal(tickDefenseDebuff(debuff, 300), null);
+});
+
+test('tickDefenseDebuff on null is a no-op', () => {
+  assert.equal(tickDefenseDebuff(null, 300), null);
+});
+
+test('applyDefenseDebuff reduces defense while active, leaves the monster untouched when null', () => {
+  const monster = { hp: 50, defense: 20, atb: 0 };
+  const debuff = { active: true, multiplier: 0.85, remainingMs: 1000 };
+  assert.equal(applyDefenseDebuff(monster, debuff).defense, 17); // round(20 * 0.85)
+  assert.equal(applyDefenseDebuff(monster, null), monster);
 });

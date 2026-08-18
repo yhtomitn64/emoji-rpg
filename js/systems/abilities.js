@@ -74,3 +74,22 @@ export function resolveAbilityUse(player, monster, ability, buffActive, timingHi
     playerAtb: 0,
   };
 }
+
+export function resolveDelayedHit(baseDamage, ability) {
+  return Math.round(baseDamage * ability.delayedHitMultiplier);
+}
+
+export function createDefenseDebuff(ability) {
+  return { active: true, multiplier: ability.defenseShredMultiplier, remainingMs: ability.defenseShredDurationMs };
+}
+
+export function tickDefenseDebuff(debuff, dt) {
+  if (!debuff) return null;
+  const remainingMs = Math.max(0, debuff.remainingMs - dt);
+  return remainingMs === 0 ? null : { ...debuff, remainingMs };
+}
+
+export function applyDefenseDebuff(monster, debuff) {
+  if (!debuff || !debuff.active) return monster;
+  return { ...monster, defense: Math.round(monster.defense * debuff.multiplier) };
+}
