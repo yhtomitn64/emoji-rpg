@@ -2,6 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, tickBuff } from '../systems/abilities.js';
 
 const VICTORY_PAUSE_MS = 1200;
 
@@ -17,6 +18,8 @@ let battleOver = false;
 let log = [];
 let elements = {};
 let endBattleTimeoutId = null;
+let abilityCooldowns = {};
+let buffState = createBuffState();
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -119,6 +122,16 @@ function updateLog() {
   elements.log.scrollTop = elements.log.scrollHeight;
 }
 
+function abilityButtonsHtml() {
+  const unlocked = getUnlockedAbilities(state.player.level);
+  return unlocked.map((ability) => {
+    const cooldownRemaining = abilityCooldowns[ability.id];
+    const disabled = cooldownRemaining > 0 ? 'disabled' : '';
+    const label = cooldownRemaining > 0 ? `${ability.name} (${Math.ceil(cooldownRemaining / 1000)}s)` : ability.name;
+    return `<button id="btn-ability-${ability.id}" class="battle-ability-button" ${disabled}>${label}</button>`;
+  }).join('');
+}
+
 function updateMenu() {
   if (battleOver) {
     elements.menu.innerHTML = '';
@@ -129,6 +142,7 @@ function updateMenu() {
 
   elements.menu.innerHTML = `
     ${ready ? '<button id="btn-attack">Attack</button>' : ''}
+    ${ready ? abilityButtonsHtml() : ''}
     <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item</button>
     ${ready ? '<button id="btn-flee">Flee</button>' : ''}
   `;
@@ -264,6 +278,8 @@ function tick() {
   if (battleOver) return;
   playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
   monsterCombatant.atb = tickGauge(monsterCombatant.atb, monsterCombatant.speed, 1);
+  abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
+  buffState = tickBuff(buffState, 300);
 
   if (isReady(monsterCombatant.atb)) {
     monsterAttack();
@@ -295,6 +311,8 @@ export function mount(root, props) {
   battleOver = false;
   log = [pickAppearLine(MONSTERS[monsterId])];
   playerCombatant = buildPlayerCombatant();
+  abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
+  buffState = createBuffState();
   monsterCombatant = buildMonsterCombatant();
   buildDom();
   updateHpBars();
