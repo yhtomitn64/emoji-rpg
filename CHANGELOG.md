@@ -40,6 +40,24 @@ public API, no formal release process — commits land straight on
   battle-log line and a shrink-and-slide-away animation on the monster's
   emoji, resolved instantly in `battleScreen.js`'s `mount()` before the
   normal ATB tick loop starts.
+- Combat abilities (Phase 1): five fixed-order abilities unlock as you
+  level — Stab (2), Chop (4), Slash (6), Sweep (8), Super Scream (10).
+  Each ability has its own real-time cooldown, independent of the ATB
+  gauge; buttons for all five are always visible (numbered 1-5, with
+  matching keyboard shortcuts), greyed out when locked or on cooldown
+  rather than appearing/disappearing. Slash lands a delayed follow-up
+  "bleed" tick ~0.9s after its initial hit; Sweep briefly reduces the
+  target's effective defense. Super Scream is a self-buff (attack +40%
+  for 12s) rather than a direct attack, with a rotation bonus for
+  landing other abilities during its window. Every ability use triggers
+  a short, never-fails timing meter — a hit in the final stretch adds a
+  damage bonus, a miss (or no input) still resolves the ability at its
+  normal value. Attack/Item/Flee also gained key-hint labels
+  (`(a)`/`(i)`/`(f)`), and Flee now additionally responds to `f`/`F`
+  alongside the existing `Escape`. Multi-enemy targeting is explicitly
+  out of scope for this phase — today's battles remain one monster at a
+  time; Slash/Sweep are built so a future multi-enemy pass can extend
+  them without rework.
 
 ## [0.5.1] - 2026-08-17
 
