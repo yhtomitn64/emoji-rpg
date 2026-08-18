@@ -65,22 +65,24 @@ function buildDom() {
   const envClass = isCaveBattle() ? 'battle-screen-cave' : 'battle-screen-forest';
   rootEl.innerHTML = `
     <div class="overlay-panel battle-screen ${envClass}">
-      <div class="battle-decoration">${battleDecorationHtml()}</div>
       <div class="battle-main">
-        <div class="battle-combatant" id="battle-monster-zone">
-          <div class="battle-emoji battle-monster-emoji" id="battle-monster-emoji">${monsterCombatant.emoji}</div>
-          <div class="battle-name">${monsterCombatant.name}</div>
-          <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill"></div></div>
-          <div class="battle-hp-text" id="battle-monster-hp-text"></div>
-          <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-monster-atb-fill"></div></div>
-        </div>
-        <div class="battle-divider">⚔️</div>
-        <div class="battle-combatant" id="battle-hero-zone">
-          <div class="battle-emoji" id="battle-hero-emoji">${playerCombatant.emoji}</div>
-          <div class="battle-name">You</div>
-          <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
-          <div class="battle-hp-text" id="battle-hero-hp-text"></div>
-          <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
+        <div class="battle-combatants-row">
+          <div class="battle-decoration">${battleDecorationHtml()}</div>
+          <div class="battle-combatant" id="battle-monster-zone">
+            <div class="battle-emoji battle-monster-emoji" id="battle-monster-emoji">${monsterCombatant.emoji}</div>
+            <div class="battle-name">${monsterCombatant.name}</div>
+            <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill"></div></div>
+            <div class="battle-hp-text" id="battle-monster-hp-text"></div>
+            <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-monster-atb-fill"></div></div>
+          </div>
+          <div class="battle-divider">⚔️</div>
+          <div class="battle-combatant" id="battle-hero-zone">
+            <div class="battle-emoji" id="battle-hero-emoji">${playerCombatant.emoji}</div>
+            <div class="battle-name">You</div>
+            <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
+            <div class="battle-hp-text" id="battle-hero-hp-text"></div>
+            <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
+          </div>
         </div>
         <div class="battle-menu" id="battle-menu"></div>
       </div>
@@ -125,12 +127,15 @@ function updateLog() {
 }
 
 function abilityButtonsHtml() {
-  const unlocked = getUnlockedAbilities(state.player.level);
-  return unlocked.map((ability) => {
-    const cooldownRemaining = abilityCooldowns[ability.id];
-    const disabled = cooldownRemaining > 0 ? 'disabled' : '';
-    const label = cooldownRemaining > 0 ? `${ability.name} (${Math.ceil(cooldownRemaining / 1000)}s)` : ability.name;
-    return `<button id="btn-ability-${ability.id}" class="battle-ability-button" ${disabled}>${label}</button>`;
+  const ready = isReady(playerCombatant.atb);
+  return ABILITIES.map((ability, index) => {
+    const slot = index + 1;
+    const locked = state.player.level < ability.unlockLevel;
+    const cooldownRemaining = abilityCooldowns[ability.id] || 0;
+    const disabled = locked || cooldownRemaining > 0 || !ready;
+    const cooldownSuffix = cooldownRemaining > 0 ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
+    const label = `${ability.name} (${slot})${cooldownSuffix}`;
+    return `<button id="btn-ability-${ability.id}" class="battle-ability-button" ${disabled ? 'disabled' : ''}>${label}</button>`;
   }).join('');
 }
 
@@ -143,22 +148,20 @@ function updateMenu() {
   const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
 
   elements.menu.innerHTML = `
-    ${ready ? '<button id="btn-attack">Attack</button>' : ''}
-    ${ready ? abilityButtonsHtml() : ''}
+    <button id="btn-attack" ${ready ? '' : 'disabled'}>Attack</button>
+    ${abilityButtonsHtml()}
     <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item</button>
-    ${ready ? '<button id="btn-flee">Flee</button>' : ''}
+    <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee</button>
   `;
-  if (ready) {
-    document.getElementById('btn-attack').onclick = playerAttack;
-    document.getElementById('btn-flee').onclick = playerFlee;
-    for (const ability of getUnlockedAbilities(state.player.level)) {
-      const btn = document.getElementById(`btn-ability-${ability.id}`);
-      if (btn && !btn.disabled) {
-        btn.onclick = () => playerUseAbility(ability.id);
-      }
+  document.getElementById('btn-attack').onclick = playerAttack;
+  document.getElementById('btn-flee').onclick = playerFlee;
+  document.getElementById('btn-item').onclick = playerUseItem;
+  for (const ability of ABILITIES) {
+    const btn = document.getElementById(`btn-ability-${ability.id}`);
+    if (btn) {
+      btn.onclick = () => playerUseAbility(ability.id);
     }
   }
-  document.getElementById('btn-item').onclick = playerUseItem;
 }
 
 function showDamageNumber(zoneEl, amount, isCrit) {
@@ -209,6 +212,13 @@ function handleKeydown(event) {
     playerAttack();
   } else if (key === 'Escape') {
     playerFlee();
+  } else if (key >= '1' && key <= '5') {
+    const ability = ABILITIES[Number(key) - 1];
+    const locked = state.player.level < ability.unlockLevel;
+    const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
+    if (!locked && !onCooldown) {
+      playerUseAbility(ability.id);
+    }
   }
 }
 
