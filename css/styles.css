@@ -113,6 +113,12 @@ body { margin: 0; background: #222; color: #eee; }
   background: #f1c40f;
   transition: width 0.3s linear;
 }
+.battle-buff-indicator {
+  font-size: 0.85rem;
+  color: #f5b942;
+  min-height: 1.2em;
+  margin-top: 4px;
+}
 .battle-sidebar {
   width: 180px;
   background: #161616;

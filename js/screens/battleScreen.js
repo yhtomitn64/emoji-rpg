@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff } from '../systems/abilities.js';
 
 const VICTORY_PAUSE_MS = 1200;
 
@@ -82,6 +82,7 @@ function buildDom() {
             <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
             <div class="battle-hp-text" id="battle-hero-hp-text"></div>
             <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
+            <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
           </div>
         </div>
         <div class="battle-menu" id="battle-menu"></div>
@@ -104,6 +105,7 @@ function buildDom() {
     heroHpFill: document.getElementById('battle-hero-hp-fill'),
     heroHpText: document.getElementById('battle-hero-hp-text'),
     heroAtbFill: document.getElementById('battle-hero-atb-fill'),
+    buffIndicator: document.getElementById('battle-buff-indicator'),
     menu: document.getElementById('battle-menu'),
     log: document.getElementById('battle-log'),
   };
@@ -124,6 +126,12 @@ function updateAtbBars() {
 function updateLog() {
   elements.log.innerHTML = log.map((line) => `<div>${line}</div>`).join('');
   elements.log.scrollTop = elements.log.scrollHeight;
+}
+
+function updateBuffIndicator() {
+  elements.buffIndicator.textContent = buffState.active
+    ? `💪 Super Scream: ${Math.ceil(buffState.remainingMs / 1000)}s`
+    : '';
 }
 
 function abilityButtonsHtml() {
@@ -240,7 +248,17 @@ function playerAttack() {
 
 function playerUseAbility(abilityId) {
   const ability = ABILITIES.find((a) => a.id === abilityId);
-  if (ability.type !== 'damage') return; // superScream (buff) is handled in Task 10
+  if (ability.type === 'buff') {
+    buffState = activateBuff(ability);
+    abilityCooldowns[abilityId] = ability.cooldownMs;
+    playerCombatant.atb = 0;
+    log.push(`You use ${ability.name}! Your attacks hit harder for a while.`);
+    updateAtbBars();
+    updateBuffIndicator();
+    updateLog();
+    updateMenu();
+    return;
+  }
   const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff), ability, buffState.active, false);
   monsterCombatant.hp = result.monsterHp;
   monsterCombatant.atb = result.monsterAtb;
@@ -348,6 +366,7 @@ function tick() {
 
   updateAtbBars();
   updateMenu();
+  updateBuffIndicator();
 }
 
 function endBattle(outcome) {
