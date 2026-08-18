@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, tickBuff } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, tickBuff, resolveAbilityUse } from '../systems/abilities.js';
 
 const VICTORY_PAUSE_MS = 1200;
 
@@ -149,6 +149,12 @@ function updateMenu() {
   if (ready) {
     document.getElementById('btn-attack').onclick = playerAttack;
     document.getElementById('btn-flee').onclick = playerFlee;
+    for (const ability of getUnlockedAbilities(state.player.level)) {
+      const btn = document.getElementById(`btn-ability-${ability.id}`);
+      if (btn && !btn.disabled) {
+        btn.onclick = () => playerUseAbility(ability.id);
+      }
+    }
   }
   document.getElementById('btn-item').onclick = playerUseItem;
 }
@@ -212,6 +218,25 @@ function playerAttack() {
   log.push(result.isCrit
     ? `Critical! You hit ${monsterCombatant.name} for ${result.damage}!`
     : `You hit ${monsterCombatant.name} for ${result.damage}.`);
+  updateHpBars();
+  updateAtbBars();
+  updateLog();
+  playHitEffect(elements.monsterZone, elements.monsterEmoji, result.damage, result.isCrit);
+  checkOutcome();
+  updateMenu();
+}
+
+function playerUseAbility(abilityId) {
+  const ability = ABILITIES.find((a) => a.id === abilityId);
+  if (ability.type !== 'damage') return; // superScream (buff) is handled in Task 10
+  const result = resolveAbilityUse(playerCombatant, monsterCombatant, ability, buffState.active, false);
+  monsterCombatant.hp = result.monsterHp;
+  monsterCombatant.atb = result.monsterAtb;
+  playerCombatant.atb = result.playerAtb;
+  abilityCooldowns[abilityId] = ability.cooldownMs;
+  log.push(result.isCrit
+    ? `Critical! You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}!`
+    : `You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}.`);
   updateHpBars();
   updateAtbBars();
   updateLog();
