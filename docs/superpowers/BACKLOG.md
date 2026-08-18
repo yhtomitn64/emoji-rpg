@@ -257,11 +257,18 @@ through in a dedicated future combat pass rather than one-off adds:
   scales high enough, grant a small damage bonus too, so speed stays
   worth investing in past a soft cap. Raised more tentatively than the
   others ("more for our combat pass to think through").
-- **Abilities gained on level-up.** Move away from a single "attack"
-  button toward gaining new abilities as you level, closer to active
-  combat than the current "dragon warrior style." No ability system
-  exists anywhere in `js/` today — this is the biggest of the group,
-  foundational for some of the others (e.g. multi-enemy targeting below).
+- ~~**Abilities gained on level-up.**~~ **Shipped 2026-08-18 (Phase 1,
+  single-target).** Five fixed-order abilities — Stab (2), Chop (4),
+  Slash (6), Sweep (8), Super Scream (10) — each with its own real-time
+  cooldown independent of the ATB gauge, a rotation bonus around Super
+  Scream's buff window, and a never-fails timing minigame. See
+  `docs/superpowers/specs/2026-08-17-combat-abilities-design.md` and
+  `js/systems/abilities.js`. Deliberately scoped to today's
+  single-monster battles — **multi-enemy targeting is Phase 2**, a
+  separate future project (see "Multi-enemy battle targeting" under
+  Backburner, and "Multi-zone progression" above, since Slash/Sweep were
+  specifically built to extend to real multi-target without rework once
+  that lands).
 - **Research: how do other games avoid pure exponential stat inflation?**
   Timothy, 2026-08-17, raised alongside the pacing-curve discussion —
   rather than only fighting "numbers get big and trivialize old content"
@@ -270,12 +277,11 @@ through in a dedicated future combat pass rather than one-off adds:
   progresses, power could come increasingly from *ability/skill
   synergies* (qualitative build choices) rather than ever-bigger raw
   attack/defense numbers, so late-game power growth can stay flatter
-  without old content going stale as fast. Directly depends on the
-  ability system above existing first. If abilities get real cooldowns
-  or cast-timing, keep those loose/tight enough that active-ability play
-  doesn't gate less-skilled or more-casual players out of viable builds.
-  Explicitly rough/unrefined — a research question to explore before any
-  design doc, not a spec'd idea yet.
+  without old content going stale as fast. Its dependency (an ability
+  system existing at all) is now satisfied by the Phase 1 abilities
+  build above — this research is unblocked, though still explicitly
+  rough/unrefined, a research question to explore before any design doc,
+  not a spec'd idea yet.
 - **Status log could snapshot effective stats/gear per entry.** A
   refinement of the now-shipped status log — right now an entry like
   "fought a boar, lost" can't help diagnose whether combat numbers are
