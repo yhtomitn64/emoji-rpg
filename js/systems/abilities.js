@@ -34,3 +34,17 @@ export function tickCooldowns(cooldowns, dt) {
   }
   return next;
 }
+
+export function createBuffState() {
+  return { active: false, remainingMs: 0, multiplier: 1 };
+}
+
+export function activateBuff(ability) {
+  return { active: true, remainingMs: ability.buffDurationMs, multiplier: ability.buffMultiplier };
+}
+
+export function tickBuff(buffState, dt) {
+  if (!buffState.active) return buffState;
+  const remainingMs = Math.max(0, buffState.remainingMs - dt);
+  return remainingMs === 0 ? createBuffState() : { ...buffState, remainingMs };
+}

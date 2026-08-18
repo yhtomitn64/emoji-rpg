@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff } from '../js/systems/abilities.js';
 
 test('ABILITIES has exactly the five abilities in level order', () => {
   assert.deepEqual(ABILITIES.map((a) => a.id), ['stab', 'chop', 'slash', 'sweep', 'superScream']);
@@ -24,4 +24,28 @@ test('tickCooldowns does not mutate the input object', () => {
   const input = { stab: 1000 };
   tickCooldowns(input, 300);
   assert.deepEqual(input, { stab: 1000 });
+});
+
+test('createBuffState starts inactive with no bonus', () => {
+  assert.deepEqual(createBuffState(), { active: false, remainingMs: 0, multiplier: 1 });
+});
+
+test('activateBuff turns the buff on using the ability\'s own duration and multiplier', () => {
+  const superScream = ABILITIES.find((a) => a.id === 'superScream');
+  assert.deepEqual(activateBuff(superScream), { active: true, remainingMs: 12000, multiplier: 1.4 });
+});
+
+test('tickBuff counts down while active', () => {
+  const buff = { active: true, remainingMs: 1000, multiplier: 1.4 };
+  assert.deepEqual(tickBuff(buff, 300), { active: true, remainingMs: 700, multiplier: 1.4 });
+});
+
+test('tickBuff expires back to the inactive state once remainingMs hits 0', () => {
+  const buff = { active: true, remainingMs: 200, multiplier: 1.4 };
+  assert.deepEqual(tickBuff(buff, 300), { active: false, remainingMs: 0, multiplier: 1 });
+});
+
+test('tickBuff on an already-inactive buff is a no-op', () => {
+  const buff = createBuffState();
+  assert.deepEqual(tickBuff(buff, 300), buff);
 });
