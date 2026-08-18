@@ -1297,7 +1297,77 @@ git commit -m "fix: center decorative trees on the combatant column, not the who
 
 ---
 
-## Task 14: Full playtest pass
+## Task 14: Key-hint labels for Attack, Item, and Flee
+
+**Files:**
+- Modify: `js/screens/battleScreen.js`
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: Attack/Item/Flee buttons show their keyboard shortcut in the label, matching the `(N)` convention Task 10 already established for abilities; Flee gains `f`/`F` as an additional keyboard shortcut alongside the existing `Escape` (kept, not removed — `Escape` is a common enough "cancel/flee" convention it shouldn't disappear).
+
+Based on user feedback after seeing the numbered ability buttons: Attack/Item/Flee should get the same at-a-glance key hint the abilities already have.
+
+- [ ] **Step 1: Add key hints to the button labels**
+
+In `updateMenu()` (built across Tasks 7-10), change:
+
+```js
+  elements.menu.innerHTML = `
+    <button id="btn-attack" ${ready ? '' : 'disabled'}>Attack</button>
+    ${abilityButtonsHtml()}
+    <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item</button>
+    <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee</button>
+  `;
+```
+
+to:
+
+```js
+  elements.menu.innerHTML = `
+    <button id="btn-attack" ${ready ? '' : 'disabled'}>Attack (a)</button>
+    ${abilityButtonsHtml()}
+    <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item (i)</button>
+    <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee (f)</button>
+  `;
+```
+
+- [ ] **Step 2: Add the `f`/`F` shortcut for Flee**
+
+In `handleKeydown` (built across Tasks 7-10), change:
+
+```js
+  if (key === 'a' || key === 'A') {
+    playerAttack();
+  } else if (key === 'Escape') {
+    playerFlee();
+  } else if (key >= '1' && key <= '5') {
+```
+
+to:
+
+```js
+  if (key === 'a' || key === 'A') {
+    playerAttack();
+  } else if (key === 'Escape' || key === 'f' || key === 'F') {
+    playerFlee();
+  } else if (key >= '1' && key <= '5') {
+```
+
+- [ ] **Step 3: Manually verify**
+
+Reload the battle screen and confirm the three buttons read "Attack (a)", "Item (i)", "Flee (f)". Confirm pressing `f` (or `F`) flees exactly like clicking the button or pressing `Escape` — both still work.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add js/screens/battleScreen.js
+git commit -m "feat: add key-hint labels to Attack/Item/Flee, f as an additional flee shortcut"
+```
+
+---
+
+## Task 15: Full playtest pass
 
 **Files:** none (verification only).
 
@@ -1312,7 +1382,7 @@ Start a brand-new character (no `localStorage` manipulation this time — real l
 
 - [ ] **Step 3: Full-kit combat playtest at level 10**
 
-In a real battle: confirm the menu's size stays visually constant as ATB fills and buttons enable/disable (no resizing); use each of the five keyboard shortcuts (`1`-`5`) at least once and confirm they match their buttons; use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately; confirm the trees render behind the combatants (not overlapping the button row) and are visually centered on the combatant column itself (not the whole panel including the sidebar).
+In a real battle: confirm the menu's size stays visually constant as ATB fills and buttons enable/disable (no resizing); use each of the five keyboard shortcuts (`1`-`5`) at least once and confirm they match their buttons; use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately; confirm the trees render behind the combatants (not overlapping the button row) and are visually centered on the combatant column itself (not the whole panel including the sidebar); confirm Attack/Item/Flee show their `(a)`/`(i)`/`(f)` hints and that `f` flees just like `Escape`.
 
 - [ ] **Step 4: Confirm nothing outside battle changed**
 
