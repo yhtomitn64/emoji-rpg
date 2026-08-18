@@ -1,8 +1,8 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, tickBuff, resolveAbilityUse } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff } from '../systems/abilities.js';
 
 const VICTORY_PAUSE_MS = 1200;
 
@@ -20,6 +20,8 @@ let elements = {};
 let endBattleTimeoutId = null;
 let abilityCooldowns = {};
 let buffState = createBuffState();
+let defenseDebuff = null;
+let pendingDelayedHit = null;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -211,7 +213,7 @@ function handleKeydown(event) {
 }
 
 function playerAttack() {
-  const result = resolvePlayerAttack(playerCombatant, monsterCombatant);
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff));
   monsterCombatant.hp = result.monsterHp;
   monsterCombatant.atb = result.monsterAtb;
   playerCombatant.atb = result.playerAtb;
@@ -229,11 +231,17 @@ function playerAttack() {
 function playerUseAbility(abilityId) {
   const ability = ABILITIES.find((a) => a.id === abilityId);
   if (ability.type !== 'damage') return; // superScream (buff) is handled in Task 10
-  const result = resolveAbilityUse(playerCombatant, monsterCombatant, ability, buffState.active, false);
+  const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff), ability, buffState.active, false);
   monsterCombatant.hp = result.monsterHp;
   monsterCombatant.atb = result.monsterAtb;
   playerCombatant.atb = result.playerAtb;
   abilityCooldowns[abilityId] = ability.cooldownMs;
+  if (ability.id === 'slash') {
+    pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
+  }
+  if (ability.id === 'sweep') {
+    defenseDebuff = createDefenseDebuff(ability);
+  }
   log.push(result.isCrit
     ? `Critical! You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}!`
     : `You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}.`);
@@ -310,6 +318,23 @@ function tick() {
     monsterAttack();
   }
 
+  defenseDebuff = tickDefenseDebuff(defenseDebuff, 300);
+  if (pendingDelayedHit) {
+    pendingDelayedHit.dueAtMs -= 300;
+    if (pendingDelayedHit.dueAtMs <= 0) {
+      const amount = pendingDelayedHit.amount;
+      pendingDelayedHit = null;
+      monsterCombatant.hp = Math.max(0, monsterCombatant.hp - amount);
+      monsterCombatant.atb = applyKnockback(monsterCombatant.atb, ATB_KNOCKBACK);
+      log.push(`Slash's bleed hits ${monsterCombatant.name} for ${amount}!`);
+      updateHpBars();
+      updateAtbBars();
+      updateLog();
+      playHitEffect(elements.monsterZone, elements.monsterEmoji, amount, false);
+      checkOutcome();
+    }
+  }
+
   updateAtbBars();
   updateMenu();
 }
@@ -338,6 +363,8 @@ export function mount(root, props) {
   playerCombatant = buildPlayerCombatant();
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
+  defenseDebuff = null;
+  pendingDelayedHit = null;
   monsterCombatant = buildMonsterCombatant();
   buildDom();
   updateHpBars();
