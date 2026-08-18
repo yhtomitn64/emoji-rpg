@@ -47,12 +47,14 @@ public API, no formal release process — commits land straight on
   matching keyboard shortcuts), greyed out when locked or on cooldown
   rather than appearing/disappearing. Slash lands a delayed follow-up
   "bleed" tick ~0.9s after its initial hit; Sweep briefly reduces the
-  target's effective defense. Super Scream is a self-buff (attack +40%
-  for 12s) rather than a direct attack, with a rotation bonus for
-  landing other abilities during its window. Every ability use triggers
-  a short, never-fails timing meter — a hit in the final stretch adds a
-  damage bonus, a miss (or no input) still resolves the ability at its
-  normal value. Attack/Item/Flee also gained key-hint labels
+  target's effective defense. Super Scream is a self-buff (12s window)
+  rather than a direct attack: it grants a rotation bonus (+25%) on any
+  ability landed during that window (Attack itself is unaffected). Every
+  ability use triggers a short, never-fails timing meter — a hit in the
+  final stretch adds a damage bonus, a miss (or no input) still resolves
+  the ability at its normal value; the log line says so ("Perfect
+  timing!") on a hit, and the meter takes a Space/Enter press as well as
+  a click. Attack/Item/Flee also gained key-hint labels
   (`(a)`/`(i)`/`(f)`), and Flee now additionally responds to `f`/`F`
   alongside the existing `Escape`. Multi-enemy targeting is explicitly
   out of scope for this phase — today's battles remain one monster at a

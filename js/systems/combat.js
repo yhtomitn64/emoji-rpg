@@ -55,6 +55,9 @@ export function applyCritMultiplier(damage, isCrit) {
 // (whose turn it is, when to act) stays separate - that's driven by real
 // user input in one and an AI policy in the other, and can't be unified the
 // same way.
+// (abilities added in the Phase 1 combat-abilities build are deliberately
+// not modeled here — see
+// docs/superpowers/specs/2026-08-17-combat-abilities-design.md)
 
 export function resolvePlayerAttack(player, monster, rng = Math.random) {
   const isCrit = rollCrit(rng);

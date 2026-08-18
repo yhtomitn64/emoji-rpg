@@ -191,6 +191,9 @@ const POTION_THRESHOLD = 0.4; // drink when below 40% of max HP
  * way they did before 2026-08-17 (this file used to hand-roll the same
  * formulas, and quietly fell behind a battleScreen.js turn-priority fix and
  * three new combat-pass mechanics before anyone noticed).
+ * (abilities added in the Phase 1 combat-abilities build are deliberately
+ * not modeled here — see
+ * docs/superpowers/specs/2026-08-17-combat-abilities-design.md)
  *
  * What's still hand-rolled here, necessarily: the loop *structure* - whose
  * turn it is, and the "drink a potion when below 40% HP, otherwise attack"

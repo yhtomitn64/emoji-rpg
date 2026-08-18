@@ -21,7 +21,7 @@ export const ABILITIES = [
   },
   {
     id: 'superScream', name: 'Super Scream', unlockLevel: 10, type: 'buff',
-    cooldownMs: 30000, buffDurationMs: 12000, buffMultiplier: 1.4,
+    cooldownMs: 30000, buffDurationMs: 12000,
   },
 ];
 
@@ -38,11 +38,11 @@ export function tickCooldowns(cooldowns, dt) {
 }
 
 export function createBuffState() {
-  return { active: false, remainingMs: 0, multiplier: 1 };
+  return { active: false, remainingMs: 0 };
 }
 
 export function activateBuff(ability) {
-  return { active: true, remainingMs: ability.buffDurationMs, multiplier: ability.buffMultiplier };
+  return { active: true, remainingMs: ability.buffDurationMs };
 }
 
 export function tickBuff(buffState, dt) {

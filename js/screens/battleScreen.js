@@ -65,6 +65,17 @@ function battleDecorationHtml() {
   return emoji.map((e) => `<span>${e}</span>`).join('');
 }
 
+function timingMeterHtml() {
+  if (getUnlockedAbilities(state.player.level).length === 0) return '';
+  return `
+        <div class="battle-timing-meter" id="battle-timing-meter">
+          <div class="battle-timing-track">
+            <div class="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
+            <div class="battle-timing-fill" id="battle-timing-fill"></div>
+          </div>
+        </div>`;
+}
+
 function buildDom() {
   const envClass = isCaveBattle() ? 'battle-screen-cave' : 'battle-screen-forest';
   rootEl.innerHTML = `
@@ -89,12 +100,7 @@ function buildDom() {
             <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
           </div>
         </div>
-        <div class="battle-timing-meter" id="battle-timing-meter">
-          <div class="battle-timing-track">
-            <div class="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
-            <div class="battle-timing-fill" id="battle-timing-fill"></div>
-          </div>
-        </div>
+        ${timingMeterHtml()}
         <div class="battle-menu" id="battle-menu"></div>
       </div>
       <div class="battle-sidebar">
@@ -125,10 +131,26 @@ function buildDom() {
 
 function runTimingMeter() {
   return new Promise((resolve) => {
+    // Defensive: the meter track only renders once the player has an
+    // unlocked ability (see timingMeterHtml()), and an ability can't be
+    // used below that level anyway - so this should be unreachable with a
+    // null meter. Resolve as a miss rather than throwing if it ever is.
+    if (!elements.timingMeter || !elements.timingFill) {
+      resolve(false);
+      return;
+    }
+
     elements.timingMeter.classList.add('battle-timing-meter-active');
     const startedAt = performance.now();
     let resolved = false;
     let rafId = null;
+
+    function onKeydown(event) {
+      if (event.code !== 'Space' && event.code !== 'Enter') return;
+      event.preventDefault();
+      const elapsed = performance.now() - startedAt;
+      finish(Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100));
+    }
 
     function finish(actedAtPercent) {
       if (resolved) return;
@@ -136,6 +158,7 @@ function runTimingMeter() {
       cancelAnimationFrame(rafId);
       elements.timingMeter.classList.remove('battle-timing-meter-active');
       elements.timingMeter.onclick = null;
+      window.removeEventListener('keydown', onKeydown);
       elements.timingFill.style.width = '0%';
       resolve(resolveTimingHit(actedAtPercent, TIMING_SWEET_SPOT_START, TIMING_SWEET_SPOT_END));
     }
@@ -155,6 +178,8 @@ function runTimingMeter() {
       const elapsed = performance.now() - startedAt;
       finish(Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100));
     };
+
+    window.addEventListener('keydown', onKeydown);
 
     rafId = requestAnimationFrame(frame);
   });
@@ -328,6 +353,13 @@ async function playerUseAbility(abilityId) {
       updateMenu();
       return;
     }
+    // Press-time semantics: the player's commitment is the button press, and
+    // that's also what the on-screen buff countdown/debuff they're reading
+    // refers to. Snapshot both here, before the ~1s timing-meter await, so a
+    // buff/debuff that expires mid-meter doesn't silently steal the bonus the
+    // player was visibly aiming for when they pressed the button.
+    const buffActiveAtPress = buffState.active;
+    const defenseDebuffAtPress = defenseDebuff;
     const timingHit = await runTimingMeter();
     // The battle can end while this await is outstanding - e.g. the monster's
     // own ATB-driven attack (tick() -> monsterAttack(), which is intentionally
@@ -335,7 +367,7 @@ async function playerUseAbility(abilityId) {
     // did, don't resolve this ability's damage or call checkOutcome()/endBattle()
     // a second time.
     if (battleOver) return;
-    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff), ability, buffState.active, timingHit);
+    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit);
     monsterCombatant.hp = result.monsterHp;
     monsterCombatant.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
@@ -346,9 +378,10 @@ async function playerUseAbility(abilityId) {
     if (ability.id === 'sweep') {
       defenseDebuff = createDefenseDebuff(ability);
     }
-    log.push(result.isCrit
+    const timingSuffix = timingHit ? ' Perfect timing!' : '';
+    log.push((result.isCrit
       ? `Critical! You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}!`
-      : `You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}.`);
+      : `You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}.`) + timingSuffix);
     updateHpBars();
     updateAtbBars();
     updateLog();

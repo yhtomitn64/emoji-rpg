@@ -28,22 +28,22 @@ test('tickCooldowns does not mutate the input object', () => {
 });
 
 test('createBuffState starts inactive with no bonus', () => {
-  assert.deepEqual(createBuffState(), { active: false, remainingMs: 0, multiplier: 1 });
+  assert.deepEqual(createBuffState(), { active: false, remainingMs: 0 });
 });
 
-test('activateBuff turns the buff on using the ability\'s own duration and multiplier', () => {
+test('activateBuff turns the buff on using the ability\'s own duration', () => {
   const superScream = ABILITIES.find((a) => a.id === 'superScream');
-  assert.deepEqual(activateBuff(superScream), { active: true, remainingMs: 12000, multiplier: 1.4 });
+  assert.deepEqual(activateBuff(superScream), { active: true, remainingMs: 12000 });
 });
 
 test('tickBuff counts down while active', () => {
-  const buff = { active: true, remainingMs: 1000, multiplier: 1.4 };
-  assert.deepEqual(tickBuff(buff, 300), { active: true, remainingMs: 700, multiplier: 1.4 });
+  const buff = { active: true, remainingMs: 1000 };
+  assert.deepEqual(tickBuff(buff, 300), { active: true, remainingMs: 700 });
 });
 
 test('tickBuff expires back to the inactive state once remainingMs hits 0', () => {
-  const buff = { active: true, remainingMs: 200, multiplier: 1.4 };
-  assert.deepEqual(tickBuff(buff, 300), { active: false, remainingMs: 0, multiplier: 1 });
+  const buff = { active: true, remainingMs: 200 };
+  assert.deepEqual(tickBuff(buff, 300), { active: false, remainingMs: 0 });
 });
 
 test('tickBuff on an already-inactive buff is a no-op', () => {
