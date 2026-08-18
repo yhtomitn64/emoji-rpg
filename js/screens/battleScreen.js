@@ -317,6 +317,7 @@ function tick() {
   if (isReady(monsterCombatant.atb)) {
     monsterAttack();
   }
+  if (battleOver) return;
 
   defenseDebuff = tickDefenseDebuff(defenseDebuff, 300);
   if (pendingDelayedHit) {
