@@ -101,6 +101,15 @@ one-off task.
   zone-to-zone: puzzle-solving, a labyrinth, new abilities/mechanics,
   other metroidvania-style ideas beyond straight combat — not just a
   reskinned wilderness grid with tougher numbers.
+- **Zone identity candidate, raised 2026-08-18: healing/redeeming
+  enemies instead of killing them.** Timothy's own pitch — "something
+  really unique that ties into the story like you actually heal enemies
+  and save them and turn them nice." Explicitly not ready to design yet
+  (zone 2's overall identity isn't decided), and this ties directly into
+  the story layer Timothy has reserved to write himself (see "The game
+  needs an actual story" above) — captured as the raw idea only, no
+  mechanic details or narrative framing invented here. Revisit once zone
+  2's identity is actually being designed.
 - **Zone unlocks gated by tools earned from boss kills.** Builds directly
   on the tool-gating system already shipped
   (`docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-design.md`
