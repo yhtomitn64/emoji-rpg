@@ -1260,7 +1260,44 @@ git commit -m "feat: add never-fails timing minigame to ability activation"
 
 ---
 
-## Task 13: Full playtest pass
+## Task 13: Center the trees on the combatant column, not the whole panel
+
+**Files:**
+- Modify: `css/styles.css`
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: no interface change — visual fix only.
+
+This task is a follow-up to Task 10's tree-repositioning work, based on a live screenshot the user provided after Task 10 landed. Task 10 correctly moved `.battle-decoration` to sit behind `.battle-combatants-row` instead of behind the whole panel (confirmed by task review), but the screenshot shows the four tree emoji spread wider than the actual monster/hero content column and shifted toward the panel's horizontal center (which includes the 180px sidebar) rather than the combatant column's own center. Likely cause: `.battle-decoration`'s four emoji (`font-size: 5rem`, `justify-content: space-evenly`) need more horizontal room than `.battle-combatants-row`'s shrink-to-fit width (which is only as wide as the ~200px HP bars), so they overflow their own container's bounds — and because `.battle-combatants-row` has no `overflow: hidden`, that overflow spills outward using whatever space `.battle-main` happens to have, reading visually as "centered on the wider box" rather than tightly grouped around the characters. This is a diagnosis, not a confirmed root cause — verify it against the real rendered layout before fixing.
+
+- [ ] **Step 1: Reproduce and diagnose in a real browser**
+
+Start the local dev server (`python3 -m http.server` on a free port — reuse the pattern from prior tasks' manual verification), enter any battle, and use the browser's DOM inspector (or an equivalent tool) to check the actual rendered width and position of `.battle-combatants-row` versus `.battle-decoration`'s child emoji spans. Confirm whether the emoji are overflowing `.battle-combatants-row`'s box, and by how much.
+
+- [ ] **Step 2: Fix it**
+
+The fix should make the trees visually hug the monster/hero column specifically, matching the screenshot's requested look (Recommended, per the user: "center trees in the monster/character area and not the whole dialog"). Two reasonable approaches, in order of preference — pick whichever the diagnosis in Step 1 supports, and it's fine to combine them:
+
+1. Reduce `.battle-decoration`'s `font-size` (e.g. to `3rem` or `3.5rem`) so four emoji actually fit within `.battle-combatants-row`'s real rendered width without overflowing — the simplest fix if overflow is the root cause.
+2. If `.battle-combatants-row` itself isn't actually shrink-wrapping to the narrow combatant content (e.g. it's stretching wider than expected for a different reason found in Step 1), give it an explicit `width: fit-content; margin: 0 auto;` so its box unambiguously matches its own content's width regardless of any inherited flex sizing behavior, rather than relying on implicit `align-items: center` shrink-wrap semantics.
+
+Do not reintroduce `.battle-decoration` as a sibling of `.battle-main` (that's the Task 10 regression already fixed) — the fix stays scoped to sizing/overflow within the existing `.battle-combatants-row` structure.
+
+- [ ] **Step 3: Manually verify**
+
+Reload the battle screen and confirm the trees now visually cluster tightly around the monster/hero emoji and HP/ATB bars, not spread toward or past the sidebar's edge. Compare against the user-provided screenshot's framing — the trees should read as "in the scene with the characters," not "centered on the whole card."
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add css/styles.css
+git commit -m "fix: center decorative trees on the combatant column, not the whole panel"
+```
+
+---
+
+## Task 14: Full playtest pass
 
 **Files:** none (verification only).
 
@@ -1275,7 +1312,7 @@ Start a brand-new character (no `localStorage` manipulation this time — real l
 
 - [ ] **Step 3: Full-kit combat playtest at level 10**
 
-In a real battle: confirm the menu's size stays visually constant as ATB fills and buttons enable/disable (no resizing); use each of the five keyboard shortcuts (`1`-`5`) at least once and confirm they match their buttons; use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately; confirm the trees render behind the combatants, not overlapping the button row.
+In a real battle: confirm the menu's size stays visually constant as ATB fills and buttons enable/disable (no resizing); use each of the five keyboard shortcuts (`1`-`5`) at least once and confirm they match their buttons; use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately; confirm the trees render behind the combatants (not overlapping the button row) and are visually centered on the combatant column itself (not the whole panel including the sidebar).
 
 - [ ] **Step 4: Confirm nothing outside battle changed**
 
