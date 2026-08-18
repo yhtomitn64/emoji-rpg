@@ -1,3 +1,5 @@
+import { rollCrit, calculateDamage, applyCritMultiplier, applySpeedDamageBonus, applyKnockback, ATB_KNOCKBACK } from './combat.js';
+
 export const ABILITIES = [
   {
     id: 'stab', name: 'Stab', unlockLevel: 2, type: 'damage',
@@ -51,4 +53,24 @@ export function tickBuff(buffState, dt) {
 
 export function resolveTimingHit(actedAtPercent, sweetSpotStartPercent, sweetSpotEndPercent) {
   return actedAtPercent >= sweetSpotStartPercent && actedAtPercent <= sweetSpotEndPercent;
+}
+
+export const ROTATION_BONUS_MULTIPLIER = 1.25;
+export const TIMING_BONUS_MULTIPLIER = 1.30;
+
+export function resolveAbilityUse(player, monster, ability, buffActive, timingHit, rng = Math.random) {
+  const isCrit = rollCrit(rng);
+  let damage = calculateDamage(player, monster, rng);
+  damage = Math.round(damage * ability.damageMultiplier);
+  if (buffActive) damage = Math.round(damage * ROTATION_BONUS_MULTIPLIER);
+  if (timingHit) damage = Math.round(damage * TIMING_BONUS_MULTIPLIER);
+  damage = applyCritMultiplier(damage, isCrit);
+  damage = applySpeedDamageBonus(damage, player.speed);
+  return {
+    damage,
+    isCrit,
+    monsterHp: Math.max(0, monster.hp - damage),
+    monsterAtb: applyKnockback(monster.atb, ATB_KNOCKBACK),
+    playerAtb: 0,
+  };
 }
