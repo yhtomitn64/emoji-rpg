@@ -122,6 +122,11 @@ body { margin: 0; background: #222; color: #eee; }
 .battle-timing-meter {
   width: 280px;
   margin: 8px 0;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.battle-timing-meter-active {
+  opacity: 1;
 }
 .battle-timing-track {
   position: relative;

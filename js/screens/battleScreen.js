@@ -89,7 +89,7 @@ function buildDom() {
             <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
           </div>
         </div>
-        <div class="battle-timing-meter" id="battle-timing-meter" hidden>
+        <div class="battle-timing-meter" id="battle-timing-meter">
           <div class="battle-timing-track">
             <div class="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
             <div class="battle-timing-fill" id="battle-timing-fill"></div>
@@ -125,7 +125,7 @@ function buildDom() {
 
 function runTimingMeter() {
   return new Promise((resolve) => {
-    elements.timingMeter.hidden = false;
+    elements.timingMeter.classList.add('battle-timing-meter-active');
     const startedAt = performance.now();
     let resolved = false;
     let rafId = null;
@@ -134,8 +134,9 @@ function runTimingMeter() {
       if (resolved) return;
       resolved = true;
       cancelAnimationFrame(rafId);
-      elements.timingMeter.hidden = true;
+      elements.timingMeter.classList.remove('battle-timing-meter-active');
       elements.timingMeter.onclick = null;
+      elements.timingFill.style.width = '0%';
       resolve(resolveTimingHit(actedAtPercent, TIMING_SWEET_SPOT_START, TIMING_SWEET_SPOT_END));
     }
 
