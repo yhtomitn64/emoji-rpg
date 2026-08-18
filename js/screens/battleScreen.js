@@ -2,9 +2,12 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit } from '../systems/abilities.js';
 
 const VICTORY_PAUSE_MS = 1200;
+const TIMING_METER_DURATION_MS = 1000;
+const TIMING_SWEET_SPOT_START = 80;
+const TIMING_SWEET_SPOT_END = 100;
 
 let rootEl = null;
 let state = null;
@@ -22,6 +25,7 @@ let abilityCooldowns = {};
 let buffState = createBuffState();
 let defenseDebuff = null;
 let pendingDelayedHit = null;
+let abilityActionInFlight = false;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -85,6 +89,12 @@ function buildDom() {
             <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
           </div>
         </div>
+        <div class="battle-timing-meter" id="battle-timing-meter" hidden>
+          <div class="battle-timing-track">
+            <div class="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
+            <div class="battle-timing-fill" id="battle-timing-fill"></div>
+          </div>
+        </div>
         <div class="battle-menu" id="battle-menu"></div>
       </div>
       <div class="battle-sidebar">
@@ -108,7 +118,45 @@ function buildDom() {
     buffIndicator: document.getElementById('battle-buff-indicator'),
     menu: document.getElementById('battle-menu'),
     log: document.getElementById('battle-log'),
+    timingMeter: document.getElementById('battle-timing-meter'),
+    timingFill: document.getElementById('battle-timing-fill'),
   };
+}
+
+function runTimingMeter() {
+  return new Promise((resolve) => {
+    elements.timingMeter.hidden = false;
+    const startedAt = performance.now();
+    let resolved = false;
+    let rafId = null;
+
+    function finish(actedAtPercent) {
+      if (resolved) return;
+      resolved = true;
+      cancelAnimationFrame(rafId);
+      elements.timingMeter.hidden = true;
+      elements.timingMeter.onclick = null;
+      resolve(resolveTimingHit(actedAtPercent, TIMING_SWEET_SPOT_START, TIMING_SWEET_SPOT_END));
+    }
+
+    function frame(now) {
+      const elapsed = now - startedAt;
+      const percent = Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100);
+      elements.timingFill.style.width = `${percent}%`;
+      if (percent >= 100) {
+        finish(-1); // ran out with no input: always a miss, ability still resolves at base value
+        return;
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+
+    elements.timingMeter.onclick = () => {
+      const elapsed = performance.now() - startedAt;
+      finish(Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100));
+    };
+
+    rafId = requestAnimationFrame(frame);
+  });
 }
 
 function updateHpBars() {
@@ -246,39 +294,54 @@ function playerAttack() {
   updateMenu();
 }
 
-function playerUseAbility(abilityId) {
-  const ability = ABILITIES.find((a) => a.id === abilityId);
-  if (ability.type === 'buff') {
-    buffState = activateBuff(ability);
+async function playerUseAbility(abilityId) {
+  // Guard against re-entrant activation: while a damage ability's timing meter is
+  // awaited below, the player's ATB isn't reset yet (that only happens once the
+  // await resolves), so a second click/keypress during that ~1s window would
+  // otherwise start a second runTimingMeter() concurrently. Both instances share
+  // the same `elements.timingMeter` DOM node and `onclick` handler, so the two
+  // instances stomp on each other and the meter can be left stuck on-screen,
+  // never resolving. This flag makes any overlapping activation attempt a no-op
+  // instead.
+  if (abilityActionInFlight) return;
+  abilityActionInFlight = true;
+  try {
+    const ability = ABILITIES.find((a) => a.id === abilityId);
+    if (ability.type === 'buff') {
+      buffState = activateBuff(ability);
+      abilityCooldowns[abilityId] = ability.cooldownMs;
+      playerCombatant.atb = 0;
+      log.push(`You use ${ability.name}! Your attacks hit harder for a while.`);
+      updateAtbBars();
+      updateBuffIndicator();
+      updateLog();
+      updateMenu();
+      return;
+    }
+    const timingHit = await runTimingMeter();
+    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff), ability, buffState.active, timingHit);
+    monsterCombatant.hp = result.monsterHp;
+    monsterCombatant.atb = result.monsterAtb;
+    playerCombatant.atb = result.playerAtb;
     abilityCooldowns[abilityId] = ability.cooldownMs;
-    playerCombatant.atb = 0;
-    log.push(`You use ${ability.name}! Your attacks hit harder for a while.`);
+    if (ability.id === 'slash') {
+      pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
+    }
+    if (ability.id === 'sweep') {
+      defenseDebuff = createDefenseDebuff(ability);
+    }
+    log.push(result.isCrit
+      ? `Critical! You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}!`
+      : `You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}.`);
+    updateHpBars();
     updateAtbBars();
-    updateBuffIndicator();
     updateLog();
+    playHitEffect(elements.monsterZone, elements.monsterEmoji, result.damage, result.isCrit);
+    checkOutcome();
     updateMenu();
-    return;
+  } finally {
+    abilityActionInFlight = false;
   }
-  const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff), ability, buffState.active, false);
-  monsterCombatant.hp = result.monsterHp;
-  monsterCombatant.atb = result.monsterAtb;
-  playerCombatant.atb = result.playerAtb;
-  abilityCooldowns[abilityId] = ability.cooldownMs;
-  if (ability.id === 'slash') {
-    pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
-  }
-  if (ability.id === 'sweep') {
-    defenseDebuff = createDefenseDebuff(ability);
-  }
-  log.push(result.isCrit
-    ? `Critical! You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}!`
-    : `You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}.`);
-  updateHpBars();
-  updateAtbBars();
-  updateLog();
-  playHitEffect(elements.monsterZone, elements.monsterEmoji, result.damage, result.isCrit);
-  checkOutcome();
-  updateMenu();
 }
 
 function playerUseItem() {
@@ -395,6 +458,7 @@ export function mount(root, props) {
   buffState = createBuffState();
   defenseDebuff = null;
   pendingDelayedHit = null;
+  abilityActionInFlight = false;
   monsterCombatant = buildMonsterCombatant();
   buildDom();
   updateHpBars();

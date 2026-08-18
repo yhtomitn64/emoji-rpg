@@ -119,6 +119,32 @@ body { margin: 0; background: #222; color: #eee; }
   min-height: 1.2em;
   margin-top: 4px;
 }
+.battle-timing-meter {
+  width: 280px;
+  margin: 8px 0;
+}
+.battle-timing-track {
+  position: relative;
+  height: 14px;
+  background: #2a2a2a;
+  border-radius: 7px;
+  overflow: hidden;
+}
+.battle-timing-sweet-spot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(74, 222, 128, 0.35);
+}
+.battle-timing-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 0%;
+  background: #f5b942;
+  cursor: pointer;
+}
 .battle-sidebar {
   width: 180px;
   background: #161616;
