@@ -290,10 +290,9 @@ through in a dedicated future combat pass rather than one-off adds:
   `docs/superpowers/specs/2026-08-17-combat-abilities-design.md` and
   `js/systems/abilities.js`. Deliberately scoped to today's
   single-monster battles — **multi-enemy targeting is Phase 2**, a
-  separate future project (see "Multi-enemy battle targeting" under
-  Backburner, and "Multi-zone progression" above, since Slash/Sweep were
-  specifically built to extend to real multi-target without rework once
-  that lands).
+  separate future project (see "Multi-mob encounters in zone 1" and
+  "Multi-zone progression" above, since Slash/Sweep were specifically
+  built to extend to real multi-target without rework once that lands).
 - **Research: how do other games avoid pure exponential stat inflation?**
   Timothy, 2026-08-17, raised alongside the pacing-curve discussion —
   rather than only fighting "numbers get big and trivialize old content"
@@ -363,15 +362,30 @@ separable pieces:
   or build a lighter in-game estimate; a full battle-outcome simulation
   every time the elite appears is probably overkill.
 
+### Multi-mob encounters in zone 1, raised 2026-08-18
+Timothy's concrete pitch, moving "multi-enemy battle targeting" out of
+pure backburner status: after a player has killed a given monster type
+enough times (Timothy's own number: 10), that monster type starts
+occasionally "bringing friends" — spawning as a group encounter instead
+of solo. Also wants a partial-rewards option: kill one member of the
+group, then flee, and get rewards for just the one kill rather than
+nothing (or the full group's rewards). Explicitly raised as the next
+thing to think through after the randomized-dungeon-entrance and parry
+work above — no design pass has started yet. Depends on a much bigger
+feature that doesn't exist at all today: battles are strictly one
+`monsterId` per encounter, no multi-monster support anywhere in
+`js/screens/battleScreen.js`. Also naturally connects to two existing
+backlog items once it's real: multi-enemy ability targeting (Slash/Sweep
+were specifically built with this in mind — see the now-shipped Phase 1
+combat-abilities item above) and the weak-mob-surrender mechanic's
+flee-with-loot outcome (a precedent for "partial reward on
+disengagement" already shipped, just not for a multi-mob context yet).
+
 ### Backburner / uncertain value
 - **Mob leveling.** The other half of the original "roaming rare
   monster" idea — heavily-farmed regular mobs could slowly level up
   too. Left here since the "roaming rare monster" part above graduated
   out of backburner status, but this half wasn't specifically revisited.
-- **Multi-enemy battle targeting.** Abilities that hit multiple enemies
-  with target selection. Depends on a much bigger feature that doesn't
-  exist yet — battles are strictly one `monsterId` per encounter today,
-  no multi-monster support at all. Called out as backburner.
 
 ### The player outpaces near-town/far-corner content well before dungeon tier — three related threads converging on the same gap
 Timothy, 2026-08-17: "leveling up makes you attack so much harder too
