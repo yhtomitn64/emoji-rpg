@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit } from '../js/systems/abilities.js';
 
 test('ABILITIES has exactly the five abilities in level order', () => {
   assert.deepEqual(ABILITIES.map((a) => a.id), ['stab', 'chop', 'slash', 'sweep', 'superScream']);
@@ -48,4 +48,18 @@ test('tickBuff expires back to the inactive state once remainingMs hits 0', () =
 test('tickBuff on an already-inactive buff is a no-op', () => {
   const buff = createBuffState();
   assert.deepEqual(tickBuff(buff, 300), buff);
+});
+
+test('resolveTimingHit is true inside the sweet spot', () => {
+  assert.equal(resolveTimingHit(85, 80, 100), true);
+});
+
+test('resolveTimingHit is true exactly on the sweet spot edges', () => {
+  assert.equal(resolveTimingHit(80, 80, 100), true);
+  assert.equal(resolveTimingHit(100, 80, 100), true);
+});
+
+test('resolveTimingHit is false outside the sweet spot', () => {
+  assert.equal(resolveTimingHit(79, 80, 100), false);
+  assert.equal(resolveTimingHit(50, 80, 100), false);
 });

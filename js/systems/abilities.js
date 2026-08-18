@@ -48,3 +48,7 @@ export function tickBuff(buffState, dt) {
   const remainingMs = Math.max(0, buffState.remainingMs - dt);
   return remainingMs === 0 ? createBuffState() : { ...buffState, remainingMs };
 }
+
+export function resolveTimingHit(actedAtPercent, sweetSpotStartPercent, sweetSpotEndPercent) {
+  return actedAtPercent >= sweetSpotStartPercent && actedAtPercent <= sweetSpotEndPercent;
+}
