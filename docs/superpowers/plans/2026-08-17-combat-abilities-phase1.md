@@ -1367,7 +1367,102 @@ git commit -m "feat: add key-hint labels to Attack/Item/Flee, f as an additional
 
 ---
 
-## Task 15: Full playtest pass
+## Task 15: Always-render the timing meter (greyed when idle)
+
+**Files:**
+- Modify: `js/screens/battleScreen.js`
+- Modify: `css/styles.css`
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: `#battle-timing-meter` is always present in the DOM (never `hidden`); `runTimingMeter()` toggles a `battle-timing-meter-active` class instead of the `hidden` attribute, and resets the fill back to 0% when it finishes.
+
+Based on user feedback: same principle as Task 10's always-visible buttons — the timing meter currently appears/disappears via the `hidden` attribute, which shifts the layout every time an ability is used. It should stay in place at all times, just greyed out (low opacity) when not actively timing an ability use.
+
+- [ ] **Step 1: Remove `hidden` from the initial markup**
+
+In `buildDom()`'s template, change:
+
+```html
+        <div class="battle-timing-meter" id="battle-timing-meter" hidden>
+```
+
+to:
+
+```html
+        <div class="battle-timing-meter" id="battle-timing-meter">
+```
+
+- [ ] **Step 2: Toggle a class instead of `hidden`, and reset the fill on finish**
+
+In `runTimingMeter()` (built in Task 12), change:
+
+```js
+    elements.timingMeter.hidden = false;
+```
+
+to:
+
+```js
+    elements.timingMeter.classList.add('battle-timing-meter-active');
+```
+
+and change:
+
+```js
+      elements.timingMeter.hidden = true;
+      elements.timingMeter.onclick = null;
+```
+
+to:
+
+```js
+      elements.timingMeter.classList.remove('battle-timing-meter-active');
+      elements.timingMeter.onclick = null;
+      elements.timingFill.style.width = '0%';
+```
+
+(Resetting the fill on finish matters now that the meter stays visible — otherwise a completed meter would sit greyed-out but still showing its last fill position, which reads as broken rather than idle.)
+
+- [ ] **Step 3: Grey it out by default, full opacity while active**
+
+In `css/styles.css`, change:
+
+```css
+.battle-timing-meter {
+  width: 280px;
+  margin: 8px 0;
+}
+```
+
+to:
+
+```css
+.battle-timing-meter {
+  width: 280px;
+  margin: 8px 0;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.battle-timing-meter-active {
+  opacity: 1;
+}
+```
+
+- [ ] **Step 4: Manually verify**
+
+Reload the battle screen and confirm the timing meter track is visible at all times (greyed out), not just when using an ability, and that the menu/panel layout doesn't shift when it activates or finishes. Use an ability and confirm the meter brightens to full opacity while active, the fill sweeps and resolves normally, and it fades back to greyed-out-and-empty (not greyed-out-and-still-full) afterward.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add js/screens/battleScreen.js css/styles.css
+git commit -m "fix: keep the timing meter always visible, greyed out when idle"
+```
+
+---
+
+## Task 16: Full playtest pass
 
 **Files:** none (verification only).
 
@@ -1382,7 +1477,7 @@ Start a brand-new character (no `localStorage` manipulation this time — real l
 
 - [ ] **Step 3: Full-kit combat playtest at level 10**
 
-In a real battle: confirm the menu's size stays visually constant as ATB fills and buttons enable/disable (no resizing); use each of the five keyboard shortcuts (`1`-`5`) at least once and confirm they match their buttons; use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately; confirm the trees render behind the combatants (not overlapping the button row) and are visually centered on the combatant column itself (not the whole panel including the sidebar); confirm Attack/Item/Flee show their `(a)`/`(i)`/`(f)` hints and that `f` flees just like `Escape`.
+In a real battle: confirm the menu's size stays visually constant as ATB fills and buttons enable/disable (no resizing); use each of the five keyboard shortcuts (`1`-`5`) at least once and confirm they match their buttons; use Stab and Chop a few times each to confirm independent cooldowns feel right at a glance; use Slash and confirm the delayed bleed tick lands; use Sweep and confirm a follow-up attack visibly hits harder; use Super Scream and confirm the buff indicator, then land a Chop or Slash during the window and confirm it's a clearly bigger number than the same ability outside the window; try the timing meter both hitting and missing the sweet spot deliberately; confirm the trees render behind the combatants (not overlapping the button row) and are visually centered on the combatant column itself (not the whole panel including the sidebar); confirm Attack/Item/Flee show their `(a)`/`(i)`/`(f)` hints and that `f` flees just like `Escape`; confirm the timing meter is always visible (greyed out when idle) and doesn't cause any layout shift when it activates.
 
 - [ ] **Step 4: Confirm nothing outside battle changed**
 
