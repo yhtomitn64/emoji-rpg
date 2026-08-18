@@ -204,10 +204,10 @@ function updateMenu() {
   const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
 
   elements.menu.innerHTML = `
-    <button id="btn-attack" ${ready ? '' : 'disabled'}>Attack</button>
+    <button id="btn-attack" ${ready ? '' : 'disabled'}>Attack (a)</button>
     ${abilityButtonsHtml()}
-    <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item</button>
-    <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee</button>
+    <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item (i)</button>
+    <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee (f)</button>
   `;
   document.getElementById('btn-attack').onclick = playerAttack;
   document.getElementById('btn-flee').onclick = playerFlee;
@@ -266,7 +266,7 @@ function handleKeydown(event) {
   if (!isReady(playerCombatant.atb)) return;
   if (key === 'a' || key === 'A') {
     playerAttack();
-  } else if (key === 'Escape') {
+  } else if (key === 'Escape' || key === 'f' || key === 'F') {
     playerFlee();
   } else if (key >= '1' && key <= '5') {
     const ability = ABILITIES[Number(key) - 1];
