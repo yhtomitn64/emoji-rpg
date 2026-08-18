@@ -110,6 +110,13 @@ one-off task.
   needs an actual story" above) — captured as the raw idea only, no
   mechanic details or narrative framing invented here. Revisit once zone
   2's identity is actually being designed.
+  - **Mechanic shape, added 2026-08-18 (Timothy's own words):** track
+    every distinct enemy type killed in zone 1; in zone 2, walking around
+    is how you heal them back to full, one by one. As more get healed,
+    more of the zone 2 map opens up, letting you venture further to find
+    the remaining mob types still needing healing. Still gated on zone
+    2's overall identity/design pass before implementation — captured
+    here as mechanic shape only, no narrative/dialogue invented.
 - **Zone unlocks gated by tools earned from boss kills.** Builds directly
   on the tool-gating system already shipped
   (`docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-design.md`
