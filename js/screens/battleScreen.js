@@ -453,6 +453,7 @@ function monsterAttack() {
 }
 
 function resolveMonsterWindup(parried) {
+  if (battleOver) return;
   if (!monsterWindup.active) return;
   const elapsedPercent = windupElapsedPercent(monsterWindup);
   monsterWindup = createWindupState();
