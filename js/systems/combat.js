@@ -58,6 +58,9 @@ export function applyCritMultiplier(damage, isCrit) {
 // (abilities added in the Phase 1 combat-abilities build are deliberately
 // not modeled here — see
 // docs/superpowers/specs/2026-08-17-combat-abilities-design.md)
+// (the parry wind-up added in this build is also not modeled here — monsters
+// still attack the instant their ATB is ready in this simulation; see
+// docs/superpowers/specs/2026-08-18-parry-mechanic-design.md)
 
 export function resolvePlayerAttack(player, monster, rng = Math.random) {
   const isCrit = rollCrit(rng);

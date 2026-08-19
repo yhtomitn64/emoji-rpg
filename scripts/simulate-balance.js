@@ -194,13 +194,18 @@ const POTION_THRESHOLD = 0.4; // drink when below 40% of max HP
  * (abilities added in the Phase 1 combat-abilities build are deliberately
  * not modeled here — see
  * docs/superpowers/specs/2026-08-17-combat-abilities-design.md)
+ * (the parry wind-up added in this build is also not modeled here — monsters
+ * still attack the instant their ATB is ready in this simulation; see
+ * docs/superpowers/specs/2026-08-18-parry-mechanic-design.md)
  *
  * What's still hand-rolled here, necessarily: the loop *structure* - whose
  * turn it is, and the "drink a potion when below 40% HP, otherwise attack"
  * policy. That's an AI stand-in for a human clicking buttons and has no real
  * battleScreen.js equivalent to share.
  *   1. both gauges tick
- *   2. the monster attacks the instant it is ready, unconditionally
+ *   2. the monster attacks the instant it is ready, unconditionally (the
+ *      shipped game now adds a parry wind-up before this fires — see the
+ *      caveat above)
  *   3. potions are off the turn cooldown - drink whenever HP is low,
  *      independent of gauge readiness
  *   4. the player attacks as soon as their gauge is full

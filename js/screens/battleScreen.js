@@ -299,6 +299,11 @@ function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
   if (key === 's' || key === 'S') {
+    // 's' collides with the map screen's WASD-south binding; this is only
+    // safe because screenManager.js's mountOverlay() calls pause() on the
+    // underlying screen, detaching its keydown listener while this overlay
+    // is mounted. If a battle is ever shown without that pause, this would
+    // also move the hero on the map underneath.
     resolveMonsterWindup(true);
     return;
   }
@@ -472,7 +477,7 @@ function resolveMonsterWindup(parried) {
     log.push(`You parry ${monsterCombatant.name}'s attack and strike back for ${result.reflectedDamage}!`);
     updateHpBars();
     updateLog();
-    playHitEffect(elements.monsterZone, elements.monsterEmoji, result.reflectedDamage, isCrit);
+    playHitEffect(elements.monsterZone, elements.monsterEmoji, result.reflectedDamage, false);
     checkOutcome();
   } else {
     monsterAttack();
@@ -535,6 +540,7 @@ function endBattle(outcome) {
   if (outcome === 'lost') {
     playReviveEffect(elements.heroZone, elements.heroEmoji);
   }
+  monsterWindup = createWindupState();
   updateMenu();
   endBattleTimeoutId = setTimeout(() => {
     callbacks.onBattleEnd(outcome, monsterId);
@@ -559,6 +565,7 @@ export function mount(root, props) {
   monsterCombatant = buildMonsterCombatant();
   buildDom();
   elements.monsterAtbBar.onclick = () => resolveMonsterWindup(true);
+  elements.parryHint.onclick = () => resolveMonsterWindup(true);
   updateHpBars();
   updateAtbBars();
 
