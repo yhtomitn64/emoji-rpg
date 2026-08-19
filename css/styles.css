@@ -107,11 +107,36 @@ body { margin: 0; background: #222; color: #eee; }
   height: 6px;
   margin: 4px auto 0;
   overflow: hidden;
+  position: relative;
 }
 .battle-atb-fill {
   height: 100%;
   background: #f1c40f;
   transition: width 0.3s linear;
+}
+.battle-parry-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 80%;
+  width: 20%;
+  background: rgba(231, 76, 60, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.battle-atb-bar-windup .battle-parry-zone {
+  opacity: 1;
+}
+.battle-atb-bar-windup .battle-atb-fill {
+  background: #e74c3c;
+}
+.battle-parry-hint {
+  font-size: 0.75rem;
+  color: #e74c3c;
+  min-height: 1.1em;
+  margin-top: 2px;
+  cursor: pointer;
 }
 .battle-buff-indicator {
   font-size: 0.85rem;

@@ -90,7 +90,11 @@ function buildDom() {
             <div class="battle-name">${monsterCombatant.name}</div>
             <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill"></div></div>
             <div class="battle-hp-text" id="battle-monster-hp-text"></div>
-            <div class="battle-atb-bar" id="battle-monster-atb-bar"><div class="battle-atb-fill" id="battle-monster-atb-fill"></div></div>
+            <div class="battle-atb-bar" id="battle-monster-atb-bar">
+              <div class="battle-parry-zone"></div>
+              <div class="battle-atb-fill" id="battle-monster-atb-fill"></div>
+            </div>
+            <div class="battle-parry-hint" id="battle-parry-hint"></div>
           </div>
           <div class="battle-divider">⚔️</div>
           <div class="battle-combatant" id="battle-hero-zone">
@@ -119,6 +123,7 @@ function buildDom() {
     monsterHpText: document.getElementById('battle-monster-hp-text'),
     monsterAtbFill: document.getElementById('battle-monster-atb-fill'),
     monsterAtbBar: document.getElementById('battle-monster-atb-bar'),
+    parryHint: document.getElementById('battle-parry-hint'),
     heroZone: document.getElementById('battle-hero-zone'),
     heroEmoji: document.getElementById('battle-hero-emoji'),
     heroHpFill: document.getElementById('battle-hero-hp-fill'),
@@ -201,6 +206,8 @@ function updateAtbBars() {
     : percent(monsterCombatant.atb, ATB_MAX);
   elements.monsterAtbFill.style.width = `${monsterAtbPercent}%`;
   elements.heroAtbFill.style.width = `${percent(playerCombatant.atb, ATB_MAX)}%`;
+  elements.monsterAtbBar.classList.toggle('battle-atb-bar-windup', monsterWindup.active);
+  elements.parryHint.textContent = monsterWindup.active ? 'Parry! (s)' : '';
 }
 
 function updateLog() {
