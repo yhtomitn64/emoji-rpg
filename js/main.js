@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION } from './state.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
@@ -111,6 +111,9 @@ function startGame(loadedState, slotId) {
   }
   if (!state.lossStreak) {
     state.lossStreak = 0;
+  }
+  if (!state.dungeonEntrancePosition) {
+    state.dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION;
   }
   if (state.flags.firstKillCelebrated === undefined) {
     state.flags.firstKillCelebrated = hasEverKilledSomething(state.player);
