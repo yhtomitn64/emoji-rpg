@@ -286,7 +286,7 @@ function handleTileAction(action) {
   if (action === 'enterDungeon') return enterMap('dungeon');
   if (action === 'exitMap') {
     if (state.map === 'town') return enterMap('center');
-    if (state.map === 'dungeon') return enterMap('southeast');
+    if (state.map === 'dungeon') return enterMap(state.dungeonEntrancePosition.screenId);
     return;
   }
   if (action === 'enterShop') return goToShop();
@@ -329,8 +329,10 @@ function handleEdgeTransition(neighborId, direction, currentPosition) {
 }
 
 function handleFirstVisit(screenId) {
+  const isFalseDungeonHint =
+    screenId === 'southeast' && state.dungeonEntrancePosition.screenId !== 'southeast';
   const text = FLAVOR_TEXT[screenId];
-  if (text) {
+  if (text && !isFalseDungeonHint) {
     showFlavorBanner(text);
   }
   persist();
