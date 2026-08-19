@@ -3,6 +3,7 @@ import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit } from '../systems/abilities.js';
+import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
 
 const VICTORY_PAUSE_MS = 1200;
 const TIMING_METER_DURATION_MS = 1000;
@@ -26,6 +27,7 @@ let buffState = createBuffState();
 let defenseDebuff = null;
 let pendingDelayedHit = null;
 let abilityActionInFlight = false;
+let monsterWindup = createWindupState();
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -88,7 +90,7 @@ function buildDom() {
             <div class="battle-name">${monsterCombatant.name}</div>
             <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill"></div></div>
             <div class="battle-hp-text" id="battle-monster-hp-text"></div>
-            <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-monster-atb-fill"></div></div>
+            <div class="battle-atb-bar" id="battle-monster-atb-bar"><div class="battle-atb-fill" id="battle-monster-atb-fill"></div></div>
           </div>
           <div class="battle-divider">⚔️</div>
           <div class="battle-combatant" id="battle-hero-zone">
@@ -116,6 +118,7 @@ function buildDom() {
     monsterHpFill: document.getElementById('battle-monster-hp-fill'),
     monsterHpText: document.getElementById('battle-monster-hp-text'),
     monsterAtbFill: document.getElementById('battle-monster-atb-fill'),
+    monsterAtbBar: document.getElementById('battle-monster-atb-bar'),
     heroZone: document.getElementById('battle-hero-zone'),
     heroEmoji: document.getElementById('battle-hero-emoji'),
     heroHpFill: document.getElementById('battle-hero-hp-fill'),
@@ -193,7 +196,10 @@ function updateHpBars() {
 }
 
 function updateAtbBars() {
-  elements.monsterAtbFill.style.width = `${percent(monsterCombatant.atb, ATB_MAX)}%`;
+  const monsterAtbPercent = monsterWindup.active
+    ? windupElapsedPercent(monsterWindup)
+    : percent(monsterCombatant.atb, ATB_MAX);
+  elements.monsterAtbFill.style.width = `${monsterAtbPercent}%`;
   elements.heroAtbFill.style.width = `${percent(playerCombatant.atb, ATB_MAX)}%`;
 }
 
@@ -285,6 +291,10 @@ function playWeakMobFleeEffect(emojiEl) {
 function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
+  if (key === 's' || key === 'S') {
+    resolveMonsterWindup(true);
+    return;
+  }
   if (key === 'i' || key === 'I') {
     playerUseItem();
     return;
@@ -442,6 +452,27 @@ function monsterAttack() {
   checkOutcome();
 }
 
+function resolveMonsterWindup(parried) {
+  if (!monsterWindup.active) return;
+  const elapsedPercent = windupElapsedPercent(monsterWindup);
+  monsterWindup = createWindupState();
+  if (parried && resolveParryAttempt(elapsedPercent)) {
+    const { damage, isCrit } = rollIncomingDamage(monsterCombatant, playerCombatant);
+    const result = resolveParrySuccess(monsterCombatant, damage);
+    monsterCombatant.hp = result.monsterHp;
+    monsterCombatant.atb = result.monsterAtb;
+    log.push(`You parry ${monsterCombatant.name}'s attack and strike back for ${result.reflectedDamage}!`);
+    updateHpBars();
+    updateLog();
+    playHitEffect(elements.monsterZone, elements.monsterEmoji, result.reflectedDamage, isCrit);
+    checkOutcome();
+  } else {
+    monsterAttack();
+  }
+  updateAtbBars();
+  updateMenu();
+}
+
 function checkOutcome() {
   if (monsterCombatant.hp <= 0) {
     endBattle('won');
@@ -457,8 +488,13 @@ function tick() {
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
 
-  if (isReady(monsterCombatant.atb)) {
-    monsterAttack();
+  if (isReady(monsterCombatant.atb) && !monsterWindup.active) {
+    monsterWindup = startWindup();
+  } else if (monsterWindup.active) {
+    monsterWindup = tickWindup(monsterWindup, 300);
+    if (isWindupComplete(monsterWindup)) {
+      resolveMonsterWindup(false);
+    }
   }
   if (battleOver) return;
 
@@ -511,8 +547,10 @@ export function mount(root, props) {
   defenseDebuff = null;
   pendingDelayedHit = null;
   abilityActionInFlight = false;
+  monsterWindup = createWindupState();
   monsterCombatant = buildMonsterCombatant();
   buildDom();
+  elements.monsterAtbBar.onclick = () => resolveMonsterWindup(true);
   updateHpBars();
   updateAtbBars();
 
