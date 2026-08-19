@@ -25,6 +25,10 @@ const KEY_TO_DELTA = {
 };
 
 function tileAt(x, y) {
+  const entrance = state.dungeonEntrancePosition;
+  if (entrance && mapConfig.id === entrance.screenId && x === entrance.x && y === entrance.y) {
+    return TILES.dungeonEntrance;
+  }
   const row = mapConfig.rows[y];
   if (!row) return null;
   const char = row[x];
