@@ -3,7 +3,9 @@ export const STORAGE_KEY = 'emoji-rpg-save';
 export const DEFAULT_HERO_EMOJI = '🧑';
 export const HERO_EMOJI_OPTIONS = ['🧑', '🧙', '🥷', '🧝', '🦸', '🧛', '🤺', '🧟'];
 
-export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI) {
+export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'southeast', x: 24, y: 10 };
+
+export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
     equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory: null },
@@ -25,6 +27,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI) {
     },
     gateRewards: {},
     lossStreak: 0,
+    dungeonEntrancePosition,
   };
 }
 

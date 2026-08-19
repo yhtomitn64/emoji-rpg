@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createNewGame, serializeState, deserializeState, saveState, loadState, slotSaveKey, DEFAULT_HERO_EMOJI } from '../js/state.js';
+import { createNewGame, serializeState, deserializeState, saveState, loadState, slotSaveKey, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION } from '../js/state.js';
 
 function createFakeStorage() {
   const store = new Map();
@@ -32,6 +32,18 @@ test('createNewGame returns a fresh default state', () => {
 test('createNewGame uses the passed hero emoji instead of the default', () => {
   const state = createNewGame('🧙');
   assert.equal(state.player.emoji, '🧙');
+});
+
+test('createNewGame defaults dungeonEntrancePosition to the historical southeast spot', () => {
+  const state = createNewGame();
+  assert.deepEqual(state.dungeonEntrancePosition, DEFAULT_DUNGEON_ENTRANCE_POSITION);
+  assert.deepEqual(state.dungeonEntrancePosition, { screenId: 'southeast', x: 24, y: 10 });
+});
+
+test('createNewGame uses an explicit dungeonEntrancePosition when passed', () => {
+  const custom = { screenId: 'northwest', x: 3, y: 7 };
+  const state = createNewGame(DEFAULT_HERO_EMOJI, custom);
+  assert.deepEqual(state.dungeonEntrancePosition, custom);
 });
 
 test('serializeState and deserializeState round-trip', () => {
