@@ -60,6 +60,25 @@ public API, no formal release process — commits land straight on
   out of scope for this phase — today's battles remain one monster at a
   time; Slash/Sweep are built so a future multi-enemy pass can extend
   them without rework.
+- The dungeon entrance is no longer a fixed tile. Each new save now rolls
+  a random spot among the 4 corner wilderness screens' grass tiles at
+  character creation (`state.dungeonEntrancePosition`); the old hardcoded
+  southeast `(24, 10)` tile is gone from the map data, and southeast is
+  now plain grass like the other 3 corners unless a save's roll landed
+  there. Saves created before this shipped keep landing at that historical
+  southeast spot unchanged, via a one-time backfill on load.
+- Monster attacks now telegraph before landing: a ~1s wind-up bar replaces
+  the old instant-fire attack, with a parry-able zone in the final 20% of
+  the bar (same proportions as the ability timing meter's own sweet
+  spot). Press `s` or click the bar during that window to parry — a
+  successful parry fully negates the hit and reflects half the incoming
+  damage straight back at the monster, bypassing its defense entirely;
+  missing the window (or not attempting) resolves as an ordinary hit,
+  identical to before this feature existed. No cap or cooldown on
+  attempts. The wind-up runs on the same tick loop as everything else in
+  battle, so Attack, Item, Flee, and abilities all stay fully usable
+  while a monster winds up — parrying and managing an ability rotation at
+  the same time is the intended challenge.
 
 ## [0.5.1] - 2026-08-17
 
