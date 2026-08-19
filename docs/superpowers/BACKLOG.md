@@ -131,17 +131,17 @@ one-off task.
   boss (the dragon, with 3 tiers via the existing boss-rematch system).
   "Zone 2/3/4" means genuinely new content, not reuse — a much bigger
   scope than anything else currently in this backlog.
-- **Randomize the dungeon entrance's location per new character.**
-  Currently hardcoded to one fixed tile on the southeast wilderness
-  screen (`D` in `js/maps/wilderness/southeast.js`'s static map data) —
-  the same spot for every save, always. Wilderness maps aren't
-  per-character-instanced at all today (static shared modules, not
-  generated per playthrough), so this needs either randomly picking
-  which of the 4 corner screens hosts the entrance, or generating/
-  storing a per-save entrance position — a real architecture change,
-  not a data tweak. Natural to bundle with multi-zone work if/when that
-  happens, since new zones will need some kind of per-save placement
-  logic anyway.
+- **Randomize the dungeon entrance's location per new character. Shipped
+  2026-08-18.** New saves now roll `state.dungeonEntrancePosition` once
+  at creation among the 4 corner screens' grass tiles
+  (`js/systems/dungeonEntrance.js`); the old hardcoded southeast `D`
+  tile is gone. Legacy saves backfill to the historical southeast
+  (24,10) spot unchanged. Design:
+  `docs/superpowers/specs/2026-08-18-randomized-dungeon-entrance-design.md`.
+  Plan: `docs/superpowers/plans/2026-08-18-randomized-dungeon-entrance.md`.
+  First piece of the larger multi-zone-progression idea to ship — the
+  per-save placement pattern established here is reusable if/when new
+  zones get built.
 - **Non-store equipment earned from the whole zone, to prep for the next
   one.** Timothy wants unique gear obtainable other ways than the shop:
   a random cave find, clearing tree/mountain terrain with a tool, a
