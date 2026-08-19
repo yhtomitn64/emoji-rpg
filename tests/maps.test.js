@@ -200,11 +200,14 @@ test('wilderness screen neighbor links are symmetric', () => {
   }
 });
 
-test('center screen has the town entrance and southeast screen has the dungeon entrance', () => {
+test('center screen has the town entrance', () => {
   const centerTileKeys = [...centerMap.rows.join('')].map((c) => centerMap.legend[c]);
   assert.ok(centerTileKeys.includes('townEntrance'));
-  const southeastTileKeys = [...southeastMap.rows.join('')].map((c) => southeastMap.legend[c]);
-  assert.ok(southeastTileKeys.includes('dungeonEntrance'));
+});
+
+test('southeast screen has no static dungeon entrance tile — the entrance is a per-save override now', () => {
+  assert.ok(!Object.values(southeastMap.legend).includes('dungeonEntrance'));
+  assert.ok(!southeastMap.rows.join('').includes('D'));
 });
 
 test('tool-gated tiles appear on the correct screens with the correct tool requirement and reward flag', () => {
