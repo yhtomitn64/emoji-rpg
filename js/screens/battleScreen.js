@@ -393,7 +393,7 @@ function playerAttack() {
   updateHpBars();
   updateAtbBars();
   updateLog();
-  playHitEffect(elements.monsterZones[0], elements.monsterEmojis[0], result.damage, result.isCrit);
+  playHitEffect(elements.monsterZones[selectedMonsterIndex], elements.monsterEmojis[selectedMonsterIndex], result.damage, result.isCrit);
   checkOutcome();
   updateMenu();
 }
@@ -455,7 +455,7 @@ async function playerUseAbility(abilityId) {
     updateHpBars();
     updateAtbBars();
     updateLog();
-    playHitEffect(elements.monsterZones[0], elements.monsterEmojis[0], result.damage, result.isCrit);
+    playHitEffect(elements.monsterZones[selectedMonsterIndex], elements.monsterEmojis[selectedMonsterIndex], result.damage, result.isCrit);
     checkOutcome();
     updateMenu();
   } finally {
