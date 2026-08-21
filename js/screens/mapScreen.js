@@ -6,6 +6,7 @@ import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
 import { resolveStepDiscovery } from '../systems/discovery.js';
 import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
+import { rollEncounterGroup } from '../systems/groupEncounters.js';
 
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
@@ -136,7 +137,8 @@ function tryMove(dx, dy) {
 
   if (tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
     const monsterId = mapConfig.monsterTable[Math.floor(Math.random() * mapConfig.monsterTable.length)];
-    callbacks.onEncounter(monsterId);
+    const monsterIds = rollEncounterGroup(monsterId, state.monsterKillCounts);
+    callbacks.onEncounter(monsterIds);
   }
 }
 
