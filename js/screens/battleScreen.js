@@ -345,7 +345,18 @@ function handleKeydown(event) {
     // underlying screen, detaching its keydown listener while this overlay
     // is mounted. If a battle is ever shown without that pause, this would
     // also move the hero on the map underneath.
-    resolveMonsterWindup(monsterCombatants[0], true);
+    //
+    // Global sweep, not a targeted parry: every monster currently sitting in
+    // its own parry zone at this exact instant gets parried in one press,
+    // regardless of which monster is selected. This is a deliberate design
+    // choice (see docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md) -
+    // clicking a specific monster's own ATB bar/hint stays scoped to just
+    // that monster (see mount()'s per-monster onclick wiring).
+    for (const mc of monsterCombatants) {
+      if (mc.hp > 0 && mc.windup.active && resolveParryAttempt(windupElapsedPercent(mc.windup))) {
+        resolveMonsterWindup(mc, true);
+      }
+    }
     return;
   }
   if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Tab') {
