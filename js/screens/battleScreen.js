@@ -18,6 +18,7 @@ let callbacks = null;
 let intervalId = null;
 let playerCombatant = null;
 let monsterCombatants = [];
+let selectedMonsterIndex = 0;
 let battleOver = false;
 let log = [];
 let elements = {};
@@ -57,6 +58,28 @@ function buildMonsterCombatant(monsterId, overrides) {
 
 function percent(value, max) {
   return Math.max(0, Math.min(100, (value / max) * 100));
+}
+
+function livingIndices() {
+  return monsterCombatants.map((mc, i) => i).filter((i) => monsterCombatants[i].hp > 0);
+}
+
+function cycleTarget(direction) {
+  const living = livingIndices();
+  if (living.length === 0) return;
+  const currentPos = living.indexOf(selectedMonsterIndex);
+  const nextPos = currentPos === -1
+    ? 0
+    : (currentPos + direction + living.length) % living.length;
+  selectedMonsterIndex = living[nextPos];
+  updateMonsterSelection();
+}
+
+function updateMonsterSelection() {
+  monsterCombatants.forEach((mc, i) => {
+    elements.monsterZones[i].classList.toggle('battle-monster-slot-selected', i === selectedMonsterIndex);
+    elements.monsterZones[i].classList.toggle('battle-monster-slot-dim', i !== selectedMonsterIndex && mc.hp > 0);
+  });
 }
 
 function isCaveBattle() {
@@ -210,6 +233,9 @@ function updateHpBars() {
   });
   elements.heroHpFill.style.width = `${percent(playerCombatant.hp, playerCombatant.maxHp)}%`;
   elements.heroHpText.textContent = `HP ${playerCombatant.hp}/${playerCombatant.maxHp}`;
+  if (monsterCombatants[selectedMonsterIndex] && monsterCombatants[selectedMonsterIndex].hp <= 0) {
+    cycleTarget(1);
+  }
 }
 
 function updateAtbBars() {
@@ -322,6 +348,11 @@ function handleKeydown(event) {
     resolveMonsterWindup(monsterCombatants[0], true);
     return;
   }
+  if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Tab') {
+    event.preventDefault();
+    cycleTarget(key === 'ArrowLeft' ? -1 : 1);
+    return;
+  }
   if (key === 'i' || key === 'I') {
     playerUseItem();
     return;
@@ -351,7 +382,7 @@ function playerAttack() {
   // `if (battleOver) return;` added after that await below for the other half
   // of this fix.
   if (abilityActionInFlight) return;
-  const target = monsterCombatants[0];
+  const target = monsterCombatants[selectedMonsterIndex];
   const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff));
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
@@ -396,7 +427,7 @@ async function playerUseAbility(abilityId) {
     // refers to. Snapshot both here, before the ~1s timing-meter await, so a
     // buff/debuff that expires mid-meter doesn't silently steal the bonus the
     // player was visibly aiming for when they pressed the button.
-    const target = monsterCombatants[0];
+    const target = monsterCombatants[selectedMonsterIndex];
     const buffActiveAtPress = buffState.active;
     const defenseDebuffAtPress = target.defenseDebuff;
     const timingHit = await runTimingMeter();
@@ -586,6 +617,10 @@ export function mount(root, props) {
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   buildDom();
   monsterCombatants.forEach((mc, i) => {
+    elements.monsterZones[i].onclick = () => {
+      selectedMonsterIndex = i;
+      updateMonsterSelection();
+    };
     elements.monsterAtbBars[i].onclick = (event) => {
       event.stopPropagation();
       resolveMonsterWindup(mc, true);
@@ -595,6 +630,8 @@ export function mount(root, props) {
       resolveMonsterWindup(mc, true);
     };
   });
+  selectedMonsterIndex = 0;
+  updateMonsterSelection();
   updateHpBars();
   updateAtbBars();
 

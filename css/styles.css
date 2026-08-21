@@ -138,6 +138,31 @@ body { margin: 0; background: #222; color: #eee; }
   margin-top: 2px;
   cursor: pointer;
 }
+.battle-monster-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.battle-monster-slot {
+  transition: transform 0.15s, opacity 0.15s;
+  cursor: pointer;
+}
+.battle-monster-slot .battle-hp-bar,
+.battle-monster-slot .battle-atb-bar {
+  width: 110px;
+}
+.battle-monster-slot-selected {
+  transform: scale(1.15);
+}
+.battle-monster-slot-dim {
+  transform: scale(0.85);
+  opacity: 0.55;
+}
+.battle-monster-slot-dead {
+  display: none;
+}
 .battle-buff-indicator {
   font-size: 0.85rem;
   color: #f5b942;
