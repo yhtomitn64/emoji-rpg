@@ -475,24 +475,30 @@ separable pieces:
   or build a lighter in-game estimate; a full battle-outcome simulation
   every time the elite appears is probably overkill.
 
-### Multi-mob encounters in zone 1, raised 2026-08-18
+### Multi-mob encounters in zone 1, raised 2026-08-18 — design complete, ready to plan
 Timothy's concrete pitch, moving "multi-enemy battle targeting" out of
 pure backburner status: after a player has killed a given monster type
 enough times (Timothy's own number: 10), that monster type starts
 occasionally "bringing friends" — spawning as a group encounter instead
 of solo. Also wants a partial-rewards option: kill one member of the
 group, then flee, and get rewards for just the one kill rather than
-nothing (or the full group's rewards). Explicitly raised as the next
-thing to think through after the randomized-dungeon-entrance and parry
-work above — no design pass has started yet. Depends on a much bigger
-feature that doesn't exist at all today: battles are strictly one
-`monsterId` per encounter, no multi-monster support anywhere in
-`js/screens/battleScreen.js`. Also naturally connects to two existing
-backlog items once it's real: multi-enemy ability targeting (Slash/Sweep
-were specifically built with this in mind — see the now-shipped Phase 1
-combat-abilities item above) and the weak-mob-surrender mechanic's
-flee-with-loot outcome (a precedent for "partial reward on
-disengagement" already shipped, just not for a multi-mob context yet).
+nothing (or the full group's rewards). Depends on a much bigger feature
+that doesn't exist at all today: battles are strictly one `monsterId`
+per encounter, no multi-monster support anywhere in
+`js/screens/battleScreen.js`. Design:
+`docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md` —
+covers a new lifetime kill counter (`state.monsterKillCounts`,
+independent of the quest-turn-in tally), a chance-based group-spawn roll
+(2-3 members past 10 kills), click/arrow/Tab targeting, a global parry
+sweep (press `s` to parry every monster currently in its own parry
+window at once — Timothy's explicit call, to be tuned by feel), and
+full per-monster rewards on a partial-kill-then-flee. Deliberately
+scoped OUT: any redesign of the 5 existing abilities' targeting/timing
+(see "Ability rotation redesign" above — a separate, not-yet-designed
+item), and any AOE/multi-target ability. This is the largest
+single-file rework attempted so far (`battleScreen.js`'s entire data
+model goes from one monster to an array) — expect a large task-count
+plan.
 
 ### Backburner / uncertain value
 - **Mob leveling.** The other half of the original "roaming rare
