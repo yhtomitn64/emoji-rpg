@@ -25,6 +25,10 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
       boar: 0, bat: 0, snake: 0, goblin: 0,
       direWolf: 0, spider: 0, orc: 0, wraith: 0,
     },
+    monsterKillCounts: {
+      boar: 0, bat: 0, snake: 0, goblin: 0,
+      direWolf: 0, spider: 0, orc: 0, wraith: 0,
+    },
     gateRewards: {},
     lossStreak: 0,
     dungeonEntrancePosition,

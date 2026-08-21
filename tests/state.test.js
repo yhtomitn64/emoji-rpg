@@ -29,6 +29,14 @@ test('createNewGame returns a fresh default state', () => {
   assert.equal(state.player.emoji, DEFAULT_HERO_EMOJI);
 });
 
+test('createNewGame includes a zero-initialized monsterKillCounts, independent of questProgress', () => {
+  const state = createNewGame();
+  assert.deepEqual(state.monsterKillCounts, {
+    boar: 0, bat: 0, snake: 0, goblin: 0,
+    direWolf: 0, spider: 0, orc: 0, wraith: 0,
+  });
+});
+
 test('createNewGame uses the passed hero emoji instead of the default', () => {
   const state = createNewGame('🧙');
   assert.equal(state.player.emoji, '🧙');
