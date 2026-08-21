@@ -12,22 +12,19 @@ const TIMING_SWEET_SPOT_END = 100;
 
 let rootEl = null;
 let state = null;
-let monsterId = null;
-let monsterOverrides = null;
+let monsterIds = [];
+let monsterOverridesList = [];
 let callbacks = null;
 let intervalId = null;
 let playerCombatant = null;
-let monsterCombatant = null;
+let monsterCombatants = [];
 let battleOver = false;
 let log = [];
 let elements = {};
 let endBattleTimeoutId = null;
 let abilityCooldowns = {};
 let buffState = createBuffState();
-let defenseDebuff = null;
-let pendingDelayedHit = null;
 let abilityActionInFlight = false;
-let monsterWindup = createWindupState();
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -42,15 +39,19 @@ function buildPlayerCombatant() {
   };
 }
 
-function buildMonsterCombatant() {
-  const monster = { ...MONSTERS[monsterId], ...(monsterOverrides || {}) };
+function buildMonsterCombatant(monsterId, overrides) {
+  const monster = { ...MONSTERS[monsterId], ...(overrides || {}) };
   const enemySlowPercent = getEquipmentBonuses(state).enemySlowPercent;
   const speed = applyEnemySlow(monster.speed, enemySlowPercent);
   return {
+    monsterId,
     name: monster.name, emoji: monster.emoji,
     hp: monster.hp, maxHp: monster.hp,
     attack: monster.attack, defense: monster.defense, speed,
     atb: 0,
+    windup: createWindupState(),
+    defenseDebuff: null,
+    pendingDelayedHit: null,
   };
 }
 
@@ -78,6 +79,21 @@ function timingMeterHtml() {
         </div>`;
 }
 
+function monsterSlotHtml(mc, index) {
+  return `
+          <div class="battle-combatant battle-monster-slot" id="battle-monster-zone-${index}">
+            <div class="battle-emoji battle-monster-emoji" id="battle-monster-emoji-${index}">${mc.emoji}</div>
+            <div class="battle-name">${mc.name}</div>
+            <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill-${index}"></div></div>
+            <div class="battle-hp-text" id="battle-monster-hp-text-${index}"></div>
+            <div class="battle-atb-bar" id="battle-monster-atb-bar-${index}">
+              <div class="battle-parry-zone"></div>
+              <div class="battle-atb-fill" id="battle-monster-atb-fill-${index}"></div>
+            </div>
+            <div class="battle-parry-hint" id="battle-parry-hint-${index}"></div>
+          </div>`;
+}
+
 function buildDom() {
   const envClass = isCaveBattle() ? 'battle-screen-cave' : 'battle-screen-forest';
   rootEl.innerHTML = `
@@ -85,16 +101,8 @@ function buildDom() {
       <div class="battle-main">
         <div class="battle-combatants-row">
           <div class="battle-decoration">${battleDecorationHtml()}</div>
-          <div class="battle-combatant" id="battle-monster-zone">
-            <div class="battle-emoji battle-monster-emoji" id="battle-monster-emoji">${monsterCombatant.emoji}</div>
-            <div class="battle-name">${monsterCombatant.name}</div>
-            <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill"></div></div>
-            <div class="battle-hp-text" id="battle-monster-hp-text"></div>
-            <div class="battle-atb-bar" id="battle-monster-atb-bar">
-              <div class="battle-parry-zone"></div>
-              <div class="battle-atb-fill" id="battle-monster-atb-fill"></div>
-            </div>
-            <div class="battle-parry-hint" id="battle-parry-hint"></div>
+          <div class="battle-monster-row" id="battle-monster-row">
+            ${monsterCombatants.map((mc, i) => monsterSlotHtml(mc, i)).join('')}
           </div>
           <div class="battle-divider">⚔️</div>
           <div class="battle-combatant" id="battle-hero-zone">
@@ -117,13 +125,14 @@ function buildDom() {
   `;
 
   elements = {
-    monsterZone: document.getElementById('battle-monster-zone'),
-    monsterEmoji: document.getElementById('battle-monster-emoji'),
-    monsterHpFill: document.getElementById('battle-monster-hp-fill'),
-    monsterHpText: document.getElementById('battle-monster-hp-text'),
-    monsterAtbFill: document.getElementById('battle-monster-atb-fill'),
-    monsterAtbBar: document.getElementById('battle-monster-atb-bar'),
-    parryHint: document.getElementById('battle-parry-hint'),
+    monsterRow: document.getElementById('battle-monster-row'),
+    monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
+    monsterEmojis: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-emoji-${i}`)),
+    monsterHpFills: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-hp-fill-${i}`)),
+    monsterHpTexts: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-hp-text-${i}`)),
+    monsterAtbFills: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-atb-fill-${i}`)),
+    monsterAtbBars: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-atb-bar-${i}`)),
+    parryHints: monsterCombatants.map((_, i) => document.getElementById(`battle-parry-hint-${i}`)),
     heroZone: document.getElementById('battle-hero-zone'),
     heroEmoji: document.getElementById('battle-hero-emoji'),
     heroHpFill: document.getElementById('battle-hero-hp-fill'),
@@ -194,20 +203,25 @@ function runTimingMeter() {
 }
 
 function updateHpBars() {
-  elements.monsterHpFill.style.width = `${percent(monsterCombatant.hp, monsterCombatant.maxHp)}%`;
-  elements.monsterHpText.textContent = `HP ${monsterCombatant.hp}/${monsterCombatant.maxHp}`;
+  monsterCombatants.forEach((mc, i) => {
+    elements.monsterHpFills[i].style.width = `${percent(mc.hp, mc.maxHp)}%`;
+    elements.monsterHpTexts[i].textContent = `HP ${mc.hp}/${mc.maxHp}`;
+    elements.monsterZones[i].classList.toggle('battle-monster-slot-dead', mc.hp <= 0);
+  });
   elements.heroHpFill.style.width = `${percent(playerCombatant.hp, playerCombatant.maxHp)}%`;
   elements.heroHpText.textContent = `HP ${playerCombatant.hp}/${playerCombatant.maxHp}`;
 }
 
 function updateAtbBars() {
-  const monsterAtbPercent = monsterWindup.active
-    ? windupElapsedPercent(monsterWindup)
-    : percent(monsterCombatant.atb, ATB_MAX);
-  elements.monsterAtbFill.style.width = `${monsterAtbPercent}%`;
+  monsterCombatants.forEach((mc, i) => {
+    const monsterAtbPercent = mc.windup.active
+      ? windupElapsedPercent(mc.windup)
+      : percent(mc.atb, ATB_MAX);
+    elements.monsterAtbFills[i].style.width = `${monsterAtbPercent}%`;
+    elements.monsterAtbBars[i].classList.toggle('battle-atb-bar-windup', mc.windup.active);
+    elements.parryHints[i].textContent = mc.windup.active ? 'Parry! (s)' : '';
+  });
   elements.heroAtbFill.style.width = `${percent(playerCombatant.atb, ATB_MAX)}%`;
-  elements.monsterAtbBar.classList.toggle('battle-atb-bar-windup', monsterWindup.active);
-  elements.parryHint.textContent = monsterWindup.active ? 'Parry! (s)' : '';
 }
 
 function updateLog() {
@@ -304,7 +318,7 @@ function handleKeydown(event) {
     // underlying screen, detaching its keydown listener while this overlay
     // is mounted. If a battle is ever shown without that pause, this would
     // also move the hero on the map underneath.
-    resolveMonsterWindup(true);
+    resolveMonsterWindup(monsterCombatants[0], true);
     return;
   }
   if (key === 'i' || key === 'I') {
@@ -336,17 +350,18 @@ function playerAttack() {
   // `if (battleOver) return;` added after that await below for the other half
   // of this fix.
   if (abilityActionInFlight) return;
-  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuff));
-  monsterCombatant.hp = result.monsterHp;
-  monsterCombatant.atb = result.monsterAtb;
+  const target = monsterCombatants[0];
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff));
+  target.hp = result.monsterHp;
+  target.atb = result.monsterAtb;
   playerCombatant.atb = result.playerAtb;
   log.push(result.isCrit
-    ? `Critical! You hit ${monsterCombatant.name} for ${result.damage}!`
-    : `You hit ${monsterCombatant.name} for ${result.damage}.`);
+    ? `Critical! You hit ${target.name} for ${result.damage}!`
+    : `You hit ${target.name} for ${result.damage}.`);
   updateHpBars();
   updateAtbBars();
   updateLog();
-  playHitEffect(elements.monsterZone, elements.monsterEmoji, result.damage, result.isCrit);
+  playHitEffect(elements.monsterZones[0], elements.monsterEmojis[0], result.damage, result.isCrit);
   checkOutcome();
   updateMenu();
 }
@@ -380,8 +395,9 @@ async function playerUseAbility(abilityId) {
     // refers to. Snapshot both here, before the ~1s timing-meter await, so a
     // buff/debuff that expires mid-meter doesn't silently steal the bonus the
     // player was visibly aiming for when they pressed the button.
+    const target = monsterCombatants[0];
     const buffActiveAtPress = buffState.active;
-    const defenseDebuffAtPress = defenseDebuff;
+    const defenseDebuffAtPress = target.defenseDebuff;
     const timingHit = await runTimingMeter();
     // The battle can end while this await is outstanding - e.g. the monster's
     // own ATB-driven attack (tick() -> monsterAttack(), which is intentionally
@@ -389,25 +405,25 @@ async function playerUseAbility(abilityId) {
     // did, don't resolve this ability's damage or call checkOutcome()/endBattle()
     // a second time.
     if (battleOver) return;
-    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(monsterCombatant, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit);
-    monsterCombatant.hp = result.monsterHp;
-    monsterCombatant.atb = result.monsterAtb;
+    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit);
+    target.hp = result.monsterHp;
+    target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
     abilityCooldowns[abilityId] = ability.cooldownMs;
     if (ability.id === 'slash') {
-      pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
+      target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
     }
     if (ability.id === 'sweep') {
-      defenseDebuff = createDefenseDebuff(ability);
+      target.defenseDebuff = createDefenseDebuff(ability);
     }
     const timingSuffix = timingHit ? ' Perfect timing!' : '';
     log.push((result.isCrit
-      ? `Critical! You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}!`
-      : `You use ${ability.name} on ${monsterCombatant.name} for ${result.damage}.`) + timingSuffix);
+      ? `Critical! You use ${ability.name} on ${target.name} for ${result.damage}!`
+      : `You use ${ability.name} on ${target.name} for ${result.damage}.`) + timingSuffix);
     updateHpBars();
     updateAtbBars();
     updateLog();
-    playHitEffect(elements.monsterZone, elements.monsterEmoji, result.damage, result.isCrit);
+    playHitEffect(elements.monsterZones[0], elements.monsterEmojis[0], result.damage, result.isCrit);
     checkOutcome();
     updateMenu();
   } finally {
@@ -437,7 +453,7 @@ function playerFlee() {
   // Same re-entrancy hazard as playerAttack's guard above: block Flee (button
   // or Escape) while an ability's timing meter is still pending.
   if (abilityActionInFlight) return;
-  if (MONSTERS[monsterId].isBoss) {
+  if (monsterIds.some((id) => MONSTERS[id].isBoss)) {
     log.push('You cannot flee from this battle!');
     playerCombatant.atb = 0;
     updateAtbBars();
@@ -450,44 +466,45 @@ function playerFlee() {
   endBattle('fled');
 }
 
-function monsterAttack() {
-  const result = resolveMonsterAttack(monsterCombatant, playerCombatant);
+function monsterAttack(monster) {
+  const result = resolveMonsterAttack(monster, playerCombatant);
   playerCombatant.hp = result.playerHp;
   playerCombatant.atb = result.playerAtb;
-  monsterCombatant.atb = result.monsterAtb;
+  monster.atb = result.monsterAtb;
   log.push(result.isCrit
-    ? `Critical! ${monsterCombatant.name} hits you for ${result.damage}!`
-    : `${monsterCombatant.name} hits you for ${result.damage}.`);
+    ? `Critical! ${monster.name} hits you for ${result.damage}!`
+    : `${monster.name} hits you for ${result.damage}.`);
   updateHpBars();
   updateLog();
   playHitEffect(elements.heroZone, elements.heroEmoji, result.damage, result.isCrit);
   checkOutcome();
 }
 
-function resolveMonsterWindup(parried) {
+function resolveMonsterWindup(monster, parried) {
   if (battleOver) return;
-  if (!monsterWindup.active) return;
-  const elapsedPercent = windupElapsedPercent(monsterWindup);
-  monsterWindup = createWindupState();
+  if (!monster.windup.active) return;
+  const elapsedPercent = windupElapsedPercent(monster.windup);
+  monster.windup = createWindupState();
+  const index = monsterCombatants.indexOf(monster);
   if (parried && resolveParryAttempt(elapsedPercent)) {
-    const { damage, isCrit } = rollIncomingDamage(monsterCombatant, playerCombatant);
-    const result = resolveParrySuccess(monsterCombatant, damage);
-    monsterCombatant.hp = result.monsterHp;
-    monsterCombatant.atb = result.monsterAtb;
-    log.push(`You parry ${monsterCombatant.name}'s attack and strike back for ${result.reflectedDamage}!`);
+    const { damage, isCrit } = rollIncomingDamage(monster, playerCombatant);
+    const result = resolveParrySuccess(monster, damage);
+    monster.hp = result.monsterHp;
+    monster.atb = result.monsterAtb;
+    log.push(`You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
     updateHpBars();
     updateLog();
-    playHitEffect(elements.monsterZone, elements.monsterEmoji, result.reflectedDamage, false);
+    playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], result.reflectedDamage, false);
     checkOutcome();
   } else {
-    monsterAttack();
+    monsterAttack(monster);
   }
   updateAtbBars();
   updateMenu();
 }
 
 function checkOutcome() {
-  if (monsterCombatant.hp <= 0) {
+  if (monsterCombatants.every((mc) => mc.hp <= 0)) {
     endBattle('won');
   } else if (playerCombatant.hp <= 0) {
     endBattle('lost');
@@ -497,34 +514,39 @@ function checkOutcome() {
 function tick() {
   if (battleOver) return;
   playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
-  monsterCombatant.atb = tickGauge(monsterCombatant.atb, monsterCombatant.speed, 1);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
 
-  if (isReady(monsterCombatant.atb) && !monsterWindup.active) {
-    monsterWindup = startWindup();
-  } else if (monsterWindup.active) {
-    monsterWindup = tickWindup(monsterWindup, 300);
-    if (isWindupComplete(monsterWindup)) {
-      resolveMonsterWindup(false);
+  for (const mc of monsterCombatants) {
+    if (mc.hp <= 0) continue;
+    mc.atb = tickGauge(mc.atb, mc.speed, 1);
+    if (isReady(mc.atb) && !mc.windup.active) {
+      mc.windup = startWindup();
+    } else if (mc.windup.active) {
+      mc.windup = tickWindup(mc.windup, 300);
+      if (isWindupComplete(mc.windup)) {
+        resolveMonsterWindup(mc, false);
+      }
     }
-  }
-  if (battleOver) return;
+    if (battleOver) return;
 
-  defenseDebuff = tickDefenseDebuff(defenseDebuff, 300);
-  if (pendingDelayedHit) {
-    pendingDelayedHit.dueAtMs -= 300;
-    if (pendingDelayedHit.dueAtMs <= 0) {
-      const amount = pendingDelayedHit.amount;
-      pendingDelayedHit = null;
-      monsterCombatant.hp = Math.max(0, monsterCombatant.hp - amount);
-      monsterCombatant.atb = applyKnockback(monsterCombatant.atb, ATB_KNOCKBACK);
-      log.push(`Slash's bleed hits ${monsterCombatant.name} for ${amount}!`);
-      updateHpBars();
-      updateAtbBars();
-      updateLog();
-      playHitEffect(elements.monsterZone, elements.monsterEmoji, amount, false);
-      checkOutcome();
+    mc.defenseDebuff = tickDefenseDebuff(mc.defenseDebuff, 300);
+    if (mc.pendingDelayedHit) {
+      mc.pendingDelayedHit.dueAtMs -= 300;
+      if (mc.pendingDelayedHit.dueAtMs <= 0) {
+        const amount = mc.pendingDelayedHit.amount;
+        mc.pendingDelayedHit = null;
+        mc.hp = Math.max(0, mc.hp - amount);
+        mc.atb = applyKnockback(mc.atb, ATB_KNOCKBACK);
+        log.push(`Slash's bleed hits ${mc.name} for ${amount}!`);
+        updateHpBars();
+        updateAtbBars();
+        updateLog();
+        const index = monsterCombatants.indexOf(mc);
+        playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], amount, false);
+        checkOutcome();
+        if (battleOver) return;
+      }
     }
   }
 
@@ -540,42 +562,50 @@ function endBattle(outcome) {
   if (outcome === 'lost') {
     playReviveEffect(elements.heroZone, elements.heroEmoji);
   }
-  monsterWindup = createWindupState();
+  const killedMonsterIds = monsterCombatants.filter((mc) => mc.hp <= 0).map((mc) => mc.monsterId);
   updateMenu();
   endBattleTimeoutId = setTimeout(() => {
-    callbacks.onBattleEnd(outcome, monsterId);
+    callbacks.onBattleEnd(outcome, killedMonsterIds);
   }, VICTORY_PAUSE_MS);
 }
 
 export function mount(root, props) {
   rootEl = root;
   state = props.state;
-  monsterId = props.monsterId;
-  monsterOverrides = props.monsterOverrides || null;
+  monsterIds = props.monsterIds;
+  monsterOverridesList = props.monsterOverrides || monsterIds.map(() => null);
   callbacks = props.callbacks;
   battleOver = false;
-  log = [pickAppearLine(MONSTERS[monsterId])];
+  log = [pickAppearLine(MONSTERS[monsterIds[0]])];
   playerCombatant = buildPlayerCombatant();
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
-  defenseDebuff = null;
-  pendingDelayedHit = null;
   abilityActionInFlight = false;
-  monsterWindup = createWindupState();
-  monsterCombatant = buildMonsterCombatant();
+  monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   buildDom();
-  elements.monsterAtbBar.onclick = () => resolveMonsterWindup(true);
-  elements.parryHint.onclick = () => resolveMonsterWindup(true);
+  monsterCombatants.forEach((mc, i) => {
+    elements.monsterAtbBars[i].onclick = (event) => {
+      event.stopPropagation();
+      resolveMonsterWindup(mc, true);
+    };
+    elements.parryHints[i].onclick = (event) => {
+      event.stopPropagation();
+      resolveMonsterWindup(mc, true);
+    };
+  });
   updateHpBars();
   updateAtbBars();
 
-  const weakMobOutcome = resolveWeakMobEncounter(playerCombatant, monsterCombatant, Boolean(MONSTERS[monsterId].isBoss));
-  if (weakMobOutcome) {
-    log.push(WEAK_MOB_LOG_MESSAGES[weakMobOutcome](monsterCombatant.name));
-    updateLog();
-    playWeakMobFleeEffect(elements.monsterEmoji);
-    endBattle(weakMobOutcome);
-    return;
+  if (monsterIds.length === 1) {
+    const soloMonster = monsterCombatants[0];
+    const weakMobOutcome = resolveWeakMobEncounter(playerCombatant, soloMonster, Boolean(MONSTERS[monsterIds[0]].isBoss));
+    if (weakMobOutcome) {
+      log.push(WEAK_MOB_LOG_MESSAGES[weakMobOutcome](soloMonster.name));
+      updateLog();
+      playWeakMobFleeEffect(elements.monsterEmojis[0]);
+      endBattle(weakMobOutcome);
+      return;
+    }
   }
 
   updateLog();
