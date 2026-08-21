@@ -214,12 +214,13 @@ function updateHpBars() {
 
 function updateAtbBars() {
   monsterCombatants.forEach((mc, i) => {
-    const monsterAtbPercent = mc.windup.active
+    const winding = mc.windup.active && mc.hp > 0;
+    const monsterAtbPercent = winding
       ? windupElapsedPercent(mc.windup)
       : percent(mc.atb, ATB_MAX);
     elements.monsterAtbFills[i].style.width = `${monsterAtbPercent}%`;
-    elements.monsterAtbBars[i].classList.toggle('battle-atb-bar-windup', mc.windup.active);
-    elements.parryHints[i].textContent = mc.windup.active ? 'Parry! (s)' : '';
+    elements.monsterAtbBars[i].classList.toggle('battle-atb-bar-windup', winding);
+    elements.parryHints[i].textContent = winding ? 'Parry! (s)' : '';
   });
   elements.heroAtbFill.style.width = `${percent(playerCombatant.atb, ATB_MAX)}%`;
 }
@@ -482,6 +483,7 @@ function monsterAttack(monster) {
 
 function resolveMonsterWindup(monster, parried) {
   if (battleOver) return;
+  if (monster.hp <= 0) return;
   if (!monster.windup.active) return;
   const elapsedPercent = windupElapsedPercent(monster.windup);
   monster.windup = createWindupState();
