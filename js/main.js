@@ -29,7 +29,7 @@ import { MONSTERS } from './data/monsters.js';
 import { ITEMS } from './data/items.js';
 import { FLAVOR_TEXT } from './data/flavorText.js';
 import { showFlavorBanner } from './screens/flavorBanner.js';
-import { formatBattleOutcomeMessage } from './systems/messageLog.js';
+import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/messageLog.js';
 import { playCelebration } from './screens/celebrationEffect.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
@@ -41,6 +41,7 @@ import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
 import { incrementQuestProgress } from './systems/quests.js';
+import { rollEncounterGroup, incrementKillCount } from './systems/groupEncounters.js';
 import { incrementLossStreak, potionsForStreak, getComebackMessage } from './systems/comeback.js';
 import * as questBoardScreen from './screens/questBoardScreen.js';
 
@@ -106,6 +107,12 @@ function startGame(loadedState, slotId) {
       direWolf: 0, spider: 0, orc: 0, wraith: 0,
     };
   }
+  if (!state.monsterKillCounts) {
+    state.monsterKillCounts = {
+      boar: 0, bat: 0, snake: 0, goblin: 0,
+      direWolf: 0, spider: 0, orc: 0, wraith: 0,
+    };
+  }
   if (!state.gateRewards) {
     state.gateRewards = {};
   }
@@ -161,6 +168,14 @@ let activeBossTierXp = null;
 // resolveBossTierAfterWin) — a loss leaves it untouched, so accepting a
 // rematch escalation and losing never skips a tier you haven't actually beaten.
 let activeBossTierAttempt = null;
+
+// Set just before an encounter's battle overlay mounts, holding the full list of
+// monster ids in that encounter (not just the ones that end up killed). handleBattleEnd
+// reads and clears it. Needed because callbacks.onBattleEnd only reports killedMonsterIds,
+// which is always empty for the pre-fight weak-mob 'fled-with-loot' outcome (the solo
+// monster flees before taking any damage) - that branch still needs to know which monster
+// it was to price the loot roll.
+let activeEncounterMonsterIds = null;
 
 function setHudButtonsEnabled(enabled) {
   const statsButton = document.getElementById('btn-open-stats');
@@ -449,12 +464,12 @@ function startBossFight(tier) {
   const tierStats = getBossTierStats(MONSTERS[monsterId], tier);
   activeBossTierXp = tierStats.xp;
   activeBossTierAttempt = tier;
-  handleEncounter(monsterId, {
+  handleEncounter([monsterId], [{
     hp: tierStats.hp,
     attack: tierStats.attack,
     defense: tierStats.defense,
     speed: tierStats.speed,
-  });
+  }]);
 }
 
 function goToShop() {
@@ -487,20 +502,24 @@ function goToQuestBoard() {
   });
 }
 
-function handleEncounter(monsterId, monsterOverrides = null) {
+function handleEncounter(monsterIds, monsterOverridesList = null) {
   battleActive = true;
   setHudButtonsEnabled(false);
-  const preScaled = { ...MONSTERS[monsterId], ...(monsterOverrides || {}) };
-  const ngPlusOverrides = getNgPlusCombatOverrides(preScaled, state.ngPlusCycle);
+  activeEncounterMonsterIds = monsterIds;
+  const ngPlusOverridesList = monsterIds.map((monsterId, i) => {
+    const overrides = monsterOverridesList ? monsterOverridesList[i] : null;
+    const preScaled = { ...MONSTERS[monsterId], ...(overrides || {}) };
+    return getNgPlusCombatOverrides(preScaled, state.ngPlusCycle);
+  });
   mountOverlay(battleScreen, {
     state,
-    monsterId,
-    monsterOverrides: ngPlusOverrides,
+    monsterIds,
+    monsterOverrides: ngPlusOverridesList,
     callbacks: { onBattleEnd: handleBattleEnd },
   });
 }
 
-function handleBattleEnd(outcome, monsterId) {
+function handleBattleEnd(outcome, killedMonsterIds) {
   unmountOverlay();
   battleActive = false;
   setHudButtonsEnabled(true);
@@ -508,6 +527,8 @@ function handleBattleEnd(outcome, monsterId) {
   activeBossTierXp = null;
   const bossTierAttempt = activeBossTierAttempt;
   activeBossTierAttempt = null;
+  const encounterMonsterIds = activeEncounterMonsterIds;
+  activeEncounterMonsterIds = null;
 
   // Snapshot effective stats as they stood at the moment combat ended (state.player.hp
   // already reflects the battle's outcome here - battleScreen.js's endBattle() synced it
@@ -521,42 +542,50 @@ function handleBattleEnd(outcome, monsterId) {
     hp: state.player.hp,
     maxHp: state.player.maxHp + bonuses.maxHp,
   };
-  showFlavorBanner(formatBattleOutcomeMessage(outcome, MONSTERS[monsterId].name, playerSnapshot));
+  const groupName = describeMonsterGroup(killedMonsterIds, (id) => MONSTERS[id].name);
+  showFlavorBanner(formatBattleOutcomeMessage(outcome, groupName, playerSnapshot));
 
   if (outcome === 'won' || outcome === 'surrender') {
-    const monster = MONSTERS[monsterId];
     if (!state.flags.firstKillCelebrated) {
       state.flags.firstKillCelebrated = true;
       playCelebration('🎉', 'First blood! You feel like a real adventurer now.');
     }
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
-    const baseXp = resolveBattleXp(bossTierXp, monster);
-    const xp = Math.round(baseXp * rewardMultiplier.xp);
-    const preLevelHp = state.player.hp;
-    const { player, leveledUp } = applyXp(state.player, xp);
-    state.player = player;
-    if (leveledUp) {
-      const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
-      state.player.hp = state.player.level >= LATE_GAME_LEVEL_THRESHOLD
-        ? Math.round(preLevelHp + (effectiveMaxHp - preLevelHp) * LEVEL_UP_PARTIAL_HEAL_FRACTION)
-        : effectiveMaxHp;
+    let leveledUpThisBattle = false;
+    for (const monsterId of killedMonsterIds) {
+      const monster = MONSTERS[monsterId];
+      const baseXp = resolveBattleXp(bossTierXp, monster);
+      const xp = Math.round(baseXp * rewardMultiplier.xp);
+      const preLevelHp = state.player.hp;
+      const { player, leveledUp } = applyXp(state.player, xp);
+      state.player = player;
+      if (leveledUp) {
+        leveledUpThisBattle = true;
+        const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
+        state.player.hp = state.player.level >= LATE_GAME_LEVEL_THRESHOLD
+          ? Math.round(preLevelHp + (effectiveMaxHp - preLevelHp) * LEVEL_UP_PARTIAL_HEAL_FRACTION)
+          : effectiveMaxHp;
+      }
+
+      const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
+      const drop = rollDrop(scaledMonster);
+      const gold = Math.round(drop.gold * rewardMultiplier.gold);
+      Object.assign(state, addGold(state, gold));
+      if (drop.item) {
+        grantDropItem(drop.item);
+      }
+      if (monster.isBoss) {
+        state.flags.dungeonBossDefeated = true;
+        if (bossTierAttempt !== null) {
+          state.bossTier = resolveBossTierAfterWin(state.bossTier, bossTierAttempt);
+        }
+      }
+      Object.assign(state, incrementQuestProgress(state, monsterId));
+      Object.assign(state, { monsterKillCounts: incrementKillCount(state.monsterKillCounts, monsterId) });
+    }
+    if (leveledUpThisBattle) {
       playCelebration('⭐', `Level up! You are now level ${state.player.level}.`);
     }
-
-    const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
-    const drop = rollDrop(scaledMonster);
-    const gold = Math.round(drop.gold * rewardMultiplier.gold);
-    Object.assign(state, addGold(state, gold));
-    if (drop.item) {
-      grantDropItem(drop.item);
-    }
-    if (monster.isBoss) {
-      state.flags.dungeonBossDefeated = true;
-      if (bossTierAttempt !== null) {
-        state.bossTier = resolveBossTierAfterWin(state.bossTier, bossTierAttempt);
-      }
-    }
-    Object.assign(state, incrementQuestProgress(state, monsterId));
     state.lossStreak = 0;
 
     persist();
@@ -574,7 +603,11 @@ function handleBattleEnd(outcome, monsterId) {
     renderHud();
     goToMap('town');
   } else if (outcome === 'fled-with-loot') {
-    const monster = MONSTERS[monsterId];
+    // Solo-only outcome from the pre-fight weak-mob check (battleScreen.js gates it to
+    // monsterIds.length === 1) - the monster flees before taking any damage, so
+    // killedMonsterIds is always empty here and can't tell us which monster it was.
+    // encounterMonsterIds (captured in handleEncounter) is the only source left.
+    const monster = MONSTERS[encounterMonsterIds[0]];
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
     const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
     const drop = rollDrop(scaledMonster);
@@ -585,7 +618,27 @@ function handleBattleEnd(outcome, monsterId) {
     }
     persist();
     renderHud();
-  } else if (outcome === 'fled' || outcome === 'fled-empty') {
+  } else if (outcome === 'fled') {
+    const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
+    for (const monsterId of killedMonsterIds) {
+      const monster = MONSTERS[monsterId];
+      const baseXp = resolveBattleXp(null, monster);
+      const xp = Math.round(baseXp * rewardMultiplier.xp);
+      const { player } = applyXp(state.player, xp);
+      state.player = player;
+      const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
+      const drop = rollDrop(scaledMonster);
+      const gold = Math.round(drop.gold * rewardMultiplier.gold);
+      Object.assign(state, addGold(state, gold));
+      if (drop.item) {
+        grantDropItem(drop.item);
+      }
+      Object.assign(state, incrementQuestProgress(state, monsterId));
+      Object.assign(state, { monsterKillCounts: incrementKillCount(state.monsterKillCounts, monsterId) });
+    }
+    persist();
+    renderHud();
+  } else if (outcome === 'fled-empty') {
     persist();
     renderHud();
   }

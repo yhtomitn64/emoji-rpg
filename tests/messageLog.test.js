@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MESSAGE_LOG_CAP, appendMessage, formatBattleOutcomeMessage } from '../js/systems/messageLog.js';
+import { MESSAGE_LOG_CAP, appendMessage, formatBattleOutcomeMessage, describeMonsterGroup } from '../js/systems/messageLog.js';
 
 test('MESSAGE_LOG_CAP is 50', () => {
   assert.equal(MESSAGE_LOG_CAP, 50);
@@ -65,4 +65,19 @@ test('formatBattleOutcomeMessage phrases the three weak-mob-surrender outcomes d
     formatBattleOutcomeMessage('fled-empty', 'Mean Meatball', snapshot),
     'Mean Meatball flees! (Lv.3 ATK 12 DEF 5 HP 24/24)'
   );
+});
+
+test('describeMonsterGroup names a single monster plainly', () => {
+  const name = describeMonsterGroup(['boar'], () => 'Snorty McPigface');
+  assert.equal(name, 'Snorty McPigface');
+});
+
+test('describeMonsterGroup pluralizes a group with a count', () => {
+  const name = describeMonsterGroup(['boar', 'boar', 'boar'], () => 'Snorty McPigface');
+  assert.equal(name, '3 Snorty McPigfaces');
+});
+
+test('describeMonsterGroup returns an empty string for an empty list', () => {
+  const name = describeMonsterGroup([], () => 'Snorty McPigface');
+  assert.equal(name, '');
 });

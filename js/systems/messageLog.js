@@ -22,3 +22,9 @@ export function formatBattleOutcomeMessage(outcome, monsterName, player) {
   const stats = `Lv.${player.level} ATK ${player.attack} DEF ${player.defense} HP ${player.hp}/${player.maxHp}`;
   return `${headline} (${stats})`;
 }
+
+export function describeMonsterGroup(monsterIds, monsterNameById) {
+  if (monsterIds.length === 0) return '';
+  const name = monsterNameById(monsterIds[0]);
+  return monsterIds.length === 1 ? name : `${monsterIds.length} ${name}s`;
+}
