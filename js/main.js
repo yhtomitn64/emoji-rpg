@@ -542,7 +542,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     hp: state.player.hp,
     maxHp: state.player.maxHp + bonuses.maxHp,
   };
-  const groupName = describeMonsterGroup(killedMonsterIds, (id) => MONSTERS[id].name);
+  const groupName = describeMonsterGroup(encounterMonsterIds, (id) => MONSTERS[id].name);
   showFlavorBanner(formatBattleOutcomeMessage(outcome, groupName, playerSnapshot));
 
   if (outcome === 'won' || outcome === 'surrender') {
