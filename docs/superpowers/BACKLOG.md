@@ -220,6 +220,49 @@ design.md`, which specifically *removed* auto-equip on pickup in favor
 of manual choice — so an opt-in per-purchase prompt (not silent
 auto-equip) is the version that doesn't relitigate that decision.
 
+### Level-up and general animation pass, raised 2026-08-20
+Timothy: "need more than just a start for level up, character
+animation. Hero size enlarges on map temporarily, light shoots out, big
+level up words in a cool style with embossing or something. Moving
+forward lets really start to spike up animations and things." Framed as
+a forward-looking initiative, not a single fix — bundles with the
+existing "Fun animation for items landing in inventory" idea above under
+the same "give more moments a real animation" theme. Also raised in the
+same note: get creative with the map's tile emoji (grass variety instead
+of one repeated green square, possibly zoom/placement variation) —
+related but separate from the level-up animation itself, both about the
+map/battle screens feeling more alive.
+
+### Fast-travel back to the dungeon entrance after death, for a gold cost
+Timothy, 2026-08-20: "I think we should be able to port back to start of
+dragon cave after you die for a gold sum." Today, a loss warps the
+player back to town unconditionally (`handleBattleEnd`'s `'lost'`
+branch in `js/main.js`) — this would add a paid option to return
+straight to the dungeon entrance instead, skipping the walk back.
+Ties into the now-shipped randomized-dungeon-entrance work (the
+"dungeon entrance" is a per-save `state.dungeonEntrancePosition` now,
+not a fixed tile) — a return-to-dungeon warp needs to target that
+per-save position, not a hardcoded one.
+
+### Flavor-text nudge near tool-gated tiles, raised 2026-08-20
+Timothy: "maybe when you get close to mountain, tree some flavor text
+comes up remind folks to go near it to use your tool. It's not
+obvious." Tool gates (mining pick on mountain tiles, axe on thicket
+tiles, per `docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-
+design.md`) currently only communicate on contact (locked-gate message
+if you lack the tool, cleared-gate message if you have it) — this asks
+for an earlier, proximity-based hint before the player actually walks
+into the tile, since right now there's no signal the tile is
+interactive at all until you try it.
+
+### Choose which dragon strength to fight, raised 2026-08-20
+Timothy: "I should be able to choose to fight the different dragon
+strengths." Boss-rematch tiers already exist (`state.bossTier`,
+`js/systems/bossTiers.js`, 3 tiers) but today the tier is presumably
+fixed/sequential per rematch rather than player-selectable — needs a
+look at how `bossTier` currently advances and how `startBossFight()` in
+`js/main.js` picks which tier to fight before designing a selection UI.
+
 ## Quests / economy
 
 ### Quest turn-in scaling: more kills required each level, rewards scale up but with diminishing returns
@@ -329,6 +372,70 @@ through in a dedicated future combat pass rather than one-off adds:
   weaker enemies" open question below for the fights below the surrender
   threshold that aren't quite trivial either — see the synthesis further
   down this file for how the two relate.
+- **Weak-mob surrender/flee shouldn't open the battle dialog at all,
+  raised 2026-08-20.** Timothy: "when the mobs are weak and you will
+  auto kill don't even bring up the dialog. Just show them on the map
+  and have them fly off the screen in random directions or something."
+  A refinement of the shipped weak-mob-surrender feature directly above
+  — today `resolveWeakMobEncounter` still fires from inside
+  `battleScreen.mount()`, so the full battle overlay opens and closes
+  again even though the outcome was already decided before the player
+  saw anything. This asks for the decision to happen before the overlay
+  ever mounts, with the flee/surrender animation playing on the map
+  screen itself instead.
+- **Ability rotation redesign — combo chains, key ergonomics, and
+  visibility, raised 2026-08-20.** Timothy's own extended pitch after
+  playing the shipped Phase 1 abilities: "the combat feels good but a
+  little clunky. I don't really understand the different power levels
+  of the abilities... not sure why I would use different single target
+  or different multi target. Does one buff the other or what?" Several
+  distinct threads in one note, kept together since they're all reactions
+  to the same rotation:
+  - **Combo/buff chaining between abilities.** Idea: ability 1 buffs
+    ability 2 (and 3 buffs 4), with a visual indicator on the button to
+    hit next once the setup lands — "so you have to do it first with
+    some sort of indicator on what to hit next." Further shape floated:
+    1 and 3 do small damage on their own, but the *big* damage is on 2
+    and 4 if the buff landed first; landing 2 or 4 correctly also grants
+    a small buff toward the next 1/3, to keep the rotation going.
+  - **Key ergonomics.** "My fingers dancing from 1, 2, 3, 4, 5 back to
+    a, s is a little funky... fingers are on 1, 2, 3, 4 and I have to
+    look down for 5." Proposes moving Super Scream (ability 5, the
+    buff) onto spacebar instead of key `5`, off the shared ability
+    cooldown entirely, and explicitly *not* resetting the swing timer
+    when used — framed as wanting to keep fingers on 1-4 plus thumb on
+    the buff key, while still reaching `s` for parry.
+  - **What is Attack for?** "I feel like we don't need it... or you
+    make it auto attack or something that does trivial damage," with a
+    follow-up alternate idea: Attack stays manual but usable off the
+    global ability cooldown, dealing progressively less damage the more
+    it's spammed unless "charged up" somehow.
+  - **Information density on the ability buttons.** Wants to see each
+    ability's damage number next to its button before pressing it, plus
+    icons per ability, plus a visual/animated effect on the button itself
+    when pressed.
+  - Explicitly framed as "just trying to spice it up a bit making a fun
+    rotation" and a request for a reaction, not a finished design —
+    needs its own dedicated brainstorm before any of it is scoped; several
+    sub-ideas here (combo chains especially) are a real rework of
+    `js/systems/abilities.js`'s current fixed-order/no-synergy model, not
+    a small tweak.
+- **Timing-meter clarity and crit/damage-number visual polish, raised
+  2026-08-20.** Two related requests: (1) Timothy wasn't sure what the
+  green zone at the end of the hero's own swing timer indicates, or
+  whether there's a timing mechanic tied to it — worth a tooltip/label
+  or other in-context explanation, not just discoverable by accident.
+  (2) Damage numbers on a crit should "really pop," and damage numbers
+  in general should be bigger, persist longer, and float higher (even
+  above the dialog if possible) than they do today; crits could also
+  trigger a bigger environmental reaction — trees swaying, the dialog
+  shaking — to sell the hit's weight.
+- **Death animation for a defeated enemy, raised 2026-08-20.** Timothy:
+  "the emoji rotates in a circle and gets smaller until you can't see
+  it, timed with the dialog closing." Distinct from the existing
+  shrink-and-slide *flee* animation used by weak-mob surrender above —
+  this is specifically for a monster actually killed in a real fight,
+  which currently has no death animation of its own.
 
 ### Monster name/stat variants, and a rare near-dragon elite encounter
 A significantly fleshed-out follow-up to the "roaming rare monster" idea
@@ -500,3 +607,15 @@ requested effect. Whether that's enough, or a dedicated fix (like a
 "quick battle" auto-resolve) is still wanted for genuinely trivial
 backtracked fights, is still Timothy's call — leaving this open, just
 better-informed.
+
+## Infrastructure / deployment
+
+### Host on Cloudflare (free tier) with GitHub Actions auto-publish, raised 2026-08-20
+Timothy: "I want to host this on cloudflare free tier and push to my
+personal github and then have a github action that lets me easily
+publish new versions." No hosting/CI exists at all today — this repo is
+played locally only (no build step, static files served directly). Needs
+its own scoping pass: which Cloudflare product (Pages vs. Workers static
+assets), what "publish" means for a solo dev's workflow (push-to-deploy
+on `master`, or a manual trigger), and whether the personal GitHub
+account/repo already exists for this project or needs creating.
