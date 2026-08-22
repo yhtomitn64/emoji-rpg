@@ -96,6 +96,20 @@ public API, no formal release process — commits land straight on
   kill-count credit) for each monster already killed and nothing for the
   survivors. Solo encounters are unaffected — same single-monster flow as
   before.
+- Ability rotation redesign: Sweep now hits every living monster in the
+  fight with full damage (plus its existing defense-shred debuff) instead
+  of just the selected one, giving it a clear role as the group-fight
+  ability now that groups exist. Stab and Chop, and Slash and Sweep, are
+  now paired combo lanes — landing the setup (Stab or Slash) primes its
+  payoff (Chop or Sweep) for a 1.5x damage bonus and lets it fire even
+  before the swing timer is full, both via its button and its number-key
+  shortcut; landing the payoff returns a smaller 1.15x bonus to the setup
+  in turn, so the lane keeps feeding itself if you alternate. A primed
+  ability's button glows and relabels itself ("Combo Ready" / "Bonus
+  Ready") so the loop is visible without reading the log. The ability
+  timing meter also now shows a "Press Space!" label once its fill enters
+  the sweet spot, since that key (not the ability's own number key again)
+  is what the meter actually listens for.
 
 ## [0.5.1] - 2026-08-17
 
