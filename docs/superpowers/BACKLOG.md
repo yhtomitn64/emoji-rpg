@@ -274,16 +274,10 @@ of one repeated green square, possibly zoom/placement variation) —
 related but separate from the level-up animation itself, both about the
 map/battle screens feeling more alive.
 
-### Fast-travel back to the dungeon entrance after death, for a gold cost
-Timothy, 2026-08-20: "I think we should be able to port back to start of
-dragon cave after you die for a gold sum." Today, a loss warps the
-player back to town unconditionally (`handleBattleEnd`'s `'lost'`
-branch in `js/main.js`) — this would add a paid option to return
-straight to the dungeon entrance instead, skipping the walk back.
-Ties into the now-shipped randomized-dungeon-entrance work (the
-"dungeon entrance" is a per-save `state.dungeonEntrancePosition` now,
-not a fixed tile) — a return-to-dungeon warp needs to target that
-per-save position, not a hardcoded one.
+### ~~Fast-travel back to the dungeon entrance after death, for a gold cost~~ Shipped 2026-08-22
+A loss now offers a choice (`js/screens/postDeathTravelScreen.js`):
+free return to town, or warp straight to `state.dungeonEntrancePosition`
+for `10 × level` gold. See CHANGELOG.
 
 ### Flavor-text nudge near tool-gated tiles, raised 2026-08-20
 Timothy: "maybe when you get close to mountain, tree some flavor text

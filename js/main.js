@@ -10,6 +10,7 @@ import * as messageLogScreen from './screens/messageLogScreen.js';
 import * as lootReferenceScreen from './screens/lootReferenceScreen.js';
 import * as startScreen from './screens/startScreen.js';
 import * as logoutConfirmScreen from './screens/logoutConfirmScreen.js';
+import * as postDeathTravelScreen from './screens/postDeathTravelScreen.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
 import { centerMap } from './maps/wilderness/center.js';
@@ -34,7 +35,7 @@ import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/mess
 import { playCelebration } from './screens/celebrationEffect.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
-import { addGold, addItem, getEquipmentBonuses } from './systems/inventory.js';
+import { addGold, addItem, spendGold, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
@@ -43,7 +44,7 @@ import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from 
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
 import { incrementQuestProgress } from './systems/quests.js';
 import { rollEncounterGroup, incrementKillCount } from './systems/groupEncounters.js';
-import { incrementLossStreak, potionsForStreak, getComebackMessage } from './systems/comeback.js';
+import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWarpCost } from './systems/comeback.js';
 import * as questBoardScreen from './screens/questBoardScreen.js';
 
 const MAPS = {
@@ -622,8 +623,6 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     renderHud();
   } else if (outcome === 'lost') {
     state.player.hp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
-    state.position = { ...townMap.startPosition };
-    state.map = 'town';
     state.activeMiniDungeon = null;
     state.lossStreak = incrementLossStreak(state.lossStreak);
     const potionsGranted = potionsForStreak(state.lossStreak);
@@ -631,7 +630,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     showFlavorBanner(getComebackMessage(potionsGranted));
     persist();
     renderHud();
-    goToMap('town');
+    promptPostDeathTravel();
   } else if (outcome === 'fled-with-loot') {
     // Solo-only outcome from the pre-fight weak-mob check (battleScreen.js gates it to
     // monsterIds.length === 1) - the monster flees before taking any damage, so
@@ -672,6 +671,29 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     persist();
     renderHud();
   }
+}
+
+function promptPostDeathTravel() {
+  const warpCost = postDeathWarpCost(state.player.level);
+  setHudButtonsEnabled(false);
+  mountOverlay(postDeathTravelScreen, {
+    warpCost,
+    canAffordWarp: state.player.gold >= warpCost,
+    callbacks: {
+      onReturnToTown: () => {
+        state.position = { ...townMap.startPosition };
+        persist();
+        goToMap('town');
+      },
+      onWarpToDungeon: () => {
+        Object.assign(state, spendGold(state, warpCost));
+        const { screenId, x, y } = state.dungeonEntrancePosition;
+        state.position = { x, y };
+        persist();
+        goToMap(screenId);
+      },
+    },
+  });
 }
 
 migrateLegacySave();

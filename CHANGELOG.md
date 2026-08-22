@@ -25,6 +25,14 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Losing a battle now offers a choice instead of always warping home:
+  `Return to Town` (free, same as before) or `Warp to Dungeon Entrance`
+  for `10 × player level` gold, disabled if unaffordable. HP restore,
+  loss-streak increment, and comeback potions all still happen
+  unconditionally first — the choice only changes where you land.
+  Warping places you at `state.dungeonEntrancePosition` (the wilderness
+  tile leading into the dungeon), not the dungeon interior itself, since
+  dungeon-interior progress was never preserved across a loss anyway.
 - The dragon rematch prompt now lets you choose which tier to fight
   instead of always auto-escalating to the next one. Every tier from 0
   up through your next uncleared tier gets its own button (e.g. `Tier 0
