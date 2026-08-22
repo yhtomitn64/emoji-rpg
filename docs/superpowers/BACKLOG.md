@@ -97,6 +97,27 @@ one-off task.
   permission from Timothy: it's fine if reaching zone 2 requires more
   zone-1 grinding even after beating the first boss — a new zone doesn't
   have to be immediately viable the moment its gate unlocks.
+- **A spatial difficulty gradient — harder enemies the further from town /
+  closer to the dragon, raised 2026-08-22.** Timothy, referencing Dragon
+  Warrior's own map design as the inspiration: distance from town (or
+  progress toward the dungeon/dragon) should itself gate difficulty, so
+  gearing/leveling is required to keep pushing outward rather than every
+  screen being equally approachable once you've cleared the nearest one.
+  Concretely floated: named tiers like "level 1, level 2" enemies rather
+  than the current flat roster. This is a *fixed spatial* gradient (tougher
+  monsters live further out, always), not monsters scaling to match the
+  player's own level — compatible with the standing "zone 1 should keep
+  getting easier over time, not track the player" call in "The player
+  outpaces near-town/far-corner content" thread further below, since
+  nothing here makes any single screen's monsters get harder as you level.
+  Natural implementation hook: the already-drafted "Named stat variants per
+  monster type" idea two sections below (~5 named variants per monster
+  with distinct stats) is exactly the mechanism this would need — variants
+  could be distributed by distance-from-town instead of purely at random.
+  Needs its own design pass alongside the rest of this zone-identity work —
+  not ready to spec yet (how "distance" is measured — screen-grid position?
+  a new explicit tier per wilderness ring? — is undecided), captured here
+  as the raw idea only.
 - **Zones shouldn't share the same gameplay loop.** Wants variety
   zone-to-zone: puzzle-solving, a labyrinth, new abilities/mechanics,
   other metroidvania-style ideas beyond straight combat — not just a
@@ -576,7 +597,12 @@ separable pieces:
   counts as the same `monsterId` for quest progress/drop tables — only
   display name and stats vary per spawn, similar in spirit to how boss
   tiers already vary the dragon's stats, but applied to regular
-  encounters and randomly picked rather than player-escalated.
+  encounters and randomly picked rather than player-escalated. Possible
+  future hook, raised 2026-08-22 under Multi-zone progression above: these
+  variants could be distributed by distance-from-town instead of purely
+  random, to back a Dragon-Warrior-style spatial difficulty gradient
+  (tougher named variants the further out you go) — not decided, just a
+  noted connection between the two ideas.
 - **A rare, near-dragon-difficulty elite encounter**, roughly 1-in-20
   fights (5% chance), replacing a normal encounter in the current zone.
   Unique emoji, distinct from every existing monster/dragon emoji.
