@@ -219,3 +219,13 @@ test('canUseAbility is false when locked or on cooldown regardless of combo stat
   assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: true, comboPrimed: true, comboRole: 'payoff' }), false);
   assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: true, comboPrimed: true, comboRole: 'payoff' }), false);
 });
+
+test('canUseAbility bypasses the ready gate when alwaysReady is set, e.g. Super Scream', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, alwaysReady: true }), true);
+  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, alwaysReady: false }), false);
+});
+
+test('canUseAbility still respects locked/onCooldown even when alwaysReady is set', () => {
+  assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: false, alwaysReady: true }), false);
+  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, alwaysReady: true }), false);
+});

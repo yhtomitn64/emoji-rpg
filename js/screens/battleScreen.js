@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
@@ -33,6 +33,7 @@ let abilityCooldowns = {};
 let buffState = createBuffState();
 let comboState = {};
 let abilityActionInFlight = false;
+let attackStreak = 0;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -298,12 +299,14 @@ function abilityButtonsHtml() {
     // A primed setup's return bonus (e.g. Stab after Chop landed) does NOT
     // get this bypass, only the extra damage - see Global Constraints.
     const comboPrimed = !!comboState[ability.id];
-    const disabled = !canUseAbility({ locked, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole });
+    const alwaysReady = ability.type === 'buff';
+    const disabled = !canUseAbility({ locked, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole, alwaysReady });
     const cooldownSuffix = cooldownRemaining > 0 ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
     const comboSuffix = comboPrimed
       ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
       : '';
-    const label = `${ability.name} (${slot})${cooldownSuffix}${comboSuffix}`;
+    const keyLabel = alwaysReady ? 'Space' : slot;
+    const label = `${ability.name} (${keyLabel})${cooldownSuffix}${comboSuffix}`;
     const comboClass = comboPrimed ? ' battle-ability-button-combo' : '';
     return `<button id="btn-ability-${ability.id}" class="battle-ability-button${comboClass}" ${disabled ? 'disabled' : ''}>${label}</button>`;
   }).join('');
@@ -316,9 +319,11 @@ function updateMenu() {
   }
   const ready = isReady(playerCombatant.atb);
   const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
+  const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak)) * 100);
+  const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
 
   elements.menu.innerHTML = `
-    <button id="btn-attack" ${ready ? '' : 'disabled'}>Attack (a)</button>
+    <button id="btn-attack">Attack (a)${attackDecaySuffix}</button>
     ${abilityButtonsHtml()}
     <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item (i)</button>
     <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee (f)</button>
@@ -402,13 +407,28 @@ function handleKeydown(event) {
     playerUseItem();
     return;
   }
+  if (event.code === 'Space') {
+    // Super Scream lives on Space instead of a digit key, and unlike every
+    // other ability it's exempt from the swing-timer-ready gate entirely -
+    // see canUseAbility's alwaysReady param. The existing abilityActionInFlight
+    // guard inside playerUseAbility already keeps this safe if Space is
+    // pressed while another ability's timing meter is up: that call just
+    // no-ops and the meter's own separate listener still resolves normally.
+    event.preventDefault();
+    const superScream = ABILITIES.find((a) => a.id === 'superScream');
+    const locked = state.player.level < superScream.unlockLevel;
+    const onCooldown = (abilityCooldowns[superScream.id] || 0) > 0;
+    if (canUseAbility({ locked, onCooldown, ready: isReady(playerCombatant.atb), alwaysReady: true })) {
+      playerUseAbility(superScream.id);
+    }
+    return;
+  }
   if (key === 'a' || key === 'A') {
-    if (!isReady(playerCombatant.atb)) return;
     playerAttack();
   } else if (key === 'Escape' || key === 'f' || key === 'F') {
     if (!isReady(playerCombatant.atb)) return;
     playerFlee();
-  } else if (key >= '1' && key <= '5') {
+  } else if (key >= '1' && key <= '4') {
     const ability = ABILITIES[Number(key) - 1];
     const locked = state.player.level < ability.unlockLevel;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
@@ -435,7 +455,8 @@ function playerAttack() {
   // hit effect render on the wrong (undamaged) monster.
   const targetIndex = selectedMonsterIndex;
   const target = monsterCombatants[targetIndex];
-  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff));
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, attackStreakMultiplier(attackStreak));
+  attackStreak += 1;
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
   playerCombatant.atb = result.playerAtb;
@@ -469,7 +490,7 @@ async function playerUseAbility(abilityId) {
     if (ability.type === 'buff') {
       buffState = activateBuff(ability);
       abilityCooldowns[abilityId] = ability.cooldownMs;
-      playerCombatant.atb = 0;
+      attackStreak = 0;
       log.push(`You use ${ability.name}! Your attacks hit harder for a while.`);
       updateAtbBars();
       updateBuffIndicator();
@@ -509,6 +530,7 @@ async function playerUseAbility(abilityId) {
         playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
       });
       abilityCooldowns[abilityId] = ability.cooldownMs;
+      attackStreak = 0;
       // Consume this ability's own primed bonus (if any), then prime its combo
       // partner: a setup primes its payoff for the bigger forward bonus, a
       // payoff primes its setup for the smaller return bonus. Same two lines
@@ -540,6 +562,7 @@ async function playerUseAbility(abilityId) {
     target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
     abilityCooldowns[abilityId] = ability.cooldownMs;
+    attackStreak = 0;
     if (ability.id === 'slash') {
       target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
     }
@@ -655,6 +678,10 @@ function checkOutcome() {
 function tick() {
   if (battleOver) return;
   playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
+  // Attack has no cooldown of its own to recover on - letting the swing
+  // timer reach full again (i.e. holding off instead of spamming) is what
+  // resets its decaying-damage streak back to full strength.
+  if (isReady(playerCombatant.atb)) attackStreak = 0;
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
 
@@ -723,6 +750,7 @@ export function mount(root, props) {
   buffState = createBuffState();
   comboState = {};
   abilityActionInFlight = false;
+  attackStreak = 0;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   buildDom();
   monsterCombatants.forEach((mc, i) => {

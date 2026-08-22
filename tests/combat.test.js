@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -83,6 +83,22 @@ test('resolvePlayerAttack composes damage, crit, speed bonus, and knockback into
   assert.equal(result.monsterHp, 21);
   assert.equal(result.monsterAtb, 50 - ATB_KNOCKBACK);
   assert.equal(result.playerAtb, 0);
+});
+
+test('resolvePlayerAttack applies an optional streak multiplier to damage before crit/speed bonus, defaulting to no change', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 30, defense: 2, atb: 50 };
+  const result = resolvePlayerAttack(player, monster, () => 0.5, 0.7);
+  // base 10-2=8, variance 1.0 -> 8, streak multiplier 0.7 -> round(5.6)=6, no crit, speed below threshold
+  assert.equal(result.damage, 6);
+  assert.equal(result.monsterHp, 24);
+});
+
+test('attackStreakMultiplier decays damage per consecutive attack, flooring at ATTACK_STREAK_FLOOR', () => {
+  assert.equal(attackStreakMultiplier(0), 1);
+  assert.equal(attackStreakMultiplier(1), 1 - ATTACK_STREAK_DECAY);
+  assert.equal(attackStreakMultiplier(2), 1 - ATTACK_STREAK_DECAY * 2);
+  assert.equal(attackStreakMultiplier(100), ATTACK_STREAK_FLOOR);
 });
 
 test('resolveMonsterAttack composes damage, crit, and knockback the same way, without the player-only speed bonus', () => {

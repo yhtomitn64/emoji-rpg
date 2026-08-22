@@ -62,9 +62,21 @@ export function applyCritMultiplier(damage, isCrit) {
 // still attack the instant their ATB is ready in this simulation; see
 // docs/superpowers/specs/2026-08-18-parry-mechanic-design.md)
 
-export function resolvePlayerAttack(player, monster, rng = Math.random) {
+// Attack has no swing-timer/cooldown gate at all (see battleScreen.js) - this
+// is the tradeoff that keeps spamming it from being strictly optimal: each
+// consecutive press without landing an ability or letting the gauge refill
+// deals less damage, down to a floor rather than trailing off to nothing.
+export const ATTACK_STREAK_DECAY = 0.15;
+export const ATTACK_STREAK_FLOOR = 0.4;
+
+export function attackStreakMultiplier(streak) {
+  return Math.max(ATTACK_STREAK_FLOOR, 1 - streak * ATTACK_STREAK_DECAY);
+}
+
+export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1) {
   const isCrit = rollCrit(rng);
   let damage = calculateDamage(player, monster, rng);
+  damage = Math.round(damage * streakMultiplier);
   damage = applyCritMultiplier(damage, isCrit);
   damage = applySpeedDamageBonus(damage, player.speed);
   return {
