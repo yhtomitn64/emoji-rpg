@@ -460,19 +460,27 @@ through in a dedicated future combat pass rather than one-off adds:
     `estimateAbilityDamage` in `js/systems/abilities.js`), plus a
     per-ability icon (🗡️🪓⚔️🌪️📢), plus a brief scale/brighten flash on
     the button when pressed.
-- **Timing-meter clarity and crit/damage-number visual polish, raised
-  2026-08-20.** Two related requests: (1) ~~Timothy wasn't sure what the
-  green zone at the end of the hero's own swing timer indicates, or
-  whether there's a timing mechanic tied to it — worth a tooltip/label
-  or other in-context explanation, not just discoverable by accident.~~
-  **Shipped 2026-08-22**: the timing meter now shows a "Press Space!"
-  label once its fill crosses into the sweet-spot zone, as part of the
-  ability rotation redesign pass above. (2) Still open: damage numbers on
-  a crit should "really pop," and damage numbers in general should be
-  bigger, persist longer, and float higher (even above the dialog if
-  possible) than they do today; crits could also trigger a bigger
-  environmental reaction — trees swaying, the dialog shaking — to sell
-  the hit's weight.
+- ~~**Timing-meter clarity and crit/damage-number visual polish, raised
+  2026-08-20.**~~ **Both halves shipped 2026-08-22.** Two related
+  requests: (1) Timothy wasn't sure what the green zone at the end of
+  the hero's own swing timer indicates, or whether there's a timing
+  mechanic tied to it — worth a tooltip/label or other in-context
+  explanation, not just discoverable by accident. Fixed as part of the
+  ability rotation redesign pass above: the timing meter shows a "Press
+  Space!" label once its fill crosses into the sweet-spot zone. (2)
+  Damage numbers on a crit should "really pop," and damage numbers in
+  general should be bigger, persist longer, and float higher (even
+  above the dialog if possible); crits should also trigger a bigger
+  environmental reaction. Damage numbers are now `position: fixed`
+  (positioned from the target zone's `getBoundingClientRect()`) instead
+  of clipped inside the dialog's `overflow: hidden`, so they genuinely
+  float above it; bigger, last longer (0.9s → 1.4s). Crits get their
+  own distinct gold/glowing number with an entrance bounce, plus a
+  stronger shake across the whole dialog and a brief sway on the
+  background scenery layer — regular hits are unchanged. Verified
+  in-browser with a forced-crit run (screenshots at multiple points in
+  the animation), plus the full test suite (300 passing, none of which
+  cover this presentational layer directly).
 - **Death animation for a defeated enemy, raised 2026-08-20.** Timothy:
   "the emoji rotates in a circle and gets smaller until you can't see
   it, timed with the dialog closing." Distinct from the existing

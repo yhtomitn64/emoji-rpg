@@ -6,11 +6,13 @@ import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activa
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
 
 const VICTORY_PAUSE_MS = 1200;
-// Matches showDamageNumber's own lifetime: a killing blow's damage number/
-// flash/shake needs this long on screen before the slot can be hidden, since
-// hiding it and playing the effect happen in the same synchronous call and
-// the browser only paints the final DOM state - reordering the two calls
-// within one tick can't make an already-hidden element's effect visible.
+// A killing blow's flash/shake needs this long on screen before the slot can
+// be hidden, since hiding it and playing the effect happen in the same
+// synchronous call and the browser only paints the final DOM state -
+// reordering the two calls within one tick can't make an already-hidden
+// element's effect visible. The damage number itself is unaffected by this -
+// it's a body-level fixed element (see showDamageNumber), independent of the
+// zone's own DOM lifecycle.
 const DEATH_HIDE_DELAY_MS = 900;
 const TIMING_METER_DURATION_MS = 1000;
 const TIMING_SWEET_SPOT_START = 80;
@@ -34,6 +36,7 @@ let buffState = createBuffState();
 let comboState = {};
 let abilityActionInFlight = false;
 let attackStreak = 0;
+let liveDamageNumbers = [];
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -157,6 +160,8 @@ function buildDom() {
   `;
 
   elements = {
+    dialog: rootEl.querySelector('.overlay-panel.battle-screen'),
+    decoration: rootEl.querySelector('.battle-decoration'),
     monsterRow: document.getElementById('battle-monster-row'),
     monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
     monsterEmojis: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-emoji-${i}`)),
@@ -344,18 +349,45 @@ function updateMenu() {
   }
 }
 
+const DAMAGE_NUMBER_DURATION_MS = 1400;
+const CRIT_SHAKE_DURATION_MS = 340;
+
 function showDamageNumber(zoneEl, amount, isCrit) {
+  // Fixed-positioned on <body> (from the zone's live screen position) rather
+  // than absolute-inside-zoneEl, so the float isn't clipped by the dialog's
+  // `overflow: hidden` - lets it rise above the dialog entirely.
+  const rect = zoneEl.getBoundingClientRect();
   const numberEl = document.createElement('div');
   numberEl.textContent = `-${amount}`;
   numberEl.className = 'battle-damage-number' + (isCrit ? ' battle-damage-number-crit' : '');
-  zoneEl.appendChild(numberEl);
-  setTimeout(() => numberEl.remove(), 900);
+  numberEl.style.left = `${rect.left + rect.width / 2}px`;
+  numberEl.style.top = `${rect.top + 10}px`;
+  document.body.appendChild(numberEl);
+  const timeoutId = setTimeout(() => {
+    numberEl.remove();
+    liveDamageNumbers = liveDamageNumbers.filter((n) => n.timeoutId !== timeoutId);
+  }, DAMAGE_NUMBER_DURATION_MS);
+  liveDamageNumbers.push({ el: numberEl, timeoutId });
+}
+
+function playCritReaction(dialogEl, decorationEl) {
+  if (dialogEl) {
+    dialogEl.classList.add('battle-dialog-shake-crit');
+    setTimeout(() => dialogEl.classList.remove('battle-dialog-shake-crit'), CRIT_SHAKE_DURATION_MS);
+  }
+  if (decorationEl) {
+    decorationEl.classList.add('battle-decoration-sway-crit');
+    setTimeout(() => decorationEl.classList.remove('battle-decoration-sway-crit'), CRIT_SHAKE_DURATION_MS);
+  }
 }
 
 function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
   emojiEl.classList.add('battle-hit-flash');
   zoneEl.classList.add('battle-hit-shake');
   showDamageNumber(zoneEl, amount, isCrit);
+  if (isCrit) {
+    playCritReaction(elements.dialog, elements.decoration);
+  }
   setTimeout(() => {
     emojiEl.classList.remove('battle-hit-flash');
     zoneEl.classList.remove('battle-hit-shake');
@@ -805,4 +837,9 @@ export function unmount() {
   clearInterval(intervalId);
   clearTimeout(endBattleTimeoutId);
   window.removeEventListener('keydown', handleKeydown);
+  liveDamageNumbers.forEach(({ el, timeoutId }) => {
+    clearTimeout(timeoutId);
+    el.remove();
+  });
+  liveDamageNumbers = [];
 }

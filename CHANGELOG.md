@@ -132,6 +132,21 @@ public API, no formal release process — commits land straight on
   lands here (`mountStartScreen()` runs unconditionally in `js/main.js`
   with no auto-continue path) — no code change was needed for that half
   of the ask.
+- Damage numbers and crits got a visual pass. Every damage number is now
+  a `position: fixed` element positioned from the target zone's live
+  `getBoundingClientRect()` instead of an absolute child of the zone —
+  so it's no longer clipped by the battle dialog's `overflow: hidden`
+  and can float genuinely above it. Numbers are bigger and last longer
+  (0.9s → 1.4s). A crit gets its own distinct treatment: a bigger
+  gold/orange number with a glow and an entrance scale-bounce (rather
+  than just a larger version of the normal float), plus a stronger
+  shake across the whole dialog and a brief sway on the background
+  scenery layer (`.battle-decoration`) — normal hits keep today's
+  existing subtle per-zone flash/shake unchanged. Applies symmetrically
+  whichever direction the crit lands, since both directions already
+  share `playHitEffect`. Any damage numbers still animating get cleaned
+  up on `unmount()` now that they live on `document.body` rather than
+  inside the battle screen's own DOM subtree.
 
 ### Changed
 - Super Scream moved off number key `5` onto Space, and is now usable the
