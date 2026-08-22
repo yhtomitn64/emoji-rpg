@@ -1,1 +1,11 @@
 .superpowers/
+
+# OS junk
+.DS_Store
+
+# Secrets and local env - never commit these
+.env
+.env.*
+*.pem
+*.key
+credentials.json
