@@ -97,20 +97,30 @@ output archived at `/tmp/balance-baseline.txt`.
   direWolf specifically it's 1% for no-armor vs. 85% for cloth-tunic, and
   against spider it's 79% vs. 98% — but that's the far-corner tier, not
   the near-town set this specific comparison asked about.)
-- **Potion usage is currently an all-or-nothing, late-game-only lever.**
-  `avgPotions` is 0.0 across the board for every build against
-  near-town/far-corner content — potions are never touched there. For the
-  mid-tier builds, potions only start getting used against dungeon-tier
-  and boss content: `reasonable L7 (iron sword + full cloth)` averages
+- **Potion usage is currently an all-or-nothing, late-game-only lever —
+  except at the very bottom of the build ladder.** `avgPotions` is 0.0 at
+  near-town content for every build, and 0.0 at far-corner content for
+  every build from `L4 (starter sword + cloth tunic + cloth cap)` upward.
+  But the two lowest-tier `L1` builds *do* burn potions against
+  far-corner monsters, precisely because those are the fights that are
+  actually close (not saturated at 100%): `L1 (starter sword only, no
+  armor)` averages 0.2 potions vs. direWolf and 1.0 vs. spider; `L1
+  (starter sword + cloth tunic)` averages 1.8 potions vs. direWolf and 0.7
+  vs. spider. So potion use isn't strictly "never touched below
+  dungeon-tier" — it's tied to how contested the fight actually is, and
+  low-tier-vs-far-corner is contested. For the mid-tier builds, potions
+  only start getting used again against dungeon-tier and boss content:
+  `reasonable L7 (iron sword + full cloth)` averages
   2.1 potions vs. orc, 2.0 vs. wraith, 2.6 vs. Dragon (tier 0), 1.4 vs.
   Dragon (tier 1), 1.1 vs. Dragon (tier 2) (out of 4 carried);
   `geared L6 (full iron)` averages 1.2 vs. orc, 1.1 vs. wraith, 3.5 vs.
   Dragon (tier 0), 1.3 vs. Dragon (tier 1), 1.2 vs. Dragon (tier 2) (out
   of 4 carried). This report's `avgPotions` column is a different metric
   from the spec's "consumed in ~30-60% of trials" target, but the pattern
-  is unambiguous either way: potions currently go unused at low tiers and
-  get burned in bulk (win or lose) at high tiers, not spent steadily as a
-  mid-fight factor.
+  is unambiguous either way: potions currently sit at zero wherever a
+  fight is saturated (100% win rate, at any tier), and get burned —
+  whether the fight is close (low-tier vs. far-corner) or brutal (high
+  tier) — everywhere it isn't, not spent steadily as a mid-fight factor.
 
 Phase B (actual tuning of ability multipliers/cooldowns, XP curve, and
 conditionally gear/potion stats) is a separate follow-up plan, per this
