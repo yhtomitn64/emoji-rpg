@@ -879,3 +879,38 @@ changes needed.
 deprecated" warning from GitHub (the actions still work, forced onto
 Node 24 automatically) — cosmetic only, no action needed unless it
 becomes a hard failure later.
+
+## Discoverability / monetization
+
+### Google AdSense for in-game ad revenue, raised 2026-08-22
+Timothy wants to explore showing ads in-game to earn revenue via Google
+AdSense (confirmed AdSense, not Google Ads/AdWords — this is about
+earning from ads shown on the site, not paying to advertise it
+elsewhere). Not scoped or designed yet — raised as a raw idea. Worth
+knowing before pursuing: AdSense approval requires original content and
+generally expects real traffic; a low-traffic personal project may not
+qualify for approval yet. Would also need a placement design (banner,
+interstitial between battles, etc.) that doesn't wreck the game feel.
+
+### SEO pass to make the game more findable via search engines, raised 2026-08-22
+Timothy wants the game to show up better in search results. Concretely
+this would mean things `index.html` doesn't have today: a real `<meta
+name="description">`, Open Graph/Twitter card tags (so shared links get
+a proper preview instead of a bare title), a `<title>` more descriptive
+than the current plain "Emoji RPG", a `sitemap.xml`/`robots.txt`, and
+semantic heading structure. Not designed yet — raised as a raw idea.
+
+**My own suggestions, raised alongside the above (not yet requested,
+just flagging as natural companions):**
+- **Basic privacy-friendly analytics** (e.g. Cloudflare Web Analytics)
+  — without traffic data there's no way to tell whether an SEO pass or
+  ads are actually doing anything.
+  - **Checked against Cloudflare's own docs, 2026-08-22
+    (developers.cloudflare.com/web-analytics/): "Available on all
+    plans"** — confirmed free, no plan upgrade needed. It's generally
+    known for being cookie-free (a beacon script, not a tracking
+    cookie), but that specific detail wasn't independently verified
+    here — worth a quick recheck before actually wiring it in.
+- **Open Graph preview image** for social/link-share cards — depends on
+  having actual OG tags from the SEO item above; would need a real
+  screenshot or piece of art, not something to invent here.
