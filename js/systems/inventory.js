@@ -135,7 +135,7 @@ export function getItemStatDelta(state, itemId) {
   const newUpgrade = state.upgrades?.[itemId] || 0;
   const currentStats = currentItemId
     ? getItemEffectiveStats(currentItemId, currentUpgrade)
-    : { attack: 0, defense: 0, maxHp: 0, speed: 0 };
+    : { attack: 0, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 };
   const newStats = getItemEffectiveStats(itemId, newUpgrade);
   const delta = {};
   for (const stat of Object.keys(newStats)) {

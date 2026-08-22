@@ -1,11 +1,30 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
-import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta } from '../systems/inventory.js';
 
 const BUY_QUANTITIES = [1, 5, 10, 100];
 
 let rootEl = null;
 let state = null;
 let callbacks = null;
+let pendingEquip = null;
+
+function formatDelta(delta) {
+  return Object.entries(delta)
+    .filter(([, value]) => value !== 0)
+    .map(([stat, value]) => `${stat} ${value > 0 ? '+' : ''}${value}`)
+    .join(', ');
+}
+
+function renderEquipPrompt() {
+  if (!pendingEquip) return '';
+  const item = ITEMS[pendingEquip];
+  const deltaText = formatDelta(getItemStatDelta(state, pendingEquip));
+  return `<div class="shop-equip-prompt">
+    <span>Equip ${item.emoji} ${item.name} now?${deltaText ? ` (${deltaText})` : ''}</span>
+    <button id="btn-equip-prompt-yes">Equip</button>
+    <button id="btn-equip-prompt-no">Not now</button>
+  </div>`;
+}
 
 function render() {
   const rows = SHOP_CATALOG.map((itemId) => {
@@ -29,6 +48,7 @@ function render() {
   rootEl.innerHTML = `
     <div class="shop-screen">
       <h2>Shop (Gold: ${state.player.gold})</h2>
+      ${renderEquipPrompt()}
       ${rows}
       <button id="btn-leave">Leave</button>
     </div>
@@ -40,6 +60,18 @@ function render() {
   rootEl.querySelectorAll('button[data-sell]').forEach((btn) => {
     btn.onclick = () => sellItem(btn.dataset.sell);
   });
+  if (pendingEquip) {
+    document.getElementById('btn-equip-prompt-yes').onclick = () => {
+      Object.assign(state, equipItem(state, pendingEquip, ITEMS[pendingEquip].slot));
+      pendingEquip = null;
+      callbacks.onPurchase();
+      render();
+    };
+    document.getElementById('btn-equip-prompt-no').onclick = () => {
+      pendingEquip = null;
+      render();
+    };
+  }
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
 }
 
@@ -51,6 +83,7 @@ function buyItem(itemId, quantity = 1) {
   let next = spendGold(state, item.price * quantity);
   next = addItem(next, itemId, quantity);
   Object.assign(state, next);
+  pendingEquip = (item.slot && state.equipment[item.slot] !== itemId) ? itemId : null;
   callbacks.onPurchase();
   render();
 }
@@ -62,6 +95,7 @@ function sellItem(itemId) {
   let next = removeItem(state, itemId, 1);
   next = addGold(next, sellPrice(ITEMS[itemId].price));
   Object.assign(state, next);
+  pendingEquip = null;
   callbacks.onPurchase();
   render();
 }
@@ -70,6 +104,7 @@ export function mount(root, props) {
   rootEl = root;
   state = props.state;
   callbacks = props.callbacks;
+  pendingEquip = null;
   render();
 }
 

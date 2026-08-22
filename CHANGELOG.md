@@ -25,6 +25,14 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Buying a piece of gear you don't already have equipped now offers an
+  inline "Equip now?" prompt in the shop, showing the stat delta versus
+  what's currently equipped (same delta logic as the Inventory screen).
+  `Equip` swaps it in immediately via the existing `equipItem()`;
+  `Not now` (or any other shop action, including selling) dismisses it —
+  the item just sits in inventory to equip later, same as today. Doesn't
+  reverse the earlier decision to remove auto-equip-on-pickup: this is
+  opt-in, one purchase at a time.
 - A "🚪 Switch Character" HUD button lets you get back to the title
   screen's save-slot list without closing the tab. Opens a confirmation
   overlay (`js/screens/logoutConfirmScreen.js`, modeled on the boss
@@ -243,6 +251,13 @@ public API, no formal release process — commits land straight on
   these numbers again.
 
 ### Fixed
+- `getItemStatDelta` (`js/systems/inventory.js`) reported `enemySlowPercent
+  NaN` for any gear-stat comparison against an empty equipment slot,
+  since its empty-slot fallback object omitted that stat while
+  `getItemEffectiveStats` always includes it — `0 - undefined = NaN`.
+  Visible on both the Inventory screen's unequipped gear list and the
+  new shop equip-prompt above; found while building the latter. Fixed by
+  adding `enemySlowPercent: 0` to the fallback.
 - Cloudflare deploy no longer ships the whole repo. The GitHub Actions
   workflow now stages just `index.html`, `css/`, and `js/` into a `dist/`
   directory and deploys that instead of the repo root, so `tests/`,

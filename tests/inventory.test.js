@@ -143,6 +143,12 @@ test('getItemStatDelta compares against an empty slot as zero', () => {
   assert.equal(delta.defense, 3);
 });
 
+test('getItemStatDelta reports 0, not NaN, for a stat neither item touches against an empty slot', () => {
+  const state = createNewGame(); // head slot is empty
+  const delta = getItemStatDelta(state, 'ironHelm'); // head, no enemySlowPercent stat
+  assert.equal(delta.enemySlowPercent, 0);
+});
+
 test("getItemStatDelta uses the candidate item's own real upgrade level, not the equipped item's", () => {
   let state = createNewGame();
   state.upgrades.ironSword = 2; // ironSword sitting in inventory, previously upgraded

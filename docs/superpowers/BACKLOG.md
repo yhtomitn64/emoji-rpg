@@ -229,15 +229,14 @@ checking which of a larger candidate list actually renders distinct
 tones across browsers before committing to a big list, since a modifier
 silently no-ops on unsupported base emoji.
 
-### Shop: equip gear right after buying it, or offer to
-Buying a piece of gear currently just adds it to inventory — you have
-to separately open Inventory and equip it. Wants either auto-equip on
-purchase, or (Timothy's own "even better") a "Equip now?" prompt right
-after the buy. Note: auto-equipping outright would reverse a deliberate
+### ~~Shop: equip gear right after buying it, or offer to~~ Shipped 2026-08-22
+Went with the opt-in prompt (Timothy's "even better" option), not
+auto-equip — doesn't relitigate the deliberate no-auto-equip-on-pickup
 call from `docs/superpowers/specs/2026-08-16-inventory-equipment-
-design.md`, which specifically *removed* auto-equip on pickup in favor
-of manual choice — so an opt-in per-purchase prompt (not silent
-auto-equip) is the version that doesn't relitigate that decision.
+design.md`. See CHANGELOG. Surfaced and fixed a real pre-existing bug
+along the way: `getItemStatDelta` showed `enemySlowPercent NaN` against
+any empty slot (also affected the Inventory screen's gear list before
+this).
 
 ### ~~Splash/landing screen needs real visual polish, raised 2026-08-22~~ Shipped 2026-08-22
 Timothy: "please add to our backlog a better splash page/landing screen
