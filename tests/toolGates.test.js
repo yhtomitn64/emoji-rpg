@@ -6,6 +6,9 @@ import {
   hasRequiredTool,
   getLockedGateMessage,
   getToolClearedMessage,
+  getGateProximityMessage,
+  hasShownGateHint,
+  markGateHintShown,
   isGateRewardCollected,
   markGateRewardCollected,
   rollGateReward,
@@ -39,6 +42,37 @@ test('getLockedGateMessage names the correct tool with correct a/an grammar', ()
 test('getToolClearedMessage names the tool cleared and what it cut through', () => {
   assert.equal(getToolClearedMessage('axe'), 'You cut through the thicket with an Axe!');
   assert.equal(getToolClearedMessage('miningPick'), 'You clear the mountain with a Mining Pick!');
+});
+
+test('getGateProximityMessage nudges toward the required tool when lacking it', () => {
+  assert.equal(
+    getGateProximityMessage('miningPick', false),
+    "Something here looks like it'd need a Mining Pick to get through."
+  );
+  assert.equal(
+    getGateProximityMessage('axe', false),
+    "Something here looks like it'd need an Axe to get through."
+  );
+});
+
+test('getGateProximityMessage encourages using the tool when already carrying it', () => {
+  assert.equal(
+    getGateProximityMessage('axe', true),
+    "You're right next to something you could clear with your Axe."
+  );
+});
+
+test('hasShownGateHint/markGateHintShown round-trip, immutably', () => {
+  const hints = {};
+  const next = markGateHintShown(hints, 'northwest', 14, 4);
+  assert.equal(hasShownGateHint(next, 'northwest', 14, 4), true);
+  assert.deepEqual(hints, {});
+});
+
+test('hasShownGateHint returns false for un-hinted tiles and unknown screens', () => {
+  const hints = { northwest: { '14,4': true } };
+  assert.equal(hasShownGateHint(hints, 'northwest', 1, 1), false);
+  assert.equal(hasShownGateHint(hints, 'unknown', 14, 4), false);
 });
 
 test('isGateRewardCollected/markGateRewardCollected round-trip, immutably', () => {

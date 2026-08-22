@@ -25,6 +25,12 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Tool-gated tiles (mountain/thicket) now nudge you the first time you
+  walk adjacent to one, before you ever bump into it — "Something here
+  looks like it'd need an Axe to get through" if you lack the tool, or
+  "You're right next to something you could clear with your Axe" if you
+  already have it. Fires once per tile ever (`state.toolGateHintsShown`,
+  same one-time pattern as `gateRewards`), not every time you walk past.
 - Losing a battle now offers a choice instead of always warping home:
   `Return to Town` (free, same as before) or `Warp to Dungeon Entrance`
   for `10 × player level` gold, disabled if unaffordable. HP restore,

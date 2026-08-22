@@ -118,6 +118,9 @@ function startGame(loadedState, slotId) {
   if (!state.gateRewards) {
     state.gateRewards = {};
   }
+  if (!state.toolGateHintsShown) {
+    state.toolGateHintsShown = {};
+  }
   if (!state.lossStreak) {
     state.lossStreak = 0;
   }
@@ -318,6 +321,7 @@ function goToMap(mapId) {
       onEnterMiniDungeon: handleEnterMiniDungeon,
       onLockedGate: handleLockedGate,
       onToolGateCleared: handleToolGateCleared,
+      onToolGateNearby: handleToolGateNearby,
       onGateReward: handleGateReward,
     },
   });
@@ -399,6 +403,11 @@ function handleLockedGate(message) {
 
 function handleToolGateCleared(message) {
   showFlavorBanner(message);
+}
+
+function handleToolGateNearby(message) {
+  showFlavorBanner(message);
+  persist();
 }
 
 // A tool item (miningPick, axe) permanently unlocks something the moment

@@ -5,7 +5,7 @@ import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
 import { resolveStepDiscovery } from '../systems/discovery.js';
-import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
+import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGateProximityMessage, hasShownGateHint, markGateHintShown, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
 import { rollEncounterGroup } from '../systems/groupEncounters.js';
 
 const CACHE_MARKER_EMOJI = '💰';
@@ -39,6 +39,24 @@ function tileAt(x, y) {
 
 function isOutOfBounds(x, y) {
   return y < 0 || y >= mapConfig.rows.length || x < 0 || x >= mapConfig.rows[0].length;
+}
+
+const NEIGHBOR_DELTAS = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+
+function checkGateProximity(x, y) {
+  for (const [dx, dy] of NEIGHBOR_DELTAS) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (isOutOfBounds(nx, ny)) continue;
+    const neighborTile = tileAt(nx, ny);
+    if (!neighborTile || !neighborTile.requiresTool) continue;
+    if (hasShownGateHint(state.toolGateHintsShown, mapConfig.id, nx, ny)) continue;
+
+    Object.assign(state, { toolGateHintsShown: markGateHintShown(state.toolGateHintsShown, mapConfig.id, nx, ny) });
+    const hasTool = hasRequiredTool(neighborTile, state.inventory);
+    callbacks.onToolGateNearby(getGateProximityMessage(neighborTile.requiresTool, hasTool));
+    return;
+  }
 }
 
 function render() {
@@ -114,6 +132,7 @@ function tryMove(dx, dy) {
   render();
 
   callbacks.onMove(state.position);
+  checkGateProximity(nx, ny);
 
   if (gateReward) {
     callbacks.onGateReward(gateReward);

@@ -26,6 +26,25 @@ export function getToolClearedMessage(toolId) {
   return `You ${verb} with ${article} ${name}!`;
 }
 
+export function getGateProximityMessage(toolId, hasTool) {
+  const name = ITEMS[toolId].name;
+  const article = /^[AEIOU]/.test(name) ? 'an' : 'a';
+  if (hasTool) {
+    return `You're right next to something you could clear with your ${name}.`;
+  }
+  return `Something here looks like it'd need ${article} ${name} to get through.`;
+}
+
+export function hasShownGateHint(toolGateHintsShown, screenId, x, y) {
+  return Boolean(toolGateHintsShown[screenId] && toolGateHintsShown[screenId][`${x},${y}`]);
+}
+
+export function markGateHintShown(toolGateHintsShown, screenId, x, y) {
+  const key = `${x},${y}`;
+  const screenHints = { ...(toolGateHintsShown[screenId] || {}), [key]: true };
+  return { ...toolGateHintsShown, [screenId]: screenHints };
+}
+
 export function isGateRewardCollected(gateRewards, screenId, x, y) {
   return Boolean(gateRewards[screenId] && gateRewards[screenId][`${x},${y}`]);
 }

@@ -279,16 +279,10 @@ A loss now offers a choice (`js/screens/postDeathTravelScreen.js`):
 free return to town, or warp straight to `state.dungeonEntrancePosition`
 for `10 × level` gold. See CHANGELOG.
 
-### Flavor-text nudge near tool-gated tiles, raised 2026-08-20
-Timothy: "maybe when you get close to mountain, tree some flavor text
-comes up remind folks to go near it to use your tool. It's not
-obvious." Tool gates (mining pick on mountain tiles, axe on thicket
-tiles, per `docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-
-design.md`) currently only communicate on contact (locked-gate message
-if you lack the tool, cleared-gate message if you have it) — this asks
-for an earlier, proximity-based hint before the player actually walks
-into the tile, since right now there's no signal the tile is
-interactive at all until you try it.
+### ~~Flavor-text nudge near tool-gated tiles, raised 2026-08-20~~ Shipped 2026-08-22
+Walking adjacent to a tool-gated tile now shows a one-time hint before
+you ever bump into it (`js/systems/toolGates.js`'s `getGateProximityMessage`
++ `hasShownGateHint`/`markGateHintShown`). See CHANGELOG.
 
 ### ~~Choose which dragon strength to fight, raised 2026-08-20~~ Shipped 2026-08-22
 The rematch prompt (`js/screens/bossPromptScreen.js`) now shows one
