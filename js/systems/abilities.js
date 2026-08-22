@@ -1,23 +1,33 @@
 import { rollCrit, calculateDamage, applyCritMultiplier, applySpeedDamageBonus, applyKnockback, ATB_KNOCKBACK } from './combat.js';
 
+export const ROTATION_BONUS_MULTIPLIER = 1.25;
+export const TIMING_BONUS_MULTIPLIER = 1.30;
+export const COMBO_PAYOFF_BONUS_MULTIPLIER = 1.5;
+export const COMBO_RETURN_BONUS_MULTIPLIER = 1.15;
+
 export const ABILITIES = [
   {
     id: 'stab', name: 'Stab', unlockLevel: 2, type: 'damage',
     damageMultiplier: 1.3, cooldownMs: 4000,
+    comboRole: 'setup', comboPartnerId: 'chop', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
   },
   {
     id: 'chop', name: 'Chop', unlockLevel: 4, type: 'damage',
     damageMultiplier: 1.8, cooldownMs: 10000,
+    comboRole: 'payoff', comboPartnerId: 'stab', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,
   },
   {
     id: 'slash', name: 'Slash', unlockLevel: 6, type: 'damage',
     damageMultiplier: 1.0, cooldownMs: 6000,
     delayedHitMultiplier: 0.2, delayedHitDelayMs: 900,
+    comboRole: 'setup', comboPartnerId: 'sweep', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
   },
   {
     id: 'sweep', name: 'Sweep', unlockLevel: 8, type: 'damage',
     damageMultiplier: 1.5, cooldownMs: 12000,
     defenseShredMultiplier: 0.85, defenseShredDurationMs: 6000,
+    aoe: true,
+    comboRole: 'payoff', comboPartnerId: 'slash', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,
   },
   {
     id: 'superScream', name: 'Super Scream', unlockLevel: 10, type: 'buff',
@@ -55,15 +65,13 @@ export function resolveTimingHit(actedAtPercent, sweetSpotStartPercent, sweetSpo
   return actedAtPercent >= sweetSpotStartPercent && actedAtPercent <= sweetSpotEndPercent;
 }
 
-export const ROTATION_BONUS_MULTIPLIER = 1.25;
-export const TIMING_BONUS_MULTIPLIER = 1.30;
-
-export function resolveAbilityUse(player, monster, ability, buffActive, timingHit, rng = Math.random) {
+export function resolveAbilityUse(player, monster, ability, buffActive, timingHit, comboBonusActive, rng = Math.random) {
   const isCrit = rollCrit(rng);
   let damage = calculateDamage(player, monster, rng);
   damage = Math.round(damage * ability.damageMultiplier);
   if (buffActive) damage = Math.round(damage * ROTATION_BONUS_MULTIPLIER);
   if (timingHit) damage = Math.round(damage * TIMING_BONUS_MULTIPLIER);
+  if (comboBonusActive) damage = Math.round(damage * ability.comboBonusMultiplier);
   damage = applyCritMultiplier(damage, isCrit);
   damage = applySpeedDamageBonus(damage, player.speed);
   return {

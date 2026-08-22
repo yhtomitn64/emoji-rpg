@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER, COMBO_PAYOFF_BONUS_MULTIPLIER, COMBO_RETURN_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order', () => {
@@ -71,7 +71,7 @@ test('resolveAbilityUse applies the ability multiplier on top of a plain attack,
   const stab = ABILITIES.find((a) => a.id === 'stab');
   // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, no crit (rollCrit uses the same rng draw internally,
   // and 0.5 is well above CRIT_CHANCE=0.1, so no crit here)
-  const result = resolveAbilityUse(player, monster, stab, false, false, () => 0.5);
+  const result = resolveAbilityUse(player, monster, stab, false, false, false, () => 0.5);
   assert.equal(result.damage, 10); // round(8 * 1.3) = 10
   assert.equal(result.isCrit, false);
   assert.equal(result.monsterHp, 90);
@@ -82,7 +82,7 @@ test('resolveAbilityUse multiplies in the rotation bonus when the buff is active
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  const result = resolveAbilityUse(player, monster, chop, true, false, () => 0.5);
+  const result = resolveAbilityUse(player, monster, chop, true, false, false, () => 0.5);
   // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.25 (rotation) = round(17.5) = 18
   assert.equal(result.damage, 18);
 });
@@ -91,7 +91,7 @@ test('resolveAbilityUse multiplies in the timing bonus on a hit', () => {
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
-  const result = resolveAbilityUse(player, monster, stab, false, true, () => 0.5);
+  const result = resolveAbilityUse(player, monster, stab, false, true, false, () => 0.5);
   // base 8, * 1.3 (stab) = round(10.4) = 10, * 1.30 (timing) = round(13) = 13
   assert.equal(result.damage, 13);
 });
@@ -100,7 +100,7 @@ test('resolveAbilityUse stacks buff and timing bonuses together', () => {
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  const result = resolveAbilityUse(player, monster, chop, true, true, () => 0.5);
+  const result = resolveAbilityUse(player, monster, chop, true, true, false, () => 0.5);
   // base 8, * 1.8 = 14.4 -> round 14, * 1.25 = 17.5 -> round 18, * 1.30 = 23.4 -> round 23
   assert.equal(result.damage, 23);
 });
@@ -109,7 +109,7 @@ test('resolveAbilityUse knocks the monster\'s ATB back and never drops HP below 
   const player = { attack: 500, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 10, defense: 0, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  const result = resolveAbilityUse(player, monster, chop, false, false, () => 0.5);
+  const result = resolveAbilityUse(player, monster, chop, false, false, false, () => 0.5);
   assert.equal(result.monsterHp, 0);
   assert.equal(result.monsterAtb, 50 - ATB_KNOCKBACK);
 });
@@ -139,4 +139,71 @@ test('applyDefenseDebuff reduces defense while active, leaves the monster untouc
   const debuff = { active: true, multiplier: 0.85, remainingMs: 1000 };
   assert.equal(applyDefenseDebuff(monster, debuff).defense, 17); // round(20 * 0.85)
   assert.equal(applyDefenseDebuff(monster, null), monster);
+});
+
+test('ABILITIES combo metadata pairs Stab↔Chop and Slash↔Sweep with matching roles and bonus multipliers', () => {
+  const byId = Object.fromEntries(ABILITIES.map((a) => [a.id, a]));
+  assert.equal(byId.stab.comboRole, 'setup');
+  assert.equal(byId.stab.comboPartnerId, 'chop');
+  assert.equal(byId.stab.comboBonusMultiplier, COMBO_RETURN_BONUS_MULTIPLIER);
+  assert.equal(byId.chop.comboRole, 'payoff');
+  assert.equal(byId.chop.comboPartnerId, 'stab');
+  assert.equal(byId.chop.comboBonusMultiplier, COMBO_PAYOFF_BONUS_MULTIPLIER);
+  assert.equal(byId.slash.comboRole, 'setup');
+  assert.equal(byId.slash.comboPartnerId, 'sweep');
+  assert.equal(byId.slash.comboBonusMultiplier, COMBO_RETURN_BONUS_MULTIPLIER);
+  assert.equal(byId.sweep.comboRole, 'payoff');
+  assert.equal(byId.sweep.comboPartnerId, 'slash');
+  assert.equal(byId.sweep.comboBonusMultiplier, COMBO_PAYOFF_BONUS_MULTIPLIER);
+  assert.equal(byId.superScream.comboRole, undefined);
+});
+
+test('only Sweep has the aoe flag set', () => {
+  const byId = Object.fromEntries(ABILITIES.map((a) => [a.id, a]));
+  assert.equal(byId.sweep.aoe, true);
+  assert.equal(byId.stab.aoe, undefined);
+  assert.equal(byId.chop.aoe, undefined);
+  assert.equal(byId.slash.aoe, undefined);
+  assert.equal(byId.superScream.aoe, undefined);
+});
+
+test('COMBO_PAYOFF_BONUS_MULTIPLIER and COMBO_RETURN_BONUS_MULTIPLIER have the spec\'d values', () => {
+  assert.equal(COMBO_PAYOFF_BONUS_MULTIPLIER, 1.5);
+  assert.equal(COMBO_RETURN_BONUS_MULTIPLIER, 1.15);
+});
+
+test('resolveAbilityUse multiplies in the combo payoff bonus when comboBonusActive is true on a payoff ability', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const chop = ABILITIES.find((a) => a.id === 'chop');
+  const result = resolveAbilityUse(player, monster, chop, false, false, true, () => 0.5);
+  // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.5 (combo payoff bonus) = round(21) = 21
+  assert.equal(result.damage, 21);
+});
+
+test('resolveAbilityUse multiplies in the smaller combo return bonus on a setup ability', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const stab = ABILITIES.find((a) => a.id === 'stab');
+  const result = resolveAbilityUse(player, monster, stab, false, false, true, () => 0.5);
+  // base 8, * 1.3 (stab) = round(10.4) = 10, * 1.15 (combo return bonus) = round(11.5) = 12
+  assert.equal(result.damage, 12);
+});
+
+test('resolveAbilityUse stacks the combo bonus with the buff and timing bonuses together', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const chop = ABILITIES.find((a) => a.id === 'chop');
+  const result = resolveAbilityUse(player, monster, chop, true, true, true, () => 0.5);
+  // base 8, * 1.8 = 14.4 -> 14, * 1.25 (buff) = 17.5 -> 18, * 1.30 (timing) = 23.4 -> 23, * 1.5 (combo) = 34.5 -> 35
+  assert.equal(result.damage, 35);
+});
+
+test('resolveAbilityUse does not apply any combo bonus when comboBonusActive is false', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const chop = ABILITIES.find((a) => a.id === 'chop');
+  const result = resolveAbilityUse(player, monster, chop, false, false, false, () => 0.5);
+  // base 8, * 1.8 (chop) = round(14.4) = 14, no combo multiplier
+  assert.equal(result.damage, 14);
 });
