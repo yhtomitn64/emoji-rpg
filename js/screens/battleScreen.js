@@ -454,14 +454,6 @@ function playerAttack() {
 }
 
 async function playerUseAbility(abilityId) {
-  // Guard against re-entrant activation: while a damage ability's timing meter is
-  // awaited below, the player's ATB isn't reset yet (that only happens once the
-  // await resolves), so a second click/keypress during that ~1s window would
-  // otherwise start a second runTimingMeter() concurrently. Both instances share
-  // the same `elements.timingMeter` DOM node and `onclick` handler, so the two
-  // instances stomp on each other and the meter can be left stuck on-screen,
-  // never resolving. This flag makes any overlapping activation attempt a no-op
-  // instead.
   if (abilityActionInFlight) return;
   abilityActionInFlight = true;
   try {
@@ -477,15 +469,46 @@ async function playerUseAbility(abilityId) {
       updateMenu();
       return;
     }
-    // Press-time semantics: the player's commitment is the button press, and
-    // that's also what the on-screen buff countdown/debuff they're reading
-    // refers to. Snapshot both here, before the ~1s timing-meter await, so a
-    // buff/debuff that expires mid-meter doesn't silently steal the bonus the
-    // player was visibly aiming for when they pressed the button.
-    const targetIndex = selectedMonsterIndex;
-    const target = monsterCombatants[targetIndex];
+
     const buffActiveAtPress = buffState.active;
     const comboBonusActive = !!comboState[abilityId];
+
+    if (ability.aoe) {
+      const targetIndices = monsterCombatants
+        .map((mc, i) => i)
+        .filter((i) => monsterCombatants[i].hp > 0);
+      const debuffSnapshots = targetIndices.map((i) => monsterCombatants[i].defenseDebuff);
+      const timingHit = await runTimingMeter();
+      // Same battle-can-end-mid-await hazard as the single-target path below.
+      if (battleOver) return;
+      targetIndices.forEach((monsterIndex, n) => {
+        const mc = monsterCombatants[monsterIndex];
+        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive);
+        mc.hp = result.monsterHp;
+        mc.atb = result.monsterAtb;
+        playerCombatant.atb = result.playerAtb;
+        mc.defenseDebuff = createDefenseDebuff(ability);
+        const timingSuffix = timingHit ? ' Perfect timing!' : '';
+        log.push((result.isCrit
+          ? `Critical! You use ${ability.name} on ${mc.name} for ${result.damage}!`
+          : `You use ${ability.name} on ${mc.name} for ${result.damage}.`) + timingSuffix);
+        playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
+      });
+      abilityCooldowns[abilityId] = ability.cooldownMs;
+      comboState[abilityId] = false;
+      if (ability.comboPartnerId) {
+        comboState[ability.comboPartnerId] = true;
+      }
+      updateHpBars();
+      updateAtbBars();
+      updateLog();
+      checkOutcome();
+      updateMenu();
+      return;
+    }
+
+    const targetIndex = selectedMonsterIndex;
+    const target = monsterCombatants[targetIndex];
     const defenseDebuffAtPress = target.defenseDebuff;
     const timingHit = await runTimingMeter();
     // The battle can end while this await is outstanding - e.g. the monster's
@@ -502,13 +525,6 @@ async function playerUseAbility(abilityId) {
     if (ability.id === 'slash') {
       target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
     }
-    if (ability.id === 'sweep') {
-      target.defenseDebuff = createDefenseDebuff(ability);
-    }
-    // Consume this ability's own primed bonus (if any), then prime its combo
-    // partner: a setup primes its payoff for the bigger forward bonus, a
-    // payoff primes its setup for the smaller return bonus. Same two lines
-    // handle both directions since comboPartnerId points both ways.
     comboState[abilityId] = false;
     if (ability.comboPartnerId) {
       comboState[ability.comboPartnerId] = true;
@@ -517,10 +533,6 @@ async function playerUseAbility(abilityId) {
     log.push((result.isCrit
       ? `Critical! You use ${ability.name} on ${target.name} for ${result.damage}!`
       : `You use ${ability.name} on ${target.name} for ${result.damage}.`) + timingSuffix);
-    // Play the hit effect before updateHpBars() hides a killed monster's slot
-    // (display: none), and using targetIndex (captured at press time) rather
-    // than re-reading selectedMonsterIndex avoids the effect landing on a
-    // monster updateHpBars() just re-anchored selection to.
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
     updateHpBars();
     updateAtbBars();
