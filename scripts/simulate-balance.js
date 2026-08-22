@@ -19,6 +19,24 @@
  *
  * `--set` applies a temporary in-memory stat override, which is how candidate
  * retunes were explored before being written into `js/data/monsters.js`.
+ *
+ * KEEP THIS IN SYNC: this file used to hand-roll its own copies of the
+ * combat formulas and quietly fell behind real fixes for a long stretch
+ * before anyone noticed (see the 2026-08-17 fix that made it call the real
+ * combat.js functions instead) - and it was blind to the entire ability
+ * system for just as long after abilities shipped (see the 2026-08-22
+ * balance-simulator-ability-modeling plan that added ability/combo/boss-tier
+ * modeling here, months later). When you change `js/systems/combat.js`,
+ * `js/systems/abilities.js`, `js/systems/bossTiers.js`, or add a new combat
+ * mechanic anywhere in the battle system: check whether `simulateBattle()`
+ * below and `scripts/simulateAbilityPolicy.js`'s `chooseAction()` need a
+ * matching update. The *math* (damage/crit/cooldowns/combo bonuses) stays
+ * in sync automatically as long as this file keeps calling the real shared
+ * functions instead of reimplementing them - but the *policy* (what action
+ * the simulated player takes each tick) is a hand-rolled stand-in for a
+ * human, and nothing enforces that it reflects a new ability, a new status
+ * effect, or a new player action. It has to be updated by hand, on purpose,
+ * every time.
  */
 
 import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier } from '../js/systems/combat.js';
