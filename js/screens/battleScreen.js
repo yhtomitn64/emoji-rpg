@@ -393,7 +393,12 @@ function playerAttack() {
   // `if (battleOver) return;` added after that await below for the other half
   // of this fix.
   if (abilityActionInFlight) return;
-  const target = monsterCombatants[selectedMonsterIndex];
+  // Capture the target's index now: updateHpBars() below can re-anchor
+  // selectedMonsterIndex to a survivor the instant this hit is a killing
+  // blow, so re-reading selectedMonsterIndex after that point would make the
+  // hit effect render on the wrong (undamaged) monster.
+  const targetIndex = selectedMonsterIndex;
+  const target = monsterCombatants[targetIndex];
   const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff));
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
@@ -401,10 +406,13 @@ function playerAttack() {
   log.push(result.isCrit
     ? `Critical! You hit ${target.name} for ${result.damage}!`
     : `You hit ${target.name} for ${result.damage}.`);
+  // Play the hit effect before updateHpBars() hides a killed monster's slot
+  // (display: none), so a killing blow's damage number/flash/shake is
+  // actually visible instead of rendering onto an already-hidden element.
+  playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
   updateHpBars();
   updateAtbBars();
   updateLog();
-  playHitEffect(elements.monsterZones[selectedMonsterIndex], elements.monsterEmojis[selectedMonsterIndex], result.damage, result.isCrit);
   checkOutcome();
   updateMenu();
 }
@@ -438,7 +446,8 @@ async function playerUseAbility(abilityId) {
     // refers to. Snapshot both here, before the ~1s timing-meter await, so a
     // buff/debuff that expires mid-meter doesn't silently steal the bonus the
     // player was visibly aiming for when they pressed the button.
-    const target = monsterCombatants[selectedMonsterIndex];
+    const targetIndex = selectedMonsterIndex;
+    const target = monsterCombatants[targetIndex];
     const buffActiveAtPress = buffState.active;
     const defenseDebuffAtPress = target.defenseDebuff;
     const timingHit = await runTimingMeter();
@@ -463,10 +472,14 @@ async function playerUseAbility(abilityId) {
     log.push((result.isCrit
       ? `Critical! You use ${ability.name} on ${target.name} for ${result.damage}!`
       : `You use ${ability.name} on ${target.name} for ${result.damage}.`) + timingSuffix);
+    // Play the hit effect before updateHpBars() hides a killed monster's slot
+    // (display: none), and using targetIndex (captured at press time) rather
+    // than re-reading selectedMonsterIndex avoids the effect landing on a
+    // monster updateHpBars() just re-anchored selection to.
+    playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
     updateHpBars();
     updateAtbBars();
     updateLog();
-    playHitEffect(elements.monsterZones[selectedMonsterIndex], elements.monsterEmojis[selectedMonsterIndex], result.damage, result.isCrit);
     checkOutcome();
     updateMenu();
   } finally {
@@ -536,9 +549,11 @@ function resolveMonsterWindup(monster, parried) {
     monster.hp = result.monsterHp;
     monster.atb = result.monsterAtb;
     log.push(`You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
+    // Same ordering fix as playerAttack/playerUseAbility: play the hit effect
+    // before updateHpBars() hides a killed monster's slot.
+    playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], result.reflectedDamage, false);
     updateHpBars();
     updateLog();
-    playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], result.reflectedDamage, false);
     checkOutcome();
   } else {
     monsterAttack(monster);

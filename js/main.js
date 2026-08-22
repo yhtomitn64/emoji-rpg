@@ -552,7 +552,10 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     }
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
     let leveledUpThisBattle = false;
-    for (const monsterId of killedMonsterIds) {
+    // A surrender leaves the monster at full HP - killedMonsterIds is empty,
+    // so surrender (always solo) must reward the full original roster instead.
+    const rewardedMonsterIds = outcome === 'surrender' ? encounterMonsterIds : killedMonsterIds;
+    for (const monsterId of rewardedMonsterIds) {
       const monster = MONSTERS[monsterId];
       const baseXp = resolveBattleXp(bossTierXp, monster);
       const xp = Math.round(baseXp * rewardMultiplier.xp);
