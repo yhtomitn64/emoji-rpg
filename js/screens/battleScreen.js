@@ -253,6 +253,10 @@ function updateHpBars() {
       // call (see DEATH_HIDE_DELAY_MS). Only schedule once per death.
       if (!zone.classList.contains('battle-monster-slot-dead') && !zone.dataset.deathHidePending) {
         zone.dataset.deathHidePending = '1';
+        // Spin-in-place + shrink, distinct from the flee effect's
+        // shrink-and-slide-sideways - a kill reads as "defeated", a flee
+        // reads as "escaped".
+        elements.monsterEmojis[i].classList.add('battle-death-spin');
         setTimeout(() => {
           delete zone.dataset.deathHidePending;
           zone.classList.add('battle-monster-slot-dead');

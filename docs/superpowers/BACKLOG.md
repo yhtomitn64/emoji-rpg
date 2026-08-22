@@ -453,6 +453,38 @@ through in a dedicated future combat pass rather than one-off adds:
     (defaults to `1`, so `scripts/simulate-balance.js`'s existing calls
     are unaffected — the simulator doesn't model this new mechanic yet,
     same precedent as it not modeling abilities).
+    **Regression found in play, raised 2026-08-22 — makes every fight
+    unlosable:** Timothy: "I can hit attack a bunch of times in a row
+    and even though it gets weaker it sets the enemy timer back so the
+    enemy can never attack me... I think it needs a global cooldown or
+    something and it needs to get bad enough that it's not worth using
+    and at some point not slow enemy bar." Confirmed in the code: this
+    same shipped change removed Attack's swing-timer gate entirely
+    (previously the one thing rate-limiting how often it could fire),
+    and every Attack — `resolvePlayerAttack`, `js/systems/combat.js:76`
+    — also calls `applyKnockback(monster.atb, ATB_KNOCKBACK)` (knockback
+    = 15, `js/systems/combat.js:19-23`), a pre-existing mechanic from the
+    "Swing-timer knockback on hit" idea two bullets above (shipped at
+    some earlier point without ever getting marked here — grepped, it's
+    real and live). That knockback was designed "small and
+    non-stacking," true only when something gates how often it can
+    apply. With no gate left and the streak decay floor stopping at 40%
+    damage (never 0), a player can click Attack fast enough that the
+    -15 knockback lands more often than the monster's own speed stat can
+    refill its gauge past that knockback — the monster's ATB never
+    reaches `ATB_MAX`, so it can never wind up or attack at all, while
+    the player keeps dealing at-minimum 40% damage forever. Damage decay
+    alone doesn't fix this — the exploit isn't about damage-per-hit, it's
+    about total lockout of the enemy's turn. Timothy's own diagnosis
+    lines up with the code: needs *some* hard rate limit on Attack (a
+    real cooldown, not just decaying damage), and probably the knockback
+    itself shouldn't apply at full strength (or at all) once the streak
+    has decayed past some point, so a spam-clicked Attack stops
+    suppressing the enemy's gauge even though it still lands. Not yet
+    designed — needs a dedicated look at how the cooldown interacts with
+    the ability-rotation's own timing (Attack was deliberately freed from
+    the swing timer specifically so it wouldn't compete with abilities;
+    a fix here needs to not silently re-couple them).
   - ~~**Information density on the ability buttons.**~~ **Shipped
     2026-08-22.** Each damage-type ability button now shows a live
     estimated damage number against the current target (average roll +
@@ -481,12 +513,19 @@ through in a dedicated future combat pass rather than one-off adds:
   in-browser with a forced-crit run (screenshots at multiple points in
   the animation), plus the full test suite (300 passing, none of which
   cover this presentational layer directly).
-- **Death animation for a defeated enemy, raised 2026-08-20.** Timothy:
-  "the emoji rotates in a circle and gets smaller until you can't see
-  it, timed with the dialog closing." Distinct from the existing
-  shrink-and-slide *flee* animation used by weak-mob surrender above —
-  this is specifically for a monster actually killed in a real fight,
-  which currently has no death animation of its own.
+- ~~**Death animation for a defeated enemy, raised 2026-08-20.**~~
+  **Shipped 2026-08-22.** Timothy: "the emoji rotates in a circle and
+  gets smaller until you can't see it, timed with the dialog closing."
+  A killed monster's emoji now spins 720° in place while shrinking to
+  nothing and fading out over 900ms (`.battle-death-spin`,
+  `js/screens/battleScreen.js`/`css/styles.css`), triggered the instant
+  its HP hits 0 and timed to finish right before the slot hides and the
+  battle dialog closes. Deliberately no sideways drift, unlike the
+  existing shrink-and-slide *flee* animation used by weak-mob
+  surrender — a kill now reads visually distinct from an escape.
+  Verified via computed-style polling on a forced kill (rotation matrix
+  and opacity tracked smoothly from full to ~0 over the animation
+  window, position stayed put) rather than just eyeballing screenshots.
 
 ### Monster name/stat variants, and a rare near-dragon elite encounter
 A significantly fleshed-out follow-up to the "roaming rare monster" idea
@@ -616,6 +655,26 @@ scaling. Not fully decided — flagged here so the next session picks up
 the thread instead of re-deriving it.
 
 ## Balance / design gaps
+
+### Abilities have made the game too easy overall, raised 2026-08-22
+Timothy: "game seems too easy now with all the abilities so we will
+need to address this and make stuff harder or abilities weaker." A
+broader complaint than the specific Attack/knockback exploit above
+(under "What is Attack for?") — that one makes fights literally
+unlosable via a mechanical loophole; this is Timothy's read that even
+setting that aside, the abilities system as a whole (Phase 1 unlocks +
+the combo-chain/Sweep-AOE redesign) has pushed overall combat power
+too high, independent of any single bug. Needs its own look once the
+Attack exploit above is actually fixed — that fix alone may already
+swing the needle a fair amount, so this is worth re-assessing rather
+than tuning both at once blind. Candidates worth considering when this
+gets designed: higher-level monster HP/attack scaling to keep pace with
+ability damage, longer ability cooldowns, smaller combo/timing-meter
+bonus multipliers, or leaning into the "research: ability/skill
+synergies vs. raw stat inflation" idea already in the Combat pass ideas
+section above rather than just dialing numbers down. No specific
+approach chosen yet — flagging the complaint and its likely dependency
+on the Attack-exploit fix, not a design.
 
 ### NG+ doesn't reset `lossStreak`
 `resetWorldForNgPlus` (js/systems/ngPlus.js:45-59) resets `bossTier`,

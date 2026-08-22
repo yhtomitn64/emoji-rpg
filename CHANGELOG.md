@@ -147,6 +147,14 @@ public API, no formal release process — commits land straight on
   share `playHitEffect`. Any damage numbers still animating get cleaned
   up on `unmount()` now that they live on `document.body` rather than
   inside the battle screen's own DOM subtree.
+- A killed monster now gets its own death animation — the emoji spins
+  in place (720°) while shrinking to nothing and fading out over 900ms,
+  triggered the instant its HP hits 0 (`updateHpBars()` in
+  `js/screens/battleScreen.js`), timed to finish right before its slot
+  is hidden and (for the fight-ending kill) shortly before the dialog
+  itself closes. Deliberately in-place, no sideways drift — the
+  existing weak-mob flee animation shrinks *and* slides sideways, so a
+  real kill now reads visually distinct from an enemy escaping.
 
 ### Changed
 - Super Scream moved off number key `5` onto Space, and is now usable the
