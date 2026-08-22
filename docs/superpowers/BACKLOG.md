@@ -220,6 +220,32 @@ design.md`, which specifically *removed* auto-equip on pickup in favor
 of manual choice — so an opt-in per-purchase prompt (not silent
 auto-equip) is the version that doesn't relitigate that decision.
 
+### Splash/landing screen needs real visual polish, raised 2026-08-22
+Timothy: "please add to our backlog a better splash page/landing screen
+and also anytime you go back to the game it loads that screen so you can
+select a different character. Also maybe put a bunch of the enemies, and
+some sort of background and trees/mountains or something on the splash
+page/loading screen. Basically if you hit refresh while playing game it
+doesn't go right back to game it goes to loading screen." Today's start
+screen (`js/screens/startScreen.js`, mounted unconditionally by
+`mountStartScreen()` at the bottom of `js/main.js`) is bare — just the
+"Emoji RPG" title, a plain dark background, and the save-slot list/New
+Game button, no art at all. Two related asks bundled together:
+- **Visual richness**: background art, a scatter of monster emoji,
+  trees/mountains — something that actually looks like this game's world
+  instead of a blank screen, on both the title screen and (per "loading
+  screen") any transition moment that currently shows nothing.
+- **Refresh always lands here, not back in the fight.** Worth confirming
+  against actual play before designing further: `mountStartScreen()`
+  already runs unconditionally on every page load with no auto-continue
+  logic in `startScreen.js` (`Continue` is a manual button click per
+  slot) — so a refresh should already land on this screen today rather
+  than silently resuming into a battle or the map. If Timothy is actually
+  seeing something else in practice (e.g. mid-battle state surviving a
+  refresh some other way), that's a separate bug to chase first; if not,
+  this half of the ask is really "keep it landing here" as the splash
+  screen gets built out, not a behavior change.
+
 ### Level-up and general animation pass, raised 2026-08-20
 Timothy: "need more than just a start for level up, character
 animation. Hero size enlarges on map temporarily, light shoots out, big
@@ -641,12 +667,65 @@ better-informed.
 
 ## Infrastructure / deployment
 
-### Host on Cloudflare (free tier) with GitHub Actions auto-publish, raised 2026-08-20
+### ~~Host on Cloudflare (free tier) with GitHub Actions auto-publish, raised 2026-08-20~~ Shipped 2026-08-22
 Timothy: "I want to host this on cloudflare free tier and push to my
 personal github and then have a github action that lets me easily
-publish new versions." No hosting/CI exists at all today — this repo is
-played locally only (no build step, static files served directly). Needs
-its own scoping pass: which Cloudflare product (Pages vs. Workers static
-assets), what "publish" means for a solo dev's workflow (push-to-deploy
-on `master`, or a manual trigger), and whether the personal GitHub
-account/repo already exists for this project or needs creating.
+publish new versions." Live end to end:
+
+- **Code**: public repo `github.com/yhtomitn64/emoji-rpg` (Timothy's
+  personal GitHub account, distinct from his work GHE account — `gh` now
+  holds separate logins for both hosts side by side in
+  `~/.config/gh/hosts.yml`). `master` is the default branch; push to it
+  to publish.
+- **CI/deploy**: `.github/workflows/deploy.yml` runs `npm run test`, then
+  `wrangler pages deploy` on every push to `master`. Uses
+  `cloudflare/wrangler-action@v3`, not `cloudflare/pages-action` — the
+  latter 404s unless the Pages project already exists, wrangler doesn't
+  have that limitation.
+- **Hosting**: Cloudflare Pages project `emoji-rpg` (direct-upload, no
+  Git connection — Cloudflare's own Git integration was deliberately
+  skipped so the GitHub Action stays the single deploy path instead of
+  two competing ones). Serves `emoji-rpg.pages.dev` directly, plus the
+  custom domain `rpg.burghertime.com` (a `rpg` subdomain, not a
+  `/rpg` path — Cloudflare Pages custom domains map whole (sub)domains,
+  not URL paths, so a path-based setup would have needed an extra Worker
+  proxy layer; the subdomain avoids that entirely and was Timothy's
+  choice once the tradeoff was explained).
+- **Gotcha worth remembering**: this Pages project has no Git repo
+  connected, so it has no "Production branch" setting in its dashboard
+  Settings tab. For a direct-upload project, `wrangler pages deploy`'s
+  `--branch` flag is just a label compared against the project's
+  internal production-branch value (defaults to `main`) — it does *not*
+  need to match the repo's real branch name. The workflow deploys with
+  `--branch=main` even though the repo's actual branch is `master`;
+  using `--branch=master` there silently produces a *preview* deploy
+  (served at `master.emoji-rpg.pages.dev`, marked `x-robots-tag:
+  noindex`) instead of production.
+- **Secrets**: `CLOUDFLARE_API_TOKEN` is a GitHub Actions secret, scoped
+  to just `Account: Cloudflare Pages: Edit` + `Zone: DNS: Edit` on the
+  `burghertime.com` zone specifically (not account-wide). Set via
+  `gh secret set` reading from a local file the token was never pasted
+  into chat for — the file was deleted immediately after. I never saw
+  the token value myself. `CLOUDFLARE_ACCOUNT_ID` is a plain (non-secret)
+  repo variable.
+- **Repo hygiene**: confirmed no secrets anywhere in the code, working
+  tree, or full commit history before or after making the repo public.
+  GitHub secret scanning + push protection are both `enabled` (automatic
+  for public repos). `.gitignore` hardened to cover `.DS_Store`,
+  `.env*`, `*.pem`, `*.key`, `credentials.json`.
+- **DNS safety**: confirmed via `dig` after the custom-domain setup that
+  burghertime.com's MX records (icloud mail) and apex domain were
+  untouched — only a new `rpg.burghertime.com` record was added, via
+  Cloudflare's own custom-domain flow (not a manual DNS edit).
+
+**Known, non-blocking follow-up:** the deployed site includes the whole
+repo root (tests/, scripts/, docs/, package.json, etc.), not just the
+game's actual files — harmless (no secrets in any of them, confirmed
+above) but means things like `rpg.burghertime.com/package.json` are
+technically fetchable. Trimming the deploy to just the game's files
+would need reorganizing them into their own directory first; not done
+here since it wasn't asked for and touches the app's file layout.
+Separately, the workflow's actions currently log a "Node.js 20 is
+deprecated" warning from GitHub (the actions still work, forced onto
+Node 24 automatically) — cosmetic only, no action needed unless it
+becomes a hard failure later.
