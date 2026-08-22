@@ -399,16 +399,21 @@ function handleKeydown(event) {
     playerUseItem();
     return;
   }
-  if (!isReady(playerCombatant.atb)) return;
   if (key === 'a' || key === 'A') {
+    if (!isReady(playerCombatant.atb)) return;
     playerAttack();
   } else if (key === 'Escape' || key === 'f' || key === 'F') {
+    if (!isReady(playerCombatant.atb)) return;
     playerFlee();
   } else if (key >= '1' && key <= '5') {
     const ability = ABILITIES[Number(key) - 1];
     const locked = state.player.level < ability.unlockLevel;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
-    if (!locked && !onCooldown) {
+    // Mirrors abilityButtonsHtml()'s comboSkipsReady bypass: a primed payoff
+    // can be triggered via keyboard shortcut even before the swing timer is
+    // full, matching what its button already allows via mouse click.
+    const comboSkipsReady = !!comboState[ability.id] && ability.comboRole === 'payoff';
+    if (!locked && !onCooldown && (isReady(playerCombatant.atb) || comboSkipsReady)) {
       playerUseAbility(ability.id);
     }
   }
