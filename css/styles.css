@@ -266,11 +266,6 @@ button:disabled {
 .battle-ability-button-combo {
   border-color: #f5b942;
   box-shadow: 0 0 8px rgba(245, 185, 66, 0.6);
-  animation: battle-combo-pulse 1.2s ease-in-out infinite;
-}
-@keyframes battle-combo-pulse {
-  0%, 100% { box-shadow: 0 0 4px rgba(245, 185, 66, 0.4); }
-  50% { box-shadow: 0 0 12px rgba(245, 185, 66, 0.9); }
 }
 button:focus-visible {
   outline: 2px solid #4ade80;

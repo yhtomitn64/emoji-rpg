@@ -39,6 +39,11 @@ export function getUnlockedAbilities(level) {
   return ABILITIES.filter((ability) => ability.unlockLevel <= level);
 }
 
+export function canUseAbility({ locked, onCooldown, ready, comboPrimed, comboRole }) {
+  const comboSkipsReady = comboPrimed && comboRole === 'payoff';
+  return !locked && !onCooldown && (ready || comboSkipsReady);
+}
+
 export function tickCooldowns(cooldowns, dt) {
   const next = {};
   for (const [id, remainingMs] of Object.entries(cooldowns)) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER, COMBO_PAYOFF_BONUS_MULTIPLIER, COMBO_RETURN_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER, COMBO_PAYOFF_BONUS_MULTIPLIER, COMBO_RETURN_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order', () => {
@@ -206,4 +206,16 @@ test('resolveAbilityUse does not apply any combo bonus when comboBonusActive is 
   const result = resolveAbilityUse(player, monster, chop, false, false, false, () => 0.5);
   // base 8, * 1.8 (chop) = round(14.4) = 14, no combo multiplier
   assert.equal(result.damage, 14);
+});
+
+test('canUseAbility requires ready unless a primed payoff bypasses it', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: true, comboPrimed: false, comboRole: 'setup' }), true);
+  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, comboPrimed: false, comboRole: 'setup' }), false);
+  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, comboPrimed: true, comboRole: 'payoff' }), true);
+  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, comboPrimed: true, comboRole: 'setup' }), false);
+});
+
+test('canUseAbility is false when locked or on cooldown regardless of combo state', () => {
+  assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: true, comboPrimed: true, comboRole: 'payoff' }), false);
+  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: true, comboPrimed: true, comboRole: 'payoff' }), false);
 });

@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -184,7 +184,7 @@ function runTimingMeter() {
     // unlocked ability (see timingMeterHtml()), and an ability can't be
     // used below that level anyway - so this should be unreachable with a
     // null meter. Resolve as a miss rather than throwing if it ever is.
-    if (!elements.timingMeter || !elements.timingFill) {
+    if (!elements.timingMeter || !elements.timingFill || !elements.timingHint) {
       resolve(false);
       return;
     }
@@ -298,8 +298,7 @@ function abilityButtonsHtml() {
     // A primed setup's return bonus (e.g. Stab after Chop landed) does NOT
     // get this bypass, only the extra damage - see Global Constraints.
     const comboPrimed = !!comboState[ability.id];
-    const comboSkipsReady = comboPrimed && ability.comboRole === 'payoff';
-    const disabled = locked || cooldownRemaining > 0 || (!ready && !comboSkipsReady);
+    const disabled = !canUseAbility({ locked, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole });
     const cooldownSuffix = cooldownRemaining > 0 ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
     const comboSuffix = comboPrimed
       ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
@@ -413,11 +412,8 @@ function handleKeydown(event) {
     const ability = ABILITIES[Number(key) - 1];
     const locked = state.player.level < ability.unlockLevel;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
-    // Mirrors abilityButtonsHtml()'s comboSkipsReady bypass: a primed payoff
-    // can be triggered via keyboard shortcut even before the swing timer is
-    // full, matching what its button already allows via mouse click.
-    const comboSkipsReady = !!comboState[ability.id] && ability.comboRole === 'payoff';
-    if (!locked && !onCooldown && (isReady(playerCombatant.atb) || comboSkipsReady)) {
+    const comboPrimed = !!comboState[ability.id];
+    if (canUseAbility({ locked, onCooldown, ready: isReady(playerCombatant.atb), comboPrimed, comboRole: ability.comboRole })) {
       playerUseAbility(ability.id);
     }
   }
@@ -458,6 +454,14 @@ function playerAttack() {
 }
 
 async function playerUseAbility(abilityId) {
+  // Guard against re-entrant activation: while a damage ability's timing meter is
+  // awaited below, the player's ATB isn't reset yet (that only happens once the
+  // await resolves), so a second click/keypress during that ~1s window would
+  // otherwise start a second runTimingMeter() concurrently. Both instances share
+  // the same `elements.timingMeter` DOM node and `onclick` handler, so the two
+  // instances stomp on each other and the meter can be left stuck on-screen,
+  // never resolving. This flag makes any overlapping activation attempt a no-op
+  // instead.
   if (abilityActionInFlight) return;
   abilityActionInFlight = true;
   try {
@@ -474,6 +478,11 @@ async function playerUseAbility(abilityId) {
       return;
     }
 
+    // Press-time semantics: the player's commitment is the button press, and
+    // that's also what the on-screen buff countdown/debuff they're reading
+    // refers to. Snapshot both here, before the ~1s timing-meter await, so a
+    // buff/debuff that expires mid-meter doesn't silently steal the bonus the
+    // player was visibly aiming for when they pressed the button.
     const buffActiveAtPress = buffState.active;
     const comboBonusActive = !!comboState[abilityId];
 
@@ -487,6 +496,7 @@ async function playerUseAbility(abilityId) {
       if (battleOver) return;
       targetIndices.forEach((monsterIndex, n) => {
         const mc = monsterCombatants[monsterIndex];
+        if (mc.hp <= 0) return; // died during the meter (bleed tick / parry counter)
         const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive);
         mc.hp = result.monsterHp;
         mc.atb = result.monsterAtb;
@@ -499,6 +509,10 @@ async function playerUseAbility(abilityId) {
         playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
       });
       abilityCooldowns[abilityId] = ability.cooldownMs;
+      // Consume this ability's own primed bonus (if any), then prime its combo
+      // partner: a setup primes its payoff for the bigger forward bonus, a
+      // payoff primes its setup for the smaller return bonus. Same two lines
+      // handle both directions since comboPartnerId points both ways.
       comboState[abilityId] = false;
       if (ability.comboPartnerId) {
         comboState[ability.comboPartnerId] = true;
@@ -529,6 +543,10 @@ async function playerUseAbility(abilityId) {
     if (ability.id === 'slash') {
       target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
     }
+    // Consume this ability's own primed bonus (if any), then prime its combo
+    // partner: a setup primes its payoff for the bigger forward bonus, a
+    // payoff primes its setup for the smaller return bonus. Same two lines
+    // handle both directions since comboPartnerId points both ways.
     comboState[abilityId] = false;
     if (ability.comboPartnerId) {
       comboState[ability.comboPartnerId] = true;
@@ -537,6 +555,9 @@ async function playerUseAbility(abilityId) {
     log.push((result.isCrit
       ? `Critical! You use ${ability.name} on ${target.name} for ${result.damage}!`
       : `You use ${ability.name} on ${target.name} for ${result.damage}.`) + timingSuffix);
+    // Play the hit effect before updateHpBars() hides a killed monster's slot
+    // (display: none), so a killing blow's damage number/flash/shake is
+    // actually visible instead of rendering onto an already-hidden element.
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
     updateHpBars();
     updateAtbBars();

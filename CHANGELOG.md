@@ -85,7 +85,7 @@ public API, no formal release process — commits land straight on
   monster type (tracked per-species, forever, in `state.monsterKillCounts`),
   each new encounter with that species has a 30% chance to roll a group.
   Click a monster (or cycle with Left/Right/Tab) to select your target —
-  Attack and abilities hit only the selected monster, while every monster
+  Attack and single-target abilities hit only the selected monster, while every monster
   in the group attacks independently on its own wind-up gauge. The parry
   key (`s`) is a global sweep: it parries every monster currently sitting
   in its parry window at once, regardless of which one is selected, so a
