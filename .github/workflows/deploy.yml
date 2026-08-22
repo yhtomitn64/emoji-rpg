@@ -24,4 +24,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy . --project-name=emoji-rpg --branch=master
+          # --branch is compared against the Pages project's own production-
+          # branch setting (default "main" for a direct-upload project with
+          # no Git connection) to decide production vs. preview deploy - it
+          # does not need to match this repo's actual default branch name.
+          command: pages deploy . --project-name=emoji-rpg --branch=main
