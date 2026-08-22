@@ -383,53 +383,64 @@ through in a dedicated future combat pass rather than one-off adds:
   saw anything. This asks for the decision to happen before the overlay
   ever mounts, with the flee/surrender animation playing on the map
   screen itself instead.
-- **Ability rotation redesign — combo chains, key ergonomics, and
-  visibility, raised 2026-08-20.** Timothy's own extended pitch after
-  playing the shipped Phase 1 abilities: "the combat feels good but a
-  little clunky. I don't really understand the different power levels
-  of the abilities... not sure why I would use different single target
-  or different multi target. Does one buff the other or what?" Several
-  distinct threads in one note, kept together since they're all reactions
-  to the same rotation:
-  - **Combo/buff chaining between abilities.** Idea: ability 1 buffs
-    ability 2 (and 3 buffs 4), with a visual indicator on the button to
-    hit next once the setup lands — "so you have to do it first with
-    some sort of indicator on what to hit next." Further shape floated:
-    1 and 3 do small damage on their own, but the *big* damage is on 2
-    and 4 if the buff landed first; landing 2 or 4 correctly also grants
-    a small buff toward the next 1/3, to keep the rotation going.
-  - **Key ergonomics.** "My fingers dancing from 1, 2, 3, 4, 5 back to
-    a, s is a little funky... fingers are on 1, 2, 3, 4 and I have to
-    look down for 5." Proposes moving Super Scream (ability 5, the
-    buff) onto spacebar instead of key `5`, off the shared ability
+- ~~**Ability rotation redesign — combo chains, key ergonomics, and
+  visibility, raised 2026-08-20.**~~ **Combo chains + Sweep AOE shipped
+  2026-08-22; key ergonomics, Attack's role, and button info density
+  remain open.** Timothy's own extended pitch after playing the shipped
+  Phase 1 abilities: "the combat feels good but a little clunky. I don't
+  really understand the different power levels of the abilities... not
+  sure why I would use different single target or different multi
+  target. Does one buff the other or what?" Several distinct threads in
+  one note, kept together since they're all reactions to the same
+  rotation:
+  - ~~**Combo/buff chaining between abilities.**~~ **Shipped.** Stab and
+    Chop, and Slash and Sweep, are now paired combo lanes: landing the
+    setup (Stab or Slash) primes its payoff (Chop or Sweep) for a 1.5x
+    damage bonus and lets it fire even before the swing timer is full;
+    landing the payoff returns a smaller 1.15x bonus to the setup in
+    turn, keeping the lane going if you alternate — matches the "1 and 3
+    small, 2 and 4 big if primed, payoff also feeds back to the setup"
+    shape from the original note. A primed ability's button glows and
+    relabels itself ("Combo Ready" / "Bonus Ready") — the "indicator on
+    what to hit next" this note asked for. Sweep also became a
+    full-damage AOE hitting every living monster (the group-fight role
+    flagged as a dependency when multi-mob-encounters shipped). Design:
+    `docs/superpowers/specs/2026-08-21-ability-rotation-redesign-design.md`.
+    Plan: `docs/superpowers/plans/2026-08-21-ability-rotation-redesign.md`.
+  - **Key ergonomics.** Still open. "My fingers dancing from 1, 2, 3, 4, 5
+    back to a, s is a little funky... fingers are on 1, 2, 3, 4 and I
+    have to look down for 5." Proposes moving Super Scream (ability 5,
+    the buff) onto spacebar instead of key `5`, off the shared ability
     cooldown entirely, and explicitly *not* resetting the swing timer
     when used — framed as wanting to keep fingers on 1-4 plus thumb on
-    the buff key, while still reaching `s` for parry.
-  - **What is Attack for?** "I feel like we don't need it... or you
-    make it auto attack or something that does trivial damage," with a
-    follow-up alternate idea: Attack stays manual but usable off the
-    global ability cooldown, dealing progressively less damage the more
-    it's spammed unless "charged up" somehow.
-  - **Information density on the ability buttons.** Wants to see each
-    ability's damage number next to its button before pressing it, plus
-    icons per ability, plus a visual/animated effect on the button itself
-    when pressed.
-  - Explicitly framed as "just trying to spice it up a bit making a fun
-    rotation" and a request for a reaction, not a finished design —
-    needs its own dedicated brainstorm before any of it is scoped; several
-    sub-ideas here (combo chains especially) are a real rework of
-    `js/systems/abilities.js`'s current fixed-order/no-synergy model, not
-    a small tweak.
+    the buff key, while still reaching `s` for parry. Considered and
+    explicitly declined for the 2026-08-22 combo-chain pass (see that
+    spec's Non-Goals) — Super Scream stayed exactly as shipped.
+  - **What is Attack for?** Still open. "I feel like we don't need it...
+    or you make it auto attack or something that does trivial damage,"
+    with a follow-up alternate idea: Attack stays manual but usable off
+    the global ability cooldown, dealing progressively less damage the
+    more it's spammed unless "charged up" somehow. Considered and
+    explicitly declined for the 2026-08-22 pass — Attack stayed
+    unchanged, outside the new combo web.
+  - **Information density on the ability buttons.** Still open. Wants to
+    see each ability's damage number next to its button before pressing
+    it, plus icons per ability, plus a visual/animated effect on the
+    button itself when pressed. Explicitly deferred out of the
+    2026-08-22 pass as its own future polish item.
 - **Timing-meter clarity and crit/damage-number visual polish, raised
-  2026-08-20.** Two related requests: (1) Timothy wasn't sure what the
+  2026-08-20.** Two related requests: (1) ~~Timothy wasn't sure what the
   green zone at the end of the hero's own swing timer indicates, or
   whether there's a timing mechanic tied to it — worth a tooltip/label
-  or other in-context explanation, not just discoverable by accident.
-  (2) Damage numbers on a crit should "really pop," and damage numbers
-  in general should be bigger, persist longer, and float higher (even
-  above the dialog if possible) than they do today; crits could also
-  trigger a bigger environmental reaction — trees swaying, the dialog
-  shaking — to sell the hit's weight.
+  or other in-context explanation, not just discoverable by accident.~~
+  **Shipped 2026-08-22**: the timing meter now shows a "Press Space!"
+  label once its fill crosses into the sweet-spot zone, as part of the
+  ability rotation redesign pass above. (2) Still open: damage numbers on
+  a crit should "really pop," and damage numbers in general should be
+  bigger, persist longer, and float higher (even above the dialog if
+  possible) than they do today; crits could also trigger a bigger
+  environmental reaction — trees swaying, the dialog shaking — to sell
+  the hit's weight.
 - **Death animation for a defeated enemy, raised 2026-08-20.** Timothy:
   "the emoji rotates in a circle and gets smaller until you can't see
   it, timed with the dialog closing." Distinct from the existing
