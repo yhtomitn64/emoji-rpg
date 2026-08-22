@@ -20,7 +20,9 @@
  * retunes were explored before being written into `js/data/monsters.js`.
  */
 
-import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse } from '../js/systems/combat.js';
+import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier } from '../js/systems/combat.js';
+import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse } from '../js/systems/abilities.js';
+import { chooseAction } from './simulateAbilityPolicy.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
 import { getEquipmentBonuses } from '../js/systems/inventory.js';
@@ -182,6 +184,16 @@ const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc',
 const MAX_TICKS = 3000;
 const POTION_THRESHOLD = 0.4; // drink when below 40% of max HP
 
+// Stands in for a human's real meter timing, since the simulator has no
+// input timing to model. 0.7 = a reasonably-attentive player hits the
+// sweet spot most of the time, not always. Only setup abilities (Stab/
+// Slash) still have the timing meter post-combo-rework - payoffs (Chop/
+// Sweep) never roll this. See docs/superpowers/specs/2026-08-22-balance-
+// pass-design.md for why 0.7 and what to re-check if results feel overly
+// sensitive to it.
+const TIMING_HIT_RATE = 0.7;
+const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
+
 /**
  * Replays battleScreen.js's tick loop. The actual combat math (damage, crit,
  * knockback, speed bonus, heal) is NOT reimplemented here - it calls
@@ -223,9 +235,21 @@ function simulateBattle(build, monsterStats) {
   let potions = build.potions;
   let potionsUsed = 0;
 
+  // Real-time-style state, same shape battleScreen.js keeps at module scope
+  // - reset fresh per simulated battle here since each trial is independent.
+  let abilityCooldowns = {};
+  let comboState = {};
+  let buffState = createBuffState();
+  let attackStreak = 0;
+  let attackCooldownMs = 0;
+
   for (let ticks = 1; ticks <= MAX_TICKS; ticks++) {
     player.atb = tickGauge(player.atb, player.speed, 1);
     monster.atb = tickGauge(monster.atb, monster.speed, 1);
+    if (isReady(player.atb)) attackStreak = 0;
+    attackCooldownMs = Math.max(0, attackCooldownMs - 300);
+    abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
+    buffState = tickBuff(buffState, 300);
 
     if (potions > 0 && player.hp < player.maxHp * POTION_THRESHOLD) {
       potions--;
@@ -241,8 +265,45 @@ function simulateBattle(build, monsterStats) {
       if (player.hp <= 0) return { outcome: 'lost', hpLeft: 0, potionsUsed, ticks };
     }
 
-    if (isReady(player.atb)) {
-      const result = resolvePlayerAttack(player, monster);
+    const action = chooseAction({
+      level: build.level,
+      cooldowns: abilityCooldowns,
+      comboState,
+      buffActive: buffState.active,
+      ready: isReady(player.atb),
+      attackOnCooldown: attackCooldownMs > 0,
+    });
+
+    if (action.kind === 'ability') {
+      const ability = ABILITIES.find((a) => a.id === action.id);
+      if (ability.type === 'buff') {
+        buffState = activateBuff(ability);
+        abilityCooldowns[ability.id] = ability.cooldownMs;
+        attackStreak = 0;
+      } else {
+        const timingHit = ability.comboRole === 'setup' ? Math.random() < TIMING_HIT_RATE : false;
+        const comboBonusActive = !!comboState[ability.id];
+        const result = resolveAbilityUse(player, monster, ability, buffState.active, timingHit, comboBonusActive);
+        monster.hp = result.monsterHp;
+        monster.atb = result.monsterAtb;
+        player.atb = result.playerAtb;
+        abilityCooldowns[ability.id] = ability.cooldownMs;
+        attackStreak = 0;
+        comboState[ability.id] = false;
+        if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
+          comboState[ability.comboPartnerId] = true;
+        }
+        if (monster.hp <= 0) {
+          return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
+        }
+      }
+    } else if (action.kind === 'attack') {
+      const result = resolvePlayerAttack(
+        player, monster, Math.random,
+        attackStreakMultiplier(attackStreak), attackKnockbackMultiplier(attackStreak)
+      );
+      attackStreak += 1;
+      attackCooldownMs = ATTACK_COOLDOWN_MS;
       monster.hp = result.monsterHp;
       monster.atb = result.monsterAtb;
       player.atb = result.playerAtb;
