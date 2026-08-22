@@ -119,6 +119,19 @@ public API, no formal release process — commits land straight on
   `js/systems/abilities.js`). Super Scream, a buff rather than a direct
   hit, shows no number. Pressing any ability also triggers a brief
   scale/brighten flash on its own button.
+- The start/title screen got its first real visual pass: a dusk-toned
+  background scene behind the save-slot panel, a scatter of monster
+  emoji (including the dragon) gently floating in the sky, and a
+  tree/mountain emoji horizon along the bottom — all pure CSS and emoji,
+  no image assets, matching the battle screen's existing gradient-scene
+  approach (`.battle-screen-forest`/`-cave`). The save-slot panel itself
+  is unchanged functionally, just restyled as a translucent card
+  (`.start-panel`) over the scene, and the title got an embossed
+  `text-shadow` treatment. The decorative layer is `pointer-events: none`
+  so it never intercepts clicks. Confirmed a page refresh already always
+  lands here (`mountStartScreen()` runs unconditionally in `js/main.js`
+  with no auto-continue path) — no code change was needed for that half
+  of the ask.
 
 ### Changed
 - Super Scream moved off number key `5` onto Space, and is now usable the

@@ -1,4 +1,34 @@
 import { HERO_EMOJI_OPTIONS, DEFAULT_HERO_EMOJI } from '../state.js';
+import { MONSTERS } from '../data/monsters.js';
+
+const SCENE_MONSTERS = [
+  { id: 'dragon', top: 4, left: 36, size: 2.6, opacity: 0.55, duration: 5.2, delay: 0 },
+  { id: 'boar', top: 10, left: 6, size: 1.6, opacity: 0.4, duration: 3.8, delay: 0.4 },
+  { id: 'bat', top: 15, left: 82, size: 1.5, opacity: 0.4, duration: 3.4, delay: 0.9 },
+  { id: 'wraith', top: 9, left: 64, size: 1.7, opacity: 0.4, duration: 4.4, delay: 1.3 },
+  { id: 'spider', top: 40, left: 91, size: 1.6, opacity: 0.35, duration: 4.0, delay: 0.2 },
+  { id: 'snake', top: 62, left: 3, size: 1.6, opacity: 0.35, duration: 3.6, delay: 1.7 },
+  { id: 'goblin', top: 22, left: 46, size: 1.6, opacity: 0.35, duration: 4.6, delay: 0.6 },
+  { id: 'direWolf', top: 70, left: 89, size: 1.7, opacity: 0.35, duration: 3.9, delay: 1.1 },
+  { id: 'orc', top: 80, left: 9, size: 1.7, opacity: 0.35, duration: 4.2, delay: 0.3 },
+];
+
+const HORIZON = ['🌲', '⛰️', '🌳', '🏔️', '🌲', '🌳', '⛰️', '🌲', '🌳'];
+
+function renderScene() {
+  const monsters = SCENE_MONSTERS.map(({ id, top, left, size, opacity, duration, delay }) => {
+    const emoji = MONSTERS[id]?.emoji || '';
+    const style = `top:${top}%; left:${left}%; font-size:${size}rem; opacity:${opacity}; animation-duration:${duration}s; animation-delay:${delay}s;`;
+    return `<span class="start-scene-monster" style="${style}">${emoji}</span>`;
+  }).join('');
+  const horizon = HORIZON.map((emoji) => `<span>${emoji}</span>`).join('');
+  return `
+    <div class="start-scene" aria-hidden="true">
+      <div class="start-scene-monsters">${monsters}</div>
+      <div class="start-scene-horizon">${horizon}</div>
+    </div>
+  `;
+}
 
 let rootEl = null;
 let slots = [];
@@ -48,9 +78,12 @@ function render() {
 
   rootEl.innerHTML = `
     <div class="start-screen">
-      <h1>Emoji RPG</h1>
-      ${slotRows || '<div class="no-slots">No saves yet.</div>'}
-      ${newGameSection}
+      ${renderScene()}
+      <div class="start-panel">
+        <h1 class="start-title">Emoji RPG</h1>
+        ${slotRows || '<div class="no-slots">No saves yet.</div>'}
+        ${newGameSection}
+      </div>
     </div>
   `;
 

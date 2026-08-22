@@ -308,6 +308,68 @@ button:focus-visible {
 .new-game-row { display: flex; gap: 8px; margin-top: 12px; }
 .new-game-row input { flex: 1; padding: 6px; font-size: 1rem; }
 
+.start-screen {
+  position: relative;
+  min-height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.start-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 12px;
+  background: linear-gradient(to bottom, #2b1f45 0%, #3a2a52 30%, #4a3560 55%, #33402d 78%, #1b2418 100%);
+}
+.start-scene-monster {
+  position: absolute;
+  display: inline-block;
+  filter: brightness(0.85);
+  animation-name: start-scene-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.start-scene-horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  font-size: 2.4rem;
+  opacity: 0.55;
+  filter: brightness(0.6);
+  padding-bottom: 2px;
+}
+@keyframes start-scene-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.start-panel {
+  position: relative;
+  z-index: 1;
+  width: min(92%, 480px);
+  background: rgba(15, 15, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 20px 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+.start-title {
+  text-align: center;
+  margin: 0 0 16px;
+  font-size: 2.1rem;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 0 #6b5a8a, 0 2px 0 #55446f, 0 3px 0 #402f57, 0 5px 10px rgba(0, 0, 0, 0.6);
+}
+
 .inventory-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 0; border-bottom: 1px solid #444;

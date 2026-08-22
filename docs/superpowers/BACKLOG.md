@@ -220,31 +220,28 @@ design.md`, which specifically *removed* auto-equip on pickup in favor
 of manual choice — so an opt-in per-purchase prompt (not silent
 auto-equip) is the version that doesn't relitigate that decision.
 
-### Splash/landing screen needs real visual polish, raised 2026-08-22
+### ~~Splash/landing screen needs real visual polish, raised 2026-08-22~~ Shipped 2026-08-22
 Timothy: "please add to our backlog a better splash page/landing screen
 and also anytime you go back to the game it loads that screen so you can
 select a different character. Also maybe put a bunch of the enemies, and
 some sort of background and trees/mountains or something on the splash
 page/loading screen. Basically if you hit refresh while playing game it
-doesn't go right back to game it goes to loading screen." Today's start
-screen (`js/screens/startScreen.js`, mounted unconditionally by
-`mountStartScreen()` at the bottom of `js/main.js`) is bare — just the
-"Emoji RPG" title, a plain dark background, and the save-slot list/New
-Game button, no art at all. Two related asks bundled together:
-- **Visual richness**: background art, a scatter of monster emoji,
-  trees/mountains — something that actually looks like this game's world
-  instead of a blank screen, on both the title screen and (per "loading
-  screen") any transition moment that currently shows nothing.
-- **Refresh always lands here, not back in the fight.** Worth confirming
-  against actual play before designing further: `mountStartScreen()`
-  already runs unconditionally on every page load with no auto-continue
-  logic in `startScreen.js` (`Continue` is a manual button click per
-  slot) — so a refresh should already land on this screen today rather
-  than silently resuming into a battle or the map. If Timothy is actually
-  seeing something else in practice (e.g. mid-battle state surviving a
-  refresh some other way), that's a separate bug to chase first; if not,
-  this half of the ask is really "keep it landing here" as the splash
-  screen gets built out, not a behavior change.
+doesn't go right back to game it goes to loading screen." Two related
+asks, both resolved:
+- **Visual richness — shipped.** The start screen (`js/screens/
+  startScreen.js`) now has a dusk-gradient background scene, a scatter of
+  9 monster emoji (including the dragon) gently floating via CSS
+  animation, and a tree/mountain emoji horizon — pure CSS/emoji, no image
+  assets, same approach as the battle screen's existing gradient scenes.
+  The save-slot panel is unchanged functionally, just restyled as a
+  translucent card over the scene; decorative layer is `pointer-events:
+  none`. Verified in-browser at desktop and narrow/mobile widths, plus
+  through the New Game form flow — no click-through issues, no console
+  errors.
+- **Refresh always lands here — already true, confirmed not a bug.**
+  `mountStartScreen()` runs unconditionally on every page load
+  (`js/main.js`) with no auto-continue logic — `Continue` is a manual
+  per-slot button click. No code change was needed for this half.
 
 ### Level-up and general animation pass, raised 2026-08-20
 Timothy: "need more than just a start for level up, character
