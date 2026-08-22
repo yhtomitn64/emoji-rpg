@@ -235,6 +235,13 @@ public API, no formal release process — commits land straight on
   chasing a single edge-case matchup, but flagged here for anyone touching
   these numbers again.
 
+### Fixed
+- Cloudflare deploy no longer ships the whole repo. The GitHub Actions
+  workflow now stages just `index.html`, `css/`, and `js/` into a `dist/`
+  directory and deploys that instead of the repo root, so `tests/`,
+  `scripts/`, `docs/`, `package.json`, and other non-game files are no
+  longer publicly fetchable from the live site.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed

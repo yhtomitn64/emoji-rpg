@@ -19,6 +19,13 @@ jobs:
 
       - run: npm run test
 
+      - name: Stage deployable files
+        run: |
+          mkdir dist
+          cp index.html dist/
+          cp -r css dist/
+          cp -r js dist/
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
@@ -28,4 +35,4 @@ jobs:
           # branch setting (default "main" for a direct-upload project with
           # no Git connection) to decide production vs. preview deploy - it
           # does not need to match this repo's actual default branch name.
-          command: pages deploy . --project-name=emoji-rpg --branch=main
+          command: pages deploy dist --project-name=emoji-rpg --branch=main

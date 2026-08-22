@@ -876,14 +876,17 @@ publish new versions." Live end to end:
   untouched — only a new `rpg.burghertime.com` record was added, via
   Cloudflare's own custom-domain flow (not a manual DNS edit).
 
-**Known, non-blocking follow-up:** the deployed site includes the whole
-repo root (tests/, scripts/, docs/, package.json, etc.), not just the
-game's actual files — harmless (no secrets in any of them, confirmed
-above) but means things like `rpg.burghertime.com/package.json` are
-technically fetchable. Trimming the deploy to just the game's files
-would need reorganizing them into their own directory first; not done
-here since it wasn't asked for and touches the app's file layout.
-Separately, the workflow's actions currently log a "Node.js 20 is
+**~~Known, non-blocking follow-up~~ Fixed 2026-08-22:** the deployed site
+used to include the whole repo root (tests/, scripts/, docs/,
+package.json, etc.), not just the game's actual files — harmless (no
+secrets in any of them, confirmed above) but meant things like
+`rpg.burghertime.com/package.json` were technically fetchable. Rather
+than reorganizing the repo's file layout, `.github/workflows/deploy.yml`
+now stages just `index.html`, `css/`, and `js/` into a `dist/` directory
+in the CI runner and deploys that instead of `.` — no source-tree
+changes needed.
+
+**Still open:** the workflow's actions currently log a "Node.js 20 is
 deprecated" warning from GitHub (the actions still work, forced onto
 Node 24 automatically) — cosmetic only, no action needed unless it
 becomes a hard failure later.
