@@ -6,6 +6,12 @@ import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activa
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
 
 const VICTORY_PAUSE_MS = 1200;
+// Matches showDamageNumber's own lifetime: a killing blow's damage number/
+// flash/shake needs this long on screen before the slot can be hidden, since
+// hiding it and playing the effect happen in the same synchronous call and
+// the browser only paints the final DOM state - reordering the two calls
+// within one tick can't make an already-hidden element's effect visible.
+const DEATH_HIDE_DELAY_MS = 900;
 const TIMING_METER_DURATION_MS = 1000;
 const TIMING_SWEET_SPOT_START = 80;
 const TIMING_SWEET_SPOT_END = 100;
@@ -229,7 +235,21 @@ function updateHpBars() {
   monsterCombatants.forEach((mc, i) => {
     elements.monsterHpFills[i].style.width = `${percent(mc.hp, mc.maxHp)}%`;
     elements.monsterHpTexts[i].textContent = `HP ${mc.hp}/${mc.maxHp}`;
-    elements.monsterZones[i].classList.toggle('battle-monster-slot-dead', mc.hp <= 0);
+    const zone = elements.monsterZones[i];
+    if (mc.hp <= 0) {
+      // Defer hiding the slot until the killing blow's own hit effect has
+      // had time to play, rather than hiding it in this same synchronous
+      // call (see DEATH_HIDE_DELAY_MS). Only schedule once per death.
+      if (!zone.classList.contains('battle-monster-slot-dead') && !zone.dataset.deathHidePending) {
+        zone.dataset.deathHidePending = '1';
+        setTimeout(() => {
+          delete zone.dataset.deathHidePending;
+          zone.classList.add('battle-monster-slot-dead');
+        }, DEATH_HIDE_DELAY_MS);
+      }
+    } else {
+      zone.classList.remove('battle-monster-slot-dead');
+    }
   });
   elements.heroHpFill.style.width = `${percent(playerCombatant.hp, playerCombatant.maxHp)}%`;
   elements.heroHpText.textContent = `HP ${playerCombatant.hp}/${playerCombatant.maxHp}`;
