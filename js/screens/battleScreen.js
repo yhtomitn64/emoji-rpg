@@ -31,6 +31,7 @@ let elements = {};
 let endBattleTimeoutId = null;
 let abilityCooldowns = {};
 let buffState = createBuffState();
+let comboState = {};
 let abilityActionInFlight = false;
 
 function buildPlayerCombatant() {
@@ -288,10 +289,20 @@ function abilityButtonsHtml() {
     const slot = index + 1;
     const locked = state.player.level < ability.unlockLevel;
     const cooldownRemaining = abilityCooldowns[ability.id] || 0;
-    const disabled = locked || cooldownRemaining > 0 || !ready;
+    // A primed payoff (e.g. Chop after Stab landed) can be pressed even
+    // before the swing timer is full - that's the "instant" combo feel.
+    // A primed setup's return bonus (e.g. Stab after Chop landed) does NOT
+    // get this bypass, only the extra damage - see Global Constraints.
+    const comboPrimed = !!comboState[ability.id];
+    const comboSkipsReady = comboPrimed && ability.comboRole === 'payoff';
+    const disabled = locked || cooldownRemaining > 0 || (!ready && !comboSkipsReady);
     const cooldownSuffix = cooldownRemaining > 0 ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
-    const label = `${ability.name} (${slot})${cooldownSuffix}`;
-    return `<button id="btn-ability-${ability.id}" class="battle-ability-button" ${disabled ? 'disabled' : ''}>${label}</button>`;
+    const comboSuffix = comboPrimed
+      ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
+      : '';
+    const label = `${ability.name} (${slot})${cooldownSuffix}${comboSuffix}`;
+    const comboClass = comboPrimed ? ' battle-ability-button-combo' : '';
+    return `<button id="btn-ability-${ability.id}" class="battle-ability-button${comboClass}" ${disabled ? 'disabled' : ''}>${label}</button>`;
   }).join('');
 }
 
@@ -469,6 +480,7 @@ async function playerUseAbility(abilityId) {
     const targetIndex = selectedMonsterIndex;
     const target = monsterCombatants[targetIndex];
     const buffActiveAtPress = buffState.active;
+    const comboBonusActive = !!comboState[abilityId];
     const defenseDebuffAtPress = target.defenseDebuff;
     const timingHit = await runTimingMeter();
     // The battle can end while this await is outstanding - e.g. the monster's
@@ -477,7 +489,7 @@ async function playerUseAbility(abilityId) {
     // did, don't resolve this ability's damage or call checkOutcome()/endBattle()
     // a second time.
     if (battleOver) return;
-    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit);
+    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit, comboBonusActive);
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
@@ -487,6 +499,14 @@ async function playerUseAbility(abilityId) {
     }
     if (ability.id === 'sweep') {
       target.defenseDebuff = createDefenseDebuff(ability);
+    }
+    // Consume this ability's own primed bonus (if any), then prime its combo
+    // partner: a setup primes its payoff for the bigger forward bonus, a
+    // payoff primes its setup for the smaller return bonus. Same two lines
+    // handle both directions since comboPartnerId points both ways.
+    comboState[abilityId] = false;
+    if (ability.comboPartnerId) {
+      comboState[ability.comboPartnerId] = true;
     }
     const timingSuffix = timingHit ? ' Perfect timing!' : '';
     log.push((result.isCrit
@@ -659,6 +679,7 @@ export function mount(root, props) {
   playerCombatant = buildPlayerCombatant();
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
+  comboState = {};
   abilityActionInFlight = false;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   buildDom();
