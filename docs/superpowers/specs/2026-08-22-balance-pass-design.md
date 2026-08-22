@@ -64,3 +64,54 @@ No save-schema changes anywhere in this pass — every lever is a formula/consta
 - Dungeon-tier and boss content are in scope for the *check*, not exempted like a prior pass exempted them.
 - Target is real attrition with rare losses (~80-90% win rate), not a harsh swing to frequent losses.
 - Exact multiplier/cooldown/XP-curve constants are intentionally undecided here — they're Phase B outputs, tuned against real simulator data, not guessed in advance.
+
+## Phase A findings (real data, recorded 2026-08-22)
+
+Ran `node scripts/simulate-balance.js --trials 3000` against the fully
+ability-modeled simulator (Tasks 1-3 of the implementation plan). Full
+output archived at `/tmp/balance-baseline.txt`.
+
+- **Wilderness is already trivial.** `reasonable L7 (iron sword + full
+  cloth)` wins 100% of trials against every near-town monster
+  (boar/bat/snake/goblin) and every far-corner monster (direWolf/spider) —
+  6 of 6 matchups at a 100% win rate, well above the 80-90% target band.
+  There is no attrition left for Phase B to tune away at this tier; ability
+  damage is currently strong enough to make wilderness content a
+  non-fight.
+- **Dungeon-tier and boss tier 0 are still winnable but costly; tiers 1-2
+  are effectively unbeatable.** `prepared L9 (full iron)` wins 100%
+  against both dungeon-tier monsters (orc 100%, wraith 100%) and against
+  Dragon (tier 0) (100%, ending fights with only ~52% HP remaining and an
+  average of 0.5 potions burned). Against Dragon (tier 1) the win rate
+  collapses to 1% (and costs an average of 5.3 potions trying); against
+  Dragon (tier 2) it's 0%. The real difficulty cliff right now sits
+  between boss tier 0 and tier 1, not at the dungeon/boss-0 boundary.
+- **Gear doesn't move win/loss at the low end — it only buys a safety
+  margin.** Against near-town monsters, `L1 (starter sword only, no
+  armor)` and `L1 (starter sword + cloth tunic)` both win 100% of trials —
+  a 0-percentage-point win-rate delta. The difference shows up in HP left
+  instead: the no-armor build averages 64.25% HP remaining across the
+  four near-town monsters (63%/68%/63%/63%) vs. 79% for the cloth-tunic
+  build (78%/82%/78%/78%), a roughly 15-point average HP-left
+  improvement. (Gear does swing win rate hard one tier up: against
+  direWolf specifically it's 1% for no-armor vs. 85% for cloth-tunic, and
+  against spider it's 79% vs. 98% — but that's the far-corner tier, not
+  the near-town set this specific comparison asked about.)
+- **Potion usage is currently an all-or-nothing, late-game-only lever.**
+  `avgPotions` is 0.0 across the board for every build against
+  near-town/far-corner content — potions are never touched there. For the
+  mid-tier builds, potions only start getting used against dungeon-tier
+  and boss content: `reasonable L7 (iron sword + full cloth)` averages
+  2.1 potions vs. orc, 2.0 vs. wraith, 2.6 vs. Dragon (tier 0), 1.4 vs.
+  Dragon (tier 1), 1.1 vs. Dragon (tier 2) (out of 4 carried);
+  `geared L6 (full iron)` averages 1.2 vs. orc, 1.1 vs. wraith, 3.5 vs.
+  Dragon (tier 0), 1.3 vs. Dragon (tier 1), 1.2 vs. Dragon (tier 2) (out
+  of 4 carried). This report's `avgPotions` column is a different metric
+  from the spec's "consumed in ~30-60% of trials" target, but the pattern
+  is unambiguous either way: potions currently go unused at low tiers and
+  get burned in bulk (win or lose) at high tiers, not spent steadily as a
+  mid-fight factor.
+
+Phase B (actual tuning of ability multipliers/cooldowns, XP curve, and
+conditionally gear/potion stats) is a separate follow-up plan, per this
+spec's original two-phase structure.
