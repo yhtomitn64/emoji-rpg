@@ -116,11 +116,26 @@ output archived at `/tmp/balance-baseline.txt`.
   `geared L6 (full iron)` averages 1.2 vs. orc, 1.1 vs. wraith, 3.5 vs.
   Dragon (tier 0), 1.3 vs. Dragon (tier 1), 1.2 vs. Dragon (tier 2) (out
   of 4 carried). This report's `avgPotions` column is a different metric
-  from the spec's "consumed in ~30-60% of trials" target, but the pattern
-  is unambiguous either way: potions currently sit at zero wherever a
-  fight is saturated (100% win rate, at any tier), and get burned —
-  whether the fight is close (low-tier vs. far-corner) or brutal (high
-  tier) — everywhere it isn't, not spent steadily as a mid-fight factor.
+  from the spec's "consumed in ~30-60% of trials" target, and the pattern
+  doesn't reduce to one clean rule tied to tier or win rate. Saturated
+  (100% win-rate) fights aren't automatically potion-free — `prepared L9
+  (full iron)` and `prepared L9 (full iron, 2 potions)` both average 0.5
+  potions against Dragon (tier 0) despite winning every trial — but other
+  100%-win-rate fights are: `prepared L9` and `veteran L11` both average
+  0.0 potions against orc and wraith at 100% win, and `veteran L11`
+  averages 0.0 against Dragon (tier 0) too, also at 100% win. The same
+  split shows up on losses: `L1 (starter sword only, no armor)` averages
+  exactly 0.0 potions across all five of its dungeon/boss matchups (orc,
+  wraith, all 3 Dragon tiers), every one a 0% win-rate loss — plausibly
+  because that build's thin HP pool never gives the simulator's "drink
+  below 40% HP" policy a turn before the fight ends — while `L4` through
+  `geared L6` all show meaningfully nonzero potion use in several of
+  their own 0%-win-rate dungeon/boss losses (e.g. `L4` averages 1.4
+  potions in a 0%-win loss to orc). What is checkable across every row
+  without exception: potions are unused at near-town for every build, and
+  unused at far-corner from `L4` up; beyond those two zones, usage is
+  real but genuinely build- and matchup-specific, not a function of tier
+  or win/loss alone.
 
 Phase B (actual tuning of ability multipliers/cooldowns, XP curve, and
 conditionally gear/potion stats) is a separate follow-up plan, per this
