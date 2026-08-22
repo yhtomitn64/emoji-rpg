@@ -28,6 +28,7 @@ import { ITEMS } from '../js/data/items.js';
 import { getEquipmentBonuses } from '../js/systems/inventory.js';
 import { applyXp, xpForLevel } from '../js/systems/leveling.js';
 import { createNewGame } from '../js/state.js';
+import { getBossTierStats, MAX_BOSS_TIER } from '../js/systems/bossTiers.js';
 
 // --- CLI ---------------------------------------------------------------
 
@@ -177,7 +178,8 @@ const BUILDS = [
   }),
 ];
 
-const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc', 'wraith', 'dragon'];
+const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc', 'wraith'];
+const BOSS_TIER_MATCHUP_IDS = Array.from({ length: MAX_BOSS_TIER + 1 }, (_, tier) => `dragonTier${tier}`);
 
 // --- Battle simulation -------------------------------------------------
 
@@ -358,11 +360,15 @@ function main() {
   for (const id of MATCHUPS) {
     monsters[id] = { ...MONSTERS[id], ...(overrides[id] || {}) };
   }
+  for (const [tier, id] of BOSS_TIER_MATCHUP_IDS.entries()) {
+    const tierStats = getBossTierStats(MONSTERS.dragon, tier);
+    monsters[id] = { ...MONSTERS.dragon, ...tierStats, name: `Dragon (tier ${tier})`, ...(overrides[id] || {}) };
+  }
 
   console.log(`Balance simulation — ${trials} trials per matchup\n`);
 
   console.log('Monster stats under test:');
-  for (const id of MATCHUPS) {
+  for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS]) {
     const m = monsters[id];
     console.log(`  ${m.name.padEnd(22)} hp ${String(m.hp).padStart(3)}  atk ${String(m.attack).padStart(2)}  def ${String(m.defense).padStart(2)}  spd ${String(m.speed).padStart(2)}`);
   }
@@ -375,7 +381,7 @@ function main() {
   console.log('\n' + 'build'.padEnd(38) + 'monster'.padEnd(22) + '  win   HP left  potions');
   console.log('-'.repeat(88));
   for (const build of BUILDS) {
-    for (const id of MATCHUPS) {
+    for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS]) {
       const r = runMatchup(build, monsters[id], trials);
       const stalemateNote = r.stalemateRate > 0 ? `  (stalemate ${pct(r.stalemateRate)})` : '';
       console.log(
