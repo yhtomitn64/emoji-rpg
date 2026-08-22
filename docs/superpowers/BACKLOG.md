@@ -475,30 +475,37 @@ separable pieces:
   or build a lighter in-game estimate; a full battle-outcome simulation
   every time the elite appears is probably overkill.
 
-### Multi-mob encounters in zone 1, raised 2026-08-18 — design complete, ready to plan
-Timothy's concrete pitch, moving "multi-enemy battle targeting" out of
-pure backburner status: after a player has killed a given monster type
-enough times (Timothy's own number: 10), that monster type starts
-occasionally "bringing friends" — spawning as a group encounter instead
-of solo. Also wants a partial-rewards option: kill one member of the
-group, then flee, and get rewards for just the one kill rather than
-nothing (or the full group's rewards). Depends on a much bigger feature
-that doesn't exist at all today: battles are strictly one `monsterId`
-per encounter, no multi-monster support anywhere in
-`js/screens/battleScreen.js`. Design:
-`docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md` —
-covers a new lifetime kill counter (`state.monsterKillCounts`,
-independent of the quest-turn-in tally), a chance-based group-spawn roll
-(2-3 members past 10 kills), click/arrow/Tab targeting, a global parry
-sweep (press `s` to parry every monster currently in its own parry
-window at once — Timothy's explicit call, to be tuned by feel), and
-full per-monster rewards on a partial-kill-then-flee. Deliberately
-scoped OUT: any redesign of the 5 existing abilities' targeting/timing
-(see "Ability rotation redesign" above — a separate, not-yet-designed
-item), and any AOE/multi-target ability. This is the largest
-single-file rework attempted so far (`battleScreen.js`'s entire data
-model goes from one monster to an array) — expect a large task-count
-plan.
+- ~~**Multi-mob encounters in zone 1, raised 2026-08-18.**~~ **Shipped
+  2026-08-21.** After killing 10+ of a given monster type (tracked
+  forever, per-species, in `state.monsterKillCounts`), wilderness
+  encounters with that species now have a 30% chance to spawn a group
+  of 2-3 instead of a lone target. Click a monster (or cycle with
+  Left/Right/Tab) to select a target — Attack/abilities hit only the
+  selection, while every monster in the group ticks its own ATB/wind-up
+  independently. The parry key (`s`) is a deliberate global sweep: it
+  parries every monster currently in its own parry window at once,
+  regardless of which is selected — Timothy's explicit call, to be
+  tuned by feel. Killing a monster removes it from the row and reflows
+  the rest; a partial-kill-then-flee banks full reward (gold/xp/quest/
+  kill-count) for each monster already killed, nothing for survivors —
+  confirmed via a live in-browser test (exact delta: +1 kill, +16 xp,
+  +4 gold for fleeing with 1 of 2 dead). Solo encounters are unchanged.
+  Deliberately scoped OUT: any redesign of the 5 existing abilities'
+  targeting/timing (see "Ability rotation redesign" above), and any
+  AOE/multi-target ability. Design:
+  `docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md`.
+  Plan: `docs/superpowers/plans/2026-08-21-multi-mob-encounters.md`.
+  This was the largest single-file rework attempted so far
+  (`battleScreen.js`'s entire data model went from one monster to an
+  array). Final whole-branch review caught and fixed one real
+  regression before merge: the pre-existing weak-mob "surrender"
+  payout had gone silently to zero (the array-shaped reward loop only
+  iterates killed monsters, and a surrender leaves the monster at full
+  HP), plus a killing blow's hit-effect/damage-number rendering onto an
+  already-hidden monster slot in multi-mob fights. Both fixed; full
+  detail in `.superpowers/sdd/2026-08-21-multi-mob-encounters/progress.md`
+  history if that workspace still exists, otherwise see the branch's
+  commit history.
 
 ### Backburner / uncertain value
 - **Mob leveling.** The other half of the original "roaming rare
