@@ -21,7 +21,7 @@
  */
 
 import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier } from '../js/systems/combat.js';
-import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse } from '../js/systems/abilities.js';
+import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff } from '../js/systems/abilities.js';
 import { chooseAction } from './simulateAbilityPolicy.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
@@ -196,31 +196,31 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
 
 /**
  * Replays battleScreen.js's tick loop. The actual combat math (damage, crit,
- * knockback, speed bonus, heal) is NOT reimplemented here - it calls
- * resolvePlayerAttack/resolveMonsterAttack/resolvePotionUse from
- * js/systems/combat.js, the exact same functions battleScreen.js calls, so
- * this script's numbers can't silently drift from the shipped mechanics the
- * way they did before 2026-08-17 (this file used to hand-roll the same
- * formulas, and quietly fell behind a battleScreen.js turn-priority fix and
- * three new combat-pass mechanics before anyone noticed).
- * (abilities added in the Phase 1 combat-abilities build are deliberately
- * not modeled here — see
- * docs/superpowers/specs/2026-08-17-combat-abilities-design.md)
- * (the parry wind-up added in this build is also not modeled here — monsters
- * still attack the instant their ATB is ready in this simulation; see
- * docs/superpowers/specs/2026-08-18-parry-mechanic-design.md)
+ * knockback, speed bonus, heal, ability scaling) is NOT reimplemented here - it calls
+ * resolvePlayerAttack/resolveMonsterAttack/resolvePotionUse/resolveAbilityUse from
+ * js/systems/combat.js and js/systems/abilities.js, the exact same functions
+ * battleScreen.js calls, so this script's numbers can't silently drift from the
+ * shipped mechanics the way they did before 2026-08-17 (this file used to hand-roll
+ * the same formulas, and quietly fell behind a battleScreen.js turn-priority fix
+ * and three new combat-pass mechanics before anyone noticed).
  *
- * What's still hand-rolled here, necessarily: the loop *structure* - whose
- * turn it is, and the "drink a potion when below 40% HP, otherwise attack"
- * policy. That's an AI stand-in for a human clicking buttons and has no real
+ * What's modeled here via real code (not reimplemented):
+ *   - Ability rotation policy via chooseAction from simulateAbilityPolicy.js
+ *   - Combo primer tracking and timing hits for setup abilities
+ *   - Buff state (duration, active/inactive)
+ *   - Defense debuff application and ticking (Sweep's shred effect)
+ *   - Attack streak multiplier/knockback scaling
+ *   - All potion and ability cooldown management
+ *
+ * What's still hand-rolled here (AI policy layer, not combat math): the
+ * "drink a potion when below 40% HP" decision and the potion cooldown loop
+ * structure. That's an AI stand-in for human clicking and has no real
  * battleScreen.js equivalent to share.
- *   1. both gauges tick
- *   2. the monster attacks the instant it is ready, unconditionally (the
- *      shipped game now adds a parry wind-up before this fires — see the
- *      caveat above)
- *   3. potions are off the turn cooldown - drink whenever HP is low,
- *      independent of gauge readiness
- *   4. the player attacks as soon as their gauge is full
+ *
+ * What's deliberately NOT modeled (known scope limits):
+ *   - Slash's delayed bleed tick from its buff state
+ *   - The parry wind-up that monsters have before attacking (monsters still
+ *     attack the instant their ATB is ready in this simulation)
  */
 function simulateBattle(build, monsterStats) {
   const player = {
@@ -230,6 +230,7 @@ function simulateBattle(build, monsterStats) {
   const monster = {
     hp: monsterStats.hp, maxHp: monsterStats.hp,
     attack: monsterStats.attack, defense: monsterStats.defense, speed: monsterStats.speed, atb: 0,
+    defenseDebuff: null,
   };
 
   let potions = build.potions;
@@ -250,6 +251,7 @@ function simulateBattle(build, monsterStats) {
     attackCooldownMs = Math.max(0, attackCooldownMs - 300);
     abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
     buffState = tickBuff(buffState, 300);
+    monster.defenseDebuff = tickDefenseDebuff(monster.defenseDebuff, 300);
 
     if (potions > 0 && player.hp < player.maxHp * POTION_THRESHOLD) {
       potions--;
@@ -283,7 +285,7 @@ function simulateBattle(build, monsterStats) {
       } else {
         const timingHit = ability.comboRole === 'setup' ? Math.random() < TIMING_HIT_RATE : false;
         const comboBonusActive = !!comboState[ability.id];
-        const result = resolveAbilityUse(player, monster, ability, buffState.active, timingHit, comboBonusActive);
+        const result = resolveAbilityUse(player, applyDefenseDebuff(monster, monster.defenseDebuff), ability, buffState.active, timingHit, comboBonusActive);
         monster.hp = result.monsterHp;
         monster.atb = result.monsterAtb;
         player.atb = result.playerAtb;
@@ -293,13 +295,16 @@ function simulateBattle(build, monsterStats) {
         if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
           comboState[ability.comboPartnerId] = true;
         }
+        if (ability.defenseShredMultiplier) {
+          monster.defenseDebuff = createDefenseDebuff(ability);
+        }
         if (monster.hp <= 0) {
           return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
         }
       }
     } else if (action.kind === 'attack') {
       const result = resolvePlayerAttack(
-        player, monster, Math.random,
+        player, applyDefenseDebuff(monster, monster.defenseDebuff), Math.random,
         attackStreakMultiplier(attackStreak), attackKnockbackMultiplier(attackStreak)
       );
       attackStreak += 1;
