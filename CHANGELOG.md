@@ -80,6 +80,22 @@ public API, no formal release process — commits land straight on
   battle, so Attack, Item, Flee, and abilities all stay fully usable
   while a monster winds up — parrying and managing an ability rotation at
   the same time is the intended challenge.
+- Wilderness encounters can now spawn groups of 2-3 of the same monster
+  instead of always a lone target. Once you've killed 10+ of a given
+  monster type (tracked per-species, forever, in `state.monsterKillCounts`),
+  each new encounter with that species has a 30% chance to roll a group.
+  Click a monster (or cycle with Left/Right/Tab) to select your target —
+  Attack and abilities hit only the selected monster, while every monster
+  in the group attacks independently on its own wind-up gauge. The parry
+  key (`s`) is a global sweep: it parries every monster currently sitting
+  in its parry window at once, regardless of which one is selected, so a
+  well-timed press can parry two simultaneous attacks in one keystroke.
+  Killing a monster removes it from the row and reflows the rest; if your
+  selected target dies, selection auto-advances to the next survivor.
+  Fleeing a partially-cleared group banks full rewards (gold/xp/quest and
+  kill-count credit) for each monster already killed and nothing for the
+  survivors. Solo encounters are unaffected — same single-monster flow as
+  before.
 
 ## [0.5.1] - 2026-08-17
 
