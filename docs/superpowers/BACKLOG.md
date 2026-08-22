@@ -407,22 +407,29 @@ through in a dedicated future combat pass rather than one-off adds:
     flagged as a dependency when multi-mob-encounters shipped). Design:
     `docs/superpowers/specs/2026-08-21-ability-rotation-redesign-design.md`.
     Plan: `docs/superpowers/plans/2026-08-21-ability-rotation-redesign.md`.
-  - **Key ergonomics.** Still open. "My fingers dancing from 1, 2, 3, 4, 5
-    back to a, s is a little funky... fingers are on 1, 2, 3, 4 and I
-    have to look down for 5." Proposes moving Super Scream (ability 5,
-    the buff) onto spacebar instead of key `5`, off the shared ability
-    cooldown entirely, and explicitly *not* resetting the swing timer
-    when used — framed as wanting to keep fingers on 1-4 plus thumb on
-    the buff key, while still reaching `s` for parry. Considered and
-    explicitly declined for the 2026-08-22 combo-chain pass (see that
-    spec's Non-Goals) — Super Scream stayed exactly as shipped.
-  - **What is Attack for?** Still open. "I feel like we don't need it...
-    or you make it auto attack or something that does trivial damage,"
-    with a follow-up alternate idea: Attack stays manual but usable off
-    the global ability cooldown, dealing progressively less damage the
-    more it's spammed unless "charged up" somehow. Considered and
-    explicitly declined for the 2026-08-22 pass — Attack stayed
-    unchanged, outside the new combo web.
+  - ~~**Key ergonomics.**~~ **Shipped 2026-08-22.** "My fingers dancing
+    from 1, 2, 3, 4, 5 back to a, s is a little funky... fingers are on
+    1, 2, 3, 4 and I have to look down for 5." Super Scream now fires on
+    Space instead of key `5` (digit keys `1`-`4` are unchanged for
+    Stab/Chop/Slash/Sweep), is usable the instant it's off its own 30s
+    cooldown regardless of the swing-timer gauge, and no longer resets
+    the gauge when used — a genuinely free action layered on the
+    rotation. `canUseAbility` gained an `alwaysReady` bypass
+    (`js/systems/abilities.js`) for this.
+  - ~~**What is Attack for?**~~ **Shipped 2026-08-22.** "I feel like we
+    don't need it... or you make it auto attack or something that does
+    trivial damage," with a follow-up alternate idea: Attack stays
+    manual but usable off the global ability cooldown, dealing
+    progressively less damage the more it's spammed unless "charged up"
+    somehow. Went with the decay direction (no charge-up): Attack now
+    drops the swing-timer requirement too, but each consecutive press
+    (without landing an ability or letting the gauge refill first) deals
+    less damage, floored at 40% of normal, with the live penalty shown
+    on the button. New `attackStreakMultiplier` in `js/systems/combat.js`;
+    `resolvePlayerAttack` gained an optional 4th `streakMultiplier` param
+    (defaults to `1`, so `scripts/simulate-balance.js`'s existing calls
+    are unaffected — the simulator doesn't model this new mechanic yet,
+    same precedent as it not modeling abilities).
   - **Information density on the ability buttons.** Still open. Wants to
     see each ability's damage number next to its button before pressing
     it, plus icons per ability, plus a visual/animated effect on the

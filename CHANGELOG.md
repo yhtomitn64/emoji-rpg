@@ -111,6 +111,21 @@ public API, no formal release process — commits land straight on
   the sweet spot, since that key (not the ability's own number key again)
   is what the meter actually listens for.
 
+### Changed
+- Super Scream moved off number key `5` onto Space, and is now usable the
+  instant it's off its own 30s cooldown regardless of the swing-timer
+  gauge — using it no longer resets the gauge either, so it's a genuinely
+  free action layered on top of the rest of the rotation rather than
+  costing a turn. Digit keys `1`-`4` still map to Stab/Chop/Slash/Sweep
+  unchanged.
+- Attack no longer waits on the swing timer either — it's pressable any
+  time — but each consecutive Attack (without landing an ability or
+  letting the gauge refill to full first) deals less damage than the
+  last, down to a floor of 40% of normal, with the live penalty shown
+  right on the button (`Attack (a) -30%`). Landing any ability, or simply
+  holding off long enough for the gauge to fill back up, resets it to
+  full strength.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed
