@@ -25,6 +25,17 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Hero emoji picker grew from 8 to 23 options and gained a real skin-tone
+  selector (5 Fitzpatrick tones + Default). Every candidate was verified
+  by actually rendering base+modifier combinations rather than assumed
+  from the Unicode spec — this caught that the already-shipped fencer
+  🤺 and zombie 🧟 don't recolor at all, so the tone dropdown now
+  auto-disables (and resets to Default) whenever one of those two is
+  selected, instead of silently no-op'ing. ZWJ-sequence options
+  (astronaut, artist, pilot) needed the tone modifier inserted right
+  after the base person codepoint, not appended at the end, or the
+  browser renders it as a stray unstyled color swatch instead of
+  recoloring the glyph (`applySkinTone` in `js/state.js`).
 - Quest turn-ins now scale instead of staying flat-value forever. Each
   monster tracks its own quest level (`state.questLevel`, starts at 1):
   every turn-in requires one more kill than the last

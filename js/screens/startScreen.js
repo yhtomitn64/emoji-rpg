@@ -1,4 +1,4 @@
-import { HERO_EMOJI_OPTIONS, DEFAULT_HERO_EMOJI } from '../state.js';
+import { HERO_EMOJI_OPTIONS, DEFAULT_HERO_EMOJI, SKIN_TONES, isToneCapableEmoji, applySkinTone } from '../state.js';
 import { MONSTERS } from '../data/monsters.js';
 
 const SCENE_MONSTERS = [
@@ -68,10 +68,12 @@ function renderSlotRow(slot) {
 function render() {
   const slotRows = slots.map(renderSlotRow).join('');
   const emojiOptions = HERO_EMOJI_OPTIONS.map((emoji) => `<option value="${emoji}">${emoji}</option>`).join('');
+  const toneOptions = SKIN_TONES.map((tone) => `<option value="${tone.modifier}">${tone.label}</option>`).join('');
   const newGameSection = newGameOpen
     ? `<div class="new-game-row">
         <input type="text" id="new-game-name" placeholder="Character name" />
         <select id="new-game-emoji" aria-label="Hero emoji">${emojiOptions}</select>
+        <select id="new-game-tone" aria-label="Skin tone">${toneOptions}</select>
         <button id="btn-create-slot">Create</button>
       </div>`
     : `<button id="btn-open-new-game">+ New Game</button>`;
@@ -105,10 +107,22 @@ function render() {
 
   if (newGameOpen) {
     const input = document.getElementById('new-game-name');
+    const emojiSelect = document.getElementById('new-game-emoji');
+    const toneSelect = document.getElementById('new-game-tone');
     input.focus();
+
+    const syncToneAvailability = () => {
+      const capable = isToneCapableEmoji(emojiSelect.value);
+      toneSelect.disabled = !capable;
+      if (!capable) toneSelect.value = '';
+    };
+    emojiSelect.onchange = syncToneAvailability;
+    syncToneAvailability();
+
     document.getElementById('btn-create-slot').onclick = () => {
       const name = input.value.trim() || 'New Game';
-      const heroEmoji = document.getElementById('new-game-emoji').value || DEFAULT_HERO_EMOJI;
+      const baseEmoji = emojiSelect.value || DEFAULT_HERO_EMOJI;
+      const heroEmoji = applySkinTone(baseEmoji, toneSelect.value);
       callbacks.onNewGame(name, heroEmoji);
     };
   } else {

@@ -219,15 +219,12 @@ A new HUD button unmounts back to `mountStartScreen()` behind a
 confirmation overlay (`js/screens/logoutConfirmScreen.js`). See
 CHANGELOG.
 
-### Hero emoji picker needs way more options, including skin tones
-The current picker (`HERO_EMOJI_OPTIONS` in js/state.js) is a curated
-list of 8 emoji with no skin-tone variants. Wants a much larger
-selection and real skin-tone support. Unicode skin-tone modifiers
-(U+1F3FB–U+1F3FF) only apply to emoji that support the Fitzpatrick
-modifier (person/hand gestures do; animals, objects don't) — worth
-checking which of a larger candidate list actually renders distinct
-tones across browsers before committing to a big list, since a modifier
-silently no-ops on unsupported base emoji.
+### ~~Hero emoji picker needs way more options, including skin tones~~ Shipped 2026-08-22
+Grew from 8 to 23 options plus a real skin-tone selector, only after
+actually rendering every candidate base+modifier combo to confirm which
+ones recolor (2 of the original 8 — fencer, zombie — turned out not to;
+tone dropdown auto-disables for those, kept per Timothy's call rather
+than dropping them). See CHANGELOG.
 
 ### ~~Shop: equip gear right after buying it, or offer to~~ Shipped 2026-08-22
 Went with the opt-in prompt (Timothy's "even better" option), not

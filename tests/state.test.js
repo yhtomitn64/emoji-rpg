@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createNewGame, serializeState, deserializeState, saveState, loadState, slotSaveKey, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION } from '../js/state.js';
+import {
+  createNewGame,
+  serializeState,
+  deserializeState,
+  saveState,
+  loadState,
+  slotSaveKey,
+  DEFAULT_HERO_EMOJI,
+  DEFAULT_DUNGEON_ENTRANCE_POSITION,
+  HERO_EMOJI_OPTIONS,
+  SKIN_TONES,
+  isToneCapableEmoji,
+  applySkinTone,
+} from '../js/state.js';
 
 function createFakeStorage() {
   const store = new Map();
@@ -89,4 +102,36 @@ test('saveState for one slot does not affect another slot', () => {
 test('loadState returns null when nothing saved for that slot', () => {
   const storage = createFakeStorage();
   assert.equal(loadState('slot-1', storage), null);
+});
+
+test('HERO_EMOJI_OPTIONS has no duplicate entries', () => {
+  assert.equal(new Set(HERO_EMOJI_OPTIONS).size, HERO_EMOJI_OPTIONS.length);
+});
+
+test('SKIN_TONES starts with a no-op Default option', () => {
+  assert.equal(SKIN_TONES[0].label, 'Default');
+  assert.equal(SKIN_TONES[0].modifier, '');
+});
+
+test('isToneCapableEmoji is false only for the verified non-recoloring emoji', () => {
+  assert.equal(isToneCapableEmoji('🤺'), false);
+  assert.equal(isToneCapableEmoji('🧟'), false);
+  assert.equal(isToneCapableEmoji('🧑'), true);
+  assert.equal(isToneCapableEmoji('🧙'), true);
+});
+
+test('applySkinTone appends the modifier for a simple single-codepoint emoji', () => {
+  assert.equal(applySkinTone('🧙', '\u{1F3FF}'), '🧙\u{1F3FF}');
+});
+
+test('applySkinTone inserts the modifier before the ZWJ in a ZWJ sequence', () => {
+  assert.equal(applySkinTone('🧑‍🚀', '\u{1F3FB}'), '🧑\u{1F3FB}‍🚀');
+});
+
+test('applySkinTone is a no-op for tone-incapable emoji, even with a modifier passed', () => {
+  assert.equal(applySkinTone('🧟', '\u{1F3FF}'), '🧟');
+});
+
+test('applySkinTone is a no-op for an empty/default modifier', () => {
+  assert.equal(applySkinTone('🧑', ''), '🧑');
 });

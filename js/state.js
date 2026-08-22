@@ -1,7 +1,39 @@
 export const STORAGE_KEY = 'emoji-rpg-save';
 
 export const DEFAULT_HERO_EMOJI = '🧑';
-export const HERO_EMOJI_OPTIONS = ['🧑', '🧙', '🥷', '🧝', '🦸', '🧛', '🤺', '🧟'];
+export const HERO_EMOJI_OPTIONS = [
+  '🧑', '🧙', '🥷', '🧝', '🦸', '🧛', '🤺', '🧟',
+  '🦹', '🎅', '🤶', '👸', '🤴', '🤵', '👰', '👳', '🧕',
+  '🧗', '🏃', '🚴', '🧑‍🚀', '🧑‍🎨', '🧑‍✈️',
+];
+
+// Verified by rendering each base emoji + each Fitzpatrick modifier and checking
+// the glyph actually recolors, rather than leaving the modifier to render as its
+// own separate color-swatch box next to an unchanged base emoji. Keep in sync
+// with HERO_EMOJI_OPTIONS if that list changes.
+const TONE_INCAPABLE_EMOJI = new Set(['🤺', '🧟']);
+
+export function isToneCapableEmoji(emoji) {
+  return !TONE_INCAPABLE_EMOJI.has(emoji);
+}
+
+export const SKIN_TONES = [
+  { label: 'Default', modifier: '' },
+  { label: '🏻', modifier: '\u{1F3FB}' },
+  { label: '🏼', modifier: '\u{1F3FC}' },
+  { label: '🏽', modifier: '\u{1F3FD}' },
+  { label: '🏾', modifier: '\u{1F3FE}' },
+  { label: '🏿', modifier: '\u{1F3FF}' },
+];
+
+export function applySkinTone(emoji, modifier) {
+  if (!modifier || !isToneCapableEmoji(emoji)) return emoji;
+  // Insert right after the first code point, not at the end - ZWJ sequences like
+  // person+ZWJ+rocket need the modifier between the base person and the ZWJ, or
+  // it renders as its own unstyled color swatch instead of recoloring the emoji.
+  const codePoints = Array.from(emoji);
+  return [codePoints[0], modifier, ...codePoints.slice(1)].join('');
+}
 
 export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'southeast', x: 24, y: 10 };
 
