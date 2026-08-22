@@ -297,12 +297,28 @@ Each monster now has its own `questLevel` (starts at 1, uncapped);
 requirement grows by 1 kill/level, reward quantity grows as
 `1 + floor(log2(level))`. See CHANGELOG.
 
-### Sell unneeded crafting materials once upgrades are maxed
+### Sell unneeded crafting materials once upgrades are maxed — deferred 2026-08-22
 Wants a way to offload materials that are no longer useful after hitting max
 smith upgrades - either a manual sell option, or the game offers/prompts an
-auto-sell once it detects upgrades are maxed. Needs a look at
-`js/screens/smithScreen.js` (upgrade-max detection) and the
-inventory/shop-sell path (if one exists yet) before designing.
+auto-sell once it detects upgrades are maxed.
+
+Investigated: materials currently have no sell path or `price` field at
+all anywhere in the game. Also a real wrinkle for any "auto" version —
+upgrade level is tracked per specific equipped item
+(`state.upgrades[itemId]`), not per slot, so a material tied to a maxed
+weapon could become useful again after swapping in a different weapon;
+auto-selling the instant a slot looks "maxed" risks selling something
+you'd want back. A manual sell option (the safer of the two asks)
+sidesteps that ambiguity entirely.
+
+**Deliberately not built yet — Timothy's own call after a quick gut-check:**
+the economy doesn't currently have a real "stuck with useless materials"
+problem to solve. Shop gear tops out around 45g, the full 3-level smith
+upgrade path costs at most ~120g total per item (20/40/60g), and even
+mid-tier monster gold drops outpace those costs comfortably — nothing
+sinks gold or materials fast enough to make this a real gap yet, just a
+few extra tidy-up rows in the inventory. Revisit if that changes (e.g.
+materials pile up faster, or a future economy pass tightens gold flow).
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
