@@ -6,15 +6,15 @@ test('xpForLevel increases with level', () => {
   assert.ok(xpForLevel(2) > xpForLevel(1));
 });
 
-test('xpForLevel is unchanged below level 10', () => {
-  assert.equal(xpForLevel(5), 112);
-  assert.equal(xpForLevel(8), 226);
-  assert.equal(xpForLevel(9), 270);
+test('xpForLevel below level 10 uses the steepened balance-pass curve', () => {
+  assert.equal(xpForLevel(5), 134);
+  assert.equal(xpForLevel(8), 272);
+  assert.equal(xpForLevel(9), 324);
 });
 
 test('xpForLevel ramps up starting at level 10', () => {
-  assert.equal(xpForLevel(10), 341);
-  assert.equal(xpForLevel(15), 860);
+  assert.equal(xpForLevel(10), 409);
+  assert.equal(xpForLevel(15), 1032);
 });
 
 test('applyXp accumulates xp without leveling when below threshold', () => {
@@ -42,14 +42,14 @@ test('applyXp can trigger multiple level ups from a large xp gain', () => {
   assert.ok(next.level > 2);
 });
 
-test('applyXp reaching level 9 still uses the unchanged pre-rework gains and a full heal', () => {
+test('applyXp reaching level 9 (odd, below 10) gets the balance-pass alternating attack gain and a full heal', () => {
   const player = { level: 8, xp: 0, hp: 5, maxHp: 36, attack: 18, defense: 9, speed: 11, gold: 0 };
   const needed = xpForLevel(8);
   const { player: next, leveledUp } = applyXp(player, needed);
   assert.equal(leveledUp, true);
   assert.equal(next.level, 9);
   assert.equal(next.maxHp, 40);
-  assert.equal(next.attack, 20);
+  assert.equal(next.attack, 19); // odd level -> +1, not +2
   assert.equal(next.defense, 10);
   assert.equal(next.speed, 12);
   assert.equal(next.hp, next.maxHp);
@@ -87,7 +87,7 @@ test('applyXp on a multi-level jump crossing the level-10 boundary uses partial 
   assert.equal(leveledUp, true);
   assert.equal(next.level, 11);
   assert.equal(next.maxHp, 44);
-  assert.equal(next.attack, 22);
+  assert.equal(next.attack, 21); // 16 -> +2 (L8, even) -> +1 (L9, odd) -> +1 (L10, tapered) -> +1 (L11, tapered) = 21
   assert.equal(next.defense, 12);
   assert.equal(next.speed, 13);
   assert.equal(next.hp, 25);

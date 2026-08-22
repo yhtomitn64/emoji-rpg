@@ -14,23 +14,23 @@ export const COMBO_RETURN_BONUS_MULTIPLIER = 1.15;
 export const ABILITIES = [
   {
     id: 'stab', name: 'Stab', icon: '🗡️', unlockLevel: 2, type: 'damage',
-    damageMultiplier: 1.3, cooldownMs: 4000,
+    damageMultiplier: 0.8, cooldownMs: 4000,
     comboRole: 'setup', comboPartnerId: 'chop', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
   },
   {
     id: 'chop', name: 'Chop', icon: '🪓', unlockLevel: 4, type: 'damage',
-    damageMultiplier: 1.8, cooldownMs: 10000,
+    damageMultiplier: 1.1, cooldownMs: 10000,
     comboRole: 'payoff', comboPartnerId: 'stab', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,
   },
   {
     id: 'slash', name: 'Slash', icon: '⚔️', unlockLevel: 6, type: 'damage',
-    damageMultiplier: 1.0, cooldownMs: 6000,
+    damageMultiplier: 0.85, cooldownMs: 6000,
     delayedHitMultiplier: 0.2, delayedHitDelayMs: 900,
     comboRole: 'setup', comboPartnerId: 'sweep', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
   },
   {
     id: 'sweep', name: 'Sweep', icon: '🌪️', unlockLevel: 8, type: 'damage',
-    damageMultiplier: 1.5, cooldownMs: 12000,
+    damageMultiplier: 1.3, cooldownMs: 12000,
     defenseShredMultiplier: 0.85, defenseShredDurationMs: 6000,
     aoe: true,
     comboRole: 'payoff', comboPartnerId: 'slash', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,

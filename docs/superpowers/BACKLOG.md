@@ -717,25 +717,56 @@ the thread instead of re-deriving it.
 
 ## Balance / design gaps
 
-### Abilities have made the game too easy overall, raised 2026-08-22
+### ~~Abilities have made the game too easy overall, raised 2026-08-22~~ Balance pass shipped 2026-08-22
 Timothy: "game seems too easy now with all the abilities so we will
 need to address this and make stuff harder or abilities weaker." A
-broader complaint than the specific Attack/knockback exploit above
-(under "What is Attack for?") — that one makes fights literally
-unlosable via a mechanical loophole; this is Timothy's read that even
-setting that aside, the abilities system as a whole (Phase 1 unlocks +
-the combo-chain/Sweep-AOE redesign) has pushed overall combat power
-too high, independent of any single bug. Needs its own look once the
-Attack exploit above is actually fixed — that fix alone may already
-swing the needle a fair amount, so this is worth re-assessing rather
-than tuning both at once blind. Candidates worth considering when this
-gets designed: higher-level monster HP/attack scaling to keep pace with
-ability damage, longer ability cooldowns, smaller combo/timing-meter
-bonus multipliers, or leaning into the "research: ability/skill
-synergies vs. raw stat inflation" idea already in the Combat pass ideas
-section above rather than just dialing numbers down. No specific
-approach chosen yet — flagging the complaint and its likely dependency
-on the Attack-exploit fix, not a design.
+broader complaint than the specific Attack/knockback exploit (under
+"What is Attack for?", fixed separately first) — this was Timothy's
+read that even setting that aside, the abilities system as a whole had
+pushed overall combat power too high. Addressed via a two-phase,
+data-driven balance pass (Phase A: extended `scripts/simulate-balance.js`
+to actually model abilities instead of only plain Attack — see
+"Balance simulator ability modeling" elsewhere in this file. Phase B:
+the actual tuning, design at `docs/superpowers/specs/2026-08-22-balance-
+pass-design.md`).
+
+**What shipped:** Stab 1.3→0.8 and Chop 1.8→1.1 damage multipliers (the
+early/spammable abilities), Slash 1.0→0.85 and Sweep 1.5→1.3 (lighter
+cut), player attack growth for levels 2-9 alternating +2/+1 instead of
+flat +2, and `xpForLevel`'s base coefficient 10→12 (20% more XP per
+level). Full before/after numbers and reasoning in the CHANGELOG's
+Phase B entry.
+
+**What this pass could NOT fix, and why (worth knowing before revisiting):**
+- Near-town wilderness (55-100 HP monsters) stayed at 100% win / 100%
+  HP-left no matter how hard abilities or base attack were cut — this
+  turned out to be structural: a monster that slow/squishy dies within a
+  handful of player actions regardless of per-hit damage, before its own
+  wind-up ever completes. Not fixable without touching monster HP/speed
+  (out of scope, per the standing "zone 1 should keep getting easier"
+  call) or crushing player power hard enough to break every other tier.
+  Treated as intentional, matching that standing design call.
+- `prepared L9`/`veteran L11` (fully "prepared" builds) stayed at 100%
+  win rate against dungeon-tier and boss-tier-0 even after stacking
+  ability cuts with the base-attack cut — real HP/potion cost does show
+  up, but not the win/loss outcome. Decided this is correct, not a bug:
+  a min-maxed "prepared" build reliably winning what it prepared for is
+  the point of preparation. Attrition, not win rate, is the right signal
+  for that tier.
+- **Known regression, not specifically protected against:** `veteran
+  L11` vs. Dragon tier 1 dropped from 57% (the only build that could
+  previously touch it) to ~0-2%, a side effect of the leveling-curve
+  change. Left as-is — flagging for whoever next touches these numbers,
+  since restoring it without re-breaking L9/dungeon-tier would need
+  another real tuning pass, not a quick fix.
+
+If "too easy" comes up again, it's likely one of: (a) the near-town/
+prepared-build cases above being reframed as real problems after all
+(they were deliberately accepted here, not overlooked), or (b) the
+still-unaddressed "abilities have made gear/potions matter less"
+framing needing a genuinely different lever than damage/XP tuning —
+see the "research: ability/skill synergies vs. raw stat inflation" idea
+in the Combat pass ideas section above, never pursued.
 
 ### NG+ doesn't reset `lossStreak`
 `resetWorldForNgPlus` (js/systems/ngPlus.js:45-59) resets `bossTier`,

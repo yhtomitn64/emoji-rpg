@@ -72,9 +72,9 @@ test('resolveAbilityUse applies the ability multiplier on top of a plain attack,
   // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, no crit (rollCrit uses the same rng draw internally,
   // and 0.5 is well above CRIT_CHANCE=0.1, so no crit here)
   const result = resolveAbilityUse(player, monster, stab, false, false, false, () => 0.5);
-  assert.equal(result.damage, 10); // round(8 * 1.3) = 10
+  assert.equal(result.damage, 6); // round(8 * 0.8) = 6
   assert.equal(result.isCrit, false);
-  assert.equal(result.monsterHp, 90);
+  assert.equal(result.monsterHp, 94);
   assert.equal(result.playerAtb, 0);
 });
 
@@ -83,8 +83,8 @@ test('resolveAbilityUse multiplies in the rotation bonus when the buff is active
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
   const result = resolveAbilityUse(player, monster, chop, true, false, false, () => 0.5);
-  // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.25 (rotation) = round(17.5) = 18
-  assert.equal(result.damage, 18);
+  // base 8, * 1.1 (chop) = round(8.8) = 9, * 1.25 (rotation) = round(11.25) = 11
+  assert.equal(result.damage, 11);
 });
 
 test('resolveAbilityUse multiplies in the timing bonus on a hit', () => {
@@ -92,8 +92,8 @@ test('resolveAbilityUse multiplies in the timing bonus on a hit', () => {
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
   const result = resolveAbilityUse(player, monster, stab, false, true, false, () => 0.5);
-  // base 8, * 1.3 (stab) = round(10.4) = 10, * 1.30 (timing) = round(13) = 13
-  assert.equal(result.damage, 13);
+  // base 8, * 0.8 (stab) = round(6.4) = 6, * 1.30 (timing) = round(7.8) = 8
+  assert.equal(result.damage, 8);
 });
 
 test('resolveAbilityUse stacks buff and timing bonuses together', () => {
@@ -101,8 +101,8 @@ test('resolveAbilityUse stacks buff and timing bonuses together', () => {
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
   const result = resolveAbilityUse(player, monster, chop, true, true, false, () => 0.5);
-  // base 8, * 1.8 = 14.4 -> round 14, * 1.25 = 17.5 -> round 18, * 1.30 = 23.4 -> round 23
-  assert.equal(result.damage, 23);
+  // base 8, * 1.1 = 8.8 -> round 9, * 1.25 = 11.25 -> round 11, * 1.30 = 14.3 -> round 14
+  assert.equal(result.damage, 14);
 });
 
 test('resolveAbilityUse knocks the monster\'s ATB back and never drops HP below 0', () => {
@@ -177,8 +177,8 @@ test('resolveAbilityUse multiplies in the combo payoff bonus when comboBonusActi
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
   const result = resolveAbilityUse(player, monster, chop, false, false, true, () => 0.5);
-  // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.5 (combo payoff bonus) = round(21) = 21
-  assert.equal(result.damage, 21);
+  // base 8, * 1.1 (chop) = round(8.8) = 9, * 1.5 (combo payoff bonus) = round(13.5) = 14
+  assert.equal(result.damage, 14);
 });
 
 test('resolveAbilityUse multiplies in the smaller combo return bonus on a setup ability', () => {
@@ -186,8 +186,8 @@ test('resolveAbilityUse multiplies in the smaller combo return bonus on a setup 
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
   const result = resolveAbilityUse(player, monster, stab, false, false, true, () => 0.5);
-  // base 8, * 1.3 (stab) = round(10.4) = 10, * 1.15 (combo return bonus) = round(11.5) = 12
-  assert.equal(result.damage, 12);
+  // base 8, * 0.8 (stab) = round(6.4) = 6, * 1.15 (combo return bonus) = round(6.9) = 7
+  assert.equal(result.damage, 7);
 });
 
 test('resolveAbilityUse stacks the combo bonus with the buff and timing bonuses together', () => {
@@ -195,8 +195,8 @@ test('resolveAbilityUse stacks the combo bonus with the buff and timing bonuses 
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
   const result = resolveAbilityUse(player, monster, chop, true, true, true, () => 0.5);
-  // base 8, * 1.8 = 14.4 -> 14, * 1.25 (buff) = 17.5 -> 18, * 1.30 (timing) = 23.4 -> 23, * 1.5 (combo) = 34.5 -> 35
-  assert.equal(result.damage, 35);
+  // base 8, * 1.1 = 8.8 -> 9, * 1.25 (buff) = 11.25 -> 11, * 1.30 (timing) = 14.3 -> 14, * 1.5 (combo) = 21 -> 21
+  assert.equal(result.damage, 21);
 });
 
 test('resolveAbilityUse does not apply any combo bonus when comboBonusActive is false', () => {
@@ -204,8 +204,8 @@ test('resolveAbilityUse does not apply any combo bonus when comboBonusActive is 
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
   const result = resolveAbilityUse(player, monster, chop, false, false, false, () => 0.5);
-  // base 8, * 1.8 (chop) = round(14.4) = 14, no combo multiplier
-  assert.equal(result.damage, 14);
+  // base 8, * 1.1 (chop) = round(8.8) = 9, no combo multiplier
+  assert.equal(result.damage, 9);
 });
 
 test('canUseAbility requires ready unless a primed payoff bypasses it', () => {
@@ -240,40 +240,40 @@ test('estimateAbilityDamage applies the ability multiplier with no buff/combo bo
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
-  // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, * 1.3 (stab) = round(10.4) = 10
-  assert.equal(estimateAbilityDamage(player, monster, stab, false, false, () => 0.5), 10);
+  // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, * 0.8 (stab) = round(6.4) = 6
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, false, () => 0.5), 6);
 });
 
 test('estimateAbilityDamage multiplies in the rotation buff bonus when active', () => {
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.25 (rotation) = round(17.5) = 18
-  assert.equal(estimateAbilityDamage(player, monster, chop, true, false, () => 0.5), 18);
+  // base 8, * 1.1 (chop) = round(8.8) = 9, * 1.25 (rotation) = round(11.25) = 11
+  assert.equal(estimateAbilityDamage(player, monster, chop, true, false, () => 0.5), 11);
 });
 
 test('estimateAbilityDamage multiplies in the combo bonus when primed', () => {
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.5 (combo payoff) = round(21) = 21
-  assert.equal(estimateAbilityDamage(player, monster, chop, false, true, () => 0.5), 21);
+  // base 8, * 1.1 (chop) = round(8.8) = 9, * 1.5 (combo payoff) = round(13.5) = 14
+  assert.equal(estimateAbilityDamage(player, monster, chop, false, true, () => 0.5), 14);
 });
 
 test('estimateAbilityDamage stacks buff and combo bonuses together', () => {
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  // base 8, * 1.8 = 14.4 -> 14, * 1.25 (buff) = 17.5 -> 18, * 1.5 (combo) = 27
-  assert.equal(estimateAbilityDamage(player, monster, chop, true, true, () => 0.5), 27);
+  // base 8, * 1.1 = 8.8 -> 9, * 1.25 (buff) = 11.25 -> 11, * 1.5 (combo) = 16.5 -> 17
+  assert.equal(estimateAbilityDamage(player, monster, chop, true, true, () => 0.5), 17);
 });
 
 test('estimateAbilityDamage applies the speed damage bonus deterministically, unlike crit/timing which are excluded', () => {
   const player = { attack: 10, defense: 4, speed: 20, atb: 0 }; // at SPEED_DAMAGE_BONUS_THRESHOLD
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
-  // base 8, * 1.3 (stab) = round(10.4) = 10, * 1.1 (speed bonus) = 11
-  assert.equal(estimateAbilityDamage(player, monster, stab, false, false, () => 0.5), 11);
+  // base 8, * 0.8 (stab) = round(6.4) = 6, * 1.1 (speed bonus) = round(6.6) = 7
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, false, () => 0.5), 7);
 });
 
 test('estimateAbilityDamage defaults to an average roll when no rng is supplied', () => {
@@ -281,5 +281,5 @@ test('estimateAbilityDamage defaults to an average roll when no rng is supplied'
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
   const result = estimateAbilityDamage(player, monster, stab, false, false);
-  assert.equal(result, 10);
+  assert.equal(result, 6);
 });

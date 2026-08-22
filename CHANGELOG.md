@@ -193,6 +193,48 @@ public API, no formal release process — commits land straight on
   knockback is gone, the enemy's gauge grows uncontested regardless of
   click rate, so it's guaranteed to eventually get a turn.
 
+### Changed
+- Balance pass (Phase B, player-power side only — see
+  `docs/superpowers/specs/2026-08-22-balance-pass-design.md`): abilities and
+  leveling were both too strong, following straight from the Phase A
+  simulator work that made the "too easy" complaint measurable instead of
+  anecdotal. Stab's damage multiplier drops 1.3→0.8 and Chop's 1.8→1.1 (the
+  early, spammable abilities that were trivializing low-tier content);
+  Slash drops 1.0→0.85 and Sweep 1.5→1.3 (a lighter cut, since dungeon-tier
+  was already close to a healthy difficulty for these). Attack growth for
+  levels 2-9 now alternates +2/+1 per level (average +1.5, down from a flat
+  +2) instead of a uniform gain every level. `xpForLevel`'s base coefficient
+  rises 10→12 (20% more XP required at every level) — the "slow leveling
+  down a bit" ask.
+  Real effect, per the extended simulator: far-corner wilderness win rate
+  stayed saturated but real attrition now shows up (HP-left dropped from
+  ~84-92% to ~73-91% for a mid-tier build); `reasonable L7`'s dungeon-tier
+  win rate came down from 100% to 75-78%; potion usage now shows up in
+  several matchups that previously reported zero. Near-town wilderness
+  (55-100 HP monsters) stayed at 100% win / 100% HP-left regardless of how
+  hard abilities were cut — turns out this is structural, not
+  ability-driven: a monster that slow and that squishy dies within a
+  handful of player actions no matter the per-hit damage, well before its
+  own wind-up ever completes, so it can't be fixed without touching monster
+  HP/speed (explicitly out of scope) or crushing player power hard enough
+  to break every other tier. Treated as intentional — matches the standing
+  "zone 1 should keep getting easier" design call — rather than chased
+  further.
+  Dungeon-tier and boss-tier-0 for `prepared L9`/`veteran L11` (fully
+  "prepared" builds) also proved resistant to win-rate movement even after
+  stacking ability cuts with the base-attack-growth cut — real HP/potion
+  cost does show up (Dragon tier 0 potions used: 0.5→1.3), but the outcome
+  itself stays 100%. Decided to treat this as correct rather than a bug: a
+  min-maxed "prepared" build reliably winning the content it prepared for
+  is the point of preparation — attrition (HP left, potions burned) is the
+  more meaningful signal for these builds, not literal win/loss. Known
+  trade-off: `veteran L11` vs. Dragon tier 1 dropped from 57% (the one
+  build that could previously touch it at all) to ~0-2% — an unintended
+  side effect of the leveling-curve change that wasn't specifically
+  protected against; left as-is rather than spending further tuning passes
+  chasing a single edge-case matchup, but flagged here for anyone touching
+  these numbers again.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed

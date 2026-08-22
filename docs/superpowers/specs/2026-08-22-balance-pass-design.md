@@ -152,3 +152,26 @@ output archived at `/tmp/balance-baseline.txt`.
 Phase B (actual tuning of ability multipliers/cooldowns, XP curve, and
 conditionally gear/potion stats) is a separate follow-up plan, per this
 spec's original two-phase structure.
+
+## Phase B results (executed 2026-08-22)
+
+Full numbers, reasoning, and the two known limitations (near-town
+wilderness structurally can't hit a win-rate target; "prepared" builds
+at dungeon/boss-tier-0 measured by attrition instead of win rate, per an
+explicit call during execution) are in the CHANGELOG's Phase B entry and
+`docs/superpowers/BACKLOG.md`'s "Abilities have made the game too easy
+overall" entry — not duplicated here. Two mid-execution decisions that
+revised this doc's own original framing, both confirmed with Timothy
+before proceeding:
+
+- The wilderness win-rate target was checked against `L4 (starter sword
+  + cloth tunic + cloth cap)` instead of `reasonable L7` as originally
+  written above — L7 already has the full ability kit and iron gear, so
+  by the time a player is actually there they've likely moved on to
+  dungeon-tier content; L4 is the build actually facing wilderness
+  content at the game's intended pace.
+- Boss tier 2 (0% win rate for every build, even before this pass)
+  stays a deliberate, permanently-out-of-reach superboss rather than
+  something ability tuning needs to protect the reachability of — this
+  pass reduces player power, so tier 2 only gets further away, and
+  that's accepted.
