@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -290,6 +290,7 @@ function updateBuffIndicator() {
 
 function abilityButtonsHtml() {
   const ready = isReady(playerCombatant.atb);
+  const target = monsterCombatants[selectedMonsterIndex];
   return ABILITIES.map((ability, index) => {
     const slot = index + 1;
     const locked = state.player.level < ability.unlockLevel;
@@ -306,7 +307,11 @@ function abilityButtonsHtml() {
       ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
       : '';
     const keyLabel = alwaysReady ? 'Space' : slot;
-    const label = `${ability.name} (${keyLabel})${cooldownSuffix}${comboSuffix}`;
+    // Excludes crit/timing luck (unknowable before pressing) - see estimateAbilityDamage.
+    const damageSuffix = ability.type === 'damage' && target
+      ? ` ~${estimateAbilityDamage(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), ability, buffState.active, comboPrimed)}`
+      : '';
+    const label = `${ability.icon} ${ability.name} (${keyLabel})${cooldownSuffix}${comboSuffix}${damageSuffix}`;
     const comboClass = comboPrimed ? ' battle-ability-button-combo' : '';
     return `<button id="btn-ability-${ability.id}" class="battle-ability-button${comboClass}" ${disabled ? 'disabled' : ''}>${label}</button>`;
   }).join('');
@@ -485,6 +490,12 @@ async function playerUseAbility(abilityId) {
   // instead.
   if (abilityActionInFlight) return;
   abilityActionInFlight = true;
+  // Fired once here rather than removed later: this button is about to be
+  // torn down and rebuilt fresh by the next updateMenu() call (abilityButtonsHtml()
+  // regenerates the whole menu's innerHTML), so the animation just plays out
+  // on the outgoing element - no cleanup needed. Works identically whether
+  // playerUseAbility was reached via a mouse click or a keyboard shortcut.
+  document.getElementById(`btn-ability-${abilityId}`)?.classList.add('battle-ability-button-pressed');
   try {
     const ability = ABILITIES.find((a) => a.id === abilityId);
     if (ability.type === 'buff') {

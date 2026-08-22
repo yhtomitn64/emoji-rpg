@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER, COMBO_PAYOFF_BONUS_MULTIPLIER, COMBO_RETURN_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER, COMBO_PAYOFF_BONUS_MULTIPLIER, COMBO_RETURN_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order', () => {
@@ -228,4 +228,58 @@ test('canUseAbility bypasses the ready gate when alwaysReady is set, e.g. Super 
 test('canUseAbility still respects locked/onCooldown even when alwaysReady is set', () => {
   assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: false, alwaysReady: true }), false);
   assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, alwaysReady: true }), false);
+});
+
+test('every ability has a distinct icon', () => {
+  const icons = ABILITIES.map((a) => a.icon);
+  assert.ok(icons.every((icon) => typeof icon === 'string' && icon.length > 0));
+  assert.equal(new Set(icons).size, icons.length);
+});
+
+test('estimateAbilityDamage applies the ability multiplier with no buff/combo bonus', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const stab = ABILITIES.find((a) => a.id === 'stab');
+  // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, * 1.3 (stab) = round(10.4) = 10
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, false, () => 0.5), 10);
+});
+
+test('estimateAbilityDamage multiplies in the rotation buff bonus when active', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const chop = ABILITIES.find((a) => a.id === 'chop');
+  // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.25 (rotation) = round(17.5) = 18
+  assert.equal(estimateAbilityDamage(player, monster, chop, true, false, () => 0.5), 18);
+});
+
+test('estimateAbilityDamage multiplies in the combo bonus when primed', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const chop = ABILITIES.find((a) => a.id === 'chop');
+  // base 8, * 1.8 (chop) = round(14.4) = 14, * 1.5 (combo payoff) = round(21) = 21
+  assert.equal(estimateAbilityDamage(player, monster, chop, false, true, () => 0.5), 21);
+});
+
+test('estimateAbilityDamage stacks buff and combo bonuses together', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const chop = ABILITIES.find((a) => a.id === 'chop');
+  // base 8, * 1.8 = 14.4 -> 14, * 1.25 (buff) = 17.5 -> 18, * 1.5 (combo) = 27
+  assert.equal(estimateAbilityDamage(player, monster, chop, true, true, () => 0.5), 27);
+});
+
+test('estimateAbilityDamage applies the speed damage bonus deterministically, unlike crit/timing which are excluded', () => {
+  const player = { attack: 10, defense: 4, speed: 20, atb: 0 }; // at SPEED_DAMAGE_BONUS_THRESHOLD
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const stab = ABILITIES.find((a) => a.id === 'stab');
+  // base 8, * 1.3 (stab) = round(10.4) = 10, * 1.1 (speed bonus) = 11
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, false, () => 0.5), 11);
+});
+
+test('estimateAbilityDamage defaults to an average roll when no rng is supplied', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const stab = ABILITIES.find((a) => a.id === 'stab');
+  const result = estimateAbilityDamage(player, monster, stab, false, false);
+  assert.equal(result, 10);
 });

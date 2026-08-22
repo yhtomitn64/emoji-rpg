@@ -456,11 +456,13 @@ through in a dedicated future combat pass rather than one-off adds:
     (defaults to `1`, so `scripts/simulate-balance.js`'s existing calls
     are unaffected — the simulator doesn't model this new mechanic yet,
     same precedent as it not modeling abilities).
-  - **Information density on the ability buttons.** Still open. Wants to
-    see each ability's damage number next to its button before pressing
-    it, plus icons per ability, plus a visual/animated effect on the
-    button itself when pressed. Explicitly deferred out of the
-    2026-08-22 pass as its own future polish item.
+  - ~~**Information density on the ability buttons.**~~ **Shipped
+    2026-08-22.** Each damage-type ability button now shows a live
+    estimated damage number against the current target (average roll +
+    active buff/combo bonus, deliberately excluding crit/timing luck —
+    `estimateAbilityDamage` in `js/systems/abilities.js`), plus a
+    per-ability icon (🗡️🪓⚔️🌪️📢), plus a brief scale/brighten flash on
+    the button when pressed.
 - **Timing-meter clarity and crit/damage-number visual polish, raised
   2026-08-20.** Two related requests: (1) ~~Timothy wasn't sure what the
   green zone at the end of the hero's own swing timer indicates, or

@@ -267,6 +267,14 @@ button:disabled {
   border-color: #f5b942;
   box-shadow: 0 0 8px rgba(245, 185, 66, 0.6);
 }
+.battle-ability-button-pressed {
+  animation: battle-ability-press 220ms ease-out;
+}
+@keyframes battle-ability-press {
+  0% { transform: scale(1); filter: brightness(1); }
+  35% { transform: scale(1.14); filter: brightness(1.6); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
 button:focus-visible {
   outline: 2px solid #4ade80;
   outline-offset: 1px;

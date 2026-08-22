@@ -110,6 +110,15 @@ public API, no formal release process — commits land straight on
   timing meter also now shows a "Press Space!" label once its fill enters
   the sweet spot, since that key (not the ability's own number key again)
   is what the meter actually listens for.
+- Ability buttons now show an icon and a live estimated damage number
+  (e.g. "🪓 Chop (2) ~18"), computed against the currently-selected
+  target from an average damage roll plus any active buff/combo bonus —
+  crit and timing-meter luck are deliberately excluded since those can't
+  be known before pressing. The number updates automatically as you
+  switch targets or a combo primes (`estimateAbilityDamage` in
+  `js/systems/abilities.js`). Super Scream, a buff rather than a direct
+  hit, shows no number. Pressing any ability also triggers a brief
+  scale/brighten flash on its own button.
 
 ### Changed
 - Super Scream moved off number key `5` onto Space, and is now usable the
