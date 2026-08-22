@@ -214,12 +214,10 @@ they are, e.g. "Slippery Breadstick" for the snake. Not tracked
 anywhere; revisit only if it comes up again for a future zone. Two new
 items below, raised mid-combat-pass.)*
 
-### Log out / back to title screen, to switch characters
-No way to leave the current character and get back to the start
-screen's slot list without closing the tab. Needs a HUD/menu action
-that unmounts back to `mountStartScreen()` (js/main.js) — presumably
-with a confirmation given it's mid-game, not a destructive action but
-an unexpected one if triggered accidentally.
+### ~~Log out / back to title screen, to switch characters~~ Shipped 2026-08-22
+A new HUD button unmounts back to `mountStartScreen()` behind a
+confirmation overlay (`js/screens/logoutConfirmScreen.js`). See
+CHANGELOG.
 
 ### Hero emoji picker needs way more options, including skin tones
 The current picker (`HERO_EMOJI_OPTIONS` in js/state.js) is a curated

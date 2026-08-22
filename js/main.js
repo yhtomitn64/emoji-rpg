@@ -9,6 +9,7 @@ import * as inventoryScreen from './screens/inventoryScreen.js';
 import * as messageLogScreen from './screens/messageLogScreen.js';
 import * as lootReferenceScreen from './screens/lootReferenceScreen.js';
 import * as startScreen from './screens/startScreen.js';
+import * as logoutConfirmScreen from './screens/logoutConfirmScreen.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
 import { centerMap } from './maps/wilderness/center.js';
@@ -194,6 +195,10 @@ function setHudButtonsEnabled(enabled) {
   if (lootButton) {
     lootButton.disabled = !enabled;
   }
+  const logoutButton = document.getElementById('btn-logout');
+  if (logoutButton) {
+    logoutButton.disabled = !enabled;
+  }
 }
 
 function renderHud() {
@@ -228,11 +233,18 @@ function renderHud() {
   lootButton.disabled = battleActive;
   lootButton.onclick = openLootReference;
 
+  const logoutButton = document.createElement('button');
+  logoutButton.id = 'btn-logout';
+  logoutButton.textContent = '🚪 Switch Character';
+  logoutButton.disabled = battleActive;
+  logoutButton.onclick = openLogoutConfirm;
+
   hud.appendChild(label);
   hud.appendChild(statsButton);
   hud.appendChild(inventoryButton);
   hud.appendChild(logButton);
   hud.appendChild(lootButton);
+  hud.appendChild(logoutButton);
 }
 
 function openStats() {
@@ -272,6 +284,20 @@ function openLootReference() {
   mountOverlay(lootReferenceScreen, {
     state,
     callbacks: { onClose: () => unmountOverlay() },
+  });
+}
+
+function openLogoutConfirm() {
+  if (battleActive) return;
+  mountOverlay(logoutConfirmScreen, {
+    callbacks: {
+      onConfirm: () => {
+        persist();
+        unmountOverlay();
+        mountStartScreen();
+      },
+      onCancel: () => unmountOverlay(),
+    },
   });
 }
 

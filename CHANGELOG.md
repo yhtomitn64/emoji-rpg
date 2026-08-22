@@ -25,6 +25,13 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- A "🚪 Switch Character" HUD button lets you get back to the title
+  screen's save-slot list without closing the tab. Opens a confirmation
+  overlay (`js/screens/logoutConfirmScreen.js`, modeled on the boss
+  rematch prompt's confirm step) since it's an unexpected action if
+  triggered by accident, though not a destructive one — state already
+  auto-saves on every map move, so there's nothing to lose. Disabled
+  during battle, same as the other HUD buttons.
 - Dungeon has its first tool-gated shortcut: an axe-gated thicket tile at
   `(15, 7)` connects the interior maze directly into the boss corridor,
   instead of looping back through the top rows. Clearing any tool gate
