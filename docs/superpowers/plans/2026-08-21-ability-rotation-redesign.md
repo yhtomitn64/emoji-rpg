@@ -198,7 +198,7 @@ export function resolveAbilityUse(player, monster, ability, buffActive, timingHi
 - [ ] **Step 4: Run the tests to confirm they pass**
 
 Run: `node --test tests/abilities.test.js`
-Expected: PASS, all tests green (14 existing + 6 new = 20 tests in this file).
+Expected: PASS, all tests green (22 existing + 6 new = 28 tests in this file).
 
 - [ ] **Step 5: Run the full suite to confirm no regressions elsewhere**
 
