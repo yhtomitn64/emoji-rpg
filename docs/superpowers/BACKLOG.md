@@ -430,6 +430,24 @@ through in a dedicated future combat pass rather than one-off adds:
     flagged as a dependency when multi-mob-encounters shipped). Design:
     `docs/superpowers/specs/2026-08-21-ability-rotation-redesign-design.md`.
     Plan: `docs/superpowers/plans/2026-08-21-ability-rotation-redesign.md`.
+    **Refined 2026-08-22:** Timothy: "I think if you hit the timing
+    window of 1/3 then 2/4 light up respectively and they are instant.
+    No bar at all and no timing game for those abilities. So timing
+    game only for 1/3 and if you do it right that's when you get the
+    bonus for 2/4." Priming now requires actually hitting Stab/Slash's
+    timing window, not just landing the ability at all (a miss still
+    deals normal damage, never-fails is unchanged, it just no longer
+    primes the payoff). Chop/Sweep dropped the timing minigame entirely
+    — never shown, whether triggered via a primed instant-cast or their
+    own swing timer — their reward is the combo multiplier itself, not
+    a stacked timing bonus. Standalone use of Chop/Sweep (without
+    priming) still waits on the normal swing timer, per Timothy's
+    explicit call not to make that path combo-only. Verified via a
+    scripted battle: a missed Stab left Chop un-primed and gated on its
+    own swing timer; a timing-hit Stab primed Chop (damage estimate
+    jumped from the buff correctly applying) and made it instantly
+    pressable; no timing meter ever appeared during Chop's use either
+    way.
   - ~~**Key ergonomics.**~~ **Shipped 2026-08-22.** "My fingers dancing
     from 1, 2, 3, 4, 5 back to a, s is a little funky... fingers are on
     1, 2, 3, 4 and I have to look down for 5." Super Scream now fires on

@@ -170,6 +170,16 @@ public API, no formal release process — commits land straight on
   right on the button (`Attack (a) -30%`). Landing any ability, or simply
   holding off long enough for the gauge to fill back up, resets it to
   full strength.
+- Combo priming now requires actually landing the timing window, not
+  just using the setup ability. Missing Stab/Slash's timing meter still
+  deals normal (un-primed) damage — never-fails is unchanged — but no
+  longer lights up Chop/Sweep. Chop/Sweep themselves never show the
+  timing minigame at all anymore, whether triggered via a primed
+  instant-cast or their own swing timer filling naturally — their
+  reward is the 1.5x combo multiplier, not a stacked timing bonus on
+  top of it. Landing Chop/Sweep still primes Stab/Slash's smaller
+  return bonus unconditionally, since a payoff ability has no timing
+  window of its own to gate on.
 
 ## [0.5.1] - 2026-08-17
 

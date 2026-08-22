@@ -559,7 +559,12 @@ async function playerUseAbility(abilityId) {
         .map((mc, i) => i)
         .filter((i) => monsterCombatants[i].hp > 0);
       const debuffSnapshots = targetIndices.map((i) => monsterCombatants[i].defenseDebuff);
-      const timingHit = await runTimingMeter();
+      // Payoff abilities (Sweep) never get the timing minigame - only the
+      // setup half of a combo lane (Stab/Slash) does. Landing the setup's
+      // timing window is what primes the payoff in the first place; the
+      // payoff's own "bonus" is the combo multiplier, not a stacked timing
+      // bonus on top of it.
+      const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter();
       // Same battle-can-end-mid-await hazard as the single-target path below.
       if (battleOver) return;
       targetIndices.forEach((monsterIndex, n) => {
@@ -581,9 +586,13 @@ async function playerUseAbility(abilityId) {
       // Consume this ability's own primed bonus (if any), then prime its combo
       // partner: a setup primes its payoff for the bigger forward bonus, a
       // payoff primes its setup for the smaller return bonus. Same two lines
-      // handle both directions since comboPartnerId points both ways.
+      // handle both directions since comboPartnerId points both ways - but a
+      // setup only primes forward when its timing window was actually hit
+      // (a miss still deals normal damage, per the never-fails design, just
+      // doesn't light up the payoff); a payoff has no timing option of its
+      // own, so it always primes its setup's return bonus.
       comboState[abilityId] = false;
-      if (ability.comboPartnerId) {
+      if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
         comboState[ability.comboPartnerId] = true;
       }
       updateHpBars();
@@ -597,7 +606,9 @@ async function playerUseAbility(abilityId) {
     const targetIndex = selectedMonsterIndex;
     const target = monsterCombatants[targetIndex];
     const defenseDebuffAtPress = target.defenseDebuff;
-    const timingHit = await runTimingMeter();
+    // Payoff abilities (Chop) never get the timing minigame - see the AOE
+    // branch above for why.
+    const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter();
     // The battle can end while this await is outstanding - e.g. the monster's
     // own ATB-driven attack (tick() -> monsterAttack(), which is intentionally
     // NOT gated by abilityActionInFlight) can kill the player mid-swing. If it
@@ -614,11 +625,10 @@ async function playerUseAbility(abilityId) {
       target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
     }
     // Consume this ability's own primed bonus (if any), then prime its combo
-    // partner: a setup primes its payoff for the bigger forward bonus, a
-    // payoff primes its setup for the smaller return bonus. Same two lines
-    // handle both directions since comboPartnerId points both ways.
+    // partner - see the AOE branch above for the same logic and why a setup
+    // only primes forward on a timing hit while a payoff always primes back.
     comboState[abilityId] = false;
-    if (ability.comboPartnerId) {
+    if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
       comboState[ability.comboPartnerId] = true;
     }
     const timingSuffix = timingHit ? ' Perfect timing!' : '';
