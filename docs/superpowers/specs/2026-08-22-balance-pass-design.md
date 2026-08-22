@@ -78,14 +78,26 @@ output archived at `/tmp/balance-baseline.txt`.
   There is no attrition left for Phase B to tune away at this tier; ability
   damage is currently strong enough to make wilderness content a
   non-fight.
-- **Dungeon-tier and boss tier 0 are still winnable but costly; tiers 1-2
-  are effectively unbeatable.** `prepared L9 (full iron)` wins 100%
+- **Dungeon-tier and boss tier 0 are still winnable but costly; tier 1 is
+  only beatable at the very top of the level curve, and tier 2 is
+  unbeatable for every build.** `prepared L9 (full iron)` wins 100%
   against both dungeon-tier monsters (orc 100%, wraith 100%) and against
   Dragon (tier 0) (100%, ending fights with only ~52% HP remaining and an
   average of 0.5 potions burned). Against Dragon (tier 1) the win rate
   collapses to 1% (and costs an average of 5.3 potions trying); against
-  Dragon (tier 2) it's 0%. The real difficulty cliff right now sits
-  between boss tier 0 and tier 1, not at the dungeon/boss-0 boundary.
+  Dragon (tier 2) it's 0%. Tier 1 is only beatable at the very top of the
+  level curve (`veteran L11 (full iron)` wins 57%, burning 5.6 potions on
+  average); tier 2 is 0% for every simulated build. The real difficulty
+  cliff right now sits between boss tier 0 and tier 1, not at the
+  dungeon/boss-0 boundary.
+- **`reasonable L7` (iron sword + full cloth) — the spec's own named
+  target build — is already inside the target band at dungeon tier.** It
+  wins 86% vs. orc (55% HP left, 2.1 potions) and 85% vs. wraith (54% HP
+  left, 2.0 potions), both within the spec's 80-90% target win-rate band.
+  This matters for Phase B: since dungeon-tier is already on target for
+  the reference build, any wilderness-focused nerf needs to be checked
+  against this tier too, or it risks tuning an already-on-target tier
+  below target without anyone noticing.
 - **Gear doesn't move win/loss at the low end — it only buys a safety
   margin.** Against near-town monsters, `L1 (starter sword only, no
   armor)` and `L1 (starter sword + cloth tunic)` both win 100% of trials —

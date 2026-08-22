@@ -2,8 +2,9 @@
 /**
  * Dungeon-tier & boss balance simulation.
  *
- * Drives the REAL combat/leveling/inventory modules (`js/systems/combat.js`,
- * `js/systems/leveling.js`, `js/systems/inventory.js`) and the REAL monster and
+ * Drives the REAL combat/leveling/inventory/abilities/boss-tier modules
+ * (`js/systems/combat.js`, `js/systems/leveling.js`, `js/systems/inventory.js`,
+ * `js/systems/abilities.js`, `js/systems/bossTiers.js`) and the REAL monster and
  * item data, replaying `battleScreen.js`'s tick loop headlessly so the numbers
  * here reflect the shipped mechanics rather than a re-implementation.
  *
@@ -360,9 +361,10 @@ function main() {
   for (const id of MATCHUPS) {
     monsters[id] = { ...MONSTERS[id], ...(overrides[id] || {}) };
   }
+  const dragonBase = { ...MONSTERS.dragon, ...(overrides.dragon || {}) };
   for (const [tier, id] of BOSS_TIER_MATCHUP_IDS.entries()) {
-    const tierStats = getBossTierStats(MONSTERS.dragon, tier);
-    monsters[id] = { ...MONSTERS.dragon, ...tierStats, name: `Dragon (tier ${tier})`, ...(overrides[id] || {}) };
+    const tierStats = getBossTierStats(dragonBase, tier);
+    monsters[id] = { ...dragonBase, ...tierStats, name: `Dragon (tier ${tier})`, ...(overrides[id] || {}) };
   }
 
   console.log(`Balance simulation — ${trials} trials per matchup\n`);
