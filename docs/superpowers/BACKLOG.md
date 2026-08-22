@@ -471,8 +471,8 @@ through in a dedicated future combat pass rather than one-off adds:
     (defaults to `1`, so `scripts/simulate-balance.js`'s existing calls
     are unaffected — the simulator doesn't model this new mechanic yet,
     same precedent as it not modeling abilities).
-    **Regression found in play, raised 2026-08-22 — makes every fight
-    unlosable:** Timothy: "I can hit attack a bunch of times in a row
+    ~~**Regression found in play, raised 2026-08-22 — makes every fight
+    unlosable:**~~ **Fixed 2026-08-22.** Timothy: "I can hit attack a bunch of times in a row
     and even though it gets weaker it sets the enemy timer back so the
     enemy can never attack me... I think it needs a global cooldown or
     something and it needs to get bad enough that it's not worth using
@@ -503,6 +503,23 @@ through in a dedicated future combat pass rather than one-off adds:
     the ability-rotation's own timing (Attack was deliberately freed from
     the swing timer specifically so it wouldn't compete with abilities;
     a fix here needs to not silently re-couple them).
+    **Fix shipped 2026-08-22, two changes:** (1) a short flat 500ms
+    real-time cooldown on Attack (`ATTACK_COOLDOWN_MS`,
+    `js/screens/battleScreen.js`), separate from the swing timer it was
+    deliberately freed from — stops literal machine-gun clicking without
+    re-coupling it to the ability rotation's own gauge. (2) The real
+    fix: a new `attackKnockbackMultiplier` (`js/systems/combat.js`)
+    decays the ATB knockback with the same spam streak that already
+    decays damage, but faster and with no floor — it reaches exactly 0
+    by the 3rd-4th consecutive Attack, unlike damage which only floors
+    at 40%. Once knockback is fully gone, the enemy's own speed-driven
+    gauge growth is uncontested, so it's guaranteed to eventually wind
+    up regardless of click rate — that's what actually closes the hole,
+    the cooldown just keeps pacing sane in the meantime. Verified with a
+    scripted battle: clicking Attack as fast as a Playwright harness
+    could (far beyond human speed) for 15s straight, the monster still
+    landed hits (player dropped to 13/20 HP) before dying — under the
+    old bug the player would have stayed at full HP the entire fight.
   - ~~**Information density on the ability buttons.**~~ **Shipped
     2026-08-22.** Each damage-type ability button now shows a live
     estimated damage number against the current target (average roll +

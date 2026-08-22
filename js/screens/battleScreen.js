@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
@@ -17,6 +17,12 @@ const DEATH_HIDE_DELAY_MS = 900;
 const TIMING_METER_DURATION_MS = 1000;
 const TIMING_SWEET_SPOT_START = 80;
 const TIMING_SWEET_SPOT_END = 100;
+// A short flat real-time cooldown, separate from the swing timer Attack was
+// deliberately freed from - stops literal machine-gun clicking. On its own
+// this wouldn't close the "attack spam locks the enemy out" hole (see
+// attackKnockbackMultiplier in combat.js for what actually does), it just
+// keeps the pacing sane in the meantime.
+const ATTACK_COOLDOWN_MS = 500;
 
 let rootEl = null;
 let state = null;
@@ -36,6 +42,7 @@ let buffState = createBuffState();
 let comboState = {};
 let abilityActionInFlight = false;
 let attackStreak = 0;
+let attackCooldownMs = 0;
 let liveDamageNumbers = [];
 
 function buildPlayerCombatant() {
@@ -337,7 +344,7 @@ function updateMenu() {
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
 
   elements.menu.innerHTML = `
-    <button id="btn-attack">Attack (a)${attackDecaySuffix}</button>
+    <button id="btn-attack" ${attackCooldownMs > 0 ? 'disabled' : ''}>Attack (a)${attackDecaySuffix}</button>
     ${abilityButtonsHtml()}
     <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item (i)</button>
     <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee (f)</button>
@@ -489,15 +496,16 @@ function playerAttack() {
   // while the pending ability's await is still outstanding - see the
   // `if (battleOver) return;` added after that await below for the other half
   // of this fix.
-  if (abilityActionInFlight) return;
+  if (abilityActionInFlight || attackCooldownMs > 0) return;
   // Capture the target's index now: updateHpBars() below can re-anchor
   // selectedMonsterIndex to a survivor the instant this hit is a killing
   // blow, so re-reading selectedMonsterIndex after that point would make the
   // hit effect render on the wrong (undamaged) monster.
   const targetIndex = selectedMonsterIndex;
   const target = monsterCombatants[targetIndex];
-  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, attackStreakMultiplier(attackStreak));
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, attackStreakMultiplier(attackStreak), attackKnockbackMultiplier(attackStreak));
   attackStreak += 1;
+  attackCooldownMs = ATTACK_COOLDOWN_MS;
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
   playerCombatant.atb = result.playerAtb;
@@ -735,10 +743,12 @@ function checkOutcome() {
 function tick() {
   if (battleOver) return;
   playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
-  // Attack has no cooldown of its own to recover on - letting the swing
-  // timer reach full again (i.e. holding off instead of spamming) is what
-  // resets its decaying-damage streak back to full strength.
+  // Letting the swing timer reach full again (i.e. holding off instead of
+  // spamming) is what resets Attack's decaying streak back to full strength -
+  // its own real-time cooldown (attackCooldownMs, ticked below) only rate-
+  // limits how fast it can be pressed, it doesn't reset the streak.
   if (isReady(playerCombatant.atb)) attackStreak = 0;
+  attackCooldownMs = Math.max(0, attackCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
 

@@ -62,10 +62,13 @@ export function applyCritMultiplier(damage, isCrit) {
 // still attack the instant their ATB is ready in this simulation; see
 // docs/superpowers/specs/2026-08-18-parry-mechanic-design.md)
 
-// Attack has no swing-timer/cooldown gate at all (see battleScreen.js) - this
-// is the tradeoff that keeps spamming it from being strictly optimal: each
+// Attack has no swing-timer gate (see battleScreen.js) and only a short flat
+// cooldown (also battleScreen.js, real-time not ATB) - the actual tradeoff
+// that keeps spamming it from being strictly optimal lives here: each
 // consecutive press without landing an ability or letting the gauge refill
-// deals less damage, down to a floor rather than trailing off to nothing.
+// deals less damage (down to a floor, never to nothing) AND knocks the
+// enemy's gauge back less (down to nothing) - so sustained spam eventually
+// stops suppressing the enemy's turn entirely, however fast it's clicked.
 export const ATTACK_STREAK_DECAY = 0.15;
 export const ATTACK_STREAK_FLOOR = 0.4;
 
@@ -73,7 +76,19 @@ export function attackStreakMultiplier(streak) {
   return Math.max(ATTACK_STREAK_FLOOR, 1 - streak * ATTACK_STREAK_DECAY);
 }
 
-export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1) {
+// Decays faster than the damage multiplier above and has no floor - reaches
+// exactly 0 by streak 3, unlike damage which only ever floors at 40%. This is
+// what actually closes the "attack spam locks the enemy out forever" hole:
+// once knockback is fully gone, the enemy's own speed-driven gauge growth is
+// uncontested and it's guaranteed to eventually wind up, regardless of click
+// rate.
+export const ATTACK_KNOCKBACK_DECAY = 0.34;
+
+export function attackKnockbackMultiplier(streak) {
+  return Math.max(0, 1 - streak * ATTACK_KNOCKBACK_DECAY);
+}
+
+export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1, knockbackMultiplier = 1) {
   const isCrit = rollCrit(rng);
   let damage = calculateDamage(player, monster, rng);
   damage = Math.round(damage * streakMultiplier);
@@ -83,7 +98,7 @@ export function resolvePlayerAttack(player, monster, rng = Math.random, streakMu
     damage,
     isCrit,
     monsterHp: Math.max(0, monster.hp - damage),
-    monsterAtb: applyKnockback(monster.atb, ATB_KNOCKBACK),
+    monsterAtb: applyKnockback(monster.atb, ATB_KNOCKBACK * knockbackMultiplier),
     playerAtb: 0,
   };
 }

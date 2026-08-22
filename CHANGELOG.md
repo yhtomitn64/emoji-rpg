@@ -181,6 +181,18 @@ public API, no formal release process — commits land straight on
   return bonus unconditionally, since a payoff ability has no timing
   window of its own to gate on.
 
+### Fixed
+- Attack-spam exploit: spam-clicking Attack could permanently lock a
+  monster out of ever attacking, since each hit's ATB knockback landed
+  faster than the monster's own gauge could refill and Attack had no
+  gate to slow that down. Fixed two ways: Attack now has a short flat
+  500ms real-time cooldown (separate from the swing timer it's
+  otherwise still free from), and the knockback itself now decays with
+  the same spam streak that already decays damage — reaching exactly 0
+  by the 3rd-4th consecutive hit (damage only ever floors at 40%). Once
+  knockback is gone, the enemy's gauge grows uncontested regardless of
+  click rate, so it's guaranteed to eventually get a turn.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed
