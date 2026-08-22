@@ -18,6 +18,14 @@ export function getQuestRewardItemId(monsterId) {
   return entry.itemId;
 }
 
+export function getQuestRequirement(monsterId, level) {
+  return QUEST_REQUIREMENTS[monsterId] + (level - 1);
+}
+
+export function getQuestRewardQuantity(level) {
+  return 1 + Math.floor(Math.log2(level));
+}
+
 export function incrementQuestProgress(state, monsterId) {
   if (!(monsterId in QUEST_REQUIREMENTS)) return state;
   const current = state.questProgress[monsterId] || 0;
@@ -25,13 +33,20 @@ export function incrementQuestProgress(state, monsterId) {
 }
 
 export function canTurnInQuest(state, monsterId) {
-  return (state.questProgress[monsterId] || 0) >= QUEST_REQUIREMENTS[monsterId];
+  const level = state.questLevel[monsterId] || 1;
+  return (state.questProgress[monsterId] || 0) >= getQuestRequirement(monsterId, level);
 }
 
 export function turnInQuest(state, monsterId) {
   if (!canTurnInQuest(state, monsterId)) throw new Error(`Quest for ${monsterId} is not complete`);
+  const level = state.questLevel[monsterId] || 1;
   const rewardItemId = getQuestRewardItemId(monsterId);
-  let next = { ...state, questProgress: { ...state.questProgress, [monsterId]: 0 } };
-  next = addItem(next, rewardItemId, 1);
+  const rewardQuantity = getQuestRewardQuantity(level);
+  let next = {
+    ...state,
+    questProgress: { ...state.questProgress, [monsterId]: 0 },
+    questLevel: { ...state.questLevel, [monsterId]: level + 1 },
+  };
+  next = addItem(next, rewardItemId, rewardQuantity);
   return next;
 }

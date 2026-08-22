@@ -109,6 +109,12 @@ function startGame(loadedState, slotId) {
       direWolf: 0, spider: 0, orc: 0, wraith: 0,
     };
   }
+  if (!state.questLevel) {
+    state.questLevel = {
+      boar: 1, bat: 1, snake: 1, goblin: 1,
+      direWolf: 1, spider: 1, orc: 1, wraith: 1,
+    };
+  }
   if (!state.monsterKillCounts) {
     state.monsterKillCounts = {
       boar: 0, bat: 0, snake: 0, goblin: 0,

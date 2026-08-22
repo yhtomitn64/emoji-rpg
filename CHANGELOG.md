@@ -25,6 +25,16 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Quest turn-ins now scale instead of staying flat-value forever. Each
+  monster tracks its own quest level (`state.questLevel`, starts at 1):
+  every turn-in requires one more kill than the last
+  (`QUEST_REQUIREMENTS[monster] + (level - 1)`) and grants a growing but
+  decelerating reward quantity (`1 + floor(log2(level))` — 1, 2, 2, 3,
+  3, 3, 3, 4...), so grinding quest levels gets progressively less
+  worth it rather than staying flat-value. Quest board shows the current
+  level and actual reward quantity per row. Existing saves default every
+  monster to level 1, identical to today's behavior until the first
+  turn-in.
 - Tool-gated tiles (mountain/thicket) now nudge you the first time you
   walk adjacent to one, before you ever bump into it — "Something here
   looks like it'd need an Axe to get through" if you lack the tool, or

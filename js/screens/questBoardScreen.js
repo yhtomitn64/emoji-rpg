@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { QUEST_REQUIREMENTS, getQuestRewardItemId, canTurnInQuest, turnInQuest } from '../systems/quests.js';
+import { QUEST_REQUIREMENTS, getQuestRewardItemId, getQuestRequirement, getQuestRewardQuantity, canTurnInQuest, turnInQuest } from '../systems/quests.js';
 import { describeItem } from '../systems/inventory.js';
 
 let rootEl = null;
@@ -10,14 +10,16 @@ let callbacks = null;
 function render() {
   const rows = Object.keys(QUEST_REQUIREMENTS).map((monsterId) => {
     const monster = MONSTERS[monsterId];
-    const required = QUEST_REQUIREMENTS[monsterId];
+    const level = state.questLevel[monsterId] || 1;
+    const required = getQuestRequirement(monsterId, level);
     const progress = state.questProgress[monsterId] || 0;
     const rewardItemId = getQuestRewardItemId(monsterId);
     const rewardItem = ITEMS[rewardItemId];
+    const rewardQuantity = getQuestRewardQuantity(level);
     const complete = canTurnInQuest(state, monsterId);
 
     return `<div class="quest-row">
-      <span title="${describeItem(rewardItemId)}">${monster.emoji} ${monster.name}: ${progress}/${required} killed — reward: ${rewardItem.emoji} ${rewardItem.name}</span>
+      <span title="${describeItem(rewardItemId)}">${monster.emoji} ${monster.name} Lv.${level}: ${progress}/${required} killed — reward: ${rewardItem.emoji} ${rewardItem.name} ×${rewardQuantity}</span>
       <button data-monster="${monsterId}" ${complete ? '' : 'disabled'}>Turn In</button>
     </div>`;
   }).join('');

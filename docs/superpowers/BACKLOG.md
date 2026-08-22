@@ -292,12 +292,10 @@ button that always auto-escalated. See CHANGELOG.
 
 ## Quests / economy
 
-### Quest turn-in scaling: more kills required each level, rewards scale up but with diminishing returns
-Timothy, 2026-08-17: each quest turn-in should require more kills for the
-next level, and rewards should keep growing too but by less each time, so
-grinding quest levels gets progressively less worth it rather than staying
-flat-value forever. Needs a look at `js/systems/quests.js` for the current
-kill-requirement/reward curve before designing the new one.
+### ~~Quest turn-in scaling: more kills required each level, rewards scale up but with diminishing returns~~ Shipped 2026-08-22
+Each monster now has its own `questLevel` (starts at 1, uncapped);
+requirement grows by 1 kill/level, reward quantity grows as
+`1 + floor(log2(level))`. See CHANGELOG.
 
 ### Sell unneeded crafting materials once upgrades are maxed
 Wants a way to offload materials that are no longer useful after hitting max
