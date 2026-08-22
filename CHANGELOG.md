@@ -25,6 +25,13 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- The dragon rematch prompt now lets you choose which tier to fight
+  instead of always auto-escalating to the next one. Every tier from 0
+  up through your next uncleared tier gets its own button (e.g. `Tier 0
+  (1x HP) ⭐`, `Tier 1 (2x HP) ⭐`, `Tier 2 (4x HP)`), so you can replay
+  an already-cleared tier instead of being forced up a difficulty step.
+  Replaying a lower tier can't lower your progress (`bossTier` only ever
+  moves up on a win) and a loss leaves it untouched, same as before.
 - Buying a piece of gear you don't already have equipped now offers an
   inline "Equip now?" prompt in the shop, showing the stat delta versus
   what's currently equipped (same delta logic as the Inventory screen).

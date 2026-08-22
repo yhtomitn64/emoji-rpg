@@ -422,6 +422,12 @@ button:focus-visible {
   overflow-y: auto;
   max-height: 55vh;
 }
+.boss-tier-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
 .boss-tier-indicator {
   font-size: 1.3rem;
   letter-spacing: 4px;

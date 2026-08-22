@@ -296,13 +296,11 @@ for an earlier, proximity-based hint before the player actually walks
 into the tile, since right now there's no signal the tile is
 interactive at all until you try it.
 
-### Choose which dragon strength to fight, raised 2026-08-20
-Timothy: "I should be able to choose to fight the different dragon
-strengths." Boss-rematch tiers already exist (`state.bossTier`,
-`js/systems/bossTiers.js`, 3 tiers) but today the tier is presumably
-fixed/sequential per rematch rather than player-selectable — needs a
-look at how `bossTier` currently advances and how `startBossFight()` in
-`js/main.js` picks which tier to fight before designing a selection UI.
+### ~~Choose which dragon strength to fight, raised 2026-08-20~~ Shipped 2026-08-22
+The rematch prompt (`js/screens/bossPromptScreen.js`) now shows one
+button per tier from 0 through the next uncleared tier, each labeled
+with its HP multiplier and a ⭐ if already cleared, instead of a single
+button that always auto-escalated. See CHANGELOG.
 
 ## Quests / economy
 
