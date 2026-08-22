@@ -200,6 +200,17 @@ body { margin: 0; background: #222; color: #eee; }
   background: #f5b942;
   cursor: pointer;
 }
+.battle-timing-hint {
+  font-size: 0.8rem;
+  color: #4ade80;
+  text-align: center;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.battle-timing-hint-visible {
+  opacity: 1;
+}
 .battle-sidebar {
   width: 180px;
   background: #161616;

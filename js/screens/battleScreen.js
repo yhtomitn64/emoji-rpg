@@ -106,6 +106,7 @@ function timingMeterHtml() {
             <div class="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
             <div class="battle-timing-fill" id="battle-timing-fill"></div>
           </div>
+          <div class="battle-timing-hint" id="battle-timing-hint">Press Space!</div>
         </div>`;
 }
 
@@ -173,6 +174,7 @@ function buildDom() {
     log: document.getElementById('battle-log'),
     timingMeter: document.getElementById('battle-timing-meter'),
     timingFill: document.getElementById('battle-timing-fill'),
+    timingHint: document.getElementById('battle-timing-hint'),
   };
 }
 
@@ -207,6 +209,7 @@ function runTimingMeter() {
       elements.timingMeter.onclick = null;
       window.removeEventListener('keydown', onKeydown);
       elements.timingFill.style.width = '0%';
+      elements.timingHint.classList.remove('battle-timing-hint-visible');
       resolve(resolveTimingHit(actedAtPercent, TIMING_SWEET_SPOT_START, TIMING_SWEET_SPOT_END));
     }
 
@@ -214,6 +217,7 @@ function runTimingMeter() {
       const elapsed = now - startedAt;
       const percent = Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100);
       elements.timingFill.style.width = `${percent}%`;
+      elements.timingHint.classList.toggle('battle-timing-hint-visible', percent >= TIMING_SWEET_SPOT_START);
       if (percent >= 100) {
         finish(-1); // ran out with no input: always a miss, ability still resolves at base value
         return;
