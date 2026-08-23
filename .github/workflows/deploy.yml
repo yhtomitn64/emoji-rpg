@@ -22,9 +22,10 @@ jobs:
       - name: Stage deployable files
         run: |
           mkdir dist
-          cp index.html dist/
+          cp index.html robots.txt sitemap.xml dist/
           cp -r css dist/
           cp -r js dist/
+          if [ -d assets ]; then cp -r assets dist/; fi
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

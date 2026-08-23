@@ -898,31 +898,38 @@ becomes a hard failure later.
 Timothy wants to explore showing ads in-game to earn revenue via Google
 AdSense (confirmed AdSense, not Google Ads/AdWords — this is about
 earning from ads shown on the site, not paying to advertise it
-elsewhere). Not scoped or designed yet — raised as a raw idea. Worth
-knowing before pursuing: AdSense approval requires original content and
-generally expects real traffic; a low-traffic personal project may not
-qualify for approval yet. Would also need a placement design (banner,
-interstitial between battles, etc.) that doesn't wreck the game feel.
+elsewhere). Timothy has a Google account and is walking through AdSense
+signup himself (account creation isn't something Claude can do on his
+behalf); once he has a publisher ID and/or ad-unit codes, those get
+wired into the site and a placement design (banner, interstitial
+between battles, etc.) gets worked out then.
 
-### SEO pass to make the game more findable via search engines, raised 2026-08-22
-Timothy wants the game to show up better in search results. Concretely
-this would mean things `index.html` doesn't have today: a real `<meta
-name="description">`, Open Graph/Twitter card tags (so shared links get
-a proper preview instead of a bare title), a `<title>` more descriptive
-than the current plain "Emoji RPG", a `sitemap.xml`/`robots.txt`, and
-semantic heading structure. Not designed yet — raised as a raw idea.
+**Real blocker hit 2026-08-22, mid-signup:** AdSense rejected
+`rpg.burghertime.com` and required the root domain `burghertime.com`
+instead — which had no content at all (confirmed via `dig`: no
+A/AAAA record, nothing hosted there, only `rpg.burghertime.com` and MX
+records existed on the zone). Fix in progress: a small standalone
+landing page (`~/funstuff/burghertime-landing/index.html`, not part of
+this repo — self-contained, links to `rpg.burghertime.com`) for Timothy
+to deploy manually as its own Cloudflare Pages project with
+`burghertime.com` as its custom domain (chose the quick manual-deploy
+path over a full new repo+CI setup, since it's a one-page site that
+rarely changes). Not yet confirmed live as of this writing.
 
-**My own suggestions, raised alongside the above (not yet requested,
-just flagging as natural companions):**
+### ~~SEO pass to make the game more findable via search engines~~ Shipped 2026-08-22
+Real `<meta name="description">`, more descriptive `<title>`, Open
+Graph/Twitter card tags (with a real screenshot-based OG image, not a
+placeholder), canonical link, `sitemap.xml`, `robots.txt`, and a
+`<noscript>` fallback with a semantic heading. See CHANGELOG. The
+deeper SPA limitation (crawlers that don't execute JS see only the
+static shell/noscript content, not the actual game) wasn't addressed —
+would need real SSR/prerendering, a much bigger project, not attempted
+here.
+
+**My own suggestion, raised alongside the above, still open:**
 - **Basic privacy-friendly analytics** (e.g. Cloudflare Web Analytics)
-  — without traffic data there's no way to tell whether an SEO pass or
-  ads are actually doing anything.
-  - **Checked against Cloudflare's own docs, 2026-08-22
-    (developers.cloudflare.com/web-analytics/): "Available on all
-    plans"** — confirmed free, no plan upgrade needed. It's generally
-    known for being cookie-free (a beacon script, not a tracking
-    cookie), but that specific detail wasn't independently verified
-    here — worth a quick recheck before actually wiring it in.
-- **Open Graph preview image** for social/link-share cards — depends on
-  having actual OG tags from the SEO item above; would need a real
-  screenshot or piece of art, not something to invent here.
+  — without traffic data there's no way to tell whether the SEO pass or
+  ads are actually doing anything. Checked against Cloudflare's own
+  docs, 2026-08-22: "Available on all plans", confirmed free. Timothy
+  is retrieving the setup token/snippet from his Cloudflare dashboard
+  to hand over for wiring in — not done yet, no code changes made.

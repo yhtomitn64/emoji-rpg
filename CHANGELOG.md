@@ -25,6 +25,13 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Basic SEO pass: a real `<meta name="description">`, a more descriptive
+  `<title>`, Open Graph + Twitter card tags (with a real screenshot-based
+  `assets/og-image.png` instead of a placeholder), a canonical link,
+  `robots.txt`, `sitemap.xml`, and a `<noscript>` fallback with a
+  semantic heading for crawlers/no-JS users. The deploy workflow now
+  also stages `robots.txt`, `sitemap.xml`, and `assets/` alongside the
+  existing `index.html`/`css`/`js`.
 - Level-up now gets its own dedicated effect beyond the shared star-burst
   celebration: the hero's map tile briefly scales up 2.2x
   (`.map-tile-levelup`), a radiating light-ray burst
