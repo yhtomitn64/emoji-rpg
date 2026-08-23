@@ -111,4 +111,18 @@ export const MONSTERS = {
       'Bone-in Biscuit assembles itself from the rubble, grinning without lips.',
     ],
   },
+  // Rare elite, injected by js/systems/eliteEncounter.js at a flat 5% chance
+  // whenever a regular encounter would fire (wilderness or dungeon), always
+  // solo. Deliberately not isBoss - playerFlee() only blocks fleeing when
+  // isBoss is set, so this stays fleeable for free. Stats are 88% of the
+  // dragon's own tier-0 stats (150/34/12/11): a real near-dragon gear-check,
+  // not literally boss-equivalent.
+  jurassicJerky: {
+    id: 'jurassicJerky', name: 'Jurassic Jerky', emoji: '🦖',
+    hp: 132, attack: 30, defense: 11, speed: 10,
+    xp: 160, goldRange: [55, 90],
+    dropTable: [{ itemId: 'fossilFang', chance: 0.5 }, { itemId: 'potion', chance: 0.15 }],
+    attackStyle: 'ranged', projectileEmoji: '🍖',
+    isElite: true,
+  },
 };

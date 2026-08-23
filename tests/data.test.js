@@ -104,6 +104,29 @@ test('the frog/scorpion/skeleton roster additions have the expected names, stats
   assert.ok(Array.isArray(MONSTERS.skeleton.flavorLines) && MONSTERS.skeleton.flavorLines.length > 0, 'skeleton has dungeon-tier flavorLines');
 });
 
+test('the rare elite (jurassicJerky) has near-dragon stats, is not a boss, and drops the unique Fossil Fang', () => {
+  const elite = MONSTERS.jurassicJerky;
+  assert.equal(elite.name, 'Jurassic Jerky');
+  assert.equal(elite.emoji, '🦖');
+  assert.equal(elite.hp, 132);
+  assert.equal(elite.attack, 30);
+  assert.equal(elite.defense, 11);
+  assert.equal(elite.speed, 10);
+  assert.equal(elite.xp, 160);
+  assert.deepEqual(elite.goldRange, [55, 90]);
+  assert.equal(elite.attackStyle, 'ranged');
+  assert.ok(elite.projectileEmoji);
+  assert.equal(elite.isElite, true);
+  assert.notEqual(elite.isBoss, true);
+  assert.ok(elite.dropTable.some((entry) => entry.itemId === 'fossilFang'), 'jurassicJerky drops fossilFang');
+
+  const fang = ITEMS.fossilFang;
+  assert.equal(fang.name, 'Fossil Fang');
+  assert.equal(fang.slot, 'weapon');
+  assert.equal(fang.price, 0);
+  assert.equal(fang.stats.attack, 12);
+});
+
 test('every monster has a valid attackStyle, and ranged monsters have a projectileEmoji', () => {
   for (const [id, monster] of Object.entries(MONSTERS)) {
     assert.ok(['melee', 'ranged'].includes(monster.attackStyle), `${id} attackStyle`);

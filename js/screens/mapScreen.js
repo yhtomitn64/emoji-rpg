@@ -7,6 +7,7 @@ import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
 import { resolveStepDiscovery } from '../systems/discovery.js';
 import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGateProximityMessage, hasShownGateHint, markGateHintShown, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
 import { rollEncounterGroup } from '../systems/groupEncounters.js';
+import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.js';
 
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
@@ -157,6 +158,15 @@ function tryMove(dx, dy) {
   }
 
   if (tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
+    // A flat 5% chance for any encounter (wilderness or dungeon) to be the
+    // rare elite instead of the normal roll - always solo, bypassing the
+    // multi-mob grouping below entirely. The empty-override array (matching
+    // the boss-fight pattern) tells handleEncounter this monster's stats are
+    // already final, skipping the random stat-variant roll.
+    if (rollEliteEncounter()) {
+      callbacks.onEncounter([ELITE_MONSTER_ID], [{}]);
+      return;
+    }
     const monsterId = mapConfig.monsterTable[Math.floor(Math.random() * mapConfig.monsterTable.length)];
     const monsterIds = rollEncounterGroup(monsterId, state.monsterKillCounts);
     callbacks.onEncounter(monsterIds);

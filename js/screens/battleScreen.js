@@ -4,6 +4,7 @@ import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePla
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
+import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 
 const VICTORY_PAUSE_MS = 1200;
 // A killing blow's flash/shake needs this long on screen before the slot can
@@ -878,7 +879,6 @@ export function mount(root, props) {
   monsterOverridesList = props.monsterOverrides || monsterIds.map(() => null);
   callbacks = props.callbacks;
   battleOver = false;
-  log = [pickAppearLine(MONSTERS[monsterIds[0]])];
   playerCombatant = buildPlayerCombatant();
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
@@ -887,6 +887,13 @@ export function mount(root, props) {
   attackStreak = 0;
   attackTauntShown = false;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
+  // The elite gets an adaptive appear line based on estimated win chance
+  // instead of a random pick from a fixed pool - needs the built combatant
+  // stats (equipment bonuses, NG+ scaling), not the raw MONSTERS entry, so
+  // this has to run after buildPlayerCombatant/buildMonsterCombatant above.
+  log = [MONSTERS[monsterIds[0]].isElite
+    ? getEliteAppearLine(playerCombatant, monsterCombatants[0])
+    : pickAppearLine(MONSTERS[monsterIds[0]])];
   buildDom();
   monsterCombatants.forEach((mc, i) => {
     elements.monsterZones[i].onclick = () => {

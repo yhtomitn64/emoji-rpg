@@ -24,6 +24,24 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- A rare elite encounter: Jurassic Jerky 🦖 (`js/data/monsters.js`), a 5%
+  chance (`js/systems/eliteEncounter.js`'s `rollEliteEncounter`) to replace
+  any regular wilderness or dungeon encounter, always solo. Stats are 88%
+  of the dragon's own tier-0 (hp 132/attack 30/defense 11/speed 10 vs.
+  150/34/12/11) — a real near-dragon gear-check, not literally boss-hard.
+  Deliberately not flagged `isBoss`, so it's fleeable for free (`playerFlee`
+  only blocks fleeing on that flag). Drops a new unique weapon, Fossil Fang
+  🦖 (+12 attack, between Iron Sword's 6 and Dragon Fang's 14). Its appear
+  line is adaptive instead of a random pick from a fixed pool: a lighter
+  in-game win-chance estimate (`getEliteAppearLine`, reusing the same
+  average-damage/hits-to-kill technique `isMonsterOutclassed` already uses,
+  not a full battle simulation) buckets into outmatched / close-fight /
+  favorable framing. Verified live via a forced encounter: correct name/HP,
+  the favorable-tier line ("you've got the edge here") against a
+  wildly-outclassing test build, Flee enabled, and Fossil Fang landing in
+  inventory on kill.
+
 ### Changed
 - Weak-mob surrender/flee no longer opens the battle dialog at all. The
   pre-fight `resolveWeakMobEncounter` check (`js/systems/combat.js`) moved

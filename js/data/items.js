@@ -10,6 +10,7 @@ export const ITEMS = {
   ironSword: { id: 'ironSword', name: 'Iron Sword', emoji: '⚔️', slot: 'weapon', price: 30, stats: { attack: 6 } },
   goblinClub: { id: 'goblinClub', name: 'Goblin Club', emoji: '🏏', slot: 'weapon', price: 0, stats: { attack: 8 } },
   dragonFang: { id: 'dragonFang', name: 'Dragon Fang Blade', emoji: '🦷', slot: 'weapon', price: 0, stats: { attack: 14 } },
+  fossilFang: { id: 'fossilFang', name: 'Fossil Fang', emoji: '🦖', slot: 'weapon', price: 0, stats: { attack: 12 } },
 
   // Head
   clothCap: { id: 'clothCap', name: 'Cloth Cap', emoji: '🧢', slot: 'head', price: 15, stats: { defense: 1 } },

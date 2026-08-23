@@ -615,28 +615,19 @@ separable pieces:
   difficulty gradient (tougher named variants the further out you go) —
   not decided, just a noted connection between the two ideas; today's
   implementation is purely random, no distance signal wired in.
-- **A rare, near-dragon-difficulty elite encounter**, roughly 1-in-20
-  fights (5% chance), replacing a normal encounter in the current zone.
-  Unique emoji, distinct from every existing monster/dragon emoji.
-  Source of unique loot — ties directly into the "non-store equipment
-  earned from the whole zone" idea under Multi-zone progression above,
-  which named "repeated dragon kills" and "special encounters" as
-  desired loot sources; this would be the special-encounter half of
-  that. The player must be able to flee this fight if they judge
-  themselves not ready — unlike the dungeon boss, which already
-  disallows fleeing (`playerFlee()` in js/screens/battleScreen.js
-  blocks fleeing when `MONSTERS[monsterId].isBoss`), so this needs its
-  own non-boss-shaped "but still fleeable" treatment.
-- **Adaptive flavor text based on estimated win chance.** The encounter
-  text should shift based on how the player's current power compares to
-  the elite's stats — from "no way you can beat me" (near-zero odds) up
-  through something like "if you're skilled enough you might get me"
-  as the matchup gets closer to fair. This needs an actual confidence
-  heuristic (comparing effective attack/defense/HP, roughly the same
-  inputs `scripts/simulate-balance.js` already reasons about for build
-  tuning) — worth deciding whether to reuse/extend that script's logic
-  or build a lighter in-game estimate; a full battle-outcome simulation
-  every time the elite appears is probably overkill.
+- ~~**A rare, near-dragon-difficulty elite encounter**~~, and ~~**adaptive
+  flavor text based on estimated win chance**~~ — **both shipped
+  2026-08-23.** Jurassic Jerky 🦖 (`js/data/monsters.js`), a flat 5% chance
+  (`js/systems/eliteEncounter.js`) to replace any regular wilderness or
+  dungeon encounter, always solo, stats at 88% of the dragon's own tier-0.
+  Deliberately not `isBoss`, so `playerFlee()`'s existing boss-only block
+  never applies — turned out to need no special "but still fleeable"
+  treatment at all, just not setting that one flag. Drops a new unique
+  weapon, Fossil Fang. Went with the lighter in-game estimate for the
+  adaptive line (not `scripts/simulate-balance.js`'s heavier logic) —
+  `getEliteAppearLine` reuses the same average-damage/hits-to-kill
+  technique `isMonsterOutclassed` already uses for the weak-mob check,
+  bucketed into outmatched/close-fight/favorable framing. See CHANGELOG.
 
 - ~~**Multi-mob encounters in zone 1, raised 2026-08-18.**~~ **Shipped
   2026-08-21.** After killing 10+ of a given monster type (tracked
