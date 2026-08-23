@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
@@ -17,6 +17,15 @@ const DEATH_HIDE_DELAY_MS = 900;
 const TIMING_METER_DURATION_MS = 1000;
 const TIMING_SWEET_SPOT_START = 80;
 const TIMING_SWEET_SPOT_END = 100;
+// Shown once per battle, the first time Attack's decay bottoms out at its
+// (ability-lowered) floor - a nudge toward the rotation, not a mechanical
+// effect.
+const ATTACK_TAUNT_LINES = [
+  (name) => `${name} barely flinches - maybe try an ability?`,
+  (name) => `${name} yawns through another weak jab.`,
+  (name) => `${name} smirks. Is that all you've got?`,
+  (name) => `${name} shrugs off your attack without much notice.`,
+];
 
 let rootEl = null;
 let state = null;
@@ -37,6 +46,7 @@ let comboState = {};
 let abilityActionInFlight = false;
 let attackStreak = 0;
 let attackCooldownMs = 0;
+let attackTauntShown = false;
 let liveDamageNumbers = [];
 
 function buildPlayerCombatant() {
@@ -61,6 +71,7 @@ function buildMonsterCombatant(monsterId, overrides) {
     name: monster.name, emoji: monster.emoji,
     hp: monster.hp, maxHp: monster.hp,
     attack: monster.attack, defense: monster.defense, speed,
+    attackStyle: monster.attackStyle, projectileEmoji: monster.projectileEmoji,
     atb: 0,
     windup: createWindupState(),
     defenseDebuff: null,
@@ -334,7 +345,7 @@ function updateMenu() {
   }
   const ready = isReady(playerCombatant.atb);
   const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
-  const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak)) * 100);
+  const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak, getUnlockedAbilities(state.player.level).length)) * 100);
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
 
   elements.menu.innerHTML = `
@@ -397,6 +408,52 @@ function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
     emojiEl.classList.remove('battle-hit-flash');
     zoneEl.classList.remove('battle-hit-shake');
   }, 220);
+}
+
+const MELEE_LUNGE_MS = 300;
+const RANGED_PROJECTILE_MS = 350;
+
+function playMeleeLunge(emojiEl) {
+  emojiEl.classList.add('battle-monster-lunge');
+  setTimeout(() => emojiEl.classList.remove('battle-monster-lunge'), MELEE_LUNGE_MS);
+}
+
+function playRangedProjectile(monster, monsterZoneEl, heroZoneEl) {
+  const startRect = monsterZoneEl.getBoundingClientRect();
+  const endRect = heroZoneEl.getBoundingClientRect();
+  const startX = startRect.left + startRect.width / 2;
+  const startY = startRect.top + startRect.height / 2;
+  const dx = (endRect.left + endRect.width / 2) - startX;
+  const dy = (endRect.top + endRect.height / 2) - startY;
+  const projectileEl = document.createElement('div');
+  projectileEl.textContent = monster.projectileEmoji;
+  projectileEl.className = 'battle-projectile';
+  projectileEl.style.left = `${startX}px`;
+  projectileEl.style.top = `${startY}px`;
+  document.body.appendChild(projectileEl);
+  const animation = projectileEl.animate(
+    [
+      { transform: 'translate(-50%, -50%) translate(0, 0)' },
+      { transform: `translate(-50%, -50%) translate(${dx}px, ${dy}px)` },
+    ],
+    { duration: RANGED_PROJECTILE_MS, easing: 'ease-in' },
+  );
+  animation.onfinish = () => projectileEl.remove();
+}
+
+// Themed windup for a monster's own attack - a quick lunge-and-snap-back for
+// melee monsters, or a projectile flying monster -> hero for ranged ones
+// (js/data/monsters.js's attackStyle/projectileEmoji). Purely presentational:
+// callers still apply damage/log/hit-effect on their own timing around this.
+function playMonsterAttackWindup(monster, monsterIndex) {
+  const emojiEl = elements.monsterEmojis[monsterIndex];
+  const zoneEl = elements.monsterZones[monsterIndex];
+  if (!emojiEl || !zoneEl) return;
+  if (monster.attackStyle === 'ranged') {
+    playRangedProjectile(monster, zoneEl, elements.heroZone);
+  } else {
+    playMeleeLunge(emojiEl);
+  }
 }
 
 function playReviveEffect(zoneEl, emojiEl) {
@@ -497,7 +554,9 @@ function playerAttack() {
   // hit effect render on the wrong (undamaged) monster.
   const targetIndex = selectedMonsterIndex;
   const target = monsterCombatants[targetIndex];
-  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, attackStreakMultiplier(attackStreak), attackKnockbackMultiplier(attackStreak));
+  const unlockedAbilityCount = getUnlockedAbilities(state.player.level).length;
+  const streakMultiplier = attackStreakMultiplier(attackStreak, unlockedAbilityCount);
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, attackKnockbackMultiplier(attackStreak));
   attackStreak += 1;
   attackCooldownMs = attackCooldownMsForStreak(attackStreak);
   target.hp = result.monsterHp;
@@ -506,6 +565,12 @@ function playerAttack() {
   log.push(result.isCrit
     ? `Critical! You hit ${target.name} for ${result.damage}!`
     : `You hit ${target.name} for ${result.damage}.`);
+  const floor = Math.max(0, ATTACK_STREAK_FLOOR - unlockedAbilityCount * ATTACK_STREAK_FLOOR_PER_ABILITY);
+  if (streakMultiplier <= floor && unlockedAbilityCount > 0 && !attackTauntShown) {
+    attackTauntShown = true;
+    const taunt = ATTACK_TAUNT_LINES[Math.floor(Math.random() * ATTACK_TAUNT_LINES.length)];
+    log.push(taunt(target.name));
+  }
   // Play the hit effect before updateHpBars() hides a killed monster's slot
   // (display: none), so a killing blow's damage number/flash/shake is
   // actually visible instead of rendering onto an already-hidden element.
@@ -686,11 +751,7 @@ function playerFlee() {
   endBattle('fled');
 }
 
-function monsterAttack(monster) {
-  const result = resolveMonsterAttack(monster, playerCombatant);
-  playerCombatant.hp = result.playerHp;
-  playerCombatant.atb = result.playerAtb;
-  monster.atb = result.monsterAtb;
+function applyMonsterAttackImpact(monster, result) {
   log.push(result.isCrit
     ? `Critical! ${monster.name} hits you for ${result.damage}!`
     : `${monster.name} hits you for ${result.damage}.`);
@@ -698,6 +759,24 @@ function monsterAttack(monster) {
   updateLog();
   playHitEffect(elements.heroZone, elements.heroEmoji, result.damage, result.isCrit);
   checkOutcome();
+}
+
+function monsterAttack(monster) {
+  const result = resolveMonsterAttack(monster, playerCombatant);
+  playerCombatant.hp = result.playerHp;
+  playerCombatant.atb = result.playerAtb;
+  monster.atb = result.monsterAtb;
+  const monsterIndex = monsterCombatants.indexOf(monster);
+  playMonsterAttackWindup(monster, monsterIndex);
+  // Ranged attacks delay the impact (log/HP-bar/hit-flash/outcome check) until
+  // the projectile visually arrives, so the flash doesn't land before the
+  // thing that's supposed to cause it. Melee is a fast lunge with no real
+  // travel time, so its impact stays immediate.
+  if (monster.attackStyle === 'ranged') {
+    setTimeout(() => applyMonsterAttackImpact(monster, result), RANGED_PROJECTILE_MS);
+  } else {
+    applyMonsterAttackImpact(monster, result);
+  }
 }
 
 function resolveMonsterWindup(monster, parried) {
@@ -812,6 +891,7 @@ export function mount(root, props) {
   comboState = {};
   abilityActionInFlight = false;
   attackStreak = 0;
+  attackTauntShown = false;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   buildDom();
   monsterCombatants.forEach((mc, i) => {

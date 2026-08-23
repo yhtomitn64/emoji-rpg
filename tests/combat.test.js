@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -99,6 +99,18 @@ test('attackStreakMultiplier decays damage per consecutive attack, flooring at A
   assert.equal(attackStreakMultiplier(1), 1 - ATTACK_STREAK_DECAY);
   assert.equal(attackStreakMultiplier(2), 1 - ATTACK_STREAK_DECAY * 2);
   assert.equal(attackStreakMultiplier(100), ATTACK_STREAK_FLOOR);
+});
+
+test('attackStreakMultiplier lowers the floor as more abilities are unlocked, reaching 0 at 5', () => {
+  assert.equal(attackStreakMultiplier(100, 0), ATTACK_STREAK_FLOOR);
+  assert.equal(attackStreakMultiplier(100, 1), ATTACK_STREAK_FLOOR - ATTACK_STREAK_FLOOR_PER_ABILITY);
+  assert.equal(attackStreakMultiplier(100, 5), 0);
+  assert.equal(attackStreakMultiplier(100, 8), 0);
+});
+
+test('attackStreakMultiplier still decays gradually toward a lowered floor, not instantly', () => {
+  assert.equal(attackStreakMultiplier(1, 5), 1 - ATTACK_STREAK_DECAY);
+  assert.equal(attackStreakMultiplier(0, 5), 1);
 });
 
 test('attackKnockbackMultiplier decays knockback per consecutive attack, reaching exactly 0 with no floor', () => {

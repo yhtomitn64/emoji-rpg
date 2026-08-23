@@ -24,10 +24,10 @@ function freshQuestState() {
   return state;
 }
 
-test('QUEST_REQUIREMENTS has exactly the 8 expected monsters with the expected kill counts', () => {
+test('QUEST_REQUIREMENTS has exactly the 11 expected monsters with the expected kill counts', () => {
   assert.deepEqual(QUEST_REQUIREMENTS, {
-    boar: 3, bat: 3, snake: 3, goblin: 3,
-    direWolf: 2, spider: 2, orc: 2, wraith: 2,
+    boar: 3, bat: 3, snake: 3, goblin: 3, frog: 3,
+    direWolf: 2, spider: 2, scorpion: 2, orc: 2, wraith: 2, skeleton: 2,
   });
 });
 
@@ -39,6 +39,9 @@ test('getQuestRewardItemId returns the material drop for each quest monster', ()
   assert.equal(getQuestRewardItemId('spider'), 'spiderSilk');
   assert.equal(getQuestRewardItemId('orc'), 'orcTusk');
   assert.equal(getQuestRewardItemId('wraith'), 'wraithEssence');
+  assert.equal(getQuestRewardItemId('frog'), 'frogSkin');
+  assert.equal(getQuestRewardItemId('scorpion'), 'scorpionVenom');
+  assert.equal(getQuestRewardItemId('skeleton'), 'boneFragment');
 });
 
 test("getQuestRewardItemId skips goblin's non-material weapon drop and returns the material", () => {

@@ -27,6 +27,6 @@ export const dungeonMap = {
   startPosition: { x: 1, y: 1 },
   encounterChance: 0.25,
   cacheChance: 0.04,
-  monsterTable: ['orc', 'wraith'],
+  monsterTable: ['orc', 'wraith', 'skeleton'],
   bossMonsterId: 'dragon',
 };

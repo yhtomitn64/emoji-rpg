@@ -72,8 +72,15 @@ export function applyCritMultiplier(damage, isCrit) {
 export const ATTACK_STREAK_DECAY = 0.15;
 export const ATTACK_STREAK_FLOOR = 0.4;
 
-export function attackStreakMultiplier(streak) {
-  return Math.max(ATTACK_STREAK_FLOOR, 1 - streak * ATTACK_STREAK_DECAY);
+// Each unlocked ability (Stab/Chop/Slash/Sweep/Super Scream) drags the floor
+// down further - Attack has to stay usable at level 1 when it's the only
+// option, but should matter less and less once there's a real rotation to
+// lean on, bottoming out at a 0% floor once all 5 are unlocked (level 10).
+export const ATTACK_STREAK_FLOOR_PER_ABILITY = ATTACK_STREAK_FLOOR / 5;
+
+export function attackStreakMultiplier(streak, unlockedAbilityCount = 0) {
+  const floor = Math.max(0, ATTACK_STREAK_FLOOR - unlockedAbilityCount * ATTACK_STREAK_FLOOR_PER_ABILITY);
+  return Math.max(floor, 1 - streak * ATTACK_STREAK_DECAY);
 }
 
 // Decays faster than the damage multiplier above and has no floor - reaches

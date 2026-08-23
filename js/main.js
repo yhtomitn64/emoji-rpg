@@ -43,6 +43,7 @@ import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolve
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
+import { pickMonsterVariant } from './systems/monsterVariants.js';
 import { incrementQuestProgress } from './systems/quests.js';
 import { rollEncounterGroup, incrementKillCount } from './systems/groupEncounters.js';
 import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWarpCost } from './systems/comeback.js';
@@ -552,10 +553,18 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
   battleActive = true;
   setHudButtonsEnabled(false);
   activeEncounterMonsterIds = monsterIds;
+  // A null monsterOverridesList means a regular (non-boss) encounter - boss
+  // fights always pass their own explicit tier overrides, so this branch
+  // never fires for those. Each monster in the group independently rolls a
+  // named stat variant (js/systems/monsterVariants.js).
+  const variantOverridesList = monsterOverridesList || monsterIds.map((monsterId) => pickMonsterVariant(MONSTERS[monsterId]));
   const ngPlusOverridesList = monsterIds.map((monsterId, i) => {
-    const overrides = monsterOverridesList ? monsterOverridesList[i] : null;
+    const overrides = variantOverridesList[i];
     const preScaled = { ...MONSTERS[monsterId], ...(overrides || {}) };
-    return getNgPlusCombatOverrides(preScaled, state.ngPlusCycle);
+    const ngPlusStats = getNgPlusCombatOverrides(preScaled, state.ngPlusCycle);
+    // getNgPlusCombatOverrides only returns combat stats, not name - carry a
+    // variant's name through separately so it isn't silently dropped.
+    return overrides && overrides.name ? { ...ngPlusStats, name: overrides.name } : ngPlusStats;
   });
   mountOverlay(battleScreen, {
     state,
@@ -693,11 +702,13 @@ function handleBattleEnd(outcome, killedMonsterIds) {
 }
 
 function promptPostDeathTravel() {
+  const diedInDungeon = state.map === 'dungeon';
   const warpCost = postDeathWarpCost(state.player.level);
   setHudButtonsEnabled(false);
   mountOverlay(postDeathTravelScreen, {
+    canWarpToDungeon: diedInDungeon,
     warpCost,
-    canAffordWarp: state.player.gold >= warpCost,
+    canAffordWarp: diedInDungeon && state.player.gold >= warpCost,
     callbacks: {
       onReturnToTown: () => {
         state.position = { ...townMap.startPosition };

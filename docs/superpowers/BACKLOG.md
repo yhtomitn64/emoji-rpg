@@ -602,20 +602,21 @@ below — Timothy's view on it has clearly moved from "backburner,
 questionable value" to a concrete, wanted feature. Two related but
 separable pieces:
 
-- **Named stat variants per monster type.** Wants ~5 variations of each
-  regular monster (not per silly-name — within a type, e.g. goblin),
-  each with a distinct name and slightly different HP/attack stats, so
-  encounters of "the same monster" feel a little different fight to
-  fight instead of always being numerically identical. Presumably still
-  counts as the same `monsterId` for quest progress/drop tables — only
-  display name and stats vary per spawn, similar in spirit to how boss
-  tiers already vary the dragon's stats, but applied to regular
-  encounters and randomly picked rather than player-escalated. Possible
-  future hook, raised 2026-08-22 under Multi-zone progression above: these
-  variants could be distributed by distance-from-town instead of purely
-  random, to back a Dragon-Warrior-style spatial difficulty gradient
-  (tougher named variants the further out you go) — not decided, just a
-  noted connection between the two ideas.
+- ~~**Named stat variants per monster type.**~~ **Shipped 2026-08-23.**
+  Every regular wilderness/dungeon-tier encounter (dragon excluded — it
+  already has its own boss-tier system) now rolls one of 5 tiers —
+  `Puny`/`Lesser`/(baseline)/`Greater`/`Savage`, a ±15% hp/attack spread —
+  via `pickMonsterVariant` in the new `js/systems/monsterVariants.js`,
+  reusing the same scaled-override pattern `bossTiers.js`/`ngPlus.js`
+  already established. Still the same `monsterId` for quest/drop-table
+  purposes — only display name and hp/attack vary, rolled independently
+  per monster in a multi-mob group. See CHANGELOG. **Possible future
+  hook, still open:** raised 2026-08-22 under Multi-zone progression
+  above, these variants could be distributed by distance-from-town
+  instead of purely random, to back a Dragon-Warrior-style spatial
+  difficulty gradient (tougher named variants the further out you go) —
+  not decided, just a noted connection between the two ideas; today's
+  implementation is purely random, no distance signal wired in.
 - **A rare, near-dragon-difficulty elite encounter**, roughly 1-in-20
   fights (5% chance), replacing a normal encounter in the current zone.
   Unique emoji, distinct from every existing monster/dragon emoji.
@@ -727,6 +728,28 @@ threshold that aren't quite trivial either) is what the "faster battle
 timer" open question below would address instead of monster-stat
 scaling. Not fully decided — flagged here so the next session picks up
 the thread instead of re-deriving it.
+
+### Mobile/touch-only combat should be turn-based, raised 2026-08-23
+Timothy: for mobile/phone/touch input specifically (not desktop/keyboard),
+he doesn't want to simulate keypresses for combat — wants a genuinely
+turn-based flow instead. Raw idea, not yet designed:
+- Combat pauses for input: player picks their action (tap the monster to
+  parry, tap an ability/attack button), then the enemy takes its turn,
+  rather than today's real-time ATB ticking continuously in the
+  background.
+- Parry could be its own tap target (an on-screen button, or just tapping
+  the monster).
+- Attacks/abilities become tap targets (buttons) rather than relying on
+  keyboard shortcuts (`1`-`4`, `a`, `s`, Space).
+- Unclear how this interacts with the existing timing minigame (the
+  parry wind-up bar, and Stab/Slash's press-in-the-sweet-spot combo
+  mechanic) — Timothy's own tentative idea: selecting Stab (1) starts the
+  timing game, and landing it right auto-fires the primed Chop (2) rather
+  than requiring a second tap.
+- Explicitly scoped to mobile/touch only — desktop/keyboard play keeps
+  the existing real-time ATB flow, this wouldn't replace it there.
+Not designed or estimated yet — captured here as the raw idea only, per
+Timothy's explicit "let's put all this in backlog for the future."
 
 ## Balance / design gaps
 

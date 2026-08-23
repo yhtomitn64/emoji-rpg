@@ -502,6 +502,21 @@ button:focus-visible {
 .battle-hit-flash {
   filter: brightness(1.4) sepia(1) saturate(6) hue-rotate(-40deg);
 }
+@keyframes battle-monster-lunge {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(28px); }
+  100% { transform: translateX(0); }
+}
+.battle-monster-lunge {
+  animation: battle-monster-lunge 0.3s ease-in-out;
+}
+.battle-projectile {
+  position: fixed;
+  font-size: 1.4rem;
+  pointer-events: none;
+  z-index: 30;
+  will-change: transform, opacity;
+}
 @keyframes battle-shake {
   0% { transform: translateX(0); }
   25% { transform: translateX(-6px); }

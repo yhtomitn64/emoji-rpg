@@ -42,6 +42,9 @@ export const ITEMS = {
   spiderSilk: { id: 'spiderSilk', name: 'Spider Silk', emoji: '🕸️', type: 'material', upgradeSlot: 'head' },
   orcTusk: { id: 'orcTusk', name: 'Orc Tusk', emoji: '🦷', type: 'material', upgradeSlot: 'weapon' },
   wraithEssence: { id: 'wraithEssence', name: 'Wraith Essence', emoji: '💠', type: 'material', upgradeSlot: 'accessory' },
+  frogSkin: { id: 'frogSkin', name: 'Frog Skin', emoji: '🟢', type: 'material', upgradeSlot: 'body' },
+  scorpionVenom: { id: 'scorpionVenom', name: 'Scorpion Venom', emoji: '💉', type: 'material', upgradeSlot: 'accessory' },
+  boneFragment: { id: 'boneFragment', name: 'Bone Fragment', emoji: '🦴', type: 'material', upgradeSlot: 'head' },
 
   // Tools
   miningPick: { id: 'miningPick', name: 'Mining Pick', emoji: '⛏️', type: 'tool', price: 0, description: 'Clears mountain gates blocking the way' },

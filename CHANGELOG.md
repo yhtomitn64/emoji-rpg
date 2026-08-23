@@ -25,6 +25,47 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Three new monsters, one per existing tier: Ribbity Ravioli 🐸 (near-town
+  wilderness, joins boar/bat/snake/goblin), Spicy Skewer 🦂 (far-corner
+  wilderness, joins direWolf/spider), and Bone-in Biscuit 💀 (dungeon-tier,
+  joins orc/wraith — ranged 🦴, plus the dungeon-tier-only flavor-line
+  treatment). Stats sized to match their tier's existing roster; each drops
+  its own new material (Frog Skin 🟢/body, Scorpion Venom 💉/accessory, Bone
+  Fragment 🦴/head — picked to fill out the thinnest-covered smith-upgrade
+  slots) and is quest-board eligible at its tier's usual kill count. Wired
+  into the wilderness `monsterTable`s and the dungeon's. Verified live: all
+  three render correctly on the Quest Board with correct name/emoji/reward.
+- Regular monster encounters (wilderness + dungeon-tier orc/wraith; the
+  dragon is untouched, it already has its own boss-tier system) now roll
+  one of 5 named stat variants per spawn instead of always being numerically
+  identical: `Puny`/`Lesser`/(baseline)/`Greater`/`Savage`, a +/-15%
+  hp/attack spread (`js/systems/monsterVariants.js`'s `pickMonsterVariant`,
+  same scaled-override pattern `bossTiers.js`/`ngPlus.js` already use).
+  Rolled independently per monster in a multi-mob group. Still the same
+  `monsterId` for quest progress/drop tables/kill counts — only display
+  name and hp/attack vary. Wired into `handleEncounter` (`js/main.js`),
+  gated on the existing `monsterOverridesList === null` branch so boss
+  fights (which always pass explicit tier overrides) are unaffected. Caught
+  a real bug while wiring this in: `getNgPlusCombatOverrides` only returns
+  combat stats, not `name`, so a variant's name was getting silently
+  dropped before NG+ scaling was re-layered on top — fixed by carrying
+  `name` through separately after that step. Verified live: a wilderness
+  encounter showed "Lesser Mega Muffin" at 93 HP (100 base x 0.925,
+  rounded), matching the formula exactly.
+- Monster attacks are now themed instead of sharing one generic hit-flash:
+  each monster's `attackStyle` (`js/data/monsters.js`) is `melee` (a quick
+  lunge toward the hero and back, `.battle-monster-lunge`) or `ranged` (its
+  own `projectileEmoji` flies from the monster to the hero via the Web
+  Animations API before the hit lands — goblin 🍙, spider 🥟, dragon 🔥,
+  wraith 🍎; boar/bat/snake/direWolf/orc stay melee). Ranged attacks delay
+  the log/HP-bar/hit-flash/outcome-check by the projectile's flight time
+  (`RANGED_PROJECTILE_MS`, `js/screens/battleScreen.js`) so the flash lands
+  when the projectile visually arrives, not before; melee stays immediate.
+  Caught and fixed a real bug while verifying live: `buildMonsterCombatant`
+  whitelists which fields carry over from `MONSTERS[id]` onto the in-battle
+  combatant object and was silently dropping `attackStyle`/`projectileEmoji`,
+  so every monster fell back to the melee lunge regardless of its actual
+  style — fixed by adding both fields to that whitelist.
 - Item pickups now show a small toast (e.g. "🐲 +1 Dragon Scale Mail")
   that pops and floats up near the HUD's Inventory button
   (`js/screens/itemPickupToast.js`), instead of no feedback beyond the
@@ -352,6 +393,23 @@ public API, no formal release process — commits land straight on
   directory and deploys that instead of the repo root, so `tests/`,
   `scripts/`, `docs/`, `package.json`, and other non-game files are no
   longer publicly fetchable from the live site.
+- The post-death "Where to?" prompt (`js/screens/postDeathTravelScreen.js`)
+  offered a paid warp to the dungeon entrance even when the death happened
+  out in the wilderness and the player had never set foot in the dungeon.
+  `promptPostDeathTravel` (`js/main.js`) now only offers the warp option
+  when `state.map === 'dungeon'` at the moment of death; dying anywhere
+  else shows only "Return to Town".
+
+### Changed
+- Attack's damage-decay floor (from consecutive spam) now scales down with
+  how many abilities are unlocked instead of staying flat at 40% forever:
+  `ATTACK_STREAK_FLOOR_PER_ABILITY` (`js/systems/combat.js`) drops the
+  floor by 8 points per unlocked ability, reaching a 0% floor once all 5
+  are unlocked at level 10. At level 1 (no abilities yet) the floor stays
+  40%, since Attack is still the only option. A one-time-per-battle taunt
+  line (`ATTACK_TAUNT_LINES` in `js/screens/battleScreen.js`) appears in
+  the battle log the first time Attack's decay bottoms out at the floor,
+  nudging the player toward the ability rotation instead.
 
 ## [0.5.1] - 2026-08-17
 

@@ -229,3 +229,15 @@ test('tool-gated tiles appear on the correct screens with the correct tool requi
   const northTileKeys = [...northMap.rows.join('')].map((c) => northMap.legend[c]);
   assert.ok(northTileKeys.includes('thicketCache'), 'north must have a thicketCache gate');
 });
+
+test('new roster monsters are wired into the right monsterTables', () => {
+  const nearTownScreens = { east: eastMap, north: northMap, south: southMap, west: westMap };
+  for (const [id, map] of Object.entries(nearTownScreens)) {
+    assert.ok(map.monsterTable.includes('frog'), `${id} monsterTable should include frog`);
+  }
+  const farCornerScreens = { northeast: northeastMap, northwest: northwestMap, southeast: southeastMap, southwest: southwestMap };
+  for (const [id, map] of Object.entries(farCornerScreens)) {
+    assert.ok(map.monsterTable.includes('scorpion'), `${id} monsterTable should include scorpion`);
+  }
+  assert.ok(dungeonMap.monsterTable.includes('skeleton'), 'dungeon monsterTable should include skeleton');
+});

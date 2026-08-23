@@ -33,6 +33,6 @@ export const westMap = {
   encounterChance: 0.1,
   cacheChance: 0.03,
   miniDungeonChance: 0.005,
-  monsterTable: ['boar', 'bat', 'snake', 'goblin'],
+  monsterTable: ['boar', 'bat', 'snake', 'goblin', 'frog'],
   neighbors: { north: 'northwest', south: 'southwest', east: 'center', west: null },
 };

@@ -7,10 +7,13 @@ export const QUEST_REQUIREMENTS = {
   bat: 3,
   snake: 3,
   goblin: 3,
+  frog: 3,
   direWolf: 2,
   spider: 2,
+  scorpion: 2,
   orc: 2,
   wraith: 2,
+  skeleton: 2,
 };
 
 export function getQuestRewardItemId(monsterId) {

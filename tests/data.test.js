@@ -72,6 +72,47 @@ test('near-town, far-corner, dungeon, and dragon monsters have the savage-early-
   }
 });
 
+test('the frog/scorpion/skeleton roster additions have the expected names, stats, attack styles, and drops', () => {
+  const expected = {
+    frog: {
+      name: 'Ribbity Ravioli', emoji: '🐸', hp: 58, attack: 9, defense: 1, speed: 6, xp: 13, goldRange: [3, 8],
+      attackStyle: 'melee', dropItemId: 'frogSkin',
+    },
+    scorpion: {
+      name: 'Spicy Skewer', emoji: '🦂', hp: 90, attack: 13, defense: 3, speed: 6, xp: 30, goldRange: [7, 15],
+      attackStyle: 'melee', dropItemId: 'scorpionVenom',
+    },
+    skeleton: {
+      name: 'Bone-in Biscuit', emoji: '💀', hp: 175, attack: 32, defense: 6, speed: 9, xp: 61, goldRange: [18, 29],
+      attackStyle: 'ranged', projectileEmoji: '🦴', dropItemId: 'boneFragment',
+    },
+  };
+  for (const [id, exp] of Object.entries(expected)) {
+    const monster = MONSTERS[id];
+    assert.equal(monster.name, exp.name, `${id} name`);
+    assert.equal(monster.emoji, exp.emoji, `${id} emoji`);
+    assert.equal(monster.hp, exp.hp, `${id} hp`);
+    assert.equal(monster.attack, exp.attack, `${id} attack`);
+    assert.equal(monster.defense, exp.defense, `${id} defense`);
+    assert.equal(monster.speed, exp.speed, `${id} speed`);
+    assert.equal(monster.xp, exp.xp, `${id} xp`);
+    assert.deepEqual(monster.goldRange, exp.goldRange, `${id} goldRange`);
+    assert.equal(monster.attackStyle, exp.attackStyle, `${id} attackStyle`);
+    if (exp.projectileEmoji) assert.equal(monster.projectileEmoji, exp.projectileEmoji, `${id} projectileEmoji`);
+    assert.ok(monster.dropTable.some((entry) => entry.itemId === exp.dropItemId), `${id} drops ${exp.dropItemId}`);
+  }
+  assert.ok(Array.isArray(MONSTERS.skeleton.flavorLines) && MONSTERS.skeleton.flavorLines.length > 0, 'skeleton has dungeon-tier flavorLines');
+});
+
+test('every monster has a valid attackStyle, and ranged monsters have a projectileEmoji', () => {
+  for (const [id, monster] of Object.entries(MONSTERS)) {
+    assert.ok(['melee', 'ranged'].includes(monster.attackStyle), `${id} attackStyle`);
+    if (monster.attackStyle === 'ranged') {
+      assert.ok(typeof monster.projectileEmoji === 'string' && monster.projectileEmoji.length > 0, `${id} projectileEmoji`);
+    }
+  }
+});
+
 test('every quest-eligible monster still has at least one material drop', () => {
   for (const monsterId of Object.keys(QUEST_REQUIREMENTS)) {
     const monster = MONSTERS[monsterId];
