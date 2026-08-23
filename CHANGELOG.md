@@ -246,6 +246,20 @@ public API, no formal release process — commits land straight on
   existing weak-mob flee animation shrinks *and* slides sideways, so a
   real kill now reads visually distinct from an enemy escaping.
 
+### Fixed
+- Attack-spam still trivialized fights even after the earlier fix that
+  decayed its damage (floor 40%) and knockback (floor 0) per consecutive
+  press — Attack has no swing-timer gate, only a flat 500ms real-time
+  cooldown, so spamming it forever at 40% power twice a second was still
+  likely out-DPSing the ability rotation the balance pass tuned around.
+  Found via fresh playtesting. The cooldown itself now grows with the
+  streak too (`attackCooldownMsForStreak` in `js/systems/combat.js`,
+  `500 + streak × 200`ms, uncapped), so continuing to spam gets
+  progressively slower, not just weaker, until an ability lands or the
+  gauge refills (both still reset the streak as before). The 40% damage
+  floor is unchanged for now — easier to tell what actually fixed it,
+  and there's room to lower it further as a follow-up if needed.
+
 ### Changed
 - Super Scream moved off number key `5` onto Space, and is now usable the
   instant it's off its own 30s cooldown regardless of the swing-timer

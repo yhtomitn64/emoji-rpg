@@ -340,8 +340,13 @@ through in a dedicated future combat pass rather than one-off adds:
   js/screens/battleScreen.js). Longer-term: some monsters throw things
   (ranged), others should visibly move in to melee, rather than every
   attack playing out identically regardless of monster type.
-- **Attack-mash fatigue.** Repeatedly mashing the attack button should
-  incur an "out of breath" penalty, discouraging pure spam-clicking.
+- ~~**Attack-mash fatigue.**~~ **Shipped in pieces, 2026-08-22 and
+  2026-08-22.** Repeatedly mashing the attack button now costs
+  progressively more: damage decays to a 40% floor, knockback decays to
+  0 (both shipped earlier under "What is Attack for?" below), and — new
+  as of fresh playtesting still showing fights too easy — the cooldown
+  between attacks itself now grows uncapped with the streak instead of
+  staying flat. See CHANGELOG.
 - **Swing-timer knockback on hit.** Landing a hit knocks the enemy's ATB
   gauge back slightly; getting hit knocks the player's back slightly —
   small and non-stacking so neither side gets fully locked out.
@@ -533,6 +538,22 @@ through in a dedicated future combat pass rather than one-off adds:
     could (far beyond human speed) for 15s straight, the monster still
     landed hits (player dropped to 13/20 HP) before dying — under the
     old bug the player would have stayed at full HP the entire fight.
+    ~~**Still too easy, raised again 2026-08-22 from fresh playtesting:**~~
+    **Fixed 2026-08-22.** The unlosable exploit was closed, but sustained
+    spam at a flat 500ms cooldown and a 40%-floor damage was apparently
+    still out-DPSing the ability rotation the balance pass tuned around.
+    Timothy's own proposed fixes: floor damage closer to 0, or make the
+    cooldown itself grow the longer you keep spamming. Went with the
+    cooldown-growth direction, leaving the 40% floor as-is for now:
+    `attackCooldownMsForStreak` in `js/systems/combat.js` (`500 + streak
+    × 200`ms, uncapped) replaces the flat `ATTACK_COOLDOWN_MS`. Verified
+    via a real in-browser battle: attack frequency dropped sharply over
+    a sustained multi-second click burst (damage log showed decay toward
+    the 40% floor — 10→11→10→9→6→4 — while the dragon landed far more
+    hits in return as its own knockback-lockout faded), rather than
+    trying to pin down exact cooldown-vs-real-time numbers, since this
+    environment's background-tab timer throttling makes precise timing
+    assertions unreliable.
   - ~~**Information density on the ability buttons.**~~ **Shipped
     2026-08-22.** Each damage-type ability button now shows a live
     estimated damage number against the current target (average roll +

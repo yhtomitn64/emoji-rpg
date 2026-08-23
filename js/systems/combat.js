@@ -88,6 +88,19 @@ export function attackKnockbackMultiplier(streak) {
   return Math.max(0, 1 - streak * ATTACK_KNOCKBACK_DECAY);
 }
 
+// Damage/knockback decay alone still left sustained spam (a flat 500ms
+// cooldown forever, floored at 40% damage) out-DPSing the ability rotation
+// the balance pass was tuned around - real playtesting found fights still
+// too easy this way. This is the actual throttle: the cooldown itself grows
+// with the streak, uncapped, so continuing to spam gets slower and slower
+// rather than settling into a sustainable rhythm.
+export const ATTACK_COOLDOWN_BASE_MS = 500;
+export const ATTACK_COOLDOWN_GROWTH_MS = 200;
+
+export function attackCooldownMsForStreak(streak) {
+  return ATTACK_COOLDOWN_BASE_MS + streak * ATTACK_COOLDOWN_GROWTH_MS;
+}
+
 export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1, knockbackMultiplier = 1) {
   const isCrit = rollCrit(rng);
   let damage = calculateDamage(player, monster, rng);

@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
@@ -17,12 +17,6 @@ const DEATH_HIDE_DELAY_MS = 900;
 const TIMING_METER_DURATION_MS = 1000;
 const TIMING_SWEET_SPOT_START = 80;
 const TIMING_SWEET_SPOT_END = 100;
-// A short flat real-time cooldown, separate from the swing timer Attack was
-// deliberately freed from - stops literal machine-gun clicking. On its own
-// this wouldn't close the "attack spam locks the enemy out" hole (see
-// attackKnockbackMultiplier in combat.js for what actually does), it just
-// keeps the pacing sane in the meantime.
-const ATTACK_COOLDOWN_MS = 500;
 
 let rootEl = null;
 let state = null;
@@ -505,7 +499,7 @@ function playerAttack() {
   const target = monsterCombatants[targetIndex];
   const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, attackStreakMultiplier(attackStreak), attackKnockbackMultiplier(attackStreak));
   attackStreak += 1;
-  attackCooldownMs = ATTACK_COOLDOWN_MS;
+  attackCooldownMs = attackCooldownMsForStreak(attackStreak);
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
   playerCombatant.atb = result.playerAtb;

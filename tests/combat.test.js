@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -99,6 +99,20 @@ test('attackStreakMultiplier decays damage per consecutive attack, flooring at A
   assert.equal(attackStreakMultiplier(1), 1 - ATTACK_STREAK_DECAY);
   assert.equal(attackStreakMultiplier(2), 1 - ATTACK_STREAK_DECAY * 2);
   assert.equal(attackStreakMultiplier(100), ATTACK_STREAK_FLOOR);
+});
+
+test('attackKnockbackMultiplier decays knockback per consecutive attack, reaching exactly 0 with no floor', () => {
+  assert.equal(attackKnockbackMultiplier(0), 1);
+  assert.equal(attackKnockbackMultiplier(1), 1 - ATTACK_KNOCKBACK_DECAY);
+  assert.equal(attackKnockbackMultiplier(3), 0);
+  assert.equal(attackKnockbackMultiplier(100), 0);
+});
+
+test('attackCooldownMsForStreak grows the cooldown uncapped with each consecutive attack', () => {
+  assert.equal(attackCooldownMsForStreak(0), ATTACK_COOLDOWN_BASE_MS);
+  assert.equal(attackCooldownMsForStreak(1), ATTACK_COOLDOWN_BASE_MS + ATTACK_COOLDOWN_GROWTH_MS);
+  assert.equal(attackCooldownMsForStreak(5), ATTACK_COOLDOWN_BASE_MS + ATTACK_COOLDOWN_GROWTH_MS * 5);
+  assert.equal(attackCooldownMsForStreak(50), ATTACK_COOLDOWN_BASE_MS + ATTACK_COOLDOWN_GROWTH_MS * 50);
 });
 
 test('resolveMonsterAttack composes damage, crit, and knockback the same way, without the player-only speed bonus', () => {
