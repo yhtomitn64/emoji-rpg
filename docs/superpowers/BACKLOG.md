@@ -928,6 +928,62 @@ to deploy manually as its own Cloudflare Pages project with
 path over a full new repo+CI setup, since it's a one-page site that
 rarely changes). Not yet confirmed live as of this writing.
 
+**Update 2026-08-23:** Landing page is live at `burghertime.com` (its
+Cloudflare Pages project was actually direct-upload only, no Git
+connection, despite an earlier assumption otherwise — fixed by giving
+`burghertime-landing` its own `wrangler`-based GitHub Action, same
+pattern as this repo's `emoji-rpg` deploy; see that repo's README for
+detail). AdSense's verification script snippet (`ca-pub-1050250477422916`)
+is placed in that landing page's `<head>` and confirmed live/executing —
+verification and "Request review" submitted in the AdSense console,
+review pending as of this writing. Consent message (EEA/UK/Switzerland)
+configured using Google's certified CMP with the 3-choice preset
+(Consent / Do not consent / Manage options) — chosen over the 2-choice
+preset specifically because regulators have flagged banners without an
+equally-prominent reject option as a compliance risk.
+
+**Placement decision, Timothy's explicit call, 2026-08-23:**
+- **No interstitials.** Ads should be a persistent, always-there banner,
+  not anything that interrupts play (rules out Google Auto ads'
+  "Vignette ads" format specifically — that's Google's name for
+  full-page interstitials).
+- **Ads only on `rpg.burghertime.com` (the game), not on the
+  `burghertime.com` splash/landing page.**
+
+  **Correction 2026-08-23, confirmed directly in the AdSense console:**
+  first floated the idea of adding `rpg.burghertime.com` as its own
+  entry in AdSense's Sites tab to get independent Auto-ads control per
+  subdomain — wrong. Timothy tried it and AdSense's Sites management
+  operates at the registrable-domain level, not per-subdomain:
+  `burghertime.com` already covers `rpg.burghertime.com`, and adding the
+  subdomain separately is rejected outright ("you've already added this
+  site"). There is no per-subdomain Sites entry in this AdSense UI.
+
+  Actual plan given that constraint: (1) turn **Auto ads off entirely**
+  for the domain (Ads → Auto ads settings, not Sites) — since Auto ads
+  is domain-wide, this is what stops any automatic insertion (including
+  Vignette) on either subdomain, and keeps the splash page ad-free with
+  certainty. (2) Once the account clears review, create one manual ad
+  unit (Ads → By ad unit → Display ads, a fixed banner size, not an
+  auto-sizing one) and paste only that specific unit's `<ins>`/script
+  snippet into `rpg.burghertime.com`'s game code — never into the
+  landing page. That's the actual mechanism for "ads only on the game,
+  in exactly one banner spot, no interstitials," since per-subdomain
+  targeting isn't available at the Auto-ads/Sites level. The
+  verification script already in the landing page's `<head>` can stay
+  permanently — it's the ownership-check script, not an ad placement,
+  and won't insert anything once Auto ads is off. Not yet done — blocked
+  on the account clearing review first; no ad-unit code exists to wire
+  into the game yet.
+
+- **`ads.txt` added 2026-08-23** to both `burghertime-landing`'s deploy
+  (`google.com, pub-1050250477422916, DIRECT, f08c47fec0942fa0`, live at
+  `burghertime.com/ads.txt`) and this repo's (same line, deployed
+  alongside the game at `rpg.burghertime.com/ads.txt`) — added
+  defensively to the game's own domain too since some ad systems check
+  `ads.txt` per exact serving subdomain rather than only the
+  registrable root.
+
 ### ~~SEO pass to make the game more findable via search engines~~ Shipped 2026-08-22
 Real `<meta name="description">`, more descriptive `<title>`, Open
 Graph/Twitter card tags (with a real screenshot-based OG image, not a

@@ -22,7 +22,7 @@ jobs:
       - name: Stage deployable files
         run: |
           mkdir dist
-          cp index.html robots.txt sitemap.xml dist/
+          cp index.html robots.txt sitemap.xml ads.txt dist/
           cp -r css dist/
           cp -r js dist/
           if [ -d assets ]; then cp -r assets dist/; fi
