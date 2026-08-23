@@ -25,6 +25,17 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Item pickups now show a small toast (e.g. "🐲 +1 Dragon Scale Mail")
+  that pops and floats up near the HUD's Inventory button
+  (`js/screens/itemPickupToast.js`), instead of no feedback beyond the
+  inventory count silently changing. Positioned from the button's live
+  `getBoundingClientRect()` rather than living inside `#hud` itself, so
+  `renderHud()`'s frequent full rebuilds don't wipe an in-flight
+  animation. A literal cross-screen flight path wasn't feasible — the
+  drop resolves after the battle screen has already unmounted, so
+  there's no live item-icon starting position to animate from — this is
+  the lighter toast/pop alternative instead. New-tool pickups keep their
+  existing bigger celebration rather than getting both.
 - Basic SEO pass: a real `<meta name="description">`, a more descriptive
   `<title>`, Open Graph + Twitter card tags (with a real screenshot-based
   `assets/og-image.png` instead of a placeholder), a canonical link,

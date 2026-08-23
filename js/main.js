@@ -33,6 +33,7 @@ import { FLAVOR_TEXT } from './data/flavorText.js';
 import { showFlavorBanner } from './screens/flavorBanner.js';
 import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/messageLog.js';
 import { playCelebration } from './screens/celebrationEffect.js';
+import { playItemPickupToast } from './screens/itemPickupToast.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses } from './systems/inventory.js';
@@ -426,6 +427,8 @@ function grantDropItem(itemId) {
   Object.assign(state, addItem(state, itemId, 1));
   if (isNewTool) {
     playCelebration(item.emoji, `You found a ${item.name}! ${item.description}.`);
+  } else {
+    playItemPickupToast(item.emoji, item.name);
   }
 }
 

@@ -21,21 +21,12 @@ the words, not the engineering around them.
 CHANGELOG. Both fire from a new shared, screen-independent celebration
 effect: `js/screens/celebrationEffect.js`.)*
 
-### Fun animation for items landing in inventory
-Wants something like items visibly "flying into" the inventory when
-received (a drop, a quest turn-in, etc.) instead of just appearing in a
-list. Deliberately **not** built alongside the first-kill/level-up
-celebrations above, even though it was originally grouped with them —
-those two are screen-independent (a generic burst + banner, fireable
-from anywhere, no specific DOM element required). This one is
-different in kind: "flying into inventory" implies an actual animated
-path toward a real target, and the only always-present, stable target
-is the HUD's Inventory button — but the natural trigger point (a drop
-resolving in `handleBattleEnd`) already runs *after* the battle screen
-has unmounted, so there's no live "item icon" starting position to
-animate from. Needs its own small design pass (e.g. a lighter toast/pop
-near the HUD button instead of a literal cross-screen flight path)
-rather than reusing the burst effect as-is.
+### ~~Fun animation for items landing in inventory~~ Shipped 2026-08-22
+Went with the toast/pop alternative flagged below, not a literal
+cross-screen flight path (still not feasible — no live item-icon
+starting position exists at the trigger point). See CHANGELOG. Scoped
+to battle drops via `grantDropItem` only — cache/treasure/quest-reward
+pickups don't get the toast, that wasn't part of what was asked.
 
 ### Early-game pace ramps up too fast; the dragon fell quickly
 Timothy's read: the early game *felt* good — genuinely hard, then you
