@@ -1,5 +1,8 @@
 export const TILES = {
-  grass: { emoji: '🟩', walkable: true, encounter: true, description: 'Field — wild monsters may appear' },
+  grass: {
+    emoji: '🟩', walkable: true, encounter: true, description: 'Field — wild monsters may appear',
+    variants: ['🟩', '🟩', '🟩', '🟩', '🍀', '🌼'],
+  },
   tree: { emoji: '🌲', walkable: false, encounter: false, description: 'Tree — blocks the way' },
   water: { emoji: '🟦', walkable: false, encounter: false, description: 'Water — blocks the way' },
   townEntrance: { emoji: '🏘️', walkable: true, encounter: false, action: 'enterTown', description: 'Town — shop, smith, and quest board' },

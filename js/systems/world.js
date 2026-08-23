@@ -1,5 +1,20 @@
 import { TILES } from '../tiles.js';
 
+// Deterministic per-tile pick, not Math.random() - the same (x, y) must always
+// render the same variant, or it'd flicker/change on every re-render as the
+// player moves around instead of looking like a stable, varied map. A plain
+// linear combination of x/y (e.g. x*31 + y*17) produces visible diagonal
+// stripes across the grid instead of natural-looking scatter, so this mixes
+// the bits (xxhash-style) before reducing to an index.
+export function pickTileVariant(tile, x, y) {
+  if (!tile.variants || tile.variants.length === 0) return tile.emoji;
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = h ^ (h >>> 16);
+  const index = Math.abs(h) % tile.variants.length;
+  return tile.variants[index];
+}
+
 export function isWalkableAt(map, x, y) {
   const row = map.rows[y];
   if (!row) return false;

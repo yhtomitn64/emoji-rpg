@@ -630,7 +630,8 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       Object.assign(state, { monsterKillCounts: incrementKillCount(state.monsterKillCounts, monsterId) });
     }
     if (leveledUpThisBattle) {
-      playCelebration('⭐', `Level up! You are now level ${state.player.level}.`);
+      playCelebration('⭐', `Level up! You are now level ${state.player.level}.`, { bigText: 'LEVEL UP!' });
+      mapScreen.playLevelUpEffect();
     }
     state.lossStreak = 0;
 

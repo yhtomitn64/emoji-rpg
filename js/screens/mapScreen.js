@@ -1,5 +1,5 @@
 import { TILES } from '../tiles.js';
-import { directionFromDelta } from '../systems/world.js';
+import { directionFromDelta, pickTileVariant } from '../systems/world.js';
 import { markVisited, isVisited } from '../systems/exploration.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
@@ -70,10 +70,12 @@ function render() {
       const cell = document.createElement('div');
       const tile = tileAt(x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
-      cell.className = 'map-tile' + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '');
+      cell.className = 'map-tile'
+        + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '')
+        + (isPlayer ? ' map-tile-player' : '');
       const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
       const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
-      const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : tile.emoji;
+      const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
       cell.textContent = isPlayer ? state.player.emoji : emoji;
       cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
       grid.appendChild(cell);
@@ -191,4 +193,28 @@ export function pause() {
 
 export function resume() {
   window.addEventListener('keydown', handleKeydown);
+}
+
+const LEVEL_UP_EFFECT_DURATION_MS = 1200;
+
+// A level-up always resolves right after a battle overlay unmounts, which
+// leaves this screen's last-rendered grid (from before the battle started)
+// still in the DOM and resumed underneath - the player's cell is safe to
+// grab directly rather than needing a fresh render().
+export function playLevelUpEffect() {
+  const playerCell = rootEl?.querySelector('.map-tile-player');
+  if (!playerCell) return;
+
+  playerCell.classList.remove('map-tile-levelup');
+  void playerCell.offsetWidth; // force reflow so re-triggering restarts the animation
+  playerCell.classList.add('map-tile-levelup');
+
+  const rays = document.createElement('div');
+  rays.className = 'map-levelup-rays';
+  playerCell.appendChild(rays);
+
+  setTimeout(() => {
+    playerCell.classList.remove('map-tile-levelup');
+    rays.remove();
+  }, LEVEL_UP_EFFECT_DURATION_MS);
 }

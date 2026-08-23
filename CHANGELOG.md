@@ -25,6 +25,21 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Level-up now gets its own dedicated effect beyond the shared star-burst
+  celebration: the hero's map tile briefly scales up 2.2x
+  (`.map-tile-levelup`), a radiating light-ray burst
+  (`repeating-conic-gradient`) fans out from it, and a large embossed
+  "LEVEL UP!" text pops in over the screen (`#celebration-big-text`,
+  `js/screens/celebrationEffect.js`'s `playCelebration` gained an
+  optional `bigText` option). All three fire together from
+  `handleBattleEnd`'s existing level-up branch in `js/main.js`.
+- Wilderness grass tiles are no longer one repeated green square —
+  each tile deterministically picks from `🟩`/`🍀`/`🌼` based on its
+  (x, y) position (`pickTileVariant` in `js/systems/world.js`), so the
+  same tile always renders the same way but the map reads as varied
+  instead of uniform. A first attempt using a plain linear hash
+  (`x*31 + y*17`) produced visible diagonal stripes across the grid;
+  switched to a proper bit-mixing hash for natural-looking scatter.
 - Hero emoji picker grew from 8 to 23 options and gained a real skin-tone
   selector (5 Fitzpatrick tones + Default). Every candidate was verified
   by actually rendering base+modifier combinations rather than assumed

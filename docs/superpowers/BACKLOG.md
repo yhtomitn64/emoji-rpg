@@ -271,6 +271,13 @@ of one repeated green square, possibly zoom/placement variation) —
 related but separate from the level-up animation itself, both about the
 map/battle screens feeling more alive.
 
+**Level-up effect and tile variety shipped 2026-08-22** — the specific,
+concrete asks from this note. See CHANGELOG. **Still open:** the
+broader "spike up animations" forward-looking initiative beyond
+level-up specifically, and the separately-bundled "Fun animation for
+items landing in inventory" idea (Pacing/progression section above) —
+neither was in scope for this pass.
+
 ### ~~Fast-travel back to the dungeon entrance after death, for a gold cost~~ Shipped 2026-08-22
 A loss now offers a choice (`js/screens/postDeathTravelScreen.js`):
 free return to town, or warp straight to `state.dungeonEntrancePosition`

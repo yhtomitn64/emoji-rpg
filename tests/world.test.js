@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { directionFromDelta, computeEdgeLandingPosition, isWalkableAt, isValidSavedPosition } from '../js/systems/world.js';
+import { directionFromDelta, computeEdgeLandingPosition, isWalkableAt, isValidSavedPosition, pickTileVariant } from '../js/systems/world.js';
 
 test('directionFromDelta maps movement deltas to compass directions', () => {
   assert.equal(directionFromDelta(1, 0), 'east');
@@ -36,4 +36,27 @@ test('isValidSavedPosition rejects a plain impassable tile (no requiresTool) and
   };
   assert.equal(isValidSavedPosition(map, 0, 0), false);
   assert.equal(isValidSavedPosition(map, 5, 5), false);
+});
+
+test('pickTileVariant returns the plain emoji for a tile with no variants', () => {
+  const tile = { emoji: '🌲' };
+  assert.equal(pickTileVariant(tile, 3, 4), '🌲');
+});
+
+test('pickTileVariant is deterministic - the same (x, y) always picks the same variant', () => {
+  const tile = { emoji: '🟩', variants: ['🟩', '🍀', '🌼'] };
+  const first = pickTileVariant(tile, 7, 12);
+  const second = pickTileVariant(tile, 7, 12);
+  assert.equal(first, second);
+});
+
+test('pickTileVariant picks different variants for different coordinates', () => {
+  const tile = { emoji: '🟩', variants: ['🟩', '🍀', '🌼'] };
+  const results = new Set();
+  for (let x = 0; x < 10; x++) {
+    for (let y = 0; y < 10; y++) {
+      results.add(pickTileVariant(tile, x, y));
+    }
+  }
+  assert.equal(results.size, 3);
 });
