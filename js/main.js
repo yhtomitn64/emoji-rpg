@@ -44,6 +44,7 @@ import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
 import { pickMonsterVariant } from './systems/monsterVariants.js';
+import { resolveWeakMobEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
 import { rollEncounterGroup, incrementKillCount } from './systems/groupEncounters.js';
 import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWarpCost } from './systems/comeback.js';
@@ -550,9 +551,6 @@ function goToQuestBoard() {
 }
 
 function handleEncounter(monsterIds, monsterOverridesList = null) {
-  battleActive = true;
-  setHudButtonsEnabled(false);
-  activeEncounterMonsterIds = monsterIds;
   // A null monsterOverridesList means a regular (non-boss) encounter - boss
   // fights always pass their own explicit tier overrides, so this branch
   // never fires for those. Each monster in the group independently rolls a
@@ -566,6 +564,27 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
     // variant's name through separately so it isn't silently dropped.
     return overrides && overrides.name ? { ...ngPlusStats, name: overrides.name } : ngPlusStats;
   });
+
+  // Solo, non-boss encounters get a pre-fight chance to resolve instantly
+  // (surrender/flee) without ever opening the battle dialog - per Timothy's
+  // explicit ask, the player shouldn't see a dialog open and close again for
+  // an outcome that was already decided. Multi-mob groups are unaffected,
+  // matching this mechanic's existing scope.
+  if (monsterIds.length === 1 && !MONSTERS[monsterIds[0]].isBoss) {
+    const bonuses = getEquipmentBonuses(state);
+    const playerStats = { attack: state.player.attack + bonuses.attack, defense: state.player.defense + bonuses.defense };
+    const weakMobOutcome = resolveWeakMobEncounter(playerStats, ngPlusOverridesList[0], false);
+    if (weakMobOutcome) {
+      activeEncounterMonsterIds = monsterIds;
+      mapScreen.playMonsterFleeEffect(MONSTERS[monsterIds[0]].emoji);
+      handleBattleEnd(weakMobOutcome, []);
+      return;
+    }
+  }
+
+  battleActive = true;
+  setHudButtonsEnabled(false);
+  activeEncounterMonsterIds = monsterIds;
   mountOverlay(battleScreen, {
     state,
     monsterIds,

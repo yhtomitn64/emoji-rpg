@@ -171,25 +171,25 @@ one-off task.
   new reward tier) is still open. No puzzle-triggered special-encounter
   mechanic exists at all yet.
 
-### Smaller, sooner: a dragon-zone (dungeon) shortcut using the axe, and better tool-drop flavor
-Two related, more immediately actionable ideas raised alongside the
-multi-zone discussion — smaller than a new zone, could happen well
-before that bigger pass:
+### ~~Smaller, sooner: a dragon-zone (dungeon) shortcut using the axe, and better tool-drop flavor~~ Already shipped 2026-08-17, backlog just never updated
+Discovered 2026-08-23 while working this list top to bottom: both pieces
+were already live, `git log` just never got a corresponding strikethrough
+here. No new work was needed.
 
-- **A shortcut in the dungeon/boss area usable once you have the axe.**
-  The existing tool-gating pass (`docs/superpowers/specs/2026-08-16-
-  metroidvania-tool-gating-design.md`) explicitly only touched the 9
-  wilderness screens, not the dungeon itself — this would be the first
-  gate placed in dungeon territory.
-- **It's currently not obvious you can even use the axe/pick, or where.**
-  Wants flavor text when standing in a zone/tile where a tool-gate is
-  usable, so the player notices the option instead of walking past it.
-  Also wants the *drop moment itself* to be made special — right now
-  `miningPick` (orc, `js/data/monsters.js:59`) and `axe` (wraith,
-  `js/data/monsters.js:71`) drop like any other material, with no
-  indication of what they unlock. Wants a distinct "this is a big deal"
-  moment on pickup that tells the player what they're about to be able
-  to do with it.
+- **Dungeon shortcut**: commit `02ff847` ("add axe-gated thicket shortcut
+  in the dungeon") — column 15 was a solid wall from row 3-8 in
+  `js/maps/dungeonMap.js`, forcing a loop back through the top rows; a
+  single tile at (15,7) is now a thicket, connecting the interior
+  corridor straight into the boss corridor for anyone holding the axe.
+- **Tool-drop pickup moment**: commit `d7ac975` ("flavor banner on
+  tool-gate clear, celebration on first tool pickup") — `grantDropItem`
+  (`js/main.js`) already gives a first-time `playCelebration` naming the
+  tool and its `description` (e.g. "Clears thicket gates blocking the
+  way") the moment you first pick one up; any repeat drop is a quiet
+  ordinary toast instead.
+- The separate "flavor text near a tool-gated tile" ask (a related but
+  distinct item under Feature requests below) was already independently
+  marked shipped 2026-08-22.
 
 ## Bugs
 
@@ -413,17 +413,15 @@ through in a dedicated future combat pass rather than one-off adds:
   weaker enemies" open question below for the fights below the surrender
   threshold that aren't quite trivial either — see the synthesis further
   down this file for how the two relate.
-- **Weak-mob surrender/flee shouldn't open the battle dialog at all,
-  raised 2026-08-20.** Timothy: "when the mobs are weak and you will
-  auto kill don't even bring up the dialog. Just show them on the map
-  and have them fly off the screen in random directions or something."
-  A refinement of the shipped weak-mob-surrender feature directly above
-  — today `resolveWeakMobEncounter` still fires from inside
-  `battleScreen.mount()`, so the full battle overlay opens and closes
-  again even though the outcome was already decided before the player
-  saw anything. This asks for the decision to happen before the overlay
-  ever mounts, with the flee/surrender animation playing on the map
-  screen itself instead.
+- ~~**Weak-mob surrender/flee shouldn't open the battle dialog at all,
+  raised 2026-08-20.**~~ **Shipped 2026-08-23.** Timothy: "when the mobs
+  are weak and you will auto kill don't even bring up the dialog. Just
+  show them on the map and have them fly off the screen in random
+  directions or something." The `resolveWeakMobEncounter` check moved
+  from inside `battleScreen.mount()` to `main.js`'s `handleEncounter`,
+  running before the overlay ever mounts. A new `mapScreen.
+  playMonsterFleeEffect(emoji)` shows the monster flying off the
+  player's tile in a random direction. See CHANGELOG.
 - ~~**Ability rotation redesign — combo chains, key ergonomics, and
   visibility, raised 2026-08-20.**~~ **Combo chains + Sweep AOE shipped
   2026-08-22; key ergonomics, Attack's role, and button info density
@@ -804,28 +802,28 @@ framing needing a genuinely different lever than damage/XP tuning —
 see the "research: ability/skill synergies vs. raw stat inflation" idea
 in the Combat pass ideas section above, never pursued.
 
-### NG+ doesn't reset `lossStreak`
-`resetWorldForNgPlus` (js/systems/ngPlus.js:45-59) resets `bossTier`,
-`caches`, `gateRewards`, etc., but not `lossStreak`. Entering NG+ on a
-5-loss streak grants the full 5-potion comeback bonus on the first NG+
-death. Technically spec-compliant for the comeback-mechanic plan (only a
-win resets the streak, by design) but the plan never explicitly decided
-whether NG+ should also reset it — a design call, not a bug. (Surfaced
-by the final whole-branch review of the comeback-mechanic plan,
-2026-08-17.)
+### ~~NG+ doesn't reset `lossStreak`~~ Decided and fixed 2026-08-23
+Timothy's call: reset it, matching every other NG+ reset (`bossTier`,
+`caches`, `gateRewards`, etc.) — NG+ is a fresh start, so a streak from
+the previous cycle shouldn't grant a comeback-potion bonus before any
+loss has actually happened in the new one. `resetWorldForNgPlus`
+(`js/systems/ngPlus.js`) now also zeroes `lossStreak`. See CHANGELOG.
+(Surfaced by the final whole-branch review of the comeback-mechanic
+plan, 2026-08-17.)
 
-### Hero-revival glow may cancel the death-blow hit-flash/shake
-On the killing blow, `.battle-hit-flash`/`.battle-hit-shake` and the new
-`.battle-revive-glow` (css/styles.css:210-230) are briefly applied to
-the same elements at the same specificity, and the later-declared
-`.battle-revive-glow` wins — so the red flash/shake on the exact hit
-that ends the fight may get visually overridden by the green revival
-pulse. Purely cosmetic (arguably "green replaces red on death" reads
-fine), but nobody explicitly decided this — worth a 30-second look
-during a playtest to confirm it's not jarring. If it needs separating,
-move the glow to a distinct CSS property or a wrapper element instead of
-sharing `animation`/`filter` with the hit effect. (Surfaced by the final
-whole-branch review of the comeback-mechanic plan, 2026-08-17.)
+### ~~Hero-revival glow may cancel the death-blow hit-flash/shake~~ Fixed 2026-08-23
+Confirmed, not just theoretical: live computed-style polling on a forced
+killing blow showed the red flash/shake genuinely never rendered at all
+(not just visually dominated) — `.battle-hit-shake`/`.battle-revive-glow`
+both set the `animation` shorthand on the hero zone, and
+`.battle-hit-flash`/`.battle-revive-glow` both set `filter` on the hero
+emoji, so the later-declared `.battle-revive-glow` won outright on both
+properties every time. Fixed per this item's own suggested resolution:
+`playReviveEffect` now only targets the emoji (not the whole zone), and
+the revive pulse's keyframes animate `box-shadow` instead of `filter`.
+Re-verified live: flash, shake, and glow all render together on the
+killing blow now. See CHANGELOG. (Surfaced by the final whole-branch
+review of the comeback-mechanic plan, 2026-08-17.)
 
 ## Open question (not yet decided)
 

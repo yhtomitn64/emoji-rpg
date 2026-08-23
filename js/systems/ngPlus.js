@@ -55,6 +55,7 @@ export function resetWorldForNgPlus(state) {
     bossTier: 0,
     map: 'center',
     position: null,
+    lossStreak: 0,
     ngPlusCycle: Math.min(state.ngPlusCycle + 1, MAX_NG_PLUS_CYCLE),
   };
 }

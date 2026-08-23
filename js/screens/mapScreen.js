@@ -218,3 +218,32 @@ export function playLevelUpEffect() {
     rays.remove();
   }, LEVEL_UP_EFFECT_DURATION_MS);
 }
+
+const MONSTER_FLEE_EFFECT_DURATION_MS = 700;
+const MONSTER_FLEE_DISTANCE_PX = 120;
+
+// Fired for a weak-mob encounter that resolves (surrender/flee) before the
+// battle dialog ever opens - the player still gets to see the monster
+// appear and immediately bail, rather than nothing happening at all.
+export function playMonsterFleeEffect(emoji) {
+  const playerCell = rootEl?.querySelector('.map-tile-player');
+  if (!playerCell) return;
+  const rect = playerCell.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.textContent = emoji;
+  el.className = 'map-flee-emoji';
+  el.style.left = `${rect.left + rect.width / 2}px`;
+  el.style.top = `${rect.top + rect.height / 2}px`;
+  document.body.appendChild(el);
+  const angle = Math.random() * Math.PI * 2;
+  const dx = Math.cos(angle) * MONSTER_FLEE_DISTANCE_PX;
+  const dy = Math.sin(angle) * MONSTER_FLEE_DISTANCE_PX;
+  const animation = el.animate(
+    [
+      { transform: 'translate(-50%, -50%) translate(0, 0) scale(1)', opacity: 1 },
+      { transform: `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(0.3)`, opacity: 0 },
+    ],
+    { duration: MONSTER_FLEE_EFFECT_DURATION_MS, easing: 'ease-in' },
+  );
+  animation.onfinish = () => el.remove();
+}

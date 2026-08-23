@@ -24,6 +24,29 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Changed
+- Weak-mob surrender/flee no longer opens the battle dialog at all. The
+  pre-fight `resolveWeakMobEncounter` check (`js/systems/combat.js`) moved
+  from inside `battleScreen.js`'s `mount()` to `main.js`'s `handleEncounter`,
+  running before the overlay ever mounts — previously the dialog always
+  rendered first and then auto-closed ~1.2s later even though the outcome
+  was already decided. `handleBattleEnd` was already fully self-contained
+  (banner/rewards/persist/HUD) and safe to call directly with an empty
+  `killedMonsterIds`, so no reward-logic duplication was needed. A new
+  `mapScreen.playMonsterFleeEffect(emoji)` shows the monster's emoji flying
+  off the player's tile in a random direction (same Web Animations API
+  technique as the ranged-attack projectiles) so the player still sees
+  something happen instead of nothing at all — matching Timothy's own
+  description of the ask. Removed the now-unreachable in-dialog weak-mob
+  branch and its `WEAK_MOB_LOG_MESSAGES`/`playWeakMobFleeEffect`/
+  `.battle-flee-shrink` (the in-dialog log line is moot with no dialog to
+  show it in; `handleBattleEnd`'s existing flavor banner already covers
+  the message). Scope unchanged: only solo, non-boss encounters resolve
+  this way; multi-mob groups still open the dialog. Verified live via
+  computed-DOM polling across several encounters: normal fights still
+  open the dialog as before, and a weak-mob resolve showed the flee emoji
+  and the correct banner text with `dialogOpen` false throughout.
+
 ### Added
 - Three new monsters, one per existing tier: Ribbity Ravioli 🐸 (near-town
   wilderness, joins boar/bat/snake/goblin), Spicy Skewer 🦂 (far-corner
@@ -66,6 +89,30 @@ public API, no formal release process — commits land straight on
   combatant object and was silently dropping `attackStyle`/`projectileEmoji`,
   so every monster fell back to the melee lunge regardless of its actual
   style — fixed by adding both fields to that whitelist.
+
+### Fixed
+- The killing-blow hit-flash/shake was silently never playing when it also
+  triggered a revive: `.battle-hit-shake`/`.battle-revive-glow` both set
+  the `animation` shorthand on the same hero-zone element, and
+  `.battle-hit-flash`/`.battle-revive-glow` both set `filter` on the same
+  emoji element — in both cases only one declaration can win per property,
+  and the later-declared `.battle-revive-glow` always did, so the red
+  flash/shake never rendered at all on the exact hit that ends a losing
+  fight, jumping straight to the green pulse. Confirmed via live
+  computed-style polling before and after. Fixed per the backlog's own
+  suggested resolution: `playReviveEffect` (`js/screens/battleScreen.js`)
+  now only targets the hero emoji, not the whole zone (so it stops
+  contending with the shake's `transform` animation), and
+  `battle-revive-pulse`'s keyframes (`css/styles.css`) now animate
+  `box-shadow` instead of `filter` (so it stops contending with the
+  flash). All three effects now render together on the killing blow.
+- Starting NG+ now also resets `lossStreak` to 0 (`resetWorldForNgPlus`,
+  `js/systems/ngPlus.js`) — previously a streak carried over from the
+  prior cycle, so entering NG+ already deep in a loss streak granted the
+  full comeback-potion bonus on the first NG+ death despite nothing
+  actually going wrong yet in the new cycle. Timothy's call: NG+ is a
+  fresh start, matching how every other world-state field already resets.
+
 - Item pickups now show a small toast (e.g. "🐲 +1 Dragon Scale Mail")
   that pops and floats up near the HUD's Inventory button
   (`js/screens/itemPickupToast.js`), instead of no feedback beyond the

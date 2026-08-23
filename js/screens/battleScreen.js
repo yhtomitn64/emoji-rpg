@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, resolveWeakMobEncounter, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
@@ -456,22 +456,16 @@ function playMonsterAttackWindup(monster, monsterIndex) {
   }
 }
 
-function playReviveEffect(zoneEl, emojiEl) {
+function playReviveEffect(emojiEl) {
+  // Scoped to just the emoji, not the whole zone - the zone's own
+  // battle-hit-shake animates `transform` via the `animation` shorthand,
+  // and a killing blow adds both classes in the same tick. Two classes
+  // setting `animation` on the same element can't both win: whichever CSS
+  // rule is declared later takes the whole shorthand, so the shake was
+  // silently never playing on the exact hit that triggers a revive. The
+  // glow's own keyframes also animate box-shadow rather than filter, so it
+  // doesn't fight battle-hit-flash's filter on the emoji either.
   emojiEl.classList.add('battle-revive-glow');
-  zoneEl.classList.add('battle-revive-glow');
-}
-
-const WEAK_MOB_LOG_MESSAGES = {
-  surrender: (name) => `${name} surrenders!`,
-  'fled-with-loot': (name) => `${name} flees, dropping loot!`,
-  'fled-empty': (name) => `${name} flees!`,
-};
-
-function playWeakMobFleeEffect(emojiEl) {
-  // Only the emoji animates (shrink + slide away) - it's nested inside the
-  // zone, so adding the transform to both would compound into a double
-  // shrink/translate instead of one clean flee motion.
-  emojiEl.classList.add('battle-flee-shrink');
 }
 
 function handleKeydown(event) {
@@ -868,7 +862,7 @@ function endBattle(outcome) {
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
   if (outcome === 'lost') {
-    playReviveEffect(elements.heroZone, elements.heroEmoji);
+    playReviveEffect(elements.heroEmoji);
   }
   const killedMonsterIds = monsterCombatants.filter((mc) => mc.hp <= 0).map((mc) => mc.monsterId);
   updateMenu();
@@ -912,18 +906,6 @@ export function mount(root, props) {
   updateMonsterSelection();
   updateHpBars();
   updateAtbBars();
-
-  if (monsterIds.length === 1) {
-    const soloMonster = monsterCombatants[0];
-    const weakMobOutcome = resolveWeakMobEncounter(playerCombatant, soloMonster, Boolean(MONSTERS[monsterIds[0]].isBoss));
-    if (weakMobOutcome) {
-      log.push(WEAK_MOB_LOG_MESSAGES[weakMobOutcome](soloMonster.name));
-      updateLog();
-      playWeakMobFleeEffect(elements.monsterEmojis[0]);
-      endBattle(weakMobOutcome);
-      return;
-    }
-  }
 
   updateLog();
   updateMenu();

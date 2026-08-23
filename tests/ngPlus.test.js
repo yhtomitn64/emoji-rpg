@@ -108,6 +108,7 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   state.map = 'northeast';
   state.position = { x: 5, y: 5 };
   state.ngPlusCycle = 0;
+  state.lossStreak = 5;
 
   const reset = resetWorldForNgPlus(state);
 
@@ -128,6 +129,7 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   assert.equal(reset.map, 'center');
   assert.equal(reset.position, null);
   assert.equal(reset.ngPlusCycle, 1);
+  assert.equal(reset.lossStreak, 0);
 });
 
 test('resetWorldForNgPlus caps ngPlusCycle at MAX_NG_PLUS_CYCLE', () => {
