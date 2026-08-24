@@ -37,6 +37,11 @@ const CHAR_FOR_KIND = {
 const PAINTABLE_KINDS = new Set(['grass', 'tree', 'water', 'mountain', 'mountainCache', 'thicket', 'thicketCache']);
 const AUTOSAVE_KEY = 'terrain-painter-autosave-v1';
 
+// tree never clears (permanent wall) and water has no boat yet (see BACKLOG.md)
+// - both stay impassable in every reachability check below, tools or not.
+const TOOLLESS_PASSABLE_KINDS = new Set(['grass', 'townEntrance']);
+const TOOLED_PASSABLE_KINDS = new Set(['grass', 'townEntrance', 'thicket', 'thicketCache', 'mountain', 'mountainCache']);
+
 let grid = [];
 let activeBrush = 'grass';
 let painting = false;
@@ -44,6 +49,7 @@ let brushSize = 1; // radius in cells - 1 means "just the cell under the cursor"
 let brushShape = 'square';
 let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance spot
 let placingDungeon = false;
+let checkOverlay = null; // { toollessReached: Set<string>, tooledReached: Set<string> } | null
 
 function worldToLocal(wx, wy) {
   for (const [id, pos] of Object.entries(GRID_LAYOUT)) {
@@ -88,6 +94,20 @@ function render(ctx) {
       ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
     }
   }
+
+  if (checkOverlay) {
+    for (let y = 0; y < WORLD_H; y++) {
+      for (let x = 0; x < WORLD_W; x++) {
+        const key = `${x},${y}`;
+        if (checkOverlay.toollessReached.has(key)) continue; // freely reachable, no tint
+        ctx.fillStyle = checkOverlay.tooledReached.has(key)
+          ? 'rgba(224,192,57,0.35)' // reachable only with a tool
+          : 'rgba(224,60,60,0.4)'; // not reachable even with every tool
+        ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+      }
+    }
+  }
+
   ctx.strokeStyle = 'rgba(255,255,255,0.4)';
   ctx.lineWidth = 1;
   for (let c = 0; c <= 5; c++) {
@@ -128,6 +148,7 @@ function paintAt(x, y) {
   if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H) return;
   if (grid[y][x] === 'townEntrance') return;
   grid[y][x] = activeBrush;
+  checkOverlay = null; // stale as soon as the terrain changes
 }
 
 function paintBrush(cx, cy) {
@@ -195,6 +216,78 @@ function exportScreen(id) {
   return `const LEGEND = { ${legendEntries} };\n\nconst ROWS = [\n${rowsEntries}\n];`;
 }
 
+function findTownEntrance() {
+  for (let y = 0; y < WORLD_H; y++) {
+    for (let x = 0; x < WORLD_W; x++) {
+      if (grid[y][x] === 'townEntrance') return { x, y };
+    }
+  }
+  return null;
+}
+
+function cellPassable(passableKinds, x, y) {
+  // The real game's mapScreen.js always renders the dungeon-entrance tile as
+  // walkable at its exact marker position, regardless of the terrain painted
+  // underneath - matching that here so the check reflects actual game behavior.
+  if (dungeonMarker) {
+    const world = localToWorld(dungeonMarker.screenId, dungeonMarker.x, dungeonMarker.y);
+    if (world && world.wx === x && world.wy === y) return true;
+  }
+  return passableKinds.has(grid[y][x]);
+}
+
+function floodFillReachable(start, passableKinds) {
+  const reached = new Set([`${start.x},${start.y}`]);
+  const queue = [start];
+  while (queue.length) {
+    const { x, y } = queue.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= WORLD_W || ny < 0 || ny >= WORLD_H) continue;
+      const key = `${nx},${ny}`;
+      if (reached.has(key)) continue;
+      if (!cellPassable(passableKinds, nx, ny)) continue;
+      reached.add(key);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+  return reached;
+}
+
+function checkMap() {
+  const status = document.getElementById('checkStatus');
+  const town = findTownEntrance();
+  if (!town) {
+    checkOverlay = null;
+    status.textContent = 'No townEntrance tile found on the map - cannot check.';
+    status.className = 'fail';
+    return;
+  }
+
+  const toollessReached = floodFillReachable(town, TOOLLESS_PASSABLE_KINDS);
+  const tooledReached = floodFillReachable(town, TOOLED_PASSABLE_KINDS);
+  checkOverlay = { toollessReached, tooledReached };
+
+  if (!dungeonMarker) {
+    status.textContent = 'Map checked (no dungeon entrance placed yet).';
+    status.className = '';
+    return;
+  }
+  const world = localToWorld(dungeonMarker.screenId, dungeonMarker.x, dungeonMarker.y);
+  const dKey = world ? `${world.wx},${world.wy}` : null;
+  if (dKey && toollessReached.has(dKey)) {
+    status.textContent = '✅ Dungeon entrance is reachable without any tool.';
+    status.className = 'ok';
+  } else if (dKey && tooledReached.has(dKey)) {
+    status.textContent = "❌ NOT reachable without a tool — a thicket/mountain gate blocks the only path. This will soft-lock new players, since the axe/pick only drop inside the dungeon.";
+    status.className = 'fail';
+  } else {
+    status.textContent = "❌ NOT reachable even with every tool — the dungeon area looks walled off (trees/water fully enclosing it, or a disconnected landmass). Double-check the surrounding terrain.";
+    status.className = 'fail';
+  }
+}
+
 async function init() {
   const canvas = document.getElementById('worldCanvas');
   const ctx = canvas.getContext('2d');
@@ -251,6 +344,11 @@ async function init() {
     }
   });
 
+  document.getElementById('checkMapBtn').addEventListener('click', () => {
+    checkMap();
+    render(ctx);
+  });
+
   document.querySelectorAll('#palette button').forEach((btn) => {
     btn.addEventListener('click', () => {
       activeBrush = btn.dataset.kind;
@@ -291,6 +389,7 @@ async function init() {
       if (local) {
         dungeonMarker = local;
         updateDungeonReadout();
+        checkOverlay = null; // stale as soon as the marker moves
         saveAutosave();
       }
       placingDungeon = false;

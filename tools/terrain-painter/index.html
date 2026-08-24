@@ -22,6 +22,10 @@
   #dungeonControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
   #dungeonControls button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #placeDungeonBtn.active { border-color: #e07b39; color: #e07b39; }
+  #checkControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  #checkControls button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
+  #checkStatus.ok { color: #6bbf6b; }
+  #checkStatus.fail { color: #e06c6c; }
   canvas { border: 1px solid #444; cursor: crosshair; display: block; margin-top: 12px; }
   canvas.placing-dungeon { cursor: cell; }
   #exportRow { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
@@ -42,7 +46,11 @@
   file under <code>js/maps/wilderness/</code>. "Place Dungeon Entrance"
   marks the one fixed spot every save's dungeon spawns at — "Copy position"
   copies the exact value to paste into <code>DEFAULT_DUNGEON_ENTRANCE_POSITION</code>
-  in <code>js/state.js</code>.
+  in <code>js/state.js</code>. "Check Map" flood-fills from the town entrance
+  and tints anything not freely walkable: yellow needs a tool (axe/pick) to
+  reach, red isn't reachable even with every tool — and tells you plainly
+  whether the dungeon entrance itself is reachable without a tool (it has to
+  be, since the axe/pick only drop inside the dungeon).
 </p>
 <div id="palette">
   <button data-kind="grass">Grass</button>
@@ -66,6 +74,10 @@
   <button id="placeDungeonBtn">Place Dungeon Entrance</button>
   <span id="dungeonReadout"></span>
   <button id="copyDungeonBtn">Copy position</button>
+</div>
+<div id="checkControls">
+  <button id="checkMapBtn">Check Map</button>
+  <span id="checkStatus"></span>
 </div>
 <canvas id="worldCanvas" width="1200" height="880"></canvas>
 <div id="exportRow">
