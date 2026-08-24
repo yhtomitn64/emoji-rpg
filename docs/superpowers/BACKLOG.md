@@ -272,6 +272,64 @@ here. No new work was needed.
   distinct item under Feature requests below) was already independently
   marked shipped 2026-08-22.
 
+## Roaming visible enemies + dragon difficulty scaling (big idea — needs its own design pass)
+
+Raised 2026-08-24, while the zone 1 map expansion terrain was being
+hand-painted. Two related but separable ideas — flagging the shape now,
+not ready to implement.
+
+Timothy's own words: "roaming enemies that are very strong that drop
+unique loot and maybe the stronger you are before the dragon the harder
+the dragon is so that dragon is always a tough encounter. What I mean by
+roaming enemies is something you can see and have to walk around to
+avoid them. have them walk pretty slow though but still should feel
+scary and also you have to stay a block or two away or they will chase
+you until you are 5 blocks away. and they can travel through map
+borders. I am thinking at some point we might not have the game load
+one screen at a time and the whole map just move as you move around."
+
+- **Roaming enemies as visible, persistent overworld entities.** Today's
+  encounter system has no on-map presence at all — `encounterChance` is
+  a per-step random roll (`js/systems/groupEncounters.js` /
+  `js/systems/combat.js`) that resolves straight into a battle screen;
+  nothing is ever rendered walking around the wilderness. This idea
+  needs an actual new subsystem: an entity with a position, a slow
+  movement tick, an aggro radius (~1-2 tiles triggers a chase), a
+  chase-break radius (5 tiles), and rendering on the map screen
+  alongside the player. Very strong, with a unique drop table distinct
+  from the regular per-screen `monsterTable` roster.
+- **"They can travel through map borders."** The current world is 25
+  discrete screens (`js/maps/wilderness/*.js`), each with its own local
+  30x22 coordinate space — there's no single global position an entity
+  could hold that's valid across a screen boundary today. A roaming
+  enemy crossing screens means either teleporting it between two
+  screens' local coordinate systems at the boundary (doable within the
+  current architecture) or an entity position expressed in world-space
+  from the start.
+- **The dragon scaling with the player's own pre-fight strength, so the
+  final boss is never a pushover.** This is different from the existing
+  boss-rematch tier system (which scales *after* each dragon kill, not
+  based on player level going in) and different from the already-shipped
+  "zone 1 should get easier over time, not track the player" call for
+  regular wilderness monsters (see "The player outpaces near-town/far-corner
+  content" thread below) — this is deliberately the opposite,
+  scoped to the dragon fight specifically, not zone 1's regular roster.
+  Needs its own design pass: what "how strong before the dragon" measures
+  (character level? gear score? both?), and how it maps to a difficulty
+  curve, are both undecided.
+- **Possible bigger dependency, flagged but not committed to:** cleanly
+  doing "roaming enemies that cross screen borders" might be much
+  easier — maybe even want — under a continuous single-map-that-scrolls-
+  as-you-walk architecture instead of the current discrete-screen-swap
+  model (`handleEdgeTransition` in `js/main.js`, `computeEdgeLandingPosition`
+  in `js/systems/world.js`). That would be a significant rendering/engine
+  rewrite, well beyond this feature alone — Timothy floated it as a
+  "maybe eventually," not a requirement for roaming enemies to ship.
+  Worth deciding explicitly, in the design pass, whether roaming enemies
+  ship first on the current screen-based world (with the border-crossing
+  piece handled as a special case) or wait for/motivate the bigger
+  rendering change.
+
 ## Bugs
 
 *(none open right now — the boss-tier skip bug and the inventory-panel
