@@ -879,6 +879,22 @@ better-informed.
 
 ## Infrastructure / deployment
 
+### Testing infra: jsdom (or similar) for battleScreen.js's DOM/timing logic — deferred 2026-08-23
+Raised while root-causing a real bug: ranged-monster attacks (this
+session's earlier themed-attack-animation work) added a delay that let a
+parry press land during a window where the wind-up bar had already reset,
+silently swallowing the parry — "I noticed even when I parry sometimes
+enemies still hit me." No unit test could have caught this: `battleScreen.js`
+exports nothing but `mount`/`unmount`, and this repo has no DOM-testing
+setup at all, so its timing/sequencing logic (wind-up bars, `setTimeout`
+chains, keypress-vs-animation races) is only ever verified live in-browser.
+This is the second such bug found via live testing this session alone (the
+first: `buildMonsterCombatant` silently dropping `attackStyle`/
+`projectileEmoji`, same file).
+
+**Timothy's call:** don't add jsdom (or similar) now — live verification is
+an acceptable trade-off for a project this size today. Revisit if
+DOM-timing regressions in this file keep showing up.
 ### ~~Host on Cloudflare (free tier) with GitHub Actions auto-publish, raised 2026-08-20~~ Shipped 2026-08-22
 Timothy: "I want to host this on cloudflare free tier and push to my
 personal github and then have a github action that lets me easily

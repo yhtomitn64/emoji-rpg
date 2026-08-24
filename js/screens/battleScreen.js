@@ -768,15 +768,16 @@ function monsterAttack(monster) {
   monster.atb = result.monsterAtb;
   const monsterIndex = monsterCombatants.indexOf(monster);
   playMonsterAttackWindup(monster, monsterIndex);
-  // Ranged attacks delay the impact (log/HP-bar/hit-flash/outcome check) until
-  // the projectile visually arrives, so the flash doesn't land before the
-  // thing that's supposed to cause it. Melee is a fast lunge with no real
-  // travel time, so its impact stays immediate.
-  if (monster.attackStyle === 'ranged') {
-    setTimeout(() => applyMonsterAttackImpact(monster, result), RANGED_PROJECTILE_MS);
-  } else {
-    applyMonsterAttackImpact(monster, result);
-  }
+  // Impact resolves immediately for every attack style, purely cosmetic
+  // projectile flight aside - a delay here used to push the ranged case
+  // past the moment the parry wind-up bar resets to inactive
+  // (PARRY_WINDUP_DURATION_MS in js/systems/parry.js), so a parry press
+  // during that gap silently did nothing and the hit landed unblocked.
+  // Found 2026-08-23 from Timothy's own report that parries against ranged
+  // monsters (goblin/spider/dragon/wraith/skeleton/the elite) felt
+  // unreliable - real regression from adding the projectile animation,
+  // not his timing.
+  applyMonsterAttackImpact(monster, result);
 }
 
 function resolveMonsterWindup(monster, parried) {

@@ -24,6 +24,27 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Fixed
+- Parries against ranged monsters (goblin/spider/dragon/wraith/skeleton/
+  Jurassic Jerky) could silently fail even on a well-timed press: the
+  earlier themed-attack-animation pass added a 350ms delay after the
+  parry wind-up bar completes, before a ranged hit actually landed
+  (`RANGED_PROJECTILE_MS`, so the hit-flash would land when the
+  projectile visually arrived). But the wind-up bar (and the
+  `monster.windup.active` flag a parry press checks) resets to inactive
+  the instant it completes, before that delay even starts - so a parry
+  press during the delay window (which visually still looks like the
+  attack is resolving, since the projectile is still flying) matched no
+  active wind-up and was silently ignored, letting the hit land
+  unblocked. `monsterAttack` (`js/screens/battleScreen.js`) now resolves
+  impact immediately for every attack style, matching how melee always
+  worked; the projectile is purely cosmetic and no longer gates the
+  mechanical outcome. Found from Timothy's own report ("even when I
+  parry sometimes enemies still hit me") rather than a test - this file
+  has no unit-test coverage for DOM/timing sequencing (no jsdom in this
+  repo), so this class of bug is only ever caught live; see the backlog's
+  new Infrastructure entry on that trade-off.
+
 ### Changed
 - Leveling slowed down 4x: `xpForLevel`'s base coefficient (`js/systems/
   leveling.js`) goes 12→48 (the 2026-08-22 balance pass had already taken
