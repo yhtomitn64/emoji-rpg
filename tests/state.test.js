@@ -55,10 +55,14 @@ test('createNewGame uses the passed hero emoji instead of the default', () => {
   assert.equal(state.player.emoji, '🧙');
 });
 
-test('createNewGame defaults dungeonEntrancePosition to the historical southeast spot', () => {
+test('createNewGame defaults dungeonEntrancePosition to DEFAULT_DUNGEON_ENTRANCE_POSITION', () => {
+  // Not pinned to a specific historical value - DEFAULT_DUNGEON_ENTRANCE_POSITION
+  // is a hand-placed, movable config value (see its own comment in state.js),
+  // expected to change whenever Timothy repositions the dungeon via the
+  // terrain painter tool. This only checks that createNewGame's default
+  // actually flows from that constant, not any particular coordinate.
   const state = createNewGame();
   assert.deepEqual(state.dungeonEntrancePosition, DEFAULT_DUNGEON_ENTRANCE_POSITION);
-  assert.deepEqual(state.dungeonEntrancePosition, { screenId: 'southeast', x: 24, y: 10 });
 });
 
 test('createNewGame uses an explicit dungeonEntrancePosition when passed', () => {

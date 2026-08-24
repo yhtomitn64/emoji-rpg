@@ -8,9 +8,12 @@
 // the entrance position.
 export const TOOL_DUNGEON_ENTRANCES = {
   axe: {
-    screenId: 'north', x: 15, y: 11, mapId: 'axeDungeon', tileKind: 'axeDungeonEntrance',
+    screenId: 'farNorth', x: 13, y: 7, mapId: 'axeDungeon', tileKind: 'axeDungeonEntrance',
   },
   pick: {
-    screenId: 'south', x: 15, y: 11, mapId: 'pickDungeon', tileKind: 'pickDungeonEntrance',
+    screenId: 'southSoutheast', x: 18, y: 14, mapId: 'pickDungeon', tileKind: 'pickDungeonEntrance',
+  },
+  canoe: {
+    screenId: 'south', x: 15, y: 11, mapId: 'canoeDungeon', tileKind: 'canoeDungeonEntrance',
   },
 };

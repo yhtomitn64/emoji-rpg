@@ -99,14 +99,26 @@ const SINGLE_MAPS = {
     label: 'Mini-Dungeon E', modulePath: '../../js/maps/miniDungeons/variantE.js',
     exportName: 'miniDungeonVariantE', palette: MINI_DUNGEON_PALETTE, defaultKind: 'caveFloor',
   },
+  axeDungeon: {
+    label: 'Axe Dungeon', modulePath: '../../js/maps/toolDungeons/axeDungeon.js',
+    exportName: 'axeDungeonMap', palette: DUNGEON_PALETTE, defaultKind: 'grass',
+  },
+  pickDungeon: {
+    label: 'Pick Dungeon', modulePath: '../../js/maps/toolDungeons/pickDungeon.js',
+    exportName: 'pickDungeonMap', palette: DUNGEON_PALETTE, defaultKind: 'grass',
+  },
+  canoeDungeon: {
+    label: 'Canoe Dungeon', modulePath: '../../js/maps/toolDungeons/canoeDungeon.js',
+    exportName: 'canoeDungeonMap', palette: DUNGEON_PALETTE, defaultKind: 'grass',
+  },
 };
 
 const AUTOSAVE_KEY = 'terrain-painter-autosave-v1';
 
-// tree never clears (permanent wall) and water has no boat yet (see BACKLOG.md)
-// - both stay impassable in every reachability check below, tools or not.
+// tree and mountainWall never clear (permanent walls) - stay impassable in
+// every reachability check below, tools or not.
 const TOOLLESS_PASSABLE_KINDS = new Set(['grass', 'townEntrance']);
-const TOOLED_PASSABLE_KINDS = new Set(['grass', 'townEntrance', 'thicket', 'thicketCache', 'mountain', 'mountainCache']);
+const TOOLED_PASSABLE_KINDS = new Set(['grass', 'townEntrance', 'thicket', 'thicketCache', 'mountain', 'mountainCache', 'water']);
 
 let grid = []; // wilderness world grid, always kept in memory even while editing a single map
 let singleGrid = []; // active single map's grid (dungeon / mini-dungeon), only valid when currentMapKey !== 'wilderness'
@@ -125,8 +137,8 @@ let checkOverlay = null; // { toollessReached: Set<string>, tooledReached: Set<s
 let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers } snapshots, oldest first
 const UNDO_LIMIT = 30;
 
-const TOOL_DUNGEON_IDS = ['axe', 'pick'];
-const TOOL_DUNGEON_MARKER_COLORS = { axe: '#5cb85c', pick: '#5bc0de' };
+const TOOL_DUNGEON_IDS = ['axe', 'pick', 'canoe'];
+const TOOL_DUNGEON_MARKER_COLORS = { axe: '#5cb85c', pick: '#5bc0de', canoe: '#e0a83a' };
 
 function cloneGrid(g) {
   return g.map((row) => row.slice());
@@ -223,11 +235,28 @@ function getActive() {
   return { grid: singleGrid, w: singleMapW, h: singleMapH, isWilderness: false };
 }
 
+// Mirrors js/screens/mapScreen.js's isSealedWorldEdge: the true outer
+// boundary of the 5x5 world (a screen side with no neighbor at all) always
+// renders as mountainWall in the real game regardless of what's painted
+// there, since leaving the map is already blocked structurally. Shown the
+// same way here, and locked from painting, so there's never a mismatch
+// between what you paint and what the game actually shows.
+function isSealedWorldEdge(wx, wy) {
+  const local = worldToLocal(wx, wy);
+  if (!local) return false;
+  const pos = GRID_LAYOUT[local.screenId];
+  if (local.y === 0 && pos.row === 0) return true;
+  if (local.y === SCREEN_H - 1 && pos.row === 4) return true;
+  if (local.x === 0 && pos.col === 0) return true;
+  if (local.x === SCREEN_W - 1 && pos.col === 4) return true;
+  return false;
+}
+
 function renderWilderness(ctx) {
   ctx.clearRect(0, 0, WORLD_W * CELL, WORLD_H * CELL);
   for (let y = 0; y < WORLD_H; y++) {
     for (let x = 0; x < WORLD_W; x++) {
-      ctx.fillStyle = TILE_COLORS[grid[y][x]] || '#000';
+      ctx.fillStyle = isSealedWorldEdge(x, y) ? TILE_COLORS.mountainWall : (TILE_COLORS[grid[y][x]] || '#000');
       ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
     }
   }
@@ -321,6 +350,7 @@ function paintAt(x, y) {
   const active = getActive();
   if (x < 0 || x >= active.w || y < 0 || y >= active.h) return;
   if (active.isWilderness && active.grid[y][x] === 'townEntrance') return;
+  if (active.isWilderness && isSealedWorldEdge(x, y)) return;
   active.grid[y][x] = activeBrush;
   if (active.isWilderness) checkOverlay = null; // stale as soon as the terrain changes
 }
@@ -426,6 +456,7 @@ function cellPassable(passableKinds, x, y) {
     const world = localToWorld(pos.screenId, pos.x, pos.y);
     if (world && world.wx === x && world.wy === y) return true;
   }
+  if (isSealedWorldEdge(x, y)) return false; // always mountainWall in the real game, regardless of raw grid content
   return passableKinds.has(grid[y][x]);
 }
 

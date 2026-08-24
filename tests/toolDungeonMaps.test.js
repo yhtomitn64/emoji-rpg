@@ -6,12 +6,16 @@ import { ITEMS } from '../js/data/items.js';
 import { TOOL_DUNGEON_ENTRANCES } from '../js/data/toolDungeons.js';
 import { axeDungeonMap } from '../js/maps/toolDungeons/axeDungeon.js';
 import { pickDungeonMap } from '../js/maps/toolDungeons/pickDungeon.js';
+import { canoeDungeonMap } from '../js/maps/toolDungeons/canoeDungeon.js';
 import { isWalkableAt } from '../js/systems/world.js';
 
 const TOOL_DUNGEONS = {
   axe: axeDungeonMap,
   pick: pickDungeonMap,
+  canoe: canoeDungeonMap,
 };
+
+const ITEM_ID_FOR_TOOL = { axe: 'axe', pick: 'miningPick', canoe: 'boat' };
 
 function assertValidMap(map) {
   const width = map.rows[0].length;
@@ -102,17 +106,26 @@ test('every guardian monster guarantees exactly its own tool, skips the weak-mob
     const guardian = MONSTERS[map.guardianMonsterId];
     assert.equal(guardian.forceFullBattle, true, `${guardian.id} must force a full battle so its guaranteed drop can never be skipped`);
     assert.notEqual(guardian.isBoss, true, `${guardian.id} must not be isBoss - that would falsely flag the dragon as defeated`);
-    assert.deepEqual(guardian.dropTable, [{ itemId: toolId === 'axe' ? 'axe' : 'miningPick', chance: 1 }]);
+    assert.deepEqual(guardian.dropTable, [{ itemId: ITEM_ID_FOR_TOOL[toolId], chance: 1 }]);
     assert.equal(ITEMS[guardian.dropTable[0].itemId].type, 'tool', `${guardian.id}'s drop must be a real tool item`);
   }
 });
 
-test('TOOL_DUNGEON_ENTRANCES positions sit on a walkable tile in their real wilderness screen', async () => {
+test('TOOL_DUNGEON_ENTRANCES positions are in-bounds and resolve to a walkable entrance tile kind', async () => {
+  // js/screens/mapScreen.js's tileAt() unconditionally overrides this exact
+  // cell with TILES[entry.tileKind] before ever reading the underlying
+  // wilderness file (same mechanism as the sealed-edge override), so the
+  // entrance is walkable in-game regardless of whatever terrain is painted
+  // beneath it - only in-bounds placement and the tile kind's own
+  // walkability actually matter.
   for (const [toolId, entry] of Object.entries(TOOL_DUNGEON_ENTRANCES)) {
     const wildernessMap = (await import(`../js/maps/wilderness/${entry.screenId}.js`))[`${entry.screenId}Map`];
+    const height = wildernessMap.rows.length;
+    const width = wildernessMap.rows[0].length;
     assert.ok(
-      isWalkableAt(wildernessMap, entry.x, entry.y),
-      `TOOL_DUNGEON_ENTRANCES.${toolId} position (${entry.x}, ${entry.y}) on '${entry.screenId}' must be walkable`
+      entry.x >= 0 && entry.x < width && entry.y >= 0 && entry.y < height,
+      `TOOL_DUNGEON_ENTRANCES.${toolId} position (${entry.x}, ${entry.y}) is out of bounds on '${entry.screenId}' (${width}x${height})`
     );
+    assert.ok(TILES[entry.tileKind].walkable, `TOOL_DUNGEON_ENTRANCES.${toolId}'s tileKind '${entry.tileKind}' must be walkable`);
   }
 });

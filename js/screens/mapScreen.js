@@ -14,6 +14,10 @@ const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
 const CACHE_MARKER_DESCRIPTION = 'A stash of gold (maybe an item too) — step here to collect it';
 const MINI_DUNGEON_MARKER_DESCRIPTION = 'A mysterious opening — explore it';
+// Tool-gated tiles the player can currently cross render a "mount" emoji
+// under the player's own emoji instead of replacing it (e.g. riding the
+// boat across water rather than turning into a boat).
+const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
 
 let rootEl = null;
 let state = null;
@@ -27,6 +31,25 @@ const KEY_TO_DELTA = {
   ArrowRight: [1, 0], d: [1, 0],
 };
 
+// Whichever terrain a screen's true outer world-edge (a side with no
+// neighbor at all - the literal boundary of the 5x5 wilderness grid) happens
+// to have painted on it doesn't matter for actually leaving the map:
+// handleEdgeTransition already refuses to cross when neighbors[side] is
+// null, regardless of tile content. This makes the *visual* seal automatic
+// too, so a sealed edge never depends on remembering to paint it - every
+// true boundary cell always renders as mountainWall, overriding whatever
+// terrain is actually in the file there.
+function isSealedWorldEdge(x, y) {
+  if (!mapConfig.neighbors) return false;
+  const width = mapConfig.rows[0].length;
+  const height = mapConfig.rows.length;
+  if (y === 0 && !mapConfig.neighbors.north) return true;
+  if (y === height - 1 && !mapConfig.neighbors.south) return true;
+  if (x === 0 && !mapConfig.neighbors.west) return true;
+  if (x === width - 1 && !mapConfig.neighbors.east) return true;
+  return false;
+}
+
 function tileAt(x, y) {
   const entrance = state.dungeonEntrancePosition;
   if (entrance && mapConfig.id === entrance.screenId && x === entrance.x && y === entrance.y) {
@@ -37,6 +60,7 @@ function tileAt(x, y) {
       return TILES[toolEntrance.tileKind];
     }
   }
+  if (isSealedWorldEdge(x, y)) return TILES.mountainWall;
   const row = mapConfig.rows[y];
   if (!row) return null;
   const char = row[x];
@@ -83,7 +107,19 @@ function render() {
       const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
       const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
       const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
-      cell.textContent = isPlayer ? state.player.emoji : emoji;
+      const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
+        ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
+      if (mountEmoji) {
+        const mount = document.createElement('span');
+        mount.className = 'map-tile-mount';
+        mount.textContent = mountEmoji;
+        const rider = document.createElement('span');
+        rider.className = 'map-tile-rider';
+        rider.textContent = state.player.emoji;
+        cell.append(mount, rider);
+      } else {
+        cell.textContent = isPlayer ? state.player.emoji : emoji;
+      }
       cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
       grid.appendChild(cell);
     }

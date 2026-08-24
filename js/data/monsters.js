@@ -86,6 +86,17 @@ export const MONSTERS = {
     forceFullBattle: true,
     attackStyle: 'melee',
   },
+  // Sits behind a gate meant to require axe + pick already (Timothy's map
+  // design, not enforced in code - see TOOL_DUNGEON_ENTRANCES's boat entry
+  // placement), so a step tougher than the axe/pick guardians.
+  boatGuardian: {
+    id: 'boatGuardian', name: 'Boat Guardian', emoji: '🛶',
+    hp: 175, attack: 24, defense: 7, speed: 8,
+    xp: 55, goldRange: [18, 28],
+    dropTable: [{ itemId: 'boat', chance: 1 }],
+    forceFullBattle: true,
+    attackStyle: 'melee',
+  },
   dragon: {
     id: 'dragon', name: 'Dragon', emoji: '🐉',
     hp: 150, attack: 34, defense: 12, speed: 11,

@@ -17,6 +17,7 @@ export function getLockedGateMessage(toolId) {
 const TOOL_CLEAR_VERBS = {
   axe: 'cut through the thicket',
   miningPick: 'clear the mountain',
+  boat: 'paddle across the water',
 };
 
 export function getToolClearedMessage(toolId) {

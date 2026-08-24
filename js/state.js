@@ -40,7 +40,7 @@ export function applySkinTone(emoji, modifier) {
 // hand-place it instead). Update this to move the entrance: use the terrain
 // painter tool's "Place Dungeon Entrance" mode to pick a spot and copy the
 // exact { screenId, x, y } value here.
-export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'southeast', x: 24, y: 10 };
+export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'farNorthwest', x: 8, y: 7 };
 
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {

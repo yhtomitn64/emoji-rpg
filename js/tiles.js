@@ -4,7 +4,7 @@ export const TILES = {
     variants: ['🟩', '🟩', '🟩', '🟩', '🍀', '🌼'],
   },
   tree: { emoji: '🌲', walkable: false, encounter: false, description: 'Tree — blocks the way' },
-  water: { emoji: '🟦', walkable: false, encounter: false, description: 'Water — blocks the way' },
+  water: { emoji: '🟦', walkable: false, encounter: false, requiresTool: 'boat', description: 'Water — needs a boat to cross' },
   townEntrance: { emoji: '🏘️', walkable: true, encounter: false, action: 'enterTown', description: 'Town — shop, smith, and quest board' },
   dungeonEntrance: { emoji: '🕳️', walkable: true, encounter: false, action: 'enterDungeon', description: 'Dungeon — the way to the boss' },
   shop: { emoji: '🏪', walkable: true, encounter: false, action: 'enterShop', description: 'Shop — buy and sell gear' },
@@ -25,5 +25,6 @@ export const TILES = {
   thicketCache: { emoji: '🌳', walkable: false, encounter: false, requiresTool: 'axe', hasReward: true, description: 'Thicket — needs an axe to clear' },
   axeDungeonEntrance: { emoji: '🪓', walkable: true, encounter: false, action: 'enterAxeDungeon', description: 'A guarded passage — the axe lies beyond' },
   pickDungeonEntrance: { emoji: '⛏️', walkable: true, encounter: false, action: 'enterPickDungeon', description: 'A guarded passage — the mining pick lies beyond' },
+  canoeDungeonEntrance: { emoji: '🛶', walkable: true, encounter: false, action: 'enterCanoeDungeon', description: 'A guarded passage — the boat lies beyond' },
   guardian: { emoji: '⚔️', walkable: true, encounter: false, action: 'guardianBattle', description: 'A guardian blocks the way — defeat it to claim its tool' },
 };

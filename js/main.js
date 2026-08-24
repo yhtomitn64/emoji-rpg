@@ -15,6 +15,7 @@ import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
 import { axeDungeonMap } from './maps/toolDungeons/axeDungeon.js';
 import { pickDungeonMap } from './maps/toolDungeons/pickDungeon.js';
+import { canoeDungeonMap } from './maps/toolDungeons/canoeDungeon.js';
 import { TOOL_DUNGEON_ENTRANCES } from './data/toolDungeons.js';
 import { centerMap } from './maps/wilderness/center.js';
 import { northMap } from './maps/wilderness/north.js';
@@ -104,6 +105,7 @@ const MAPS = {
   miniDungeonE: miniDungeonVariantE,
   axeDungeon: axeDungeonMap,
   pickDungeon: pickDungeonMap,
+  canoeDungeon: canoeDungeonMap,
 };
 
 let state = null;
@@ -378,6 +380,7 @@ function handleTileAction(action) {
   if (action === 'enterDungeon') return enterMap('dungeon');
   if (action === 'enterAxeDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.axe.mapId);
   if (action === 'enterPickDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.pick.mapId);
+  if (action === 'enterCanoeDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.canoe.mapId);
   if (action === 'exitMap') {
     if (state.map === 'town') return enterMap('center');
     if (state.map === 'dungeon') return enterMap(state.dungeonEntrancePosition.screenId);

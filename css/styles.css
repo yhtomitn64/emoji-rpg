@@ -14,6 +14,25 @@ body { margin: 0; background: #222; color: #eee; }
   justify-content: center;
   font-size: 1.2rem;
   background: #333;
+  position: relative;
+}
+.map-tile-mount {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+.map-tile-rider {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-size: 0.85rem;
+  transform: translateY(-3px);
+  pointer-events: none;
 }
 
 .shop-screen, .smith-screen, .start-screen, .quest-board-screen {
