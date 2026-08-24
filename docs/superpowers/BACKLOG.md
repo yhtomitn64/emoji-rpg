@@ -85,6 +85,61 @@ yet — this is the mechanism, not confirmation the pacing now *feels*
 right; needs real playthrough data same as the armor-cliff half of this
 item did before it got marked resolved above.
 
+## Zone 1 map expansion + organic terrain (big idea — needs its own design pass)
+
+Raised 2026-08-23, distinct from Multi-zone progression below — this is
+about the *existing* single zone getting physically bigger and more
+detailed, not about zones 2/3/4 having different mechanics. Flagging the
+shape of it now, not ready to implement — needs its own design pass, ideally
+with the visual-companion/mockup tooling given how much of this is spatial
+layout.
+
+Timothy's own words: "I'm thinking we should expand the zone 1 map to be 1
+whole square larger. So the town is 1 square then we have a 9x9 grid so a
+5x5 grid. Dragon cave goes in the new area. Also the mountains, lakes,
+woods or whatever need to all be more interesting. Not just square/rectangle
+but interesting patterns and things and also can the water connect so it's
+not a bunch of squares but actual connected water?"
+
+Three related pieces:
+- **Grow the wilderness grid from 3x3 (9 screens) to 5x5 (25 screens).**
+  Town stays its own separate interior map, unaffected — this is purely
+  about the wilderness ring. Checked the current topology: each wilderness
+  map already defines its own `neighbors: { north, south, east, west }`
+  object (`js/maps/wilderness/*.js`), looked up generically in
+  `mapScreen.js`/`handleEdgeTransition` (`js/main.js`) — not hardcoded to
+  a 3x3 assumption, so the *mechanism* generalizes. What's actually needed:
+  16 new screen map files, correct `neighbors` wiring across the whole new
+  grid, and picking `monsterTable`/`encounterChance`/`cacheChance` etc. for
+  each new screen (currently near-town screens use
+  `['boar','bat','snake','goblin','frog']`, far-corner screens use
+  `['direWolf','spider','scorpion']` — undecided whether the new outer
+  ring reuses these tiers, gets its own, or introduces a spatial
+  difficulty gradient, which would tie into the already-flagged "spatial
+  difficulty gradient" idea under Multi-zone progression below).
+- **Move the dragon's dungeon into the new outer ring.** Today the
+  dungeon entrance is randomized per-save among the 4 corner screens of
+  the existing 3x3 grid (`js/systems/dungeonEntrance.js`,
+  `CORNER_SCREEN_IDS`) — this would need to move to (or also include) the
+  newly-added outer ring, and `CORNER_SCREEN_IDS`/the eligible-screen pool
+  would need rethinking for a 5x5 layout (the new "corners"/edges aren't
+  the same 4 screens anymore).
+- **More organic terrain, especially connected water.** Today's terrain
+  (mountain/thicket gates, water blocks) is placed as simple rectangular
+  blocks of repeated tiles per-screen (see any `js/maps/wilderness/*.js`
+  `ROWS` array). Wants mountains/lakes/woods to read as actual varied
+  shapes, not squares/rectangles, and wants water tiles to form real
+  connected lakes/rivers (potentially spanning multiple adjacent screens)
+  rather than disconnected blue blocks. This is as much an authoring/
+  tooling question (how do you *design* an organic shape across a 30x22
+  ASCII grid readably) as a content one — worth deciding whether that's
+  hand-authored with a better process, or some kind of generation helper,
+  before hand-drawing 16+ screens' worth of terrain.
+
+**Next-session prompt suggestion:** "Let's design the zone 1 map expansion
+— see the 'Zone 1 map expansion + organic terrain' item in
+docs/superpowers/BACKLOG.md."
+
 ## Multi-zone progression (big idea — needs its own design pass)
 
 Several related ideas raised together about giving zones 2/3/4 distinct
