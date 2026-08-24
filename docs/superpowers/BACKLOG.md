@@ -219,6 +219,62 @@ one-off task.
   terrain features" — this idea is the natural next step past that
   scope: new tools (or the existing ones) unlocking entirely new zones
   after a boss kill, not just backtracking loot in the current one.
+  - **Concrete drop idea, raised 2026-08-24: the dragon drops something
+    (Timothy floated a diamond) that unlocks the gate into zone 2.**
+    Directly slots into the bullet above — a specific item, specific
+    source (the dragon kill itself, zone 1's own final boss), specific
+    purpose (the zone 2 gate). Not implemented — there's no zone 2 gate
+    mechanic to unlock yet, and adding the item alone would just be
+    inert inventory clutter until that exists. Revisit once zone 2's
+    own design pass produces an actual gate to key it to.
+- **The terrain painter tool should be able to grow into new zones'
+  editors too, raised 2026-08-24.** Timothy wants the tool
+  (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
+  eventually a zone dropdown ("zone 1 gives you zone 1's stuff") picking
+  between different screen sets and different tile/asset palettes per
+  zone. Deliberately not built now: zone 2 doesn't exist yet, so a real
+  zone-switcher has nothing real to switch to, and its actual shape
+  depends on decisions zone 2's own design pass hasn't made (how many
+  zones, whether they share a tile palette at all, whether the 5x5-grid
+  layout convention even carries over). The near-term compromise: keep
+  the tool's zone-1 map list and tile palette reasonably data-driven as
+  it grows (e.g. the dungeon-interior painting support planned for
+  2026-08-24, below) rather than deeply hardcoded, so extending it later
+  isn't a rewrite — without speculatively building the zone-switching UI
+  itself ahead of zone 2 being real.
+- **The terrain painter tool should be able to paint dungeon interiors
+  too, not just the 25 wilderness screens — raised and actually planned
+  2026-08-24.** Unlike the zone-switcher idea above, this one *is*
+  being built now: the main dragon dungeon (`js/maps/dungeonMap.js`) and
+  the 5 mini-dungeon interior variants
+  (`js/maps/miniDungeons/miniDungeon{A-E}.js`) are real, existing maps
+  today, so adding them to the painter as more paintable maps (with
+  their own cave-appropriate tile palette — floor, wall, pool, boss
+  tile, etc., distinct from the wilderness palette) is a same-scope
+  extension, not new architecture. Tracked here only so the "why now
+  vs. why not the zone-switcher" split has a written record; see
+  session history around this date for the actual implementation.
+- **Guaranteed-drop "tool dungeons," separate from the existing random
+  mini-dungeon treasure system — raised 2026-08-24.** Timothy wants
+  hand-placed, fixed-position mini-dungeons whose boss guarantees a
+  specific tool drop (starting with axe and pick), distinct from and
+  not replacing the existing per-step random mini-dungeon reveal +
+  6-item shared treasure pool (`js/systems/miniDungeons.js`), which
+  Timothy explicitly wants kept as-is. Purpose: deliberate, plannable
+  progression — place the pick-dungeon somewhere reachable before the
+  mountain gate it's meant to open, etc. Needs: (1) a new small
+  boss-encounter dungeon variant with a 100%-drop boss, config-level
+  fixed entrance positions per reward type (parallel to
+  `DEFAULT_DUNGEON_ENTRANCE_POSITION`, extensible to future tools), and
+  (2) painter tool support to place/track one entrance per reward type;
+  (3) the trickiest piece — the painter's map-reachability checker (see
+  the zone 1 map expansion plan's terrain-painter tool) would need to
+  become tool-*sequence*-aware: reachable-with-zero-tools must include
+  whichever tool dungeons nothing else gates, then re-check reachability
+  with each newly-earned tool folded in, cascading until the main
+  dungeon itself is confirmed reachable at the end of the chain. Design
+  not finalized — captured as the shape of the idea, mechanic and
+  algorithm both still need real design work before implementation.
 - Currently there is exactly one zone (the 3x3 wilderness grid from
   `docs/superpowers/specs/2026-08-12-world-expansion-design.md`) and one
   boss (the dragon, with 3 tiers via the existing boss-rematch system).
@@ -329,6 +385,36 @@ one screen at a time and the whole map just move as you move around."
   ship first on the current screen-based world (with the border-crossing
   piece handled as a special case) or wait for/motivate the bigger
   rendering change.
+
+## New terrain types: sand and tarpit, each with their own monsters
+
+Raised 2026-08-24, while drawing zone 1 terrain in the painter tool.
+Timothy's own words: "let's expand our map options with sand (different
+monsters), tarpit makes you walk slower (has different monsters too)."
+Explicitly flagged by him as backlog, not for now.
+
+Two distinct mechanical gaps this would need to close, neither of which
+exists today:
+
+- **Per-tile-kind monster tables.** `monsterTable`/`encounterChance` are
+  screen-level fields today (`mapConfig.monsterTable`, checked in
+  `js/screens/mapScreen.js` regardless of which walkable tile you're
+  standing on) — every encounter-eligible tile on a given screen
+  currently rolls against the same roster. "Sand has different
+  monsters [than grass on the same screen]" needs that moved to (or
+  duplicated at) the tile-kind level instead, at least for whichever
+  kinds want a distinct table.
+- **A movement-speed modifier.** There's no concept of variable move
+  speed today — movement is a fixed one-tile step per key press,
+  uniform across every walkable tile. "Tarpit makes you walk slower"
+  needs a real mechanic: multiple keypresses per tile, a move-cooldown,
+  or something else — undecided.
+
+Both are also new tile kinds for the terrain painter tool
+(`tools/terrain-painter/`) to support once they exist in `js/tiles.js` -
+whatever palette/brush addition mechanism the tool ends up with for
+future terrain types (see the "map editor should support new zones and
+assets" thread the same day) should cover these too.
 
 ## Bugs
 
