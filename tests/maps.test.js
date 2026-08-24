@@ -116,6 +116,24 @@ function assertBorderWalkable(map, side) {
   }
 }
 
+function assertBorderBlocked(map, side) {
+  const height = map.rows.length;
+  const width = map.rows[0].length;
+  if (side === 'north' || side === 'south') {
+    const y = side === 'north' ? 0 : height - 1;
+    for (let x = 1; x < width - 1; x++) {
+      const tileKey = map.legend[map.rows[y][x]];
+      assert.ok(!TILES[tileKey].walkable, `${map.id} ${side} border must be blocked (no neighbor) at x=${x}`);
+    }
+  } else {
+    const x = side === 'west' ? 0 : width - 1;
+    for (let y = 1; y < height - 1; y++) {
+      const tileKey = map.legend[map.rows[y][x]];
+      assert.ok(!TILES[tileKey].walkable, `${map.id} ${side} border must be blocked (no neighbor) at y=${y}`);
+    }
+  }
+}
+
 test('town map is well-formed and includes shop, smith, quest board, and exit tiles', () => {
   assertValidMap(townMap);
   const chars = townMap.rows.join('');
@@ -188,6 +206,16 @@ test('every wilderness screen border is walkable exactly where a neighbor exists
     for (const side of ['north', 'south', 'east', 'west']) {
       if (map.neighbors[side]) {
         assertBorderWalkable(map, side);
+      }
+    }
+  }
+});
+
+test('every wilderness screen border is blocked exactly where no neighbor exists', () => {
+  for (const map of Object.values(WILDERNESS)) {
+    for (const side of ['north', 'south', 'east', 'west']) {
+      if (!map.neighbors[side]) {
+        assertBorderBlocked(map, side);
       }
     }
   }

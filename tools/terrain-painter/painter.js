@@ -108,7 +108,14 @@ function exportScreen(id) {
     }
     rows.push(row);
   }
-  const legendEntries = [...usedKinds].map((kind) => `'${CHAR_FOR_KIND[kind]}': '${kind}'`).join(', ');
+  const IDENTIFIER_KEY = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+  const legendEntries = [...usedKinds]
+    .map((kind) => {
+      const char = CHAR_FOR_KIND[kind];
+      const key = IDENTIFIER_KEY.test(char) ? char : `'${char}'`;
+      return `${key}: '${kind}'`;
+    })
+    .join(', ');
   const rowsEntries = rows.map((r) => `  '${r}',`).join('\n');
   return `const LEGEND = { ${legendEntries} };\n\nconst ROWS = [\n${rowsEntries}\n];`;
 }

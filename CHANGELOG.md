@@ -24,6 +24,33 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- Wilderness grid grew from 3x3 (9 screens) to 5x5 (25 screens): 16 new
+  outer-ring screens (`js/maps/wilderness/*.js`, e.g. `farNorthwest`,
+  `northNortheast`, `farSouth`) wired into the existing generic
+  `neighbors: { north, south, east, west }` topology, with symmetric
+  links verified by `tests/maps.test.js`. The dragon's dungeon entrance
+  eligibility moved from the old 3x3 grid's 4 corner screens
+  (`northeast`/`northwest`/`southeast`/`southwest`) to the new 5x5 grid's
+  4 far-corner screens (`farNortheast`/`farNorthwest`/`farSoutheast`/
+  `farSouthwest`, `CORNER_SCREEN_IDS` in `js/systems/dungeonEntrance.js`)
+  so it stays at the true edge of the expanded world. All 16 new screens
+  use the existing far-corner monster tier (`direWolf`/`spider`/
+  `scorpion`, 0.15 encounter chance) — no new spatial difficulty
+  gradient yet, that's still open per the backlog. The 16 new screens
+  ship today with placeholder terrain only (plain grass, sealed on their
+  outer world-edge sides with tree tiles) — the organic terrain (varied
+  mountains/lakes/woods, cross-screen-continuous per Timothy's ask) is
+  still-pending manual work, not part of what shipped here. A new
+  browser-based dev tool, `tools/terrain-painter/` (`index.html` +
+  `painter.js`), was added to support that follow-up work: it loads all
+  25 screens onto one continuous canvas laid out exactly like the real
+  5x5 world so painted terrain reads as connected across screen
+  boundaries, and exports one screen's `LEGEND`/`ROWS` at a time to the
+  clipboard for pasting back over that screen's file. See
+  `docs/superpowers/BACKLOG.md`'s "Zone 1 map expansion + organic
+  terrain" entry for what's left.
+
 ### Fixed
 - Parries against ranged monsters (goblin/spider/dragon/wraith/skeleton/
   Jurassic Jerky) could silently fail even on a well-timed press: the

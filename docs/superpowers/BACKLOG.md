@@ -85,14 +85,11 @@ yet — this is the mechanism, not confirmation the pacing now *feels*
 right; needs real playthrough data same as the armor-cliff half of this
 item did before it got marked resolved above.
 
-## Zone 1 map expansion + organic terrain (big idea — needs its own design pass)
+## ~~Zone 1 map expansion + organic terrain~~ **Mechanics shipped 2026-08-24, terrain painting still outstanding.**
 
 Raised 2026-08-23, distinct from Multi-zone progression below — this is
 about the *existing* single zone getting physically bigger and more
-detailed, not about zones 2/3/4 having different mechanics. Flagging the
-shape of it now, not ready to implement — needs its own design pass, ideally
-with the visual-companion/mockup tooling given how much of this is spatial
-layout.
+detailed, not about zones 2/3/4 having different mechanics.
 
 Timothy's own words: "I'm thinking we should expand the zone 1 map to be 1
 whole square larger. So the town is 1 square then we have a 9x9 grid so a
@@ -101,30 +98,29 @@ woods or whatever need to all be more interesting. Not just square/rectangle
 but interesting patterns and things and also can the water connect so it's
 not a bunch of squares but actual connected water?"
 
-Three related pieces:
-- **Grow the wilderness grid from 3x3 (9 screens) to 5x5 (25 screens).**
-  Town stays its own separate interior map, unaffected — this is purely
-  about the wilderness ring. Checked the current topology: each wilderness
-  map already defines its own `neighbors: { north, south, east, west }`
-  object (`js/maps/wilderness/*.js`), looked up generically in
-  `mapScreen.js`/`handleEdgeTransition` (`js/main.js`) — not hardcoded to
-  a 3x3 assumption, so the *mechanism* generalizes. What's actually needed:
-  16 new screen map files, correct `neighbors` wiring across the whole new
-  grid, and picking `monsterTable`/`encounterChance`/`cacheChance` etc. for
-  each new screen (currently near-town screens use
-  `['boar','bat','snake','goblin','frog']`, far-corner screens use
-  `['direWolf','spider','scorpion']` — undecided whether the new outer
-  ring reuses these tiers, gets its own, or introduces a spatial
-  difficulty gradient, which would tie into the already-flagged "spatial
-  difficulty gradient" idea under Multi-zone progression below).
-- **Move the dragon's dungeon into the new outer ring.** Today the
-  dungeon entrance is randomized per-save among the 4 corner screens of
-  the existing 3x3 grid (`js/systems/dungeonEntrance.js`,
-  `CORNER_SCREEN_IDS`) — this would need to move to (or also include) the
-  newly-added outer ring, and `CORNER_SCREEN_IDS`/the eligible-screen pool
-  would need rethinking for a 5x5 layout (the new "corners"/edges aren't
-  the same 4 screens anymore).
-- **More organic terrain, especially connected water — and terrain
+Three related pieces — the first two are **shipped**, the third is the
+**still-outstanding follow-up**:
+- ~~**Grow the wilderness grid from 3x3 (9 screens) to 5x5 (25 screens).**~~
+  **Shipped 2026-08-24.** Town stays its own separate interior map,
+  unaffected — this was purely about the wilderness ring. The existing
+  topology generalized cleanly: each wilderness map already defined its own
+  `neighbors: { north, south, east, west }` object (`js/maps/wilderness/
+  *.js`), looked up generically in `mapScreen.js`/`handleEdgeTransition`
+  (`js/main.js`) — not hardcoded to a 3x3 assumption, so the *mechanism*
+  generalized. 16 new screen map files were added with correct `neighbors`
+  wiring across the whole new grid; all 16 reuse the existing far-corner
+  monster tier (`['direWolf','spider','scorpion']`, 0.15 encounter chance)
+  rather than getting their own tier or a spatial difficulty gradient —
+  that idea is still open, tracked under "spatial difficulty gradient"
+  in Multi-zone progression below. See CHANGELOG.
+- ~~**Move the dragon's dungeon into the new outer ring.**~~ **Shipped
+  2026-08-24.** The dungeon entrance eligibility (`js/systems/
+  dungeonEntrance.js`, `CORNER_SCREEN_IDS`) moved from the old 3x3 grid's
+  4 corner screens to the new 5x5 grid's 4 far-corner screens
+  (`farNortheast`/`farNorthwest`/`farSoutheast`/`farSouthwest`), so it
+  stays at the true edge of the expanded world. See CHANGELOG.
+- **Still outstanding: more organic terrain, especially connected water —
+  and terrain
   features should be able to span across screens.** Today's terrain
   (mountain/thicket gates, water blocks) is placed as simple rectangular
   blocks of repeated tiles per-screen (see any `js/maps/wilderness/*.js`
@@ -142,16 +138,24 @@ Three related pieces:
   tiles lining up with water tiles on the neighboring screen's matching
   edge). Each screen's `ROWS` array is authored fully independently today,
   with no awareness of its neighbors' edge tiles at all — real gap this
-  idea would need to close, not just a content/authoring question. This
-  is as much an authoring/tooling question (how do you *design* an
-  organic shape that continues correctly across a 30x22 ASCII grid's
-  edge, readably, by hand) as a content one — worth deciding whether
-  that's hand-authored with a better process, or some kind of generation
-  helper, before hand-drawing 16+ screens' worth of terrain.
+  idea would need to close, not just a content/authoring question. The
+  authoring/tooling question (how do you *design* an organic shape that
+  continues correctly across a 30x22 ASCII grid's edge, readably, by
+  hand) now has an answer, shipped 2026-08-24 alongside the two pieces
+  above: `tools/terrain-painter/` (`index.html` + `painter.js`), a
+  browser dev tool that loads all 25 wilderness screens onto one
+  continuous canvas laid out exactly like the real 5x5 world, so terrain
+  painted across a screen boundary is connected by construction, then
+  exports one screen's `LEGEND`/`ROWS` at a time to paste back over that
+  screen's file. Today all 25 screens still ship as plain grass (16 new
+  ones placed by this expansion, plus the original 9 never had organic
+  terrain either) — the tool exists, but nobody has used it yet to
+  actually hand-paint the mountains/lakes/woods. That painting pass is
+  Timothy's own hand-authoring work, still fully outstanding.
 
-**Next-session prompt suggestion:** "Let's design the zone 1 map expansion
-— see the 'Zone 1 map expansion + organic terrain' item in
-docs/superpowers/BACKLOG.md."
+**Next-session prompt suggestion:** "Let's hand-paint the zone 1 wilderness
+terrain using tools/terrain-painter/ — see the 'Zone 1 map expansion +
+organic terrain' item in docs/superpowers/BACKLOG.md."
 
 ## Multi-zone progression (big idea — needs its own design pass)
 
