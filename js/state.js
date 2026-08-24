@@ -35,6 +35,11 @@ export function applySkinTone(emoji, modifier) {
   return [codePoints[0], modifier, ...codePoints.slice(1)].join('');
 }
 
+// The single, fixed dungeon entrance location for every save (2026-08-24 -
+// previously randomized per save among the 4 far corners; Timothy wanted to
+// hand-place it instead). Update this to move the entrance: use the terrain
+// painter tool's "Place Dungeon Entrance" mode to pick a spot and copy the
+// exact { screenId, x, y } value here.
 export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'southeast', x: 24, y: 10 };
 
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {

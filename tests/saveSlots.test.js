@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from '../js/systems/saveSlots.js';
-import { STORAGE_KEY, serializeState, createNewGame, loadState, DEFAULT_HERO_EMOJI } from '../js/state.js';
-import { CORNER_SCREEN_IDS } from '../js/systems/dungeonEntrance.js';
+import { STORAGE_KEY, serializeState, createNewGame, loadState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION } from '../js/state.js';
 
 function createFakeStorage() {
   const store = new Map();
@@ -115,13 +114,10 @@ test('migrateLegacySave is a no-op when a registry already exists', () => {
   assert.equal(slots[0].name, 'Existing');
 });
 
-test('createSlot rolls a dungeonEntrancePosition on one of the 4 corner screens', () => {
+test('createSlot always uses the fixed DEFAULT_DUNGEON_ENTRANCE_POSITION', () => {
   const storage = createFakeStorage();
-  const seenScreenIds = new Set();
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 5; i++) {
     const { state } = createSlot(`Hero${i}`, DEFAULT_HERO_EMOJI, storage);
-    assert.ok(CORNER_SCREEN_IDS.includes(state.dungeonEntrancePosition.screenId));
-    seenScreenIds.add(state.dungeonEntrancePosition.screenId);
+    assert.deepEqual(state.dungeonEntrancePosition, DEFAULT_DUNGEON_ENTRANCE_POSITION);
   }
-  assert.ok(seenScreenIds.size > 1, 'expected createSlot to roll different corner screens across many calls, not always the same one');
 });

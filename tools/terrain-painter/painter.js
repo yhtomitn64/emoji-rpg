@@ -35,10 +35,32 @@ const CHAR_FOR_KIND = {
 };
 
 const PAINTABLE_KINDS = new Set(['grass', 'tree', 'water', 'mountain', 'mountainCache', 'thicket', 'thicketCache']);
+const AUTOSAVE_KEY = 'terrain-painter-autosave-v1';
 
 let grid = [];
 let activeBrush = 'grass';
 let painting = false;
+let brushSize = 1; // radius in cells - 1 means "just the cell under the cursor"
+let brushShape = 'square';
+let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance spot
+let placingDungeon = false;
+
+function worldToLocal(wx, wy) {
+  for (const [id, pos] of Object.entries(GRID_LAYOUT)) {
+    const originX = pos.col * SCREEN_W;
+    const originY = pos.row * SCREEN_H;
+    if (wx >= originX && wx < originX + SCREEN_W && wy >= originY && wy < originY + SCREEN_H) {
+      return { screenId: id, x: wx - originX, y: wy - originY };
+    }
+  }
+  return null;
+}
+
+function localToWorld(screenId, x, y) {
+  const pos = GRID_LAYOUT[screenId];
+  if (!pos) return null;
+  return { wx: pos.col * SCREEN_W + x, wy: pos.row * SCREEN_H + y };
+}
 
 async function loadAllScreens() {
   const newGrid = Array.from({ length: WORLD_H }, () => new Array(WORLD_W).fill('grass'));
@@ -85,12 +107,65 @@ function render(ctx) {
   for (const [id, pos] of Object.entries(GRID_LAYOUT)) {
     ctx.fillText(id, pos.col * SCREEN_W * CELL + 2, pos.row * SCREEN_H * CELL + 10);
   }
+
+  if (dungeonMarker) {
+    const world = localToWorld(dungeonMarker.screenId, dungeonMarker.x, dungeonMarker.y);
+    if (world) {
+      const cx = world.wx * CELL + CELL / 2;
+      const cy = world.wy * CELL + CELL / 2;
+      ctx.fillStyle = '#e07b39';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, CELL * 1.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
 }
 
 function paintAt(x, y) {
   if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H) return;
   if (grid[y][x] === 'townEntrance') return;
   grid[y][x] = activeBrush;
+}
+
+function paintBrush(cx, cy) {
+  const r = brushSize - 1;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (brushShape === 'circle' && Math.sqrt(dx * dx + dy * dy) > r + 0.5) continue;
+      paintAt(cx + dx, cy + dy);
+    }
+  }
+}
+
+function saveAutosave() {
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker }));
+  } catch (err) {
+    // localStorage may be unavailable (private browsing, quota) - painting still
+    // works, it just won't survive a refresh. Nothing to do here.
+  }
+}
+
+function loadAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? { grid: parsed, dungeonMarker: null } : parsed;
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearAutosave() {
+  try {
+    localStorage.removeItem(AUTOSAVE_KEY);
+  } catch (err) {
+    // nothing to do
+  }
 }
 
 function exportScreen(id) {
@@ -123,9 +198,58 @@ function exportScreen(id) {
 async function init() {
   const canvas = document.getElementById('worldCanvas');
   const ctx = canvas.getContext('2d');
+  const autosaveStatus = document.getElementById('autosaveStatus');
 
-  grid = await loadAllScreens();
+  const saved = loadAutosave();
+  if (saved) {
+    grid = saved.grid;
+    dungeonMarker = saved.dungeonMarker;
+    autosaveStatus.textContent = 'Restored unsaved changes from your last session.';
+  } else {
+    grid = await loadAllScreens();
+  }
+  if (!dungeonMarker) {
+    const stateMod = await import('../../js/state.js');
+    dungeonMarker = { ...stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION };
+  }
   render(ctx);
+
+  const dungeonReadout = document.getElementById('dungeonReadout');
+  function updateDungeonReadout() {
+    dungeonReadout.textContent = dungeonMarker
+      ? `${dungeonMarker.screenId} (${dungeonMarker.x}, ${dungeonMarker.y})`
+      : 'not set';
+  }
+  updateDungeonReadout();
+
+  document.getElementById('resetFromFilesBtn').addEventListener('click', async () => {
+    if (!confirm('Discard all unexported changes and reload the real files from disk?')) return;
+    clearAutosave();
+    grid = await loadAllScreens();
+    const stateMod = await import('../../js/state.js');
+    dungeonMarker = { ...stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION };
+    updateDungeonReadout();
+    autosaveStatus.textContent = 'Reloaded from files.';
+    render(ctx);
+  });
+
+  const placeDungeonBtn = document.getElementById('placeDungeonBtn');
+  placeDungeonBtn.addEventListener('click', () => {
+    placingDungeon = !placingDungeon;
+    placeDungeonBtn.classList.toggle('active', placingDungeon);
+    canvas.classList.toggle('placing-dungeon', placingDungeon);
+  });
+
+  document.getElementById('copyDungeonBtn').addEventListener('click', async () => {
+    if (!dungeonMarker) return;
+    const text = `{ screenId: '${dungeonMarker.screenId}', x: ${dungeonMarker.x}, y: ${dungeonMarker.y} }`;
+    try {
+      await navigator.clipboard.writeText(text);
+      autosaveStatus.textContent = `Copied: ${text}`;
+    } catch (err) {
+      autosaveStatus.textContent = `Clipboard blocked - copy manually: ${text}`;
+    }
+  });
 
   document.querySelectorAll('#palette button').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -136,6 +260,22 @@ async function init() {
   });
   document.querySelector('#palette button[data-kind="grass"]').classList.add('active');
 
+  const brushSizeInput = document.getElementById('brushSize');
+  const brushSizeLabel = document.getElementById('brushSizeLabel');
+  brushSizeInput.addEventListener('input', () => {
+    brushSize = Number(brushSizeInput.value);
+    brushSizeLabel.textContent = String(brushSize);
+  });
+
+  document.querySelectorAll('#brushShape button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      brushShape = btn.dataset.shape;
+      document.querySelectorAll('#brushShape button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  document.querySelector('#brushShape button[data-shape="square"]').classList.add('active');
+
   function cellFromEvent(e) {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -145,18 +285,34 @@ async function init() {
   }
 
   canvas.addEventListener('mousedown', (e) => {
-    painting = true;
     const { x, y } = cellFromEvent(e);
-    paintAt(x, y);
+    if (placingDungeon) {
+      const local = worldToLocal(x, y);
+      if (local) {
+        dungeonMarker = local;
+        updateDungeonReadout();
+        saveAutosave();
+      }
+      placingDungeon = false;
+      placeDungeonBtn.classList.remove('active');
+      canvas.classList.remove('placing-dungeon');
+      render(ctx);
+      return;
+    }
+    painting = true;
+    paintBrush(x, y);
     render(ctx);
   });
   canvas.addEventListener('mousemove', (e) => {
     if (!painting || !PAINTABLE_KINDS.has(activeBrush)) return;
     const { x, y } = cellFromEvent(e);
-    paintAt(x, y);
+    paintBrush(x, y);
     render(ctx);
   });
   window.addEventListener('mouseup', () => {
+    // Autosave once per stroke (not per mousemove) - JSON-serializing the
+    // full 150x110 grid on every pixel of a drag would be needlessly slow.
+    if (painting) saveAutosave();
     painting = false;
   });
 

@@ -1,11 +1,4 @@
 import { createNewGame, saveState, slotSaveKey, STORAGE_KEY, deserializeState, DEFAULT_HERO_EMOJI } from '../state.js';
-import { pickRandomEntrancePosition } from './dungeonEntrance.js';
-import { farNortheastMap } from '../maps/wilderness/farNortheast.js';
-import { farNorthwestMap } from '../maps/wilderness/farNorthwest.js';
-import { farSoutheastMap } from '../maps/wilderness/farSoutheast.js';
-import { farSouthwestMap } from '../maps/wilderness/farSouthwest.js';
-
-const CORNER_MAPS = { farNortheast: farNortheastMap, farNorthwest: farNorthwestMap, farSoutheast: farSoutheastMap, farSouthwest: farSouthwestMap };
 
 const SLOTS_KEY = 'emoji-rpg-slots';
 
@@ -28,7 +21,7 @@ export function listSlots(storage = globalThis.localStorage) {
 
 export function createSlot(name, heroEmoji = DEFAULT_HERO_EMOJI, storage = globalThis.localStorage) {
   const id = generateSlotId();
-  const state = createNewGame(heroEmoji, pickRandomEntrancePosition(CORNER_MAPS));
+  const state = createNewGame(heroEmoji);
   const now = Date.now();
   const entries = readRegistry(storage);
   entries.push({ id, name, createdAt: now, lastPlayed: now, level: state.player.level, ngPlusCycle: state.ngPlusCycle });

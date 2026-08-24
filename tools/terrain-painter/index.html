@@ -13,7 +13,17 @@
     background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace;
   }
   #palette button.active { border-color: #fff; }
+  #brushControls { margin-top: 8px; display: flex; align-items: center; gap: 16px; font-size: 12px; }
+  #brushControls input[type="range"] { vertical-align: middle; }
+  #brushShape button {
+    padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace;
+  }
+  #brushShape button.active { border-color: #fff; }
+  #dungeonControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  #dungeonControls button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
+  #placeDungeonBtn.active { border-color: #e07b39; color: #e07b39; }
   canvas { border: 1px solid #444; cursor: crosshair; display: block; margin-top: 12px; }
+  canvas.placing-dungeon { cursor: cell; }
   #exportRow { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
   #exportOutput {
     width: 100%; max-width: 900px; height: 140px; margin-top: 8px;
@@ -29,16 +39,33 @@
   connected by construction. Pick a brush, click or click-drag to paint.
   Export copies one screen's <code>LEGEND</code>/<code>ROWS</code> to the
   clipboard, ready to paste over that screen's existing declaration in its
-  file under <code>js/maps/wilderness/</code>.
+  file under <code>js/maps/wilderness/</code>. "Place Dungeon Entrance"
+  marks the one fixed spot every save's dungeon spawns at — "Copy position"
+  copies the exact value to paste into <code>DEFAULT_DUNGEON_ENTRANCE_POSITION</code>
+  in <code>js/state.js</code>.
 </p>
 <div id="palette">
   <button data-kind="grass">Grass</button>
-  <button data-kind="tree">Tree</button>
+  <button data-kind="tree">Tree (permanent wall)</button>
   <button data-kind="water">Water</button>
-  <button data-kind="mountain">Mountain</button>
-  <button data-kind="mountainCache">Mountain Cache</button>
-  <button data-kind="thicket">Thicket</button>
-  <button data-kind="thicketCache">Thicket Cache</button>
+  <button data-kind="mountain">Mountain (needs pick)</button>
+  <button data-kind="mountainCache">Mountain (needs pick, has reward)</button>
+  <button data-kind="thicket">Thicket (needs axe)</button>
+  <button data-kind="thicketCache">Thicket (needs axe, has reward)</button>
+</div>
+<div id="brushControls">
+  <label for="brushSize">Brush size: <input type="range" id="brushSize" min="1" max="15" value="1"> <span id="brushSizeLabel">1</span> cell</label>
+  <div id="brushShape">
+    <button data-shape="square">Square</button>
+    <button data-shape="circle">Circle</button>
+  </div>
+  <span id="autosaveStatus"></span>
+  <button id="resetFromFilesBtn" title="Discard autosaved changes and reload the real files from disk">Reset from files</button>
+</div>
+<div id="dungeonControls">
+  <button id="placeDungeonBtn">Place Dungeon Entrance</button>
+  <span id="dungeonReadout"></span>
+  <button id="copyDungeonBtn">Copy position</button>
 </div>
 <canvas id="worldCanvas" width="1200" height="880"></canvas>
 <div id="exportRow">
