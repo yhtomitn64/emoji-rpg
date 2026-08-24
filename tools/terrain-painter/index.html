@@ -7,6 +7,8 @@
   body { background: #111; color: #eee; font-family: monospace; margin: 0; padding: 16px; }
   h1 { font-size: 16px; margin: 0 0 4px; }
   p { font-size: 12px; color: #aaa; max-width: 900px; }
+  #mapControls { margin-top: 12px; font-size: 12px; }
+  #mapControls select { background: #222; color: #eee; border: 2px solid #444; font-family: monospace; padding: 4px; }
   #palette { margin-top: 12px; }
   #palette button {
     margin-right: 4px; margin-bottom: 4px; padding: 6px 10px;
@@ -40,27 +42,28 @@
 <p>
   Loads all 25 wilderness screens onto one continuous canvas, laid out exactly
   like the real 5x5 world, so terrain painted across a screen boundary is
-  connected by construction. Pick a brush, click or click-drag to paint.
-  Export copies one screen's <code>LEGEND</code>/<code>ROWS</code> to the
-  clipboard, ready to paste over that screen's existing declaration in its
-  file under <code>js/maps/wilderness/</code>. "Place Dungeon Entrance"
-  marks the one fixed spot every save's dungeon spawns at — "Copy position"
-  copies the exact value to paste into <code>DEFAULT_DUNGEON_ENTRANCE_POSITION</code>
-  in <code>js/state.js</code>. "Check Map" flood-fills from the town entrance
+  connected by construction. The "Map" dropdown switches to the dragon
+  dungeon or a mini-dungeon variant instead — each is a standalone map with
+  its own palette, painted the same way. Pick a brush, click or click-drag to
+  paint. Export copies a map's <code>LEGEND</code>/<code>ROWS</code> to the
+  clipboard, ready to paste over its existing declaration in its file
+  (wilderness screens live under <code>js/maps/wilderness/</code>; the
+  dungeon and mini-dungeons live under <code>js/maps/</code>). "Place Dungeon
+  Entrance" marks the one fixed spot every save's dungeon spawns at (only
+  meaningful on the wilderness map) — "Copy position" copies the exact value
+  to paste into <code>DEFAULT_DUNGEON_ENTRANCE_POSITION</code> in
+  <code>js/state.js</code>. "Check Map" flood-fills from the town entrance
   and tints anything not freely walkable: yellow needs a tool (axe/pick) to
   reach, red isn't reachable even with every tool — and tells you plainly
   whether the dungeon entrance itself is reachable without a tool (it has to
-  be, since the axe/pick only drop inside the dungeon).
+  be, since the axe/pick only drop inside the dungeon). Dungeon-interior maps
+  don't have their own reachability check yet.
 </p>
-<div id="palette">
-  <button data-kind="grass">Grass</button>
-  <button data-kind="tree">Tree (permanent wall)</button>
-  <button data-kind="water">Water</button>
-  <button data-kind="mountain">Mountain (needs pick)</button>
-  <button data-kind="mountainCache">Mountain (needs pick, has reward)</button>
-  <button data-kind="thicket">Thicket (needs axe)</button>
-  <button data-kind="thicketCache">Thicket (needs axe, has reward)</button>
+<div id="mapControls">
+  <label for="mapSelect">Map:</label>
+  <select id="mapSelect"></select>
 </div>
+<div id="palette"></div>
 <div id="brushControls">
   <label for="brushSize">Brush size: <input type="range" id="brushSize" min="1" max="15" value="1"> <span id="brushSizeLabel">1</span> cell</label>
   <div id="brushShape">
@@ -68,21 +71,23 @@
     <button data-shape="circle">Circle</button>
   </div>
   <span id="autosaveStatus"></span>
-  <button id="resetFromFilesBtn" title="Discard autosaved changes and reload the real files from disk">Reset from files</button>
+  <button id="resetFromFilesBtn" title="Discard autosaved changes and reload the real file from disk">Reset from files</button>
 </div>
-<div id="dungeonControls">
+<div id="dungeonControls" class="wilderness-only">
   <button id="placeDungeonBtn">Place Dungeon Entrance</button>
   <span id="dungeonReadout"></span>
   <button id="copyDungeonBtn">Copy position</button>
 </div>
-<div id="checkControls">
+<div id="checkControls" class="wilderness-only">
   <button id="checkMapBtn">Check Map</button>
   <span id="checkStatus"></span>
 </div>
 <canvas id="worldCanvas" width="1200" height="880"></canvas>
 <div id="exportRow">
-  <label for="exportSelect">Export screen:</label>
-  <select id="exportSelect"></select>
+  <span class="wilderness-only">
+    <label for="exportSelect">Export screen:</label>
+    <select id="exportSelect"></select>
+  </span>
   <button id="exportBtn">Copy LEGEND/ROWS</button>
   <span id="exportStatus"></span>
 </div>

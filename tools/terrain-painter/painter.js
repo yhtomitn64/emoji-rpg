@@ -27,14 +27,67 @@ const TILE_COLORS = {
   thicket: '#2f5d34',
   thicketCache: '#c9a227',
   townEntrance: '#d9534f',
+  exit: '#8a6d3b',
+  boss: '#8b0000',
+  caveFloor: '#5a5248',
+  caveWall: '#2e2a26',
+  cavePool: '#1f3f5c',
+  miniDungeonEntrance: '#2ec4b6',
+  miniDungeonTreasure: '#d4af37',
 };
 
+// Chars mirror each real map file's own existing convention exactly (dungeonMap.js
+// already uses E/B/T for exit/boss/thicket; the mini-dungeon variants already use
+// E/T for entrance/treasure) - safe to share one char across two kinds here since
+// wilderness, dungeon, and mini-dungeon palettes never mix within a single export.
 const CHAR_FOR_KIND = {
   grass: '.', tree: '#', water: '~', mountain: 'M', mountainCache: 'K',
   thicket: 'T', thicketCache: 'X', townEntrance: '@',
+  exit: 'E', boss: 'B',
+  caveFloor: '.', caveWall: '#', cavePool: '~',
+  miniDungeonEntrance: 'E', miniDungeonTreasure: 'T',
 };
 
-const PAINTABLE_KINDS = new Set(['grass', 'tree', 'water', 'mountain', 'mountainCache', 'thicket', 'thicketCache']);
+const WILDERNESS_PALETTE = ['grass', 'tree', 'water', 'mountain', 'mountainCache', 'thicket', 'thicketCache'];
+const DUNGEON_PALETTE = ['grass', 'tree', 'thicket', 'exit', 'boss'];
+const MINI_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'cavePool', 'miniDungeonEntrance', 'miniDungeonTreasure'];
+
+const PALETTE_LABELS = {
+  grass: 'Grass', tree: 'Tree (permanent wall)', water: 'Water',
+  mountain: 'Mountain (needs pick)', mountainCache: 'Mountain (needs pick, has reward)',
+  thicket: 'Thicket (needs axe)', thicketCache: 'Thicket (needs axe, has reward)',
+  exit: 'Exit', boss: 'Boss',
+  caveFloor: 'Cave Floor', caveWall: 'Cave Wall', cavePool: 'Cave Pool',
+  miniDungeonEntrance: 'Entrance', miniDungeonTreasure: 'Treasure',
+};
+
+const SINGLE_MAPS = {
+  dungeon: {
+    label: 'Dungeon (dragon)', modulePath: '../../js/maps/dungeonMap.js',
+    exportName: 'dungeonMap', palette: DUNGEON_PALETTE, defaultKind: 'grass',
+  },
+  miniDungeonA: {
+    label: 'Mini-Dungeon A', modulePath: '../../js/maps/miniDungeons/variantA.js',
+    exportName: 'miniDungeonVariantA', palette: MINI_DUNGEON_PALETTE, defaultKind: 'caveFloor',
+  },
+  miniDungeonB: {
+    label: 'Mini-Dungeon B', modulePath: '../../js/maps/miniDungeons/variantB.js',
+    exportName: 'miniDungeonVariantB', palette: MINI_DUNGEON_PALETTE, defaultKind: 'caveFloor',
+  },
+  miniDungeonC: {
+    label: 'Mini-Dungeon C', modulePath: '../../js/maps/miniDungeons/variantC.js',
+    exportName: 'miniDungeonVariantC', palette: MINI_DUNGEON_PALETTE, defaultKind: 'caveFloor',
+  },
+  miniDungeonD: {
+    label: 'Mini-Dungeon D', modulePath: '../../js/maps/miniDungeons/variantD.js',
+    exportName: 'miniDungeonVariantD', palette: MINI_DUNGEON_PALETTE, defaultKind: 'caveFloor',
+  },
+  miniDungeonE: {
+    label: 'Mini-Dungeon E', modulePath: '../../js/maps/miniDungeons/variantE.js',
+    exportName: 'miniDungeonVariantE', palette: MINI_DUNGEON_PALETTE, defaultKind: 'caveFloor',
+  },
+};
+
 const AUTOSAVE_KEY = 'terrain-painter-autosave-v1';
 
 // tree never clears (permanent wall) and water has no boat yet (see BACKLOG.md)
@@ -42,14 +95,18 @@ const AUTOSAVE_KEY = 'terrain-painter-autosave-v1';
 const TOOLLESS_PASSABLE_KINDS = new Set(['grass', 'townEntrance']);
 const TOOLED_PASSABLE_KINDS = new Set(['grass', 'townEntrance', 'thicket', 'thicketCache', 'mountain', 'mountainCache']);
 
-let grid = [];
+let grid = []; // wilderness world grid, always kept in memory even while editing a single map
+let singleGrid = []; // active single map's grid (dungeon / mini-dungeon), only valid when currentMapKey !== 'wilderness'
+let singleMapW = 0;
+let singleMapH = 0;
+let currentMapKey = 'wilderness'; // 'wilderness' | key into SINGLE_MAPS
 let activeBrush = 'grass';
 let painting = false;
 let brushSize = 1; // radius in cells - 1 means "just the cell under the cursor"
 let brushShape = 'square';
-let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance spot
+let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance spot (wilderness only)
 let placingDungeon = false;
-let checkOverlay = null; // { toollessReached: Set<string>, tooledReached: Set<string> } | null
+let checkOverlay = null; // { toollessReached: Set<string>, tooledReached: Set<string> } | null (wilderness only)
 
 function worldToLocal(wx, wy) {
   for (const [id, pos] of Object.entries(GRID_LAYOUT)) {
@@ -66,6 +123,19 @@ function localToWorld(screenId, x, y) {
   const pos = GRID_LAYOUT[screenId];
   if (!pos) return null;
   return { wx: pos.col * SCREEN_W + x, wy: pos.row * SCREEN_H + y };
+}
+
+function decodeGrid(map) {
+  const h = map.rows.length;
+  const w = map.rows[0].length;
+  const g = Array.from({ length: h }, () => new Array(w).fill('grass'));
+  for (let y = 0; y < h; y++) {
+    const row = map.rows[y];
+    for (let x = 0; x < w; x++) {
+      g[y][x] = map.legend[row[x]];
+    }
+  }
+  return { grid: g, w, h };
 }
 
 async function loadAllScreens() {
@@ -86,7 +156,18 @@ async function loadAllScreens() {
   return newGrid;
 }
 
-function render(ctx) {
+async function loadSingleMap(key) {
+  const def = SINGLE_MAPS[key];
+  const mod = await import(def.modulePath);
+  return decodeGrid(mod[def.exportName]);
+}
+
+function getActive() {
+  if (currentMapKey === 'wilderness') return { grid, w: WORLD_W, h: WORLD_H, isWilderness: true };
+  return { grid: singleGrid, w: singleMapW, h: singleMapH, isWilderness: false };
+}
+
+function renderWilderness(ctx) {
   ctx.clearRect(0, 0, WORLD_W * CELL, WORLD_H * CELL);
   for (let y = 0; y < WORLD_H; y++) {
     for (let x = 0; x < WORLD_W; x++) {
@@ -144,11 +225,27 @@ function render(ctx) {
   }
 }
 
+function renderSingleMap(ctx) {
+  ctx.clearRect(0, 0, singleMapW * CELL, singleMapH * CELL);
+  for (let y = 0; y < singleMapH; y++) {
+    for (let x = 0; x < singleMapW; x++) {
+      ctx.fillStyle = TILE_COLORS[singleGrid[y][x]] || '#000';
+      ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+    }
+  }
+}
+
+function render(ctx) {
+  if (currentMapKey === 'wilderness') renderWilderness(ctx);
+  else renderSingleMap(ctx);
+}
+
 function paintAt(x, y) {
-  if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H) return;
-  if (grid[y][x] === 'townEntrance') return;
-  grid[y][x] = activeBrush;
-  checkOverlay = null; // stale as soon as the terrain changes
+  const active = getActive();
+  if (x < 0 || x >= active.w || y < 0 || y >= active.h) return;
+  if (active.isWilderness && active.grid[y][x] === 'townEntrance') return;
+  active.grid[y][x] = activeBrush;
+  if (active.isWilderness) checkOverlay = null; // stale as soon as the terrain changes
 }
 
 function paintBrush(cx, cy) {
@@ -163,7 +260,9 @@ function paintBrush(cx, cy) {
 
 function saveAutosave() {
   try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker }));
+    const singleMaps = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}').singleMaps || {};
+    if (currentMapKey !== 'wilderness') singleMaps[currentMapKey] = singleGrid;
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker, singleMaps }));
   } catch (err) {
     // localStorage may be unavailable (private browsing, quota) - painting still
     // works, it just won't survive a refresh. Nothing to do here.
@@ -175,7 +274,7 @@ function loadAutosave() {
     const raw = localStorage.getItem(AUTOSAVE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? { grid: parsed, dungeonMarker: null } : parsed;
+    return Array.isArray(parsed) ? { grid: parsed, dungeonMarker: null, singleMaps: {} } : parsed;
   } catch (err) {
     return null;
   }
@@ -189,16 +288,13 @@ function clearAutosave() {
   }
 }
 
-function exportScreen(id) {
-  const pos = GRID_LAYOUT[id];
-  const originX = pos.col * SCREEN_W;
-  const originY = pos.row * SCREEN_H;
+function buildLegendRowsText(gridSlice, w, h) {
   const usedKinds = new Set();
   const rows = [];
-  for (let y = 0; y < SCREEN_H; y++) {
+  for (let y = 0; y < h; y++) {
     let row = '';
-    for (let x = 0; x < SCREEN_W; x++) {
-      const kind = grid[originY + y][originX + x];
+    for (let x = 0; x < w; x++) {
+      const kind = gridSlice[y][x];
       usedKinds.add(kind);
       row += CHAR_FOR_KIND[kind];
     }
@@ -214,6 +310,21 @@ function exportScreen(id) {
     .join(', ');
   const rowsEntries = rows.map((r) => `  '${r}',`).join('\n');
   return `const LEGEND = { ${legendEntries} };\n\nconst ROWS = [\n${rowsEntries}\n];`;
+}
+
+function exportScreen(id) {
+  const pos = GRID_LAYOUT[id];
+  const originX = pos.col * SCREEN_W;
+  const originY = pos.row * SCREEN_H;
+  const slice = [];
+  for (let y = 0; y < SCREEN_H; y++) {
+    slice.push(grid[originY + y].slice(originX, originX + SCREEN_W));
+  }
+  return buildLegendRowsText(slice, SCREEN_W, SCREEN_H);
+}
+
+function exportSingleMap() {
+  return buildLegendRowsText(singleGrid, singleMapW, singleMapH);
 }
 
 function findTownEntrance() {
@@ -292,11 +403,17 @@ async function init() {
   const canvas = document.getElementById('worldCanvas');
   const ctx = canvas.getContext('2d');
   const autosaveStatus = document.getElementById('autosaveStatus');
+  const wildernessOnlyEls = document.querySelectorAll('.wilderness-only');
+  const singleMapOnlyEls = document.querySelectorAll('.single-map-only');
+  const paletteDiv = document.getElementById('palette');
+  const exportSelect = document.getElementById('exportSelect');
 
-  const saved = loadAutosave();
-  if (saved) {
-    grid = saved.grid;
-    dungeonMarker = saved.dungeonMarker;
+  const savedRaw = loadAutosave();
+  const savedSingleMaps = (savedRaw && savedRaw.singleMaps) || {};
+
+  if (savedRaw && savedRaw.grid) {
+    grid = savedRaw.grid;
+    dungeonMarker = savedRaw.dungeonMarker;
     autosaveStatus.textContent = 'Restored unsaved changes from your last session.';
   } else {
     grid = await loadAllScreens();
@@ -305,7 +422,6 @@ async function init() {
     const stateMod = await import('../../js/state.js');
     dungeonMarker = { ...stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION };
   }
-  render(ctx);
 
   const dungeonReadout = document.getElementById('dungeonReadout');
   function updateDungeonReadout() {
@@ -313,15 +429,85 @@ async function init() {
       ? `${dungeonMarker.screenId} (${dungeonMarker.x}, ${dungeonMarker.y})`
       : 'not set';
   }
-  updateDungeonReadout();
+
+  function currentPalette() {
+    return currentMapKey === 'wilderness' ? WILDERNESS_PALETTE : SINGLE_MAPS[currentMapKey].palette;
+  }
+
+  function rebuildPalette() {
+    paletteDiv.innerHTML = '';
+    const kinds = currentPalette();
+    for (const kind of kinds) {
+      const btn = document.createElement('button');
+      btn.dataset.kind = kind;
+      btn.textContent = PALETTE_LABELS[kind] || kind;
+      btn.addEventListener('click', () => {
+        activeBrush = kind;
+        paletteDiv.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      paletteDiv.appendChild(btn);
+    }
+    activeBrush = kinds[0];
+    paletteDiv.querySelector('button').classList.add('active');
+  }
+
+  function setModeVisibility() {
+    const isWilderness = currentMapKey === 'wilderness';
+    wildernessOnlyEls.forEach((el) => { el.style.display = isWilderness ? '' : 'none'; });
+    singleMapOnlyEls.forEach((el) => { el.style.display = isWilderness ? 'none' : ''; });
+  }
+
+  async function switchMap(key) {
+    currentMapKey = key;
+    setModeVisibility();
+    rebuildPalette();
+    if (key === 'wilderness') {
+      canvas.width = WORLD_W * CELL;
+      canvas.height = WORLD_H * CELL;
+      updateDungeonReadout();
+    } else {
+      const cached = savedSingleMaps[key];
+      const loaded = cached ? { grid: cached, w: cached[0].length, h: cached.length } : await loadSingleMap(key);
+      singleGrid = loaded.grid;
+      singleMapW = loaded.w;
+      singleMapH = loaded.h;
+      canvas.width = singleMapW * CELL;
+      canvas.height = singleMapH * CELL;
+    }
+    render(ctx);
+  }
+
+  const mapSelect = document.getElementById('mapSelect');
+  const wildernessOpt = document.createElement('option');
+  wildernessOpt.value = 'wilderness';
+  wildernessOpt.textContent = 'Wilderness (5x5 world)';
+  mapSelect.appendChild(wildernessOpt);
+  for (const [key, def] of Object.entries(SINGLE_MAPS)) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = def.label;
+    mapSelect.appendChild(opt);
+  }
+  mapSelect.addEventListener('change', () => switchMap(mapSelect.value));
+
+  await switchMap('wilderness');
 
   document.getElementById('resetFromFilesBtn').addEventListener('click', async () => {
-    if (!confirm('Discard all unexported changes and reload the real files from disk?')) return;
-    clearAutosave();
-    grid = await loadAllScreens();
-    const stateMod = await import('../../js/state.js');
-    dungeonMarker = { ...stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION };
-    updateDungeonReadout();
+    if (!confirm('Discard all unexported changes on the current map and reload the real file from disk?')) return;
+    if (currentMapKey === 'wilderness') {
+      grid = await loadAllScreens();
+      const stateMod = await import('../../js/state.js');
+      dungeonMarker = { ...stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION };
+      updateDungeonReadout();
+    } else {
+      const loaded = await loadSingleMap(currentMapKey);
+      singleGrid = loaded.grid;
+      singleMapW = loaded.w;
+      singleMapH = loaded.h;
+      delete savedSingleMaps[currentMapKey];
+    }
+    saveAutosave();
     autosaveStatus.textContent = 'Reloaded from files.';
     render(ctx);
   });
@@ -349,15 +535,6 @@ async function init() {
     render(ctx);
   });
 
-  document.querySelectorAll('#palette button').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      activeBrush = btn.dataset.kind;
-      document.querySelectorAll('#palette button').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
-  document.querySelector('#palette button[data-kind="grass"]').classList.add('active');
-
   const brushSizeInput = document.getElementById('brushSize');
   const brushSizeLabel = document.getElementById('brushSizeLabel');
   brushSizeInput.addEventListener('input', () => {
@@ -384,7 +561,7 @@ async function init() {
 
   canvas.addEventListener('mousedown', (e) => {
     const { x, y } = cellFromEvent(e);
-    if (placingDungeon) {
+    if (currentMapKey === 'wilderness' && placingDungeon) {
       const local = worldToLocal(x, y);
       if (local) {
         dungeonMarker = local;
@@ -403,19 +580,18 @@ async function init() {
     render(ctx);
   });
   canvas.addEventListener('mousemove', (e) => {
-    if (!painting || !PAINTABLE_KINDS.has(activeBrush)) return;
+    if (!painting || !currentPalette().includes(activeBrush)) return;
     const { x, y } = cellFromEvent(e);
     paintBrush(x, y);
     render(ctx);
   });
   window.addEventListener('mouseup', () => {
-    // Autosave once per stroke (not per mousemove) - JSON-serializing the
-    // full 150x110 grid on every pixel of a drag would be needlessly slow.
+    // Autosave once per stroke (not per mousemove) - JSON-serializing a large
+    // grid on every pixel of a drag would be needlessly slow.
     if (painting) saveAutosave();
     painting = false;
   });
 
-  const exportSelect = document.getElementById('exportSelect');
   for (const id of Object.keys(GRID_LAYOUT)) {
     const opt = document.createElement('option');
     opt.value = id;
@@ -424,7 +600,7 @@ async function init() {
   }
 
   document.getElementById('exportBtn').addEventListener('click', async () => {
-    const text = exportScreen(exportSelect.value);
+    const text = currentMapKey === 'wilderness' ? exportScreen(exportSelect.value) : exportSingleMap();
     document.getElementById('exportOutput').value = text;
     const status = document.getElementById('exportStatus');
     try {
