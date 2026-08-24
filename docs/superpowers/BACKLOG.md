@@ -254,27 +254,28 @@ one-off task.
   extension, not new architecture. Tracked here only so the "why now
   vs. why not the zone-switcher" split has a written record; see
   session history around this date for the actual implementation.
-- **Guaranteed-drop "tool dungeons," separate from the existing random
-  mini-dungeon treasure system — raised 2026-08-24.** Timothy wants
-  hand-placed, fixed-position mini-dungeons whose boss guarantees a
-  specific tool drop (starting with axe and pick), distinct from and
-  not replacing the existing per-step random mini-dungeon reveal +
-  6-item shared treasure pool (`js/systems/miniDungeons.js`), which
-  Timothy explicitly wants kept as-is. Purpose: deliberate, plannable
-  progression — place the pick-dungeon somewhere reachable before the
-  mountain gate it's meant to open, etc. Needs: (1) a new small
-  boss-encounter dungeon variant with a 100%-drop boss, config-level
-  fixed entrance positions per reward type (parallel to
-  `DEFAULT_DUNGEON_ENTRANCE_POSITION`, extensible to future tools), and
-  (2) painter tool support to place/track one entrance per reward type;
-  (3) the trickiest piece — the painter's map-reachability checker (see
-  the zone 1 map expansion plan's terrain-painter tool) would need to
-  become tool-*sequence*-aware: reachable-with-zero-tools must include
-  whichever tool dungeons nothing else gates, then re-check reachability
-  with each newly-earned tool folded in, cascading until the main
-  dungeon itself is confirmed reachable at the end of the chain. Design
-  not finalized — captured as the shape of the idea, mechanic and
-  algorithm both still need real design work before implementation.
+- **~~Guaranteed-drop "tool dungeons," separate from the existing random
+  mini-dungeon treasure system~~ Mechanic and placement UI shipped
+  2026-08-24; the staged reachability checker below is still open.**
+  Hand-placed, fixed-position mini-dungeons whose guardian guarantees a
+  specific tool drop (axe and pick so far, expandable), distinct from
+  and not replacing the existing per-step random mini-dungeon reveal +
+  6-item shared treasure pool (`js/systems/miniDungeons.js`), which was
+  left untouched as asked. Shipped: `js/data/toolDungeons.js`
+  (`TOOL_DUNGEON_ENTRANCES`, config-level fixed positions, parallel to
+  `DEFAULT_DUNGEON_ENTRANCE_POSITION`), two new interior maps
+  (`js/maps/toolDungeons/`), `axeGuardian`/`pickGuardian` monsters with a
+  `forceFullBattle` flag (chance-1 drop, deliberately not `isBoss` - see
+  commit for why), and the terrain painter's "Place Tool Dungeon
+  Entrance" mode with a reward dropdown. Verified end-to-end in the
+  running game.
+  - **Still open: the staged/tool-sequence-aware reachability checker.**
+    "Check Map" still only checks the *main* dungeon's toolless/tooled
+    reachability from town - it doesn't yet verify that each tool
+    dungeon itself is reachable using only tools earned from
+    *earlier*-placed tool dungeons, cascading until the main dungeon is
+    confirmed reachable at the end of the chain. Design not finalized -
+    algorithm shape still needs real design work before implementation.
 - Currently there is exactly one zone (the 3x3 wilderness grid from
   `docs/superpowers/specs/2026-08-12-world-expansion-design.md`) and one
   boss (the dragon, with 3 tiers via the existing boss-rematch system).
@@ -327,6 +328,46 @@ here. No new work was needed.
 - The separate "flavor text near a tool-gated tile" ask (a related but
   distinct item under Feature requests below) was already independently
   marked shipped 2026-08-22.
+
+## Terrain painter: small UX polish items
+
+Raised 2026-08-24 while Timothy was actively painting. Small, independent
+fixes - not a design pass, just a punch list.
+
+- **Page scroll fights with painting near the canvas edges.** Timothy's
+  words: "disable scroll while drawing on the map? It keeps moving
+  around driving me nuts." Likely needs `e.preventDefault()` or similar
+  on the canvas's mousedown/mousemove/touch handlers, or an
+  `overscroll-behavior`/`touch-action` CSS fix - not investigated yet.
+- **No indicator of the brush's shape/size before you click.** "I keep
+  making bigger shapes by accident." A hover preview (a translucent
+  outline at the cursor showing exactly which cells the next click would
+  paint, using the current `brushSize`/`brushShape`) would fix this.
+- **Keyboard shortcuts to bump brush size up/down** (e.g. `[`/`]`),
+  raised alongside the hover-indicator ask, same underlying complaint -
+  wants faster/more precise control over accidentally-large strokes.
+
+## Painter tool: paint which monsters can appear where (big idea — not designed yet)
+
+Raised 2026-08-24. Timothy's own words: "let me paint the monsters that
+can appear. so will have multiple layers or something, one layer for
+each monster and you can select multiple layers to show at once so you
+know all the ones you put down. not quite sure the best way to do this.
+will have to be transparent layers or something. I just want control
+over where the challenging monsters appear so I can more target harder
+areas and things. I still think the tuning is the hardest part of all
+this."
+
+Today `monsterTable`/`encounterChance` are screen-level fields (same
+gap already noted under "sand and tarpit" above) - every encounter-
+eligible tile on a screen rolls against the same fixed roster, no
+per-tile or per-region control at all. What Timothy's describing is a
+real per-tile (or per-region) monster placement system, visualized as
+paintable/toggleable layers in the terrain painter, one per monster
+type. Explicitly flagged by him as not thought through yet ("not quite
+sure the best way to do this") - captured as the raw idea and the real
+underlying gap (screen-level, not tile-level, roster control) only. No
+mechanic or UI shape decided.
 
 ## Roaming visible enemies + dragon difficulty scaling (big idea — needs its own design pass)
 
