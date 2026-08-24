@@ -50,6 +50,19 @@ const ORIGINAL_NINE_SCREEN_IDS = [
   'center', 'north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest',
 ];
 
+// southeast is excluded here even though it's one of the original 9 - its old
+// flavor text ("the dungeon can't be far") stopped being true once the 5x5
+// expansion moved the dungeon 2 screens further out, and it's pending a
+// rewrite (2026-08-24), same as the still-unwritten new screens below.
+const SCREENS_REQUIRING_FLAVOR_TEXT = ORIGINAL_NINE_SCREEN_IDS.filter((id) => id !== 'southeast');
+
+const DUNGEON_APPROACH_SCREEN_IDS = [
+  'eastNortheast', 'northNortheast', 'westNorthwest', 'northNorthwest',
+  'eastSoutheast', 'southSoutheast', 'westSouthwest', 'southSouthwest',
+];
+
+const FAR_CORNER_SCREEN_IDS = ['farNortheast', 'farNorthwest', 'farSoutheast', 'farSouthwest'];
+
 function assertValidMap(map) {
   const width = map.rows[0].length;
   for (const row of map.rows) {
@@ -192,11 +205,18 @@ test('every FLAVOR_TEXT key is a real wilderness screen or an explicitly allowed
   }
 });
 
-test('every one of the original 9 wilderness screens has flavor text', () => {
-  // The 16 screens added by the 5x5 map expansion (2026-08-23) deliberately ship
-  // without flavor text - Timothy writes this game's narrative himself, at his
+test('every one of the original 9 wilderness screens has flavor text, except southeast which is pending a rewrite', () => {
+  // The remaining new screens from the 5x5 map expansion (2026-08-23) deliberately
+  // ship without flavor text - Timothy writes this game's narrative himself, at his
   // own pace, rather than it being drafted here.
-  for (const id of ORIGINAL_NINE_SCREEN_IDS) {
+  for (const id of SCREENS_REQUIRING_FLAVOR_TEXT) {
+    assert.ok(FLAVOR_TEXT[id], `wilderness screen '${id}' is missing a FLAVOR_TEXT entry`);
+  }
+  assert.equal(FLAVOR_TEXT.southeast, undefined, 'southeast is pending a flavor text rewrite - it should have no entry yet');
+});
+
+test('the 8 dungeon-approach screens and 4 far-corner screens have flavor text (2026-08-24)', () => {
+  for (const id of [...DUNGEON_APPROACH_SCREEN_IDS, ...FAR_CORNER_SCREEN_IDS]) {
     assert.ok(FLAVOR_TEXT[id], `wilderness screen '${id}' is missing a FLAVOR_TEXT entry`);
   }
 });
