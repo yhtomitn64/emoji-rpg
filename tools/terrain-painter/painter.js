@@ -22,6 +22,7 @@ const TILE_COLORS = {
   grass: '#4a7c3f',
   tree: '#1f4d1f',
   water: '#2b6cb0',
+  mountainWall: '#5c5044',
   mountain: '#8a8a8a',
   mountainCache: '#c9a227',
   thicket: '#2f5d34',
@@ -41,19 +42,31 @@ const TILE_COLORS = {
 // E/T for entrance/treasure) - safe to share one char across two kinds here since
 // wilderness, dungeon, and mini-dungeon palettes never mix within a single export.
 const CHAR_FOR_KIND = {
-  grass: '.', tree: '#', water: '~', mountain: 'M', mountainCache: 'K',
+  grass: '.', tree: '#', water: '~', mountainWall: 'W', mountain: 'M', mountainCache: 'K',
   thicket: 'T', thicketCache: 'X', townEntrance: '@',
   exit: 'E', boss: 'B',
   caveFloor: '.', caveWall: '#', cavePool: '~',
   miniDungeonEntrance: 'E', miniDungeonTreasure: 'T',
 };
 
-const WILDERNESS_PALETTE = ['grass', 'tree', 'water', 'mountain', 'mountainCache', 'thicket', 'thicketCache'];
+const WILDERNESS_PALETTE = ['grass', 'tree', 'water', 'mountainWall', 'mountain', 'mountainCache', 'thicket', 'thicketCache'];
 const DUNGEON_PALETTE = ['grass', 'tree', 'thicket', 'exit', 'boss'];
 const MINI_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'cavePool', 'miniDungeonEntrance', 'miniDungeonTreasure'];
 
+// Icon shown on the palette button; hovering shows PALETTE_LABELS' full description.
+// A star suffix marks the "has reward" variant of a tool-gated tile, since the base
+// tile emoji is otherwise identical to its non-reward counterpart (matches js/tiles.js).
+const PALETTE_ICONS = {
+  grass: '🟩', tree: '🌲', water: '🟦', mountainWall: '🗻',
+  mountain: '⛰️', mountainCache: '⛰️⭐', thicket: '🌳', thicketCache: '🌳⭐',
+  exit: '🚪', boss: '🐉',
+  caveFloor: '⬛', caveWall: '🪨', cavePool: '💧',
+  miniDungeonEntrance: '🪜', miniDungeonTreasure: '💰',
+};
+
 const PALETTE_LABELS = {
   grass: 'Grass', tree: 'Tree (permanent wall)', water: 'Water',
+  mountainWall: 'Mountain (permanent wall)',
   mountain: 'Mountain (needs pick)', mountainCache: 'Mountain (needs pick, has reward)',
   thicket: 'Thicket (needs axe)', thicketCache: 'Thicket (needs axe, has reward)',
   exit: 'Exit', boss: 'Boss',
@@ -107,6 +120,33 @@ let brushShape = 'square';
 let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance spot (wilderness only)
 let placingDungeon = false;
 let checkOverlay = null; // { toollessReached: Set<string>, tooledReached: Set<string> } | null (wilderness only)
+let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker } snapshots, oldest first
+const UNDO_LIMIT = 30;
+
+function cloneGrid(g) {
+  return g.map((row) => row.slice());
+}
+
+function pushUndoSnapshot() {
+  const active = getActive();
+  const stack = undoStacks[currentMapKey] || (undoStacks[currentMapKey] = []);
+  stack.push({ grid: cloneGrid(active.grid), dungeonMarker: dungeonMarker ? { ...dungeonMarker } : null });
+  if (stack.length > UNDO_LIMIT) stack.shift();
+}
+
+function undo() {
+  const stack = undoStacks[currentMapKey];
+  if (!stack || stack.length === 0) return false;
+  const snapshot = stack.pop();
+  if (currentMapKey === 'wilderness') {
+    grid = snapshot.grid;
+    dungeonMarker = snapshot.dungeonMarker;
+  } else {
+    singleGrid = snapshot.grid;
+  }
+  checkOverlay = null; // stale as soon as terrain is restored
+  return true;
+}
 
 function worldToLocal(wx, wy) {
   for (const [id, pos] of Object.entries(GRID_LAYOUT)) {
@@ -440,7 +480,8 @@ async function init() {
     for (const kind of kinds) {
       const btn = document.createElement('button');
       btn.dataset.kind = kind;
-      btn.textContent = PALETTE_LABELS[kind] || kind;
+      btn.textContent = PALETTE_ICONS[kind] || kind;
+      btn.title = PALETTE_LABELS[kind] || kind;
       btn.addEventListener('click', () => {
         activeBrush = kind;
         paletteDiv.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
@@ -507,9 +548,24 @@ async function init() {
       singleMapH = loaded.h;
       delete savedSingleMaps[currentMapKey];
     }
+    undoStacks[currentMapKey] = []; // a freshly-reloaded map has nothing sensible left to undo into
     saveAutosave();
     autosaveStatus.textContent = 'Reloaded from files.';
     render(ctx);
+  });
+
+  function doUndo() {
+    if (!undo()) return;
+    updateDungeonReadout();
+    saveAutosave();
+    render(ctx);
+  }
+  document.getElementById('undoBtn').addEventListener('click', doUndo);
+  window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      doUndo();
+    }
   });
 
   const placeDungeonBtn = document.getElementById('placeDungeonBtn');
@@ -562,6 +618,7 @@ async function init() {
   canvas.addEventListener('mousedown', (e) => {
     const { x, y } = cellFromEvent(e);
     if (currentMapKey === 'wilderness' && placingDungeon) {
+      pushUndoSnapshot();
       const local = worldToLocal(x, y);
       if (local) {
         dungeonMarker = local;
@@ -575,6 +632,7 @@ async function init() {
       render(ctx);
       return;
     }
+    pushUndoSnapshot();
     painting = true;
     paintBrush(x, y);
     render(ctx);
