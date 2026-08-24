@@ -22,7 +22,7 @@ const ROWS = [
   '..............................',
   '..............................',
   '..............................',
-  '##############################',
+  '#............................#',
 ];
 
 export const southMap = {
@@ -34,5 +34,5 @@ export const southMap = {
   cacheChance: 0.03,
   miniDungeonChance: 0.005,
   monsterTable: ['boar', 'bat', 'snake', 'goblin', 'frog'],
-  neighbors: { north: 'center', south: null, east: 'southeast', west: 'southwest' },
+  neighbors: { north: 'center', south: 'farSouth', east: 'southeast', west: 'southwest' },
 };

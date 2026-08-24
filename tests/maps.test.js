@@ -12,6 +12,22 @@ import { northeastMap } from '../js/maps/wilderness/northeast.js';
 import { northwestMap } from '../js/maps/wilderness/northwest.js';
 import { southeastMap } from '../js/maps/wilderness/southeast.js';
 import { southwestMap } from '../js/maps/wilderness/southwest.js';
+import { farNorthwestMap } from '../js/maps/wilderness/farNorthwest.js';
+import { northNorthwestMap } from '../js/maps/wilderness/northNorthwest.js';
+import { farNorthMap } from '../js/maps/wilderness/farNorth.js';
+import { northNortheastMap } from '../js/maps/wilderness/northNortheast.js';
+import { farNortheastMap } from '../js/maps/wilderness/farNortheast.js';
+import { westNorthwestMap } from '../js/maps/wilderness/westNorthwest.js';
+import { farWestMap } from '../js/maps/wilderness/farWest.js';
+import { westSouthwestMap } from '../js/maps/wilderness/westSouthwest.js';
+import { eastNortheastMap } from '../js/maps/wilderness/eastNortheast.js';
+import { farEastMap } from '../js/maps/wilderness/farEast.js';
+import { eastSoutheastMap } from '../js/maps/wilderness/eastSoutheast.js';
+import { southSouthwestMap } from '../js/maps/wilderness/southSouthwest.js';
+import { farSouthMap } from '../js/maps/wilderness/farSouth.js';
+import { southSoutheastMap } from '../js/maps/wilderness/southSoutheast.js';
+import { farSouthwestMap } from '../js/maps/wilderness/farSouthwest.js';
+import { farSoutheastMap } from '../js/maps/wilderness/farSoutheast.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { FLAVOR_TEXT } from '../js/data/flavorText.js';
 import { isWalkableAt } from '../js/systems/world.js';
@@ -22,7 +38,17 @@ const WILDERNESS_HEIGHT = 22;
 const WILDERNESS = {
   center: centerMap, north: northMap, south: southMap, east: eastMap, west: westMap,
   northeast: northeastMap, northwest: northwestMap, southeast: southeastMap, southwest: southwestMap,
+  farNorthwest: farNorthwestMap, northNorthwest: northNorthwestMap, farNorth: farNorthMap,
+  northNortheast: northNortheastMap, farNortheast: farNortheastMap,
+  westNorthwest: westNorthwestMap, farWest: farWestMap, westSouthwest: westSouthwestMap,
+  eastNortheast: eastNortheastMap, farEast: farEastMap, eastSoutheast: eastSoutheastMap,
+  southSouthwest: southSouthwestMap, farSouth: farSouthMap, southSoutheast: southSoutheastMap,
+  farSouthwest: farSouthwestMap, farSoutheast: farSoutheastMap,
 };
+
+const ORIGINAL_NINE_SCREEN_IDS = [
+  'center', 'north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest',
+];
 
 function assertValidMap(map) {
   const width = map.rows[0].length;
@@ -135,7 +161,7 @@ test('every walkable tile on every wilderness screen is reachable from startPosi
   }
 });
 
-test('every FLAVOR_TEXT key is a real wilderness screen or an explicitly allowed extra, and every wilderness screen has flavor text', () => {
+test('every FLAVOR_TEXT key is a real wilderness screen or an explicitly allowed extra', () => {
   const screenIds = Object.keys(WILDERNESS);
   // 'town' is a deliberate addition (a first-visit nudge to buy armor before
   // heading out, added 2026-08-17) - not a wilderness screen, but a real map id.
@@ -146,7 +172,13 @@ test('every FLAVOR_TEXT key is a real wilderness screen or an explicitly allowed
       `FLAVOR_TEXT key '${key}' does not match a real wilderness screen id or an allowed extra`
     );
   }
-  for (const id of screenIds) {
+});
+
+test('every one of the original 9 wilderness screens has flavor text', () => {
+  // The 16 screens added by the 5x5 map expansion (2026-08-23) deliberately ship
+  // without flavor text - Timothy writes this game's narrative himself, at his
+  // own pace, rather than it being drafted here.
+  for (const id of ORIGINAL_NINE_SCREEN_IDS) {
     assert.ok(FLAVOR_TEXT[id], `wilderness screen '${id}' is missing a FLAVOR_TEXT entry`);
   }
 });
@@ -240,4 +272,17 @@ test('new roster monsters are wired into the right monsterTables', () => {
     assert.ok(map.monsterTable.includes('scorpion'), `${id} monsterTable should include scorpion`);
   }
   assert.ok(dungeonMap.monsterTable.includes('skeleton'), 'dungeon monsterTable should include skeleton');
+});
+
+test('all 16 outer-ring screens from the 5x5 expansion use the corner monster tier', () => {
+  const outerRingIds = [
+    'farNorthwest', 'northNorthwest', 'farNorth', 'northNortheast', 'farNortheast',
+    'westNorthwest', 'farWest', 'westSouthwest', 'eastNortheast', 'farEast', 'eastSoutheast',
+    'southSouthwest', 'farSouth', 'southSoutheast', 'farSouthwest', 'farSoutheast',
+  ];
+  for (const id of outerRingIds) {
+    const map = WILDERNESS[id];
+    assert.deepEqual(map.monsterTable, ['direWolf', 'spider', 'scorpion'], `${id} monsterTable should match the corner tier`);
+    assert.equal(map.encounterChance, 0.15, `${id} encounterChance should be 0.15`);
+  }
 });
