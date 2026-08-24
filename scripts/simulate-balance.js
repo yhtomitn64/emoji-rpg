@@ -39,8 +39,8 @@
  * every time.
  */
 
-import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier } from '../js/systems/combat.js';
-import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff } from '../js/systems/abilities.js';
+import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier, ATTACK_STREAK_RECOVERY_MS } from '../js/systems/combat.js';
+import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, getUnlockedAbilities } from '../js/systems/abilities.js';
 import { chooseAction } from './simulateAbilityPolicy.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
@@ -197,7 +197,7 @@ const BUILDS = [
   }),
 ];
 
-const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc', 'wraith'];
+const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc', 'wraith', 'jurassicJerky'];
 const BOSS_TIER_MATCHUP_IDS = Array.from({ length: MAX_BOSS_TIER + 1 }, (_, tier) => `dragonTier${tier}`);
 
 // --- Battle simulation -------------------------------------------------
@@ -264,11 +264,21 @@ function simulateBattle(build, monsterStats) {
   let buffState = createBuffState();
   let attackStreak = 0;
   let attackCooldownMs = 0;
+  let attackStreakIdleMs = 0;
+  const unlockedAbilityCount = getUnlockedAbilities(build.level).length;
 
   for (let ticks = 1; ticks <= MAX_TICKS; ticks++) {
     player.atb = tickGauge(player.atb, player.speed, 1);
     monster.atb = tickGauge(monster.atb, monster.speed, 1);
-    if (isReady(player.atb)) attackStreak = 0;
+    // Mirrors battleScreen.js's tick(): the streak only resets passively
+    // after a real-time idle stretch, decoupled from the ATB gauge.
+    if (attackStreak > 0) {
+      attackStreakIdleMs += 300;
+      if (attackStreakIdleMs >= ATTACK_STREAK_RECOVERY_MS) {
+        attackStreak = 0;
+        attackStreakIdleMs = 0;
+      }
+    }
     attackCooldownMs = Math.max(0, attackCooldownMs - 300);
     abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
     buffState = tickBuff(buffState, 300);
@@ -303,6 +313,7 @@ function simulateBattle(build, monsterStats) {
         buffState = activateBuff(ability);
         abilityCooldowns[ability.id] = ability.cooldownMs;
         attackStreak = 0;
+        attackStreakIdleMs = 0;
       } else {
         const timingHit = ability.comboRole === 'setup' ? Math.random() < TIMING_HIT_RATE : false;
         const comboBonusActive = !!comboState[ability.id];
@@ -312,6 +323,7 @@ function simulateBattle(build, monsterStats) {
         player.atb = result.playerAtb;
         abilityCooldowns[ability.id] = ability.cooldownMs;
         attackStreak = 0;
+        attackStreakIdleMs = 0;
         comboState[ability.id] = false;
         if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
           comboState[ability.comboPartnerId] = true;
@@ -326,7 +338,7 @@ function simulateBattle(build, monsterStats) {
     } else if (action.kind === 'attack') {
       const result = resolvePlayerAttack(
         player, applyDefenseDebuff(monster, monster.defenseDebuff), Math.random,
-        attackStreakMultiplier(attackStreak), attackKnockbackMultiplier(attackStreak)
+        attackStreakMultiplier(attackStreak, unlockedAbilityCount), attackKnockbackMultiplier(attackStreak)
       );
       attackStreak += 1;
       attackCooldownMs = ATTACK_COOLDOWN_MS;

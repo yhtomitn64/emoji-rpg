@@ -6,15 +6,15 @@ test('xpForLevel increases with level', () => {
   assert.ok(xpForLevel(2) > xpForLevel(1));
 });
 
-test('xpForLevel below level 10 uses the steepened balance-pass curve', () => {
-  assert.equal(xpForLevel(5), 134);
-  assert.equal(xpForLevel(8), 272);
-  assert.equal(xpForLevel(9), 324);
+test('xpForLevel below level 10 uses the 2026-08-23 4x-slower curve', () => {
+  assert.equal(xpForLevel(5), 537);
+  assert.equal(xpForLevel(8), 1086);
+  assert.equal(xpForLevel(9), 1296);
 });
 
 test('xpForLevel ramps up starting at level 10', () => {
-  assert.equal(xpForLevel(10), 409);
-  assert.equal(xpForLevel(15), 1032);
+  assert.equal(xpForLevel(10), 1639);
+  assert.equal(xpForLevel(15), 4128);
 });
 
 test('applyXp accumulates xp without leveling when below threshold', () => {

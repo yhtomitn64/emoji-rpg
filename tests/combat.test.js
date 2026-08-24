@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -97,8 +97,19 @@ test('resolvePlayerAttack applies an optional streak multiplier to damage before
 test('attackStreakMultiplier decays damage per consecutive attack, flooring at ATTACK_STREAK_FLOOR', () => {
   assert.equal(attackStreakMultiplier(0), 1);
   assert.equal(attackStreakMultiplier(1), 1 - ATTACK_STREAK_DECAY);
-  assert.equal(attackStreakMultiplier(2), 1 - ATTACK_STREAK_DECAY * 2);
   assert.equal(attackStreakMultiplier(100), ATTACK_STREAK_FLOOR);
+});
+
+test('ATTACK_STREAK_RECOVERY_MS is a slow, real-time-only recharge, decoupled from the capped ATB gauge', () => {
+  assert.equal(ATTACK_STREAK_RECOVERY_MS, 8000);
+});
+
+test('attackStreakMultiplier drops steeply enough to hit the floor by the 2nd consecutive press', () => {
+  // The first press stays full strength; the falloff after that needs to be
+  // big, not gradual, or spamming Attack still reads as viable for a few
+  // presses in a row (Timothy's own read after the ability-scaled-floor
+  // pass: "the game feels better when I don't use attack so much").
+  assert.equal(attackStreakMultiplier(2), ATTACK_STREAK_FLOOR);
 });
 
 test('attackStreakMultiplier lowers the floor as more abilities are unlocked, reaching 0 at 5', () => {

@@ -2,8 +2,12 @@ export const LATE_GAME_LEVEL_THRESHOLD = 10;
 export const LATE_GAME_XP_RAMP_PER_LEVEL = 0.08;
 export const LEVEL_UP_PARTIAL_HEAL_FRACTION = 0.5;
 
+// Coefficient was 10, then 12 (the 2026-08-22 balance pass, +20%), now 48
+// (2026-08-23, a further 4x on top of that) - Timothy's own read after
+// playing with the steeper Attack decay: leveling itself still climbed too
+// fast on top of it.
 export function xpForLevel(level) {
-  const base = Math.round(12 * Math.pow(level, 1.5));
+  const base = Math.round(48 * Math.pow(level, 1.5));
   if (level < LATE_GAME_LEVEL_THRESHOLD) return base;
   return Math.round(base * (1 + (level - (LATE_GAME_LEVEL_THRESHOLD - 1)) * LATE_GAME_XP_RAMP_PER_LEVEL));
 }

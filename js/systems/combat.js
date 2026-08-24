@@ -69,7 +69,7 @@ export function applyCritMultiplier(damage, isCrit) {
 // deals less damage (down to a floor, never to nothing) AND knocks the
 // enemy's gauge back less (down to nothing) - so sustained spam eventually
 // stops suppressing the enemy's turn entirely, however fast it's clicked.
-export const ATTACK_STREAK_DECAY = 0.15;
+export const ATTACK_STREAK_DECAY = 0.35;
 export const ATTACK_STREAK_FLOOR = 0.4;
 
 // Each unlocked ability (Stab/Chop/Slash/Sweep/Super Scream) drags the floor
@@ -82,6 +82,17 @@ export function attackStreakMultiplier(streak, unlockedAbilityCount = 0) {
   const floor = Math.max(0, ATTACK_STREAK_FLOOR - unlockedAbilityCount * ATTACK_STREAK_FLOOR_PER_ABILITY);
   return Math.max(floor, 1 - streak * ATTACK_STREAK_DECAY);
 }
+
+// A decayed streak used to reset the instant the player's own ATB gauge
+// next read as "full" - but that gauge caps at ATB_MAX (tickGauge clamps
+// it), so it can't be pushed higher to represent a slower passive recharge,
+// and abilities read the exact same gauge for their own readiness. Timothy's
+// call: "the recharge... should be really slow" - decoupled into its own
+// real-time idle timer instead (battleScreen.js/simulate-balance.js each
+// track their own countdown using this shared constant), separate from the
+// ATB gauge abilities still gate on. Landing an ability still resets the
+// streak instantly, unaffected - only the "just wait it out" path is slow.
+export const ATTACK_STREAK_RECOVERY_MS = 8000;
 
 // Decays faster than the damage multiplier above and has no floor - reaches
 // exactly 0 by streak 3, unlike damage which only ever floors at 40%. This is

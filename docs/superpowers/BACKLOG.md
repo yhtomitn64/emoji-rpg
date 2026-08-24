@@ -76,6 +76,15 @@ The dragon-fell-quickly half of this item (the very first paragraph
 above) is still open — that's a different axis (late-game pace, not
 first-fight difficulty) and wasn't part of what got resolved here.
 
+**Update (2026-08-23):** a direct lever pulled on the levels-1-9 boundary
+this note flagged as never revisited — `xpForLevel`'s base coefficient
+went 12→48 (4x slower leveling at every level, on top of the earlier
+10→12 balance-pass bump), raised alongside the same session's Attack
+rebalance ("holding down attack" feeling too strong). Not marked resolved
+yet — this is the mechanism, not confirmation the pacing now *feels*
+right; needs real playthrough data same as the armor-cliff half of this
+item did before it got marked resolved above.
+
 ## Multi-zone progression (big idea — needs its own design pass)
 
 Several related ideas raised together about giving zones 2/3/4 distinct
@@ -552,6 +561,26 @@ through in a dedicated future combat pass rather than one-off adds:
     trying to pin down exact cooldown-vs-real-time numbers, since this
     environment's background-tab timer throttling makes precise timing
     assertions unreliable.
+    ~~**Still too strong once abilities are all unlocked, raised
+    2026-08-23.**~~ **Two more rounds shipped 2026-08-23.** Round one: the
+    40% damage floor now scales down with unlocked ability count instead
+    of staying flat forever (`ATTACK_STREAK_FLOOR_PER_ABILITY`,
+    `js/systems/combat.js`) — 40% at level 1 down to a literal 0% floor
+    once the full rotation is unlocked at level 10 — plus a one-time
+    battle-log taunt nudging toward abilities once it bottoms out. Round
+    two, after Timothy kept finding himself holding Attack down anyway:
+    the decay itself got much steeper (`ATTACK_STREAK_DECAY` 0.15→0.35,
+    floor reached by the 2nd press instead of the 4th) and the passive
+    recharge — previously "streak resets the instant your swing-timer
+    gauge refills" — got much slower via a new real-time-only
+    `ATTACK_STREAK_RECOVERY_MS` (8000ms), deliberately decoupled from that
+    gauge since it caps at `ATB_MAX` and abilities share it for their own
+    readiness. **Known trade-off, deliberately accepted:** in the balance
+    simulator, `geared L6 (full iron)` vs. Dragon tier 0 dropped from 84%
+    win to 0% — the two changes compound enough to flip some already-close
+    matchups. Timothy's call: keep both as shipped, revisit with real
+    playtesting data rather than chase the bot's approximation of
+    ability-rotation play. See CHANGELOG.
   - ~~**Information density on the ability buttons.**~~ **Shipped
     2026-08-22.** Each damage-type ability button now shows a live
     estimated damage number against the current target (average roll +

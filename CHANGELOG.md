@@ -24,6 +24,38 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Changed
+- Leveling slowed down 4x: `xpForLevel`'s base coefficient (`js/systems/
+  leveling.js`) goes 12→48 (the 2026-08-22 balance pass had already taken
+  it 10→12; this is a further 4x on top of that, not from the original
+  10). Every level's XP requirement scales linearly with the coefficient,
+  so this is a uniform 4x at every level including the level-10+ ramp —
+  e.g. cumulative XP to reach level 10 goes from 1741 to 6969.
+- Attack's spam-decay is now much steeper and its passive recharge much
+  slower, per fresh playtesting ("I still find myself just holding down
+  attack... the game feels better when I don't use attack so much"):
+  `ATTACK_STREAK_DECAY` 0.15→0.35 (`js/systems/combat.js`) so the floor is
+  reached by the 2nd consecutive press instead of the 4th, and a new
+  `ATTACK_STREAK_RECOVERY_MS` (8000ms) replaces the old "streak resets the
+  instant your swing-timer gauge refills" passive reset with a much slower
+  real-time-only idle timer — decoupled from the ATB gauge on purpose,
+  since that gauge caps at `ATB_MAX` and abilities read the same value for
+  their own readiness, so it couldn't represent "recharge slower" on its
+  own. Landing an ability still resets the streak instantly, unchanged.
+  Mirrored into `scripts/simulate-balance.js`'s `simulateBattle` (which
+  had also been silently missing the `unlockedAbilityCount` argument on
+  `attackStreakMultiplier` since that mechanic shipped earlier this
+  session — fixed as part of this pass, it wasn't modeling the
+  ability-scaled floor at all before now).
+  **Known trade-off, deliberately accepted rather than tuned away:**
+  `geared L6 (full iron)` vs. Dragon tier 0 dropped from 84% win to 0% win
+  in the simulator — the two changes compound (less damage per press *and*
+  far fewer presses land at full strength over a sustained fight) enough
+  to flip some already-close matchups. Timothy's call: keep both changes
+  as shipped and revisit with real playtesting data rather than the bot's
+  approximation of ability-rotation play, which may not reflect how a
+  human actually carries these fights with the rotation.
+
 ### Added
 - A rare elite encounter: Jurassic Jerky 🦖 (`js/data/monsters.js`), a 5%
   chance (`js/systems/eliteEncounter.js`'s `rollEliteEncounter`) to replace

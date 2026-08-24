@@ -1,6 +1,6 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
 import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
@@ -48,6 +48,7 @@ let abilityActionInFlight = false;
 let attackStreak = 0;
 let attackCooldownMs = 0;
 let attackTauntShown = false;
+let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
 
 function buildPlayerCombatant() {
@@ -553,6 +554,7 @@ function playerAttack() {
   const streakMultiplier = attackStreakMultiplier(attackStreak, unlockedAbilityCount);
   const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, attackKnockbackMultiplier(attackStreak));
   attackStreak += 1;
+  attackStreakIdleMs = 0;
   attackCooldownMs = attackCooldownMsForStreak(attackStreak);
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
@@ -600,6 +602,7 @@ async function playerUseAbility(abilityId) {
       buffState = activateBuff(ability);
       abilityCooldowns[abilityId] = ability.cooldownMs;
       attackStreak = 0;
+      attackStreakIdleMs = 0;
       log.push(`You use ${ability.name}! Your attacks hit harder for a while.`);
       updateAtbBars();
       updateBuffIndicator();
@@ -645,6 +648,7 @@ async function playerUseAbility(abilityId) {
       });
       abilityCooldowns[abilityId] = ability.cooldownMs;
       attackStreak = 0;
+      attackStreakIdleMs = 0;
       // Consume this ability's own primed bonus (if any), then prime its combo
       // partner: a setup primes its payoff for the bigger forward bonus, a
       // payoff primes its setup for the smaller return bonus. Same two lines
@@ -683,6 +687,7 @@ async function playerUseAbility(abilityId) {
     playerCombatant.atb = result.playerAtb;
     abilityCooldowns[abilityId] = ability.cooldownMs;
     attackStreak = 0;
+    attackStreakIdleMs = 0;
     if (ability.id === 'slash') {
       target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
     }
@@ -811,11 +816,21 @@ function checkOutcome() {
 function tick() {
   if (battleOver) return;
   playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
-  // Letting the swing timer reach full again (i.e. holding off instead of
-  // spamming) is what resets Attack's decaying streak back to full strength -
-  // its own real-time cooldown (attackCooldownMs, ticked below) only rate-
-  // limits how fast it can be pressed, it doesn't reset the streak.
-  if (isReady(playerCombatant.atb)) attackStreak = 0;
+  // Attack's decayed streak only resets passively after a sustained
+  // real-time idle stretch with no Attack presses (ATTACK_STREAK_RECOVERY_MS) -
+  // deliberately slow, and deliberately decoupled from the ATB gauge above:
+  // that gauge caps at ATB_MAX and abilities read the same value for their
+  // own readiness, so it can't be pushed further to represent a slower
+  // recharge on its own. Landing an ability still resets the streak
+  // instantly (elsewhere in this file) - only the "just wait it out" path
+  // is slow.
+  if (attackStreak > 0) {
+    attackStreakIdleMs += 300;
+    if (attackStreakIdleMs >= ATTACK_STREAK_RECOVERY_MS) {
+      attackStreak = 0;
+      attackStreakIdleMs = 0;
+    }
+  }
   attackCooldownMs = Math.max(0, attackCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
@@ -885,6 +900,7 @@ export function mount(root, props) {
   comboState = {};
   abilityActionInFlight = false;
   attackStreak = 0;
+  attackStreakIdleMs = 0;
   attackTauntShown = false;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   // The elite gets an adaptive appear line based on estimated win chance
