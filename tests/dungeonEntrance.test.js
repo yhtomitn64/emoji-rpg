@@ -1,25 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CORNER_SCREEN_IDS, pickRandomEntrancePosition } from '../js/systems/dungeonEntrance.js';
-import { northeastMap } from '../js/maps/wilderness/northeast.js';
-import { northwestMap } from '../js/maps/wilderness/northwest.js';
-import { southeastMap } from '../js/maps/wilderness/southeast.js';
-import { southwestMap } from '../js/maps/wilderness/southwest.js';
+import { farNortheastMap } from '../js/maps/wilderness/farNortheast.js';
+import { farNorthwestMap } from '../js/maps/wilderness/farNorthwest.js';
+import { farSoutheastMap } from '../js/maps/wilderness/farSoutheast.js';
+import { farSouthwestMap } from '../js/maps/wilderness/farSouthwest.js';
 
-const realCornerMaps = { northeast: northeastMap, northwest: northwestMap, southeast: southeastMap, southwest: southwestMap };
+const realCornerMaps = { farNortheast: farNortheastMap, farNorthwest: farNorthwestMap, farSoutheast: farSoutheastMap, farSouthwest: farSouthwestMap };
 
 function fixedRng(values) {
   let i = 0;
   return () => values[i++];
 }
 
-test('CORNER_SCREEN_IDS lists exactly the 4 corner screens', () => {
-  assert.deepEqual(CORNER_SCREEN_IDS, ['northeast', 'northwest', 'southeast', 'southwest']);
+test('CORNER_SCREEN_IDS lists exactly the 4 new far-corner screens', () => {
+  assert.deepEqual(CORNER_SCREEN_IDS, ['farNortheast', 'farNorthwest', 'farSoutheast', 'farSouthwest']);
 });
 
 test('pickRandomEntrancePosition can select each of the 4 corner ids', () => {
   const fixtureMap = { rows: ['..', '..'], legend: { '.': 'grass' } };
-  const cornerMaps = { northeast: fixtureMap, northwest: fixtureMap, southeast: fixtureMap, southwest: fixtureMap };
+  const cornerMaps = { farNortheast: fixtureMap, farNorthwest: fixtureMap, farSoutheast: fixtureMap, farSouthwest: fixtureMap };
   for (let i = 0; i < 4; i++) {
     const rng = fixedRng([i / 4, 0]);
     const result = pickRandomEntrancePosition(cornerMaps, rng);

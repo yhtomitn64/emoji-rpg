@@ -1,4 +1,4 @@
-export const CORNER_SCREEN_IDS = ['northeast', 'northwest', 'southeast', 'southwest'];
+export const CORNER_SCREEN_IDS = ['farNortheast', 'farNorthwest', 'farSoutheast', 'farSouthwest'];
 
 export function pickRandomEntrancePosition(cornerMaps, rng = Math.random) {
   const screenId = CORNER_SCREEN_IDS[Math.floor(rng() * CORNER_SCREEN_IDS.length)];

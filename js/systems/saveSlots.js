@@ -1,11 +1,11 @@
 import { createNewGame, saveState, slotSaveKey, STORAGE_KEY, deserializeState, DEFAULT_HERO_EMOJI } from '../state.js';
 import { pickRandomEntrancePosition } from './dungeonEntrance.js';
-import { northeastMap } from '../maps/wilderness/northeast.js';
-import { northwestMap } from '../maps/wilderness/northwest.js';
-import { southeastMap } from '../maps/wilderness/southeast.js';
-import { southwestMap } from '../maps/wilderness/southwest.js';
+import { farNortheastMap } from '../maps/wilderness/farNortheast.js';
+import { farNorthwestMap } from '../maps/wilderness/farNorthwest.js';
+import { farSoutheastMap } from '../maps/wilderness/farSoutheast.js';
+import { farSouthwestMap } from '../maps/wilderness/farSouthwest.js';
 
-const CORNER_MAPS = { northeast: northeastMap, northwest: northwestMap, southeast: southeastMap, southwest: southwestMap };
+const CORNER_MAPS = { farNortheast: farNortheastMap, farNorthwest: farNorthwestMap, farSoutheast: farSoutheastMap, farSouthwest: farSouthwestMap };
 
 const SLOTS_KEY = 'emoji-rpg-slots';
 
