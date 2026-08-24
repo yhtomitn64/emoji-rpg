@@ -22,6 +22,22 @@ import { northeastMap } from './maps/wilderness/northeast.js';
 import { northwestMap } from './maps/wilderness/northwest.js';
 import { southeastMap } from './maps/wilderness/southeast.js';
 import { southwestMap } from './maps/wilderness/southwest.js';
+import { farNorthwestMap } from './maps/wilderness/farNorthwest.js';
+import { northNorthwestMap } from './maps/wilderness/northNorthwest.js';
+import { farNorthMap } from './maps/wilderness/farNorth.js';
+import { northNortheastMap } from './maps/wilderness/northNortheast.js';
+import { farNortheastMap } from './maps/wilderness/farNortheast.js';
+import { westNorthwestMap } from './maps/wilderness/westNorthwest.js';
+import { farWestMap } from './maps/wilderness/farWest.js';
+import { westSouthwestMap } from './maps/wilderness/westSouthwest.js';
+import { eastNortheastMap } from './maps/wilderness/eastNortheast.js';
+import { farEastMap } from './maps/wilderness/farEast.js';
+import { eastSoutheastMap } from './maps/wilderness/eastSoutheast.js';
+import { southSouthwestMap } from './maps/wilderness/southSouthwest.js';
+import { farSouthMap } from './maps/wilderness/farSouth.js';
+import { southSoutheastMap } from './maps/wilderness/southSoutheast.js';
+import { farSouthwestMap } from './maps/wilderness/farSouthwest.js';
+import { farSoutheastMap } from './maps/wilderness/farSoutheast.js';
 import { miniDungeonVariantA } from './maps/miniDungeons/variantA.js';
 import { miniDungeonVariantB } from './maps/miniDungeons/variantB.js';
 import { miniDungeonVariantC } from './maps/miniDungeons/variantC.js';
@@ -62,6 +78,22 @@ const MAPS = {
   northwest: northwestMap,
   southeast: southeastMap,
   southwest: southwestMap,
+  farNorthwest: farNorthwestMap,
+  northNorthwest: northNorthwestMap,
+  farNorth: farNorthMap,
+  northNortheast: northNortheastMap,
+  farNortheast: farNortheastMap,
+  westNorthwest: westNorthwestMap,
+  farWest: farWestMap,
+  westSouthwest: westSouthwestMap,
+  eastNortheast: eastNortheastMap,
+  farEast: farEastMap,
+  eastSoutheast: eastSoutheastMap,
+  southSouthwest: southSouthwestMap,
+  farSouth: farSouthMap,
+  southSoutheast: southSoutheastMap,
+  farSouthwest: farSouthwestMap,
+  farSoutheast: farSoutheastMap,
   miniDungeonA: miniDungeonVariantA,
   miniDungeonB: miniDungeonVariantB,
   miniDungeonC: miniDungeonVariantC,
@@ -384,10 +416,8 @@ function handleEdgeTransition(neighborId, direction, currentPosition) {
 }
 
 function handleFirstVisit(screenId) {
-  const isFalseDungeonHint =
-    screenId === 'southeast' && state.dungeonEntrancePosition.screenId !== 'southeast';
   const text = FLAVOR_TEXT[screenId];
-  if (text && !isFalseDungeonHint) {
+  if (text) {
     showFlavorBanner(text);
   }
   persist();
