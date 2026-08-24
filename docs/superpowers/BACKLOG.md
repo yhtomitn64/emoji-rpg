@@ -349,6 +349,34 @@ A new HUD button unmounts back to `mountStartScreen()` behind a
 confirmation overlay (`js/screens/logoutConfirmScreen.js`). See
 CHANGELOG.
 
+### Boat tool to cross water, obtainable in zone 1 like the axe/pick
+
+Raised 2026-08-24. Timothy's own words: "boat so we can get across water
+that you can get in first zone too like the axe, pick." A third
+tool-gated terrain type, joining the existing axe (thicket) and mining
+pick (mountain) system
+(`docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-design.md`).
+
+Today `water` (`js/tiles.js`) has no `requiresTool` field at all — it's
+`walkable: false` with nothing that ever clears it, unlike `thicket`/
+`mountain` which both carry `requiresTool: 'axe'` /
+`requiresTool: 'miningPick'` and become walkable once that tool is
+owned. Same shape of change as those two: a new `boat` tool item
+(`js/data/items.js`, alongside `miningPick`/`axe`), a `requiresTool:
+'boat'` water variant (and presumably a `waterCache` reward variant,
+matching `mountainCache`/`thicketCache`), and a drop source for it
+somewhere in zone 1 (the existing axe/pick are dungeon-tier monster
+drops, per the tool-gating spec).
+
+One open design question for whenever this gets picked up: the
+axe/mountain pattern *permanently clears* the tile once you own the
+tool (any screen's thicket/mountain becomes ordinary walkable terrain
+forever after that point) — worth confirming a boat should work the
+same way (once obtained, all water everywhere is crossable from then
+on) rather than some other model (e.g. only crossable while a boat item
+is actively equipped/selected). Not decided here — captured as the raw
+idea only.
+
 ### ~~Hero emoji picker needs way more options, including skin tones~~ Shipped 2026-08-22
 Grew from 8 to 23 options plus a real skin-tone selector, only after
 actually rendering every candidate base+modifier combo to confirm which
