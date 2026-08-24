@@ -8,6 +8,7 @@ import { resolveStepDiscovery } from '../systems/discovery.js';
 import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGateProximityMessage, hasShownGateHint, markGateHintShown, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
 import { rollEncounterGroup } from '../systems/groupEncounters.js';
 import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.js';
+import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
 
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
@@ -30,6 +31,11 @@ function tileAt(x, y) {
   const entrance = state.dungeonEntrancePosition;
   if (entrance && mapConfig.id === entrance.screenId && x === entrance.x && y === entrance.y) {
     return TILES.dungeonEntrance;
+  }
+  for (const toolEntrance of Object.values(TOOL_DUNGEON_ENTRANCES)) {
+    if (mapConfig.id === toolEntrance.screenId && x === toolEntrance.x && y === toolEntrance.y) {
+      return TILES[toolEntrance.tileKind];
+    }
   }
   const row = mapConfig.rows[y];
   if (!row) return null;

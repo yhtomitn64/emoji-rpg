@@ -13,6 +13,9 @@ import * as logoutConfirmScreen from './screens/logoutConfirmScreen.js';
 import * as postDeathTravelScreen from './screens/postDeathTravelScreen.js';
 import { townMap } from './maps/townMap.js';
 import { dungeonMap } from './maps/dungeonMap.js';
+import { axeDungeonMap } from './maps/toolDungeons/axeDungeon.js';
+import { pickDungeonMap } from './maps/toolDungeons/pickDungeon.js';
+import { TOOL_DUNGEON_ENTRANCES } from './data/toolDungeons.js';
 import { centerMap } from './maps/wilderness/center.js';
 import { northMap } from './maps/wilderness/north.js';
 import { southMap } from './maps/wilderness/south.js';
@@ -99,6 +102,8 @@ const MAPS = {
   miniDungeonC: miniDungeonVariantC,
   miniDungeonD: miniDungeonVariantD,
   miniDungeonE: miniDungeonVariantE,
+  axeDungeon: axeDungeonMap,
+  pickDungeon: pickDungeonMap,
 };
 
 let state = null;
@@ -371,9 +376,14 @@ function goToMap(mapId) {
 function handleTileAction(action) {
   if (action === 'enterTown') return enterMap('town');
   if (action === 'enterDungeon') return enterMap('dungeon');
+  if (action === 'enterAxeDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.axe.mapId);
+  if (action === 'enterPickDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.pick.mapId);
   if (action === 'exitMap') {
     if (state.map === 'town') return enterMap('center');
     if (state.map === 'dungeon') return enterMap(state.dungeonEntrancePosition.screenId);
+    for (const toolEntrance of Object.values(TOOL_DUNGEON_ENTRANCES)) {
+      if (state.map === toolEntrance.mapId) return enterMap(toolEntrance.screenId);
+    }
     return;
   }
   if (action === 'enterShop') return goToShop();
@@ -381,6 +391,10 @@ function handleTileAction(action) {
   if (action === 'enterQuestBoard') return goToQuestBoard();
   if (action === 'bossBattle') {
     handleBossBattle();
+    return;
+  }
+  if (action === 'guardianBattle') {
+    handleEncounter([MAPS[state.map].guardianMonsterId]);
     return;
   }
   if (action === 'exitMiniDungeon') return handleExitMiniDungeon();
@@ -599,8 +613,14 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
   // (surrender/flee) without ever opening the battle dialog - per Timothy's
   // explicit ask, the player shouldn't see a dialog open and close again for
   // an outcome that was already decided. Multi-mob groups are unaffected,
-  // matching this mechanic's existing scope.
-  if (monsterIds.length === 1 && !MONSTERS[monsterIds[0]].isBoss) {
+  // matching this mechanic's existing scope. forceFullBattle monsters (tool-
+  // dungeon guardians) are also exempt - a "fled-empty" outcome here would
+  // drop them with no reward, breaking their guaranteed-drop guarantee. Not
+  // using isBoss for that exemption: isBoss also flips
+  // state.flags.dungeonBossDefeated (NG+ eligibility, meant only for the
+  // real dragon) and blocks mid-battle fleeing, neither of which a guardian
+  // fight should do.
+  if (monsterIds.length === 1 && !MONSTERS[monsterIds[0]].isBoss && !MONSTERS[monsterIds[0]].forceFullBattle) {
     const bonuses = getEquipmentBonuses(state);
     const playerStats = { attack: state.player.attack + bonuses.attack, defense: state.player.defense + bonuses.defense };
     const weakMobOutcome = resolveWeakMobEncounter(playerStats, ngPlusOverridesList[0], false);

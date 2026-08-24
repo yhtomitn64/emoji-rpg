@@ -119,18 +119,33 @@ let brushSize = 1; // radius in cells - 1 means "just the cell under the cursor"
 let brushShape = 'square';
 let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance spot (wilderness only)
 let placingDungeon = false;
+let toolDungeonMarkers = {}; // toolId -> { screenId, x, y } (wilderness only)
+let placingToolDungeon = null; // toolId currently being placed, or null
 let checkOverlay = null; // { toollessReached: Set<string>, tooledReached: Set<string> } | null (wilderness only)
-let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker } snapshots, oldest first
+let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers } snapshots, oldest first
 const UNDO_LIMIT = 30;
+
+const TOOL_DUNGEON_IDS = ['axe', 'pick'];
+const TOOL_DUNGEON_MARKER_COLORS = { axe: '#5cb85c', pick: '#5bc0de' };
 
 function cloneGrid(g) {
   return g.map((row) => row.slice());
 }
 
+function cloneToolDungeonMarkers(markers) {
+  const out = {};
+  for (const [toolId, pos] of Object.entries(markers)) out[toolId] = { ...pos };
+  return out;
+}
+
 function pushUndoSnapshot() {
   const active = getActive();
   const stack = undoStacks[currentMapKey] || (undoStacks[currentMapKey] = []);
-  stack.push({ grid: cloneGrid(active.grid), dungeonMarker: dungeonMarker ? { ...dungeonMarker } : null });
+  stack.push({
+    grid: cloneGrid(active.grid),
+    dungeonMarker: dungeonMarker ? { ...dungeonMarker } : null,
+    toolDungeonMarkers: cloneToolDungeonMarkers(toolDungeonMarkers),
+  });
   if (stack.length > UNDO_LIMIT) stack.shift();
 }
 
@@ -141,6 +156,7 @@ function undo() {
   if (currentMapKey === 'wilderness') {
     grid = snapshot.grid;
     dungeonMarker = snapshot.dungeonMarker;
+    toolDungeonMarkers = snapshot.toolDungeonMarkers || {};
   } else {
     singleGrid = snapshot.grid;
   }
@@ -263,6 +279,27 @@ function renderWilderness(ctx) {
       ctx.stroke();
     }
   }
+
+  for (const [toolId, pos] of Object.entries(toolDungeonMarkers)) {
+    const world = localToWorld(pos.screenId, pos.x, pos.y);
+    if (!world) continue;
+    const cx = world.wx * CELL + CELL / 2;
+    const cy = world.wy * CELL + CELL / 2;
+    ctx.fillStyle = TOOL_DUNGEON_MARKER_COLORS[toolId] || '#fff';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(toolId[0].toUpperCase(), cx, cy + 1);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
 }
 
 function renderSingleMap(ctx) {
@@ -302,7 +339,7 @@ function saveAutosave() {
   try {
     const singleMaps = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}').singleMaps || {};
     if (currentMapKey !== 'wilderness') singleMaps[currentMapKey] = singleGrid;
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker, singleMaps }));
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker, toolDungeonMarkers, singleMaps }));
   } catch (err) {
     // localStorage may be unavailable (private browsing, quota) - painting still
     // works, it just won't survive a refresh. Nothing to do here.
@@ -377,11 +414,16 @@ function findTownEntrance() {
 }
 
 function cellPassable(passableKinds, x, y) {
-  // The real game's mapScreen.js always renders the dungeon-entrance tile as
-  // walkable at its exact marker position, regardless of the terrain painted
-  // underneath - matching that here so the check reflects actual game behavior.
+  // The real game's mapScreen.js always renders the dungeon-entrance tile (and
+  // the tool-dungeon entrances) as walkable at their exact marker position,
+  // regardless of the terrain painted underneath - matching that here so the
+  // check reflects actual game behavior.
   if (dungeonMarker) {
     const world = localToWorld(dungeonMarker.screenId, dungeonMarker.x, dungeonMarker.y);
+    if (world && world.wx === x && world.wy === y) return true;
+  }
+  for (const pos of Object.values(toolDungeonMarkers)) {
+    const world = localToWorld(pos.screenId, pos.x, pos.y);
     if (world && world.wx === x && world.wy === y) return true;
   }
   return passableKinds.has(grid[y][x]);
@@ -454,6 +496,7 @@ async function init() {
   if (savedRaw && savedRaw.grid) {
     grid = savedRaw.grid;
     dungeonMarker = savedRaw.dungeonMarker;
+    toolDungeonMarkers = savedRaw.toolDungeonMarkers || {};
     autosaveStatus.textContent = 'Restored unsaved changes from your last session.';
   } else {
     grid = await loadAllScreens();
@@ -462,6 +505,13 @@ async function init() {
     const stateMod = await import('../../js/state.js');
     dungeonMarker = { ...stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION };
   }
+  if (Object.keys(toolDungeonMarkers).length === 0) {
+    const toolDungeonsMod = await import('../../js/data/toolDungeons.js');
+    for (const toolId of TOOL_DUNGEON_IDS) {
+      const entry = toolDungeonsMod.TOOL_DUNGEON_ENTRANCES[toolId];
+      toolDungeonMarkers[toolId] = { screenId: entry.screenId, x: entry.x, y: entry.y };
+    }
+  }
 
   const dungeonReadout = document.getElementById('dungeonReadout');
   function updateDungeonReadout() {
@@ -469,6 +519,20 @@ async function init() {
       ? `${dungeonMarker.screenId} (${dungeonMarker.x}, ${dungeonMarker.y})`
       : 'not set';
   }
+
+  const toolDungeonSelect = document.getElementById('toolDungeonSelect');
+  const toolDungeonReadout = document.getElementById('toolDungeonReadout');
+  function updateToolDungeonReadout() {
+    const pos = toolDungeonMarkers[toolDungeonSelect.value];
+    toolDungeonReadout.textContent = pos ? `${pos.screenId} (${pos.x}, ${pos.y})` : 'not set';
+  }
+  for (const toolId of TOOL_DUNGEON_IDS) {
+    const opt = document.createElement('option');
+    opt.value = toolId;
+    opt.textContent = toolId;
+    toolDungeonSelect.appendChild(opt);
+  }
+  toolDungeonSelect.addEventListener('change', updateToolDungeonReadout);
 
   function currentPalette() {
     return currentMapKey === 'wilderness' ? WILDERNESS_PALETTE : SINGLE_MAPS[currentMapKey].palette;
@@ -507,6 +571,7 @@ async function init() {
       canvas.width = WORLD_W * CELL;
       canvas.height = WORLD_H * CELL;
       updateDungeonReadout();
+      updateToolDungeonReadout();
     } else {
       const cached = savedSingleMaps[key];
       const loaded = cached ? { grid: cached, w: cached[0].length, h: cached.length } : await loadSingleMap(key);
@@ -541,6 +606,12 @@ async function init() {
       const stateMod = await import('../../js/state.js');
       dungeonMarker = { ...stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION };
       updateDungeonReadout();
+      const toolDungeonsMod = await import('../../js/data/toolDungeons.js');
+      for (const toolId of TOOL_DUNGEON_IDS) {
+        const entry = toolDungeonsMod.TOOL_DUNGEON_ENTRANCES[toolId];
+        toolDungeonMarkers[toolId] = { screenId: entry.screenId, x: entry.x, y: entry.y };
+      }
+      updateToolDungeonReadout();
     } else {
       const loaded = await loadSingleMap(currentMapKey);
       singleGrid = loaded.grid;
@@ -557,6 +628,7 @@ async function init() {
   function doUndo() {
     if (!undo()) return;
     updateDungeonReadout();
+    updateToolDungeonReadout();
     saveAutosave();
     render(ctx);
   }
@@ -569,8 +641,11 @@ async function init() {
   });
 
   const placeDungeonBtn = document.getElementById('placeDungeonBtn');
+  const placeToolDungeonBtn = document.getElementById('placeToolDungeonBtn');
   placeDungeonBtn.addEventListener('click', () => {
     placingDungeon = !placingDungeon;
+    placingToolDungeon = null;
+    placeToolDungeonBtn.classList.remove('active');
     placeDungeonBtn.classList.toggle('active', placingDungeon);
     canvas.classList.toggle('placing-dungeon', placingDungeon);
   });
@@ -578,6 +653,26 @@ async function init() {
   document.getElementById('copyDungeonBtn').addEventListener('click', async () => {
     if (!dungeonMarker) return;
     const text = `{ screenId: '${dungeonMarker.screenId}', x: ${dungeonMarker.x}, y: ${dungeonMarker.y} }`;
+    try {
+      await navigator.clipboard.writeText(text);
+      autosaveStatus.textContent = `Copied: ${text}`;
+    } catch (err) {
+      autosaveStatus.textContent = `Clipboard blocked - copy manually: ${text}`;
+    }
+  });
+
+  placeToolDungeonBtn.addEventListener('click', () => {
+    placingToolDungeon = placingToolDungeon ? null : toolDungeonSelect.value;
+    placingDungeon = false;
+    placeDungeonBtn.classList.remove('active');
+    placeToolDungeonBtn.classList.toggle('active', Boolean(placingToolDungeon));
+    canvas.classList.toggle('placing-dungeon', Boolean(placingToolDungeon));
+  });
+
+  document.getElementById('copyToolDungeonBtn').addEventListener('click', async () => {
+    const pos = toolDungeonMarkers[toolDungeonSelect.value];
+    if (!pos) return;
+    const text = `{ screenId: '${pos.screenId}', x: ${pos.x}, y: ${pos.y} }`;
     try {
       await navigator.clipboard.writeText(text);
       autosaveStatus.textContent = `Copied: ${text}`;
@@ -628,6 +723,21 @@ async function init() {
       }
       placingDungeon = false;
       placeDungeonBtn.classList.remove('active');
+      canvas.classList.remove('placing-dungeon');
+      render(ctx);
+      return;
+    }
+    if (currentMapKey === 'wilderness' && placingToolDungeon) {
+      pushUndoSnapshot();
+      const local = worldToLocal(x, y);
+      if (local) {
+        toolDungeonMarkers[placingToolDungeon] = local;
+        updateToolDungeonReadout();
+        checkOverlay = null; // stale as soon as a marker moves
+        saveAutosave();
+      }
+      placingToolDungeon = null;
+      placeToolDungeonBtn.classList.remove('active');
       canvas.classList.remove('placing-dungeon');
       render(ctx);
       return;

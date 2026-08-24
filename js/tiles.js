@@ -23,4 +23,7 @@ export const TILES = {
   mountainCache: { emoji: '⛰️', walkable: false, encounter: false, requiresTool: 'miningPick', hasReward: true, description: 'Mountain — needs a mining pick to clear' },
   thicket: { emoji: '🌳', walkable: false, encounter: false, requiresTool: 'axe', description: 'Thicket — needs an axe to clear' },
   thicketCache: { emoji: '🌳', walkable: false, encounter: false, requiresTool: 'axe', hasReward: true, description: 'Thicket — needs an axe to clear' },
+  axeDungeonEntrance: { emoji: '🪓', walkable: true, encounter: false, action: 'enterAxeDungeon', description: 'A guarded passage — the axe lies beyond' },
+  pickDungeonEntrance: { emoji: '⛏️', walkable: true, encounter: false, action: 'enterPickDungeon', description: 'A guarded passage — the mining pick lies beyond' },
+  guardian: { emoji: '⚔️', walkable: true, encounter: false, action: 'guardianBattle', description: 'A guardian blocks the way — defeat it to claim its tool' },
 };

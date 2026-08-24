@@ -25,6 +25,11 @@
   #dungeonControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
   #dungeonControls button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #placeDungeonBtn.active { border-color: #e07b39; color: #e07b39; }
+  #toolDungeonControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  #toolDungeonControls select, #toolDungeonControls button {
+    padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace;
+  }
+  #placeToolDungeonBtn.active { border-color: #fff; }
   #checkControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
   #checkControls button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #checkStatus.ok { color: #6bbf6b; }
@@ -58,7 +63,10 @@
   reach, red isn't reachable even with every tool — and tells you plainly
   whether the dungeon entrance itself is reachable without a tool (it has to
   be, since the axe/pick only drop inside the dungeon). Dungeon-interior maps
-  don't have their own reachability check yet.
+  don't have their own reachability check yet. "Place Tool Dungeon Entrance"
+  works the same way for whichever tool dungeon is selected in the dropdown
+  next to it — copies paste into that entry's <code>screenId</code>/<code>x</code>/<code>y</code>
+  in <code>js/data/toolDungeons.js</code>.
 </p>
 <div id="mapControls">
   <label for="mapSelect">Map:</label>
@@ -79,6 +87,12 @@
   <button id="placeDungeonBtn">Place Dungeon Entrance</button>
   <span id="dungeonReadout"></span>
   <button id="copyDungeonBtn">Copy position</button>
+</div>
+<div id="toolDungeonControls" class="wilderness-only">
+  <select id="toolDungeonSelect"></select>
+  <button id="placeToolDungeonBtn">Place Tool Dungeon Entrance</button>
+  <span id="toolDungeonReadout"></span>
+  <button id="copyToolDungeonBtn">Copy position</button>
 </div>
 <div id="checkControls" class="wilderness-only">
   <button id="checkMapBtn">Check Map</button>

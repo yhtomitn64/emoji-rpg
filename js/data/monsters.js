@@ -59,6 +59,33 @@ export const MONSTERS = {
     dropTable: [{ itemId: 'scorpionVenom', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',
   },
+  // Tool-dungeon guardians: guaranteed (chance: 1) single-item drop, so
+  // placing their dungeon is a reliable way to gate progression on a specific
+  // tool. forceFullBattle skips the usual solo-weak-mob pre-fight
+  // surrender/flee roll (js/main.js handleEncounter) - deliberately NOT
+  // isBoss, since isBoss also sets state.flags.dungeonBossDefeated (which
+  // would falsely unlock NG+ before the real dragon is ever fought) and
+  // blocks fleeing mid-battle, neither of which apply here. Stats sit a step
+  // above the corner-tier roster (direWolf/spider/scorpion) since a
+  // guaranteed-reward mini-boss should feel tougher than an ordinary
+  // wilderness encounter, but well under dungeon-tier (orc/wraith) so an
+  // early gate doesn't require end-game gear.
+  axeGuardian: {
+    id: 'axeGuardian', name: 'Axe Guardian', emoji: '🪓',
+    hp: 140, attack: 18, defense: 5, speed: 7,
+    xp: 45, goldRange: [15, 25],
+    dropTable: [{ itemId: 'axe', chance: 1 }],
+    forceFullBattle: true,
+    attackStyle: 'melee',
+  },
+  pickGuardian: {
+    id: 'pickGuardian', name: 'Pick Guardian', emoji: '⛏️',
+    hp: 140, attack: 18, defense: 5, speed: 7,
+    xp: 45, goldRange: [15, 25],
+    dropTable: [{ itemId: 'miningPick', chance: 1 }],
+    forceFullBattle: true,
+    attackStyle: 'melee',
+  },
   dragon: {
     id: 'dragon', name: 'Dragon', emoji: '🐉',
     hp: 150, attack: 34, defense: 12, speed: 11,
