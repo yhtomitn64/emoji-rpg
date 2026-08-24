@@ -124,17 +124,30 @@ Three related pieces:
   newly-added outer ring, and `CORNER_SCREEN_IDS`/the eligible-screen pool
   would need rethinking for a 5x5 layout (the new "corners"/edges aren't
   the same 4 screens anymore).
-- **More organic terrain, especially connected water.** Today's terrain
+- **More organic terrain, especially connected water — and terrain
+  features should be able to span across screens.** Today's terrain
   (mountain/thicket gates, water blocks) is placed as simple rectangular
   blocks of repeated tiles per-screen (see any `js/maps/wilderness/*.js`
   `ROWS` array). Wants mountains/lakes/woods to read as actual varied
-  shapes, not squares/rectangles, and wants water tiles to form real
-  connected lakes/rivers (potentially spanning multiple adjacent screens)
-  rather than disconnected blue blocks. This is as much an authoring/
-  tooling question (how do you *design* an organic shape across a 30x22
-  ASCII grid readably) as a content one — worth deciding whether that's
-  hand-authored with a better process, or some kind of generation helper,
-  before hand-drawing 16+ screens' worth of terrain.
+  shapes, not squares/rectangles. **Explicit follow-up, 2026-08-23:** this
+  isn't limited to water — "the different map elements could span into a
+  different map. So lake could go into another map and so on" — any
+  terrain feature (a lake, a mountain range, a forest) should be able to
+  continue across a screen boundary into its neighbor, not just water.
+  Checked what exists today: `tests/maps.test.js` already verifies border
+  *walkability* matches up between neighboring screens (a walkable edge
+  tile has a walkable tile on the other side) and that neighbor links are
+  symmetric — but nothing checks or enforces that a *terrain feature*
+  itself continues coherently across that boundary (e.g. a lake's edge
+  tiles lining up with water tiles on the neighboring screen's matching
+  edge). Each screen's `ROWS` array is authored fully independently today,
+  with no awareness of its neighbors' edge tiles at all — real gap this
+  idea would need to close, not just a content/authoring question. This
+  is as much an authoring/tooling question (how do you *design* an
+  organic shape that continues correctly across a 30x22 ASCII grid's
+  edge, readably, by hand) as a content one — worth deciding whether
+  that's hand-authored with a better process, or some kind of generation
+  helper, before hand-drawing 16+ screens' worth of terrain.
 
 **Next-session prompt suggestion:** "Let's design the zone 1 map expansion
 — see the 'Zone 1 map expansion + organic terrain' item in
