@@ -7,7 +7,13 @@ export const TILES = {
     variants: ['', '', '', '', '', '', '', '', '🍀', '🌼'],
   },
   tree: { emoji: '🌲', walkable: false, encounter: false, description: 'Tree — blocks the way' },
-  water: { emoji: '🟦', walkable: false, encounter: false, requiresTool: 'boat', description: 'Water — needs a boat to cross' },
+  // Blank variant - water renders as a solid blue background (see
+  // js/screens/mapScreen.js) instead of a per-tile square emoji, so
+  // adjacent water tiles blend into one contiguous body of water.
+  water: {
+    emoji: '🟦', walkable: false, encounter: false, requiresTool: 'boat', description: 'Water — needs a boat to cross',
+    variants: [''],
+  },
   townEntrance: { emoji: '🏘️', walkable: true, encounter: false, action: 'enterTown', description: 'Town — shop, smith, and quest board' },
   dungeonEntrance: { emoji: '🕳️', walkable: true, encounter: false, action: 'enterDungeon', description: 'Dungeon — the way to the boss' },
   shop: { emoji: '🏪', walkable: true, encounter: false, action: 'enterShop', description: 'Shop — buy and sell gear' },

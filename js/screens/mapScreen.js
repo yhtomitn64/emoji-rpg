@@ -103,6 +103,7 @@ function render() {
       const isPlayer = state.position.x === x && state.position.y === y;
       cell.className = 'map-tile'
         + (tile === TILES.grass ? ' map-tile-grass' : '')
+        + (tile === TILES.water ? ' map-tile-water' : '')
         + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '')
         + (isPlayer ? ' map-tile-player' : '');
       const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);

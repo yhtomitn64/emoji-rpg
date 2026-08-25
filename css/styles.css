@@ -21,6 +21,11 @@ body { margin: 0; background: #222; color: #eee; }
 .map-tile-grass {
   background: #3f6b34;
 }
+/* Solid blue so adjacent water tiles blend into one contiguous body of
+   water instead of reading as separate boxes - see js/screens/mapScreen.js. */
+.map-tile-water {
+  background: #2b6cb0;
+}
 .map-tile-mount {
   position: absolute;
   inset: 0;
@@ -471,6 +476,10 @@ button:focus-visible {
    (with a slight tint) instead of losing its color entirely. */
 .map-tile.map-tile-grass.visited {
   background: #4f5c30;
+}
+/* Same idea for water (reachable, and visitable, once boat-cleared). */
+.map-tile.map-tile-water.visited {
+  background: #395a78;
 }
 
 .map-tile-player {
