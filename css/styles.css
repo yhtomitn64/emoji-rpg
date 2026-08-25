@@ -5,7 +5,7 @@ body { margin: 0; background: #222; color: #eee; }
 
 .map-grid {
   display: grid;
-  gap: 2px;
+  gap: 0;
 }
 .map-tile {
   aspect-ratio: 1;
@@ -15,6 +15,11 @@ body { margin: 0; background: #222; color: #eee; }
   font-size: 1.2rem;
   background: #333;
   position: relative;
+}
+/* Solid green so adjacent grass tiles blend into one contiguous field
+   instead of reading as separate boxes - see js/screens/mapScreen.js. */
+.map-tile-grass {
+  background: #3f6b34;
 }
 .map-tile-mount {
   position: absolute;
@@ -461,6 +466,11 @@ button:focus-visible {
 
 .map-tile.visited {
   background: #5c4a35;
+}
+/* Higher specificity than .map-tile.visited so visited grass stays green
+   (with a slight tint) instead of losing its color entirely. */
+.map-tile.map-tile-grass.visited {
+  background: #4f5c30;
 }
 
 .map-tile-player {

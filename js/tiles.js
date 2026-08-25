@@ -1,7 +1,10 @@
 export const TILES = {
   grass: {
     emoji: '🟩', walkable: true, encounter: true, description: 'Field — wild monsters may appear',
-    variants: ['🟩', '🟩', '🟩', '🟩', '🍀', '🌼'],
+    // Mostly empty - grass renders as a solid green background (see
+    // js/screens/mapScreen.js), and these are only the occasional
+    // decorative clover/flower drawn on top of it, not a replacement.
+    variants: ['', '', '', '', '', '', '', '', '🍀', '🌼'],
   },
   tree: { emoji: '🌲', walkable: false, encounter: false, description: 'Tree — blocks the way' },
   water: { emoji: '🟦', walkable: false, encounter: false, requiresTool: 'boat', description: 'Water — needs a boat to cross' },
