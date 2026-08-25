@@ -15,6 +15,9 @@ body { margin: 0; background: #222; color: #eee; }
   font-size: 1.2rem;
   background: #333;
   position: relative;
+  /* Lets .map-tile-obstacle size itself off this tile's own rendered
+     height (cqb units), regardless of viewport/column count. */
+  container-type: size;
 }
 /* Solid green so adjacent grass tiles blend into one contiguous field
    instead of reading as separate boxes - see js/screens/mapScreen.js. */
@@ -42,6 +45,25 @@ body { margin: 0; background: #222; color: #eee; }
   justify-content: center;
   font-size: 0.85rem;
   transform: translateY(-3px);
+  pointer-events: none;
+}
+/* Non-moving obstacles (tree/mountain/thicket) render larger than their
+   own cell and anchored to its bottom edge, so a tall one visually
+   overlaps into the row above instead of floating small and centered -
+   see js/screens/mapScreen.js. font-size is set inline per tile (a
+   deterministic per-position random size, 100-150% of OBSTACLE_BASE_CQB
+   below); cqb scales that with the tile's actual rendered height so it
+   still fills the square correctly at any viewport/column count. */
+.map-tile-obstacle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -484,9 +506,11 @@ button:focus-visible {
 
 .map-tile-player {
   position: relative;
+  /* Above .map-tile-obstacle (z-index: 2) so a tall tree overlapping up
+     from the row below never paints over the character standing here. */
+  z-index: 10;
 }
 .map-tile-player.map-tile-levelup {
-  z-index: 5;
   animation: map-tile-levelup-pulse 1.2s ease-out;
 }
 @keyframes map-tile-levelup-pulse {

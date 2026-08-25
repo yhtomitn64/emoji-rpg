@@ -15,6 +15,17 @@ export function pickTileVariant(tile, x, y) {
   return tile.variants[index];
 }
 
+// Same deterministic bit-mixing as pickTileVariant above, reduced to a
+// stable float in [0, 1) instead of an array index - used wherever a tile
+// needs its own random-but-stable value (e.g. obstacle size in
+// js/screens/mapScreen.js) rather than picking from a fixed list.
+export function hash01(x, y) {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = h ^ (h >>> 16);
+  return (Math.abs(h) % 1000) / 1000;
+}
+
 export function isWalkableAt(map, x, y) {
   const row = map.rows[y];
   if (!row) return false;

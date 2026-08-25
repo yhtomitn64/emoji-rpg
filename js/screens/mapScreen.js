@@ -1,5 +1,5 @@
 import { TILES } from '../tiles.js';
-import { directionFromDelta, pickTileVariant } from '../systems/world.js';
+import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
 import { markVisited, isVisited } from '../systems/exploration.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
@@ -18,6 +18,15 @@ const MINI_DUNGEON_MARKER_DESCRIPTION = 'A mysterious opening — explore it';
 // under the player's own emoji instead of replacing it (e.g. riding the
 // boat across water rather than turning into a boat).
 const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
+
+// Non-moving obstacles render full-square and up (100-150% of a tile's own
+// height, deterministic per position via hash01), tall enough to overlap
+// into the row above - see .map-tile-obstacle in css/styles.css.
+// mountainWall is deliberately excluded: it's the auto-sealed world-edge
+// marker, not painted terrain, and should stay a plain, unmistakable wall.
+const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountainCache, TILES.thicket, TILES.thicketCache]);
+const OBSTACLE_BASE_CQB = 85; // "100%" (no overlap) - tuned to visually fill the tile
+const OBSTACLE_MAX_EXTRA = 0.5; // up to +50% (150% total, i.e. 50% overlap)
 
 let rootEl = null;
 let state = null;
@@ -117,6 +126,7 @@ function render() {
       const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
       const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
         ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
+      const isRandomSizeObstacle = !hasMiniDungeon && !hasTileCache && RANDOM_SIZE_OBSTACLES.has(tile);
       if (mountEmoji) {
         const mount = document.createElement('span');
         mount.className = 'map-tile-mount';
@@ -125,6 +135,13 @@ function render() {
         rider.className = 'map-tile-rider';
         rider.textContent = state.player.emoji;
         cell.append(mount, rider);
+      } else if (isRandomSizeObstacle) {
+        const obstacle = document.createElement('span');
+        obstacle.className = 'map-tile-obstacle';
+        obstacle.textContent = emoji;
+        const size = OBSTACLE_BASE_CQB * (1 + hash01(x, y) * OBSTACLE_MAX_EXTRA);
+        obstacle.style.fontSize = `${size.toFixed(1)}cqb`;
+        cell.appendChild(obstacle);
       } else {
         cell.textContent = isPlayer ? state.player.emoji : emoji;
       }
