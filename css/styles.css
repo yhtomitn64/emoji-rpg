@@ -51,7 +51,7 @@ body { margin: 0; background: #222; color: #eee; }
    own cell and anchored to its bottom edge, so a tall one visually
    overlaps into the row above instead of floating small and centered -
    see js/screens/mapScreen.js. font-size is set inline per tile (a
-   deterministic per-position random size, 100-150% of OBSTACLE_BASE_CQB
+   deterministic per-position random size, 100-150% of FULL_SQUARE_CQB
    below); cqb scales that with the tile's actual rendered height so it
    still fills the square correctly at any viewport/column count. */
 .map-tile-obstacle {
@@ -64,6 +64,32 @@ body { margin: 0; background: #222; color: #eee; }
   justify-content: center;
   line-height: 1;
   z-index: 2;
+  pointer-events: none;
+}
+/* Landmarks that need to be spotted at a glance (town, cave/dungeon
+   entrances, loot) and the hero's own tile - sized off the tile's own
+   rendered height, same reference value as the obstacles' 100% baseline
+   (js/screens/mapScreen.js's FULL_SQUARE_CQB), just centered normally
+   instead of bottom-anchored/overlapping. A child span, not a class on
+   the cell - cqb only resolves against the nearest ANCESTOR query
+   container, and .map-tile establishes that containment itself. */
+.map-tile-fullsize {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 85cqb;
+  line-height: 1;
+}
+/* Grass decorations (clover/flower): smaller than the tile, placed at a
+   random spot via left/top (not dead-center) so a field of them scatters
+   naturally instead of forming a grid of centered icons. left/top and
+   font-size are set inline per tile - see js/screens/mapScreen.js. */
+.map-tile-decoration {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  line-height: 1;
   pointer-events: none;
 }
 

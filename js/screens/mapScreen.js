@@ -25,8 +25,35 @@ const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
 // mountainWall is deliberately excluded: it's the auto-sealed world-edge
 // marker, not painted terrain, and should stay a plain, unmistakable wall.
 const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountainCache, TILES.thicket, TILES.thicketCache]);
-const OBSTACLE_BASE_CQB = 85; // "100%" (no overlap) - tuned to visually fill the tile
+// Shared "fills the tile" reference size (cqb = % of the tile's own
+// rendered height) - used both as the obstacles' 100% baseline (see
+// OBSTACLE_MAX_EXTRA below) and, unscaled, for markers that should always
+// read as prominent/findable rather than small: town, cave/dungeon
+// entrances, loot, and the player's own hero emoji.
+const FULL_SQUARE_CQB = 85;
 const OBSTACLE_MAX_EXTRA = 0.5; // up to +50% (150% total, i.e. 50% overlap)
+
+// Important landmarks the player needs to spot at a glance - always full
+// size, never randomized/overlapping (unlike RANDOM_SIZE_OBSTACLES, these
+// are single landmarks, not a forest of them).
+const FULL_SQUARE_MARKERS = new Set([
+  TILES.townEntrance,
+  TILES.dungeonEntrance,
+  TILES.axeDungeonEntrance,
+  TILES.pickDungeonEntrance,
+  TILES.canoeDungeonEntrance,
+  TILES.miniDungeonEntrance,
+  TILES.miniDungeonTreasure,
+]);
+
+// Grass decoration (clover/flower) sizing and placement: smaller than a
+// full tile and scattered around it rather than dead-center, so a field of
+// them reads as scattered growth instead of a uniform grid of icons.
+const DECORATION_BASE_REM = 1.2;
+const DECORATION_MIN_SCALE = 0.65;
+const DECORATION_MAX_SCALE = 1.05;
+const DECORATION_POSITION_MIN_PCT = 28;
+const DECORATION_POSITION_MAX_PCT = 72;
 
 let rootEl = null;
 let state = null;
@@ -110,23 +137,28 @@ function render() {
       const cell = document.createElement('div');
       const tile = tileAt(x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
+      const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
+      const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
       // A tile currently blocking the way is never shown as visited, even if
       // state.visited has a stale record from before the map was repainted
       // (the player really did stand on grass there once, but that record
       // shouldn't outlive the terrain it was standing on) - a permanent or
       // still-locked obstacle can never actually have been walked on.
       const isCurrentlyPassable = tile.walkable || (tile.requiresTool && hasRequiredTool(tile, state.inventory));
+      // Obstacles grow out of the grass, so they keep its green background
+      // rather than looking like a hole cut in the field - see
+      // RANDOM_SIZE_OBSTACLES above.
       cell.className = 'map-tile'
-        + (tile === TILES.grass ? ' map-tile-grass' : '')
+        + (tile === TILES.grass || RANDOM_SIZE_OBSTACLES.has(tile) ? ' map-tile-grass' : '')
         + (tile === TILES.water ? ' map-tile-water' : '')
         + (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '')
         + (isPlayer ? ' map-tile-player' : '');
-      const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
-      const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
       const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
       const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
         ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
       const isRandomSizeObstacle = !hasMiniDungeon && !hasTileCache && RANDOM_SIZE_OBSTACLES.has(tile);
+      const isFullSquareMarker = hasMiniDungeon || hasTileCache || FULL_SQUARE_MARKERS.has(tile);
+      const isDecoratedGrass = !isFullSquareMarker && tile === TILES.grass && emoji !== '';
       if (mountEmoji) {
         const mount = document.createElement('span');
         mount.className = 'map-tile-mount';
@@ -139,11 +171,34 @@ function render() {
         const obstacle = document.createElement('span');
         obstacle.className = 'map-tile-obstacle';
         obstacle.textContent = emoji;
-        const size = OBSTACLE_BASE_CQB * (1 + hash01(x, y) * OBSTACLE_MAX_EXTRA);
+        const size = FULL_SQUARE_CQB * (1 + hash01(x, y) * OBSTACLE_MAX_EXTRA);
         obstacle.style.fontSize = `${size.toFixed(1)}cqb`;
         cell.appendChild(obstacle);
+      } else if (isDecoratedGrass) {
+        const decoration = document.createElement('span');
+        decoration.className = 'map-tile-decoration';
+        decoration.textContent = emoji;
+        // Independently-salted hash streams so size and position don't
+        // move in lockstep with each other or with the decoration pick.
+        const scale = DECORATION_MIN_SCALE + hash01(x + 1000, y + 1000) * (DECORATION_MAX_SCALE - DECORATION_MIN_SCALE);
+        const left = DECORATION_POSITION_MIN_PCT + hash01(x + 2000, y + 2000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
+        const top = DECORATION_POSITION_MIN_PCT + hash01(x + 3000, y + 3000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
+        decoration.style.fontSize = `${(DECORATION_BASE_REM * scale).toFixed(2)}rem`;
+        decoration.style.left = `${left.toFixed(1)}%`;
+        decoration.style.top = `${top.toFixed(1)}%`;
+        cell.appendChild(decoration);
+      } else if (isFullSquareMarker || isPlayer) {
+        // The hero is always full-square. cqb units only resolve against
+        // the nearest ANCESTOR query container - .map-tile establishes
+        // that containment itself, so this has to be a child span, not a
+        // class on the cell, or cqb falls through past it to the
+        // viewport (an early version of this did exactly that).
+        const marker = document.createElement('span');
+        marker.className = 'map-tile-fullsize';
+        marker.textContent = isPlayer ? state.player.emoji : emoji;
+        cell.appendChild(marker);
       } else {
-        cell.textContent = isPlayer ? state.player.emoji : emoji;
+        cell.textContent = emoji;
       }
       cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
       grid.appendChild(cell);
