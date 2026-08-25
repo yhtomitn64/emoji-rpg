@@ -1,10 +1,4 @@
-const LEGEND = {
-  '#': 'tree',
-  '.': 'grass',
-  X: 'thicketCache',
-  T: 'thicket',
-  M: 'mountain',
-};
+const LEGEND = { '#': 'tree', '.': 'grass', X: 'thicketCache', T: 'thicket', M: 'mountain' };
 
 const ROWS = [
   '##############################',
@@ -28,7 +22,7 @@ const ROWS = [
   '####..........................',
   '..............................',
   '..............................',
-  '#............................#',
+  '#.............................',
 ];
 
 export const farNorthMap = {

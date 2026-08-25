@@ -1,9 +1,4 @@
-const LEGEND = {
-  '~': 'water',
-  '.': 'grass',
-  W: 'mountainWall',
-  '#': 'tree',
-};
+const LEGEND = { '~': 'water', '.': 'grass', W: 'mountainWall' };
 
 const ROWS = [
   '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
@@ -27,7 +22,7 @@ const ROWS = [
   '~~~~~~~~~~~~~~~~~~~~..........',
   '~~~~~~~~~~~~~~~~~~~~..........',
   '~~~~~~~~~~~~~~~~~~~~~.........',
-  '~~~~~~~~~WWWWWWWW~~~~~.......#',
+  '~~~~~~~~~WWWWWWWW~~~~~........',
 ];
 
 export const farNorthwestMap = {

@@ -1,13 +1,7 @@
-const LEGEND = {
-  '~': 'water',
-  W: 'mountainWall',
-  '.': 'grass',
-  '#': 'tree',
-  M: 'mountain',
-};
+const LEGEND = { '~': 'water', W: 'mountainWall', '.': 'grass', '#': 'tree', M: 'mountain' };
 
 const ROWS = [
-  '~~~~~~~~WWWWWWWWW~~~~~.......#',
+  '~~~~~~~~WWWWWWWWW~~~~~........',
   '~~~~~~~WWWWWW.....~~~~........',
   '~~~~~WWWWWW.......~~~~........',
   '~~~~WWWWW.........~~~~~.......',
@@ -28,7 +22,7 @@ const ROWS = [
   '#........####....~~~~MMMM.....',
   '#........####....~~~MMMM......',
   '#.......####.....~~~MMMM......',
-  '#.......####....~~~MMMMM.....#',
+  '#.......####....~~~MMMMM......',
 ];
 
 export const westNorthwestMap = {

@@ -7,6 +7,10 @@
   body { background: #111; color: #eee; font-family: monospace; margin: 0; padding: 16px; }
   h1 { font-size: 16px; margin: 0 0 4px; }
   p { font-size: 12px; color: #aaa; max-width: 900px; }
+  details#helpDetails { margin-top: 8px; }
+  details#helpDetails summary { cursor: pointer; font-size: 12px; color: #ddd; padding: 4px 0; }
+  details#helpDetails summary:hover { color: #fff; }
+  details#helpDetails p { margin-top: 8px; }
   #mapControls { margin-top: 12px; font-size: 12px; }
   #mapControls select { background: #222; color: #eee; border: 2px solid #444; font-family: monospace; padding: 4px; }
   #palette { margin-top: 12px; }
@@ -36,6 +40,8 @@
   #checkStatus.fail { color: #e06c6c; }
   canvas { border: 1px solid #444; cursor: crosshair; display: block; margin-top: 12px; }
   canvas.placing-dungeon { cursor: cell; }
+  .bulk-export-row { margin-top: 12px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .bulk-export-row button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #exportRow { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
   #exportOutput {
     width: 100%; max-width: 900px; height: 140px; margin-top: 8px;
@@ -45,6 +51,8 @@
 </head>
 <body>
 <h1>Wilderness Terrain Painter</h1>
+<details id="helpDetails">
+<summary>❓ Help — what everything does (click to expand)</summary>
 <p>
   Loads all 25 wilderness screens onto one continuous canvas, laid out exactly
   like the real 5x5 world, so terrain painted across a screen boundary is
@@ -59,15 +67,23 @@
   meaningful on the wilderness map) — "Copy position" copies the exact value
   to paste into <code>DEFAULT_DUNGEON_ENTRANCE_POSITION</code> in
   <code>js/state.js</code>. "Check Map" flood-fills from the town entrance
-  and tints anything not freely walkable: yellow needs a tool (axe/pick) to
-  reach, red isn't reachable even with every tool — and tells you plainly
-  whether the dungeon entrance itself is reachable without a tool (it has to
-  be, since the axe/pick only drop inside the dungeon). Dungeon-interior maps
-  don't have their own reachability check yet. "Place Tool Dungeon Entrance"
+  in stages, matching the intended axe → pick → canoe (boat) → dragon
+  progression: it only unlocks thicket/mountain/water terrain after
+  confirming that stage's own tool dungeon is actually reachable with
+  whatever's already unlocked, so a chicken-and-egg gate (like the pick
+  dungeon sitting behind thicket while the axe dungeon itself is
+  unreachable) gets caught. Yellow tint = only reachable with some tool,
+  red = not reachable even with every tool, magenta = exactly where the
+  first broken stage gets stuck. Dungeon-interior maps don't have their own
+  reachability check yet. "Place Tool Dungeon Entrance"
   works the same way for whichever tool dungeon is selected in the dropdown
   next to it — copies paste into that entry's <code>screenId</code>/<code>x</code>/<code>y</code>
-  in <code>js/data/toolDungeons.js</code>.
+  in <code>js/data/toolDungeons.js</code>. "Choose Repo Folder" +
+  "Export All Changed to Files" write every changed wilderness screen (plus
+  the dungeon and tool dungeon entrance positions) straight to disk in one
+  click, instead of copy/pasting each screen by hand — needs Chrome or Edge.
 </p>
+</details>
 <div id="mapControls">
   <label for="mapSelect">Map:</label>
   <select id="mapSelect"></select>
@@ -99,6 +115,14 @@
   <span id="checkStatus"></span>
 </div>
 <canvas id="worldCanvas" width="1200" height="880"></canvas>
+<div class="bulk-export-row wilderness-only">
+  <button id="chooseRepoBtn">Choose Repo Folder</button>
+  <span id="repoStatus">No folder chosen — writes straight to disk once you pick your repo's root folder.</span>
+</div>
+<div class="bulk-export-row wilderness-only">
+  <button id="exportAllBtn">Export All Changed to Files</button>
+  <span id="exportAllStatus"></span>
+</div>
 <div id="exportRow">
   <span class="wilderness-only">
     <label for="exportSelect">Export screen:</label>

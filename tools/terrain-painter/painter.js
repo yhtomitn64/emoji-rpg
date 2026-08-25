@@ -1,3 +1,5 @@
+import { TOOL_UNLOCK_KINDS, floodFillReachable, checkProgression } from './reachability.js';
+
 const SCREEN_W = 30;
 const SCREEN_H = 22;
 const CELL = 8;
@@ -133,7 +135,7 @@ let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance
 let placingDungeon = false;
 let toolDungeonMarkers = {}; // toolId -> { screenId, x, y } (wilderness only)
 let placingToolDungeon = null; // toolId currently being placed, or null
-let checkOverlay = null; // { toollessReached: Set<string>, tooledReached: Set<string> } | null (wilderness only)
+let checkOverlay = null; // { toollessReached, tooledReached, frontier: Set<string> } | null (wilderness only)
 let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers } snapshots, oldest first
 const UNDO_LIMIT = 30;
 
@@ -265,6 +267,15 @@ function renderWilderness(ctx) {
     for (let y = 0; y < WORLD_H; y++) {
       for (let x = 0; x < WORLD_W; x++) {
         const key = `${x},${y}`;
+        if (checkOverlay.frontier.has(key)) {
+          // The blocking boundary of the first broken stage in the progression
+          // (town -> axe -> pick -> canoe -> dragon) - takes priority over the
+          // general tint below since this is specifically "the player gets
+          // stuck right here," not just "unreachable somewhere."
+          ctx.fillStyle = 'rgba(230,30,200,0.65)';
+          ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+          continue;
+        }
         if (checkOverlay.toollessReached.has(key)) continue; // freely reachable, no tint
         ctx.fillStyle = checkOverlay.tooledReached.has(key)
           ? 'rgba(224,192,57,0.35)' // reachable only with a tool
@@ -434,6 +445,132 @@ function exportSingleMap() {
   return buildLegendRowsText(singleGrid, singleMapW, singleMapH);
 }
 
+// --- Bulk export straight to disk (File System Access API) -----------------
+// Avoids the 25x manual "copy LEGEND/ROWS, paste over the file" cycle for the
+// wilderness screens. Reads each real file fresh, patches only its
+// LEGEND/ROWS block (or, for state.js/toolDungeons.js, only the specific
+// position fields), and writes back - never regenerates a whole file, so
+// unrelated content (imports, comments, the export statement) is untouched.
+// The non-greedy "first closing delimiter" regexes and sanity checks mirror
+// the ones already proven safe earlier in this project for the same job -
+// an earlier newline-anchored version of this same idea corrupted files by
+// matching past a single-line LEGEND declaration straight through to the
+// end of the file.
+let repoDirHandle = null;
+
+async function pickRepoDirectory() {
+  const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+  // Sanity check: this should be the repo root, not some other folder -
+  // confirm it directly contains a 'js' directory before trusting it.
+  await handle.getDirectoryHandle('js');
+  repoDirHandle = handle;
+  return handle.name;
+}
+
+async function getFileHandleForPath(relativePath) {
+  const parts = relativePath.split('/');
+  let dir = repoDirHandle;
+  for (let i = 0; i < parts.length - 1; i++) {
+    dir = await dir.getDirectoryHandle(parts[i]);
+  }
+  return dir.getFileHandle(parts[parts.length - 1]);
+}
+
+async function readFileText(relativePath) {
+  const fh = await getFileHandleForPath(relativePath);
+  return (await fh.getFile()).text();
+}
+
+async function writeFileText(relativePath, text) {
+  const fh = await getFileHandleForPath(relativePath);
+  const writable = await fh.createWritable();
+  await writable.write(text);
+  await writable.close();
+}
+
+function patchLegendRows(originalText, newLegendRowsText, fileLabel) {
+  const legendRe = /const LEGEND = \{[\s\S]*?\};/;
+  const rowsRe = /const ROWS = \[[\s\S]*?\];/;
+  const legendMatch = originalText.match(legendRe);
+  const rowsMatch = originalText.match(rowsRe);
+  if (!legendMatch || !rowsMatch) throw new Error(`${fileLabel}: could not find LEGEND/ROWS block`);
+  if (rowsMatch.index <= legendMatch.index) throw new Error(`${fileLabel}: ROWS appears before LEGEND - unexpected file shape, aborting`);
+  if (!/'.+',/.test(rowsMatch[0])) throw new Error(`${fileLabel}: ROWS block doesn't look like row strings - aborting`);
+  const newLegendText = newLegendRowsText.match(legendRe)[0];
+  const newRowsText = newLegendRowsText.match(rowsRe)[0];
+  return originalText.replace(legendRe, newLegendText).replace(rowsRe, newRowsText);
+}
+
+function patchDungeonEntrancePosition(originalText, pos) {
+  const re = /export const DEFAULT_DUNGEON_ENTRANCE_POSITION = \{[^}]*\};/;
+  if (!re.test(originalText)) throw new Error('state.js: could not find DEFAULT_DUNGEON_ENTRANCE_POSITION');
+  return originalText.replace(re, `export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: '${pos.screenId}', x: ${pos.x}, y: ${pos.y} };`);
+}
+
+function patchToolDungeonEntrance(originalText, toolId, pos) {
+  const blockRe = new RegExp(`${toolId}: \\{[^}]*\\}`);
+  const match = originalText.match(blockRe);
+  if (!match) throw new Error(`toolDungeons.js: could not find '${toolId}' entry`);
+  const mapIdMatch = match[0].match(/mapId: '([^']*)'/);
+  const tileKindMatch = match[0].match(/tileKind: '([^']*)'/);
+  if (!mapIdMatch || !tileKindMatch) throw new Error(`toolDungeons.js: '${toolId}' entry missing mapId/tileKind`);
+  const newBlock = `${toolId}: {\n    screenId: '${pos.screenId}', x: ${pos.x}, y: ${pos.y}, mapId: '${mapIdMatch[1]}', tileKind: '${tileKindMatch[1]}',\n  }`;
+  return originalText.replace(blockRe, newBlock);
+}
+
+// Returns a summary string. Writes every changed wilderness screen, the
+// dungeon entrance position, and all three tool dungeon entrance positions -
+// everything that otherwise needs its own manual copy/paste. Stops at the
+// first error rather than leaving a partial, hard-to-audit set of writes.
+async function exportAllToFiles() {
+  if (!repoDirHandle) throw new Error('Choose your repo folder first.');
+  let written = 0;
+  let unchanged = 0;
+  const changedFiles = [];
+
+  for (const id of Object.keys(GRID_LAYOUT)) {
+    const relativePath = `js/maps/wilderness/${id}.js`;
+    const originalText = await readFileText(relativePath);
+    const patched = patchLegendRows(originalText, exportScreen(id), relativePath);
+    if (patched === originalText) { unchanged++; continue; }
+    await writeFileText(relativePath, patched);
+    written++;
+    changedFiles.push(id);
+  }
+
+  if (dungeonMarker) {
+    const relativePath = 'js/state.js';
+    const originalText = await readFileText(relativePath);
+    const patched = patchDungeonEntrancePosition(originalText, dungeonMarker);
+    if (patched !== originalText) {
+      await writeFileText(relativePath, patched);
+      written++;
+      changedFiles.push('dungeon entrance (state.js)');
+    } else {
+      unchanged++;
+    }
+  }
+
+  if (Object.keys(toolDungeonMarkers).length > 0) {
+    const relativePath = 'js/data/toolDungeons.js';
+    let originalText = await readFileText(relativePath);
+    let text = originalText;
+    let anyChanged = false;
+    for (const [toolId, pos] of Object.entries(toolDungeonMarkers)) {
+      text = patchToolDungeonEntrance(text, toolId, pos);
+    }
+    if (text !== originalText) {
+      await writeFileText(relativePath, text);
+      written++;
+      anyChanged = true;
+      changedFiles.push('tool dungeon entrances (toolDungeons.js)');
+    }
+    if (!anyChanged) unchanged++;
+  }
+
+  return `Wrote ${written} changed file(s)${changedFiles.length ? ': ' + changedFiles.join(', ') : ''}. ${unchanged} already up to date.`;
+}
+
 function findTownEntrance() {
   for (let y = 0; y < WORLD_H; y++) {
     for (let x = 0; x < WORLD_W; x++) {
@@ -460,23 +597,10 @@ function cellPassable(passableKinds, x, y) {
   return passableKinds.has(grid[y][x]);
 }
 
-function floodFillReachable(start, passableKinds) {
-  const reached = new Set([`${start.x},${start.y}`]);
-  const queue = [start];
-  while (queue.length) {
-    const { x, y } = queue.shift();
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || nx >= WORLD_W || ny < 0 || ny >= WORLD_H) continue;
-      const key = `${nx},${ny}`;
-      if (reached.has(key)) continue;
-      if (!cellPassable(passableKinds, nx, ny)) continue;
-      reached.add(key);
-      queue.push({ x: nx, y: ny });
-    }
-  }
-  return reached;
+function worldKeyFor(marker) {
+  if (!marker) return null;
+  const world = localToWorld(marker.screenId, marker.x, marker.y);
+  return world ? { x: world.wx, y: world.wy } : null;
 }
 
 function checkMap() {
@@ -489,27 +613,49 @@ function checkMap() {
     return;
   }
 
-  const toollessReached = floodFillReachable(town, TOOLLESS_PASSABLE_KINDS);
-  const tooledReached = floodFillReachable(town, TOOLED_PASSABLE_KINDS);
-  checkOverlay = { toollessReached, tooledReached };
+  const isPassable = (x, y, unlockedKinds) => cellPassable(unlockedKinds, x, y);
+  const toollessReached = floodFillReachable(WORLD_W, WORLD_H, town, (x, y) => isPassable(x, y, TOOLLESS_PASSABLE_KINDS));
+  const tooledReached = floodFillReachable(WORLD_W, WORLD_H, town, (x, y) => isPassable(x, y, TOOLED_PASSABLE_KINDS));
 
-  if (!dungeonMarker) {
-    status.textContent = 'Map checked (no dungeon entrance placed yet).';
-    status.className = '';
+  // Staged progression check: each tool's terrain only unlocks after
+  // confirming that tool's own dungeon is reachable using whatever's
+  // already unlocked - not just "reachable with some combination of
+  // tools," which would miss a chicken-and-egg gate (e.g. the pick
+  // dungeon sitting behind thicket when the axe dungeon itself is what's
+  // unreachable). See reachability.js (also unit tested there).
+  const entrances = [
+    { id: 'axe', label: 'axe dungeon', pos: worldKeyFor(toolDungeonMarkers.axe), unlocks: TOOL_UNLOCK_KINDS.axe },
+    { id: 'pick', label: 'pick dungeon', pos: worldKeyFor(toolDungeonMarkers.pick), unlocks: TOOL_UNLOCK_KINDS.pick },
+    { id: 'canoe', label: 'canoe dungeon (boat)', pos: worldKeyFor(toolDungeonMarkers.canoe), unlocks: TOOL_UNLOCK_KINDS.canoe },
+    { id: null, label: 'dragon dungeon', pos: worldKeyFor(dungeonMarker), unlocks: [] },
+  ];
+
+  const result = checkProgression({
+    width: WORLD_W, height: WORLD_H, town, isPassable, toollessKinds: TOOLLESS_PASSABLE_KINDS, entrances,
+  });
+
+  checkOverlay = { toollessReached, tooledReached, frontier: result.frontier };
+
+  if (!result.ok) {
+    const stage = entrances[result.stageIndex];
+    const priorStep = result.stageIndex === 0 ? 'from town with no tools' : `after getting the ${entrances[result.stageIndex - 1].id}`;
+    if (!stage.pos) {
+      status.textContent = `⚠️ Can't check past the ${stage.label} - it hasn't been placed yet.`;
+    } else {
+      status.textContent = `❌ The ${stage.label} is NOT reachable ${priorStep} — magenta tiles on the map mark exactly where the path is blocked.`;
+    }
+    status.className = 'fail';
     return;
   }
-  const world = localToWorld(dungeonMarker.screenId, dungeonMarker.x, dungeonMarker.y);
-  const dKey = world ? `${world.wx},${world.wy}` : null;
-  if (dKey && toollessReached.has(dKey)) {
-    status.textContent = '✅ Dungeon entrance is reachable without any tool.';
-    status.className = 'ok';
-  } else if (dKey && tooledReached.has(dKey)) {
-    status.textContent = "❌ NOT reachable without a tool — a thicket/mountain gate blocks the only path. This will soft-lock new players, since the axe/pick only drop inside the dungeon.";
-    status.className = 'fail';
-  } else {
-    status.textContent = "❌ NOT reachable even with every tool — the dungeon area looks walled off (trees/water fully enclosing it, or a disconnected landmass). Double-check the surrounding terrain.";
-    status.className = 'fail';
-  }
+
+  // What actually matters (Timothy's own bar): can the player navigate,
+  // get the treasure/tools, and reach the dragon - not "is literally every
+  // grass tile in the world reachable." The entrance chain above is the
+  // real check; isolated pockets elsewhere are still visibly tinted red on
+  // the map (nothing hidden) but aren't treated as a failure here unless
+  // something is actually placed there.
+  status.textContent = '✅ Full progression is soundly gated: town → axe → pick → canoe (boat) → dragon dungeon, each reachable in order.';
+  status.className = 'ok';
 }
 
 async function init() {
@@ -809,6 +955,35 @@ async function init() {
       status.textContent = 'Clipboard blocked — copy from the text box below.';
     }
   });
+
+  const repoStatus = document.getElementById('repoStatus');
+  const chooseRepoBtn = document.getElementById('chooseRepoBtn');
+  const exportAllBtn = document.getElementById('exportAllBtn');
+  const exportAllStatus = document.getElementById('exportAllStatus');
+
+  if (!window.showDirectoryPicker) {
+    repoStatus.textContent = 'Not supported in this browser (needs Chrome or Edge) — use "Copy LEGEND/ROWS" per screen instead.';
+    chooseRepoBtn.disabled = true;
+    exportAllBtn.disabled = true;
+  } else {
+    chooseRepoBtn.addEventListener('click', async () => {
+      try {
+        const name = await pickRepoDirectory();
+        repoStatus.textContent = `Writing straight to: ${name}/`;
+      } catch (err) {
+        if (err.name !== 'AbortError') repoStatus.textContent = `Could not use that folder: ${err.message}`;
+      }
+    });
+
+    exportAllBtn.addEventListener('click', async () => {
+      exportAllStatus.textContent = 'Writing…';
+      try {
+        exportAllStatus.textContent = await exportAllToFiles();
+      } catch (err) {
+        exportAllStatus.textContent = `Failed: ${err.message}`;
+      }
+    });
+  }
 }
 
 init();

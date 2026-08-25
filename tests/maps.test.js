@@ -63,7 +63,17 @@ const DUNGEON_APPROACH_SCREEN_IDS = [
 
 const FAR_CORNER_SCREEN_IDS = ['farNortheast', 'farNorthwest', 'farSoutheast', 'farSouthwest'];
 
-function assertValidMap(map) {
+// checkStartPosition defaults true (town/dungeon: startPosition is where
+// every game/dungeon run actually begins, always load-bearing). Wilderness
+// screens pass false: startPosition there is only the generic
+// return-from-interior landing spot for whichever screen happens to host a
+// dungeon/tool-dungeon entrance - it matters only for the ~4 screens that
+// actually host one today, which the real entrance-chain check below
+// verifies directly. The other 21 screens' unused landing point isn't
+// something Timothy considers a real bug (see the "only care that the
+// player can navigate, get the treasure/tools, and reach the dragon" scope
+// he set 2026-08-24).
+function assertValidMap(map, checkStartPosition = true) {
   const width = map.rows[0].length;
   for (const row of map.rows) {
     assert.equal(row.length, width, `${map.id} rows must all be the same width`);
@@ -72,14 +82,27 @@ function assertValidMap(map) {
       assert.ok(TILES[map.legend[char]], `${map.id} legend points to unknown tile '${map.legend[char]}'`);
     }
   }
+  if (!checkStartPosition) return;
   const { x, y } = map.startPosition;
-  // Not just plain-walkable: startPosition doubles as the generic
-  // return-from-interior landing spot for whichever screen currently hosts a
-  // dungeon/tool-dungeon entrance (js/main.js's enterMap uses
-  // MAPS[mapId].startPosition), and a tool-gated tile there is still a real
-  // tile to stand on - never a permanent wall - so it's valid the same way a
-  // saved position is (isValidSavedPosition).
   assert.ok(isValidSavedPosition(map, x, y), `${map.id} startPosition must be walkable or tool-gated, not a permanent wall`);
+}
+
+// Mirrors js/screens/mapScreen.js's isSealedWorldEdge: a true world-boundary
+// cell (a side with no neighbor at all) always renders and behaves as
+// mountainWall in the real game regardless of what's painted there.
+// isValidSavedPosition alone doesn't know this - without this check, a
+// boundary tile painted as e.g. grass or water reads as passable here even
+// though it's a forced wall in-game, silently under-counting real
+// unreachable regions whenever a "connection" only exists through the
+// sealed edge.
+function isTrueWorldBoundary(map, x, y) {
+  const width = map.rows[0].length;
+  const height = map.rows.length;
+  if (y === 0 && !map.neighbors.north) return true;
+  if (y === height - 1 && !map.neighbors.south) return true;
+  if (x === 0 && !map.neighbors.west) return true;
+  if (x === width - 1 && !map.neighbors.east) return true;
+  return false;
 }
 
 // Tool-gated tiles (water/thicket/mountain with requiresTool) are treated as
@@ -87,31 +110,30 @@ function assertValidMap(map) {
 // be gradually unlocked by tools found in-world, so a lake or tree wall the
 // player can't cross *yet* is intentional, not a broken map. This only
 // flags tiles with genuinely no route in - enclosed by permanent obstacles
-// (tree/mountainWall/water with no requiresTool) even with every tool.
+// (tree/mountainWall/water with no requiresTool, or the sealed world edge)
+// even with every tool.
 function isConnectivityPassable(map, x, y) {
+  if (isTrueWorldBoundary(map, x, y)) return false;
   return isValidSavedPosition(map, x, y);
 }
 
 // Wilderness screens are not self-contained: a screen can legitimately be
 // split by a mountain range or river into two halves that each only connect
 // out through a *different* neighboring screen, never to each other
-// locally. Checking each screen in isolation from its own generic center
-// point therefore produces massive false positives (an earlier version of
-// this check flagged 13 of 25 screens, thousands of tiles, before this
-// rewrite). The invariant that actually matters is global: starting from
-// the real game start (js/state.js createNewGame places a fresh save on
-// 'center' at its startPosition), can every passable tile in the entire
-// stitched 5x5 world eventually be reached, walking through screens via
-// edge transitions exactly as js/main.js's handleEdgeTransition does
-// (computeEdgeLandingPosition, unconditional landing - so a landing tile
-// is always a valid graph node even if it isn't itself "passable")?
+// locally - so checking each screen in isolation from its own generic
+// center point produces massive false positives (an earlier version of this
+// check flagged 13 of 25 screens, thousands of tiles). Any real reachability
+// check has to walk the whole stitched 5x5 world via edge transitions
+// exactly as js/main.js's handleEdgeTransition does (computeEdgeLandingPosition,
+// unconditional landing - a landing tile is always a valid graph node even
+// if it isn't itself "passable"). Shared by both the whole-world walk and
+// the staged tool-unlock-order walk below.
 const EDGE_DIRECTIONS = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 
-function assertWholeWorldReachable(wilderness) {
+function floodFillWholeWorld(wilderness, start, isPassable) {
   const tileKey = (id, x, y) => `${id}:${x},${y}`;
-  const start = wilderness.center.startPosition;
-  const visited = new Set([tileKey('center', start.x, start.y)]);
-  const queue = [{ id: 'center', x: start.x, y: start.y }];
+  const visited = new Set([tileKey(start.id, start.x, start.y)]);
+  const queue = [start];
 
   while (queue.length > 0) {
     const { id, x, y } = queue.shift();
@@ -131,26 +153,72 @@ function assertWholeWorldReachable(wilderness) {
         queue.push({ id: neighborId, x: landing.x, y: landing.y });
         continue;
       }
-      if (!isConnectivityPassable(map, nx, ny)) continue;
+      if (!isPassable(map, nx, ny)) continue;
       const k = tileKey(id, nx, ny);
       if (visited.has(k)) continue;
       visited.add(k);
       queue.push({ id, x: nx, y: ny });
     }
   }
+  return { visited, tileKey };
+}
 
-  for (const [id, map] of Object.entries(wilderness)) {
-    const width = map.rows[0].length;
-    const height = map.rows.length;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        if (isConnectivityPassable(map, x, y)) {
-          assert.ok(
-            visited.has(tileKey(id, x, y)),
-            `${id} tile (${x},${y}) is passable (walkable or tool-gated) but unreachable from the real game start even assuming every tool`
-          );
-        }
-      }
+// The real bar (Timothy, 2026-08-24): "I only really care that the player
+// can navigate the map, get all the treasure, get the tools and proceed to
+// the dragon" - not that literally every grass tile in the world is
+// reachable. This walks the actual TOOL_DUNGEON_ENTRANCES/
+// DEFAULT_DUNGEON_ENTRANCE_POSITION data in tool-unlock order (axe -> pick
+// -> canoe/boat -> dragon), unlocking each tool's gated terrain
+// (TILES[kind].requiresTool) only after confirming that tool's own dungeon
+// is reachable with whatever's already unlocked - catching a chicken-and-egg
+// gate a single "reachable with any combination of tools" check would miss.
+// Mirrors tools/terrain-painter/reachability.js's checkProgression, adapted
+// for the real multi-screen world instead of the painter's flat canvas.
+function assertRealEntranceChainReachable(wilderness, toolDungeonEntrances, dungeonEntrancePosition) {
+  // js/screens/mapScreen.js's tileAt() always overrides these exact cells
+  // with the (always-walkable) entrance tile before ever reading the
+  // underlying wilderness file, same mechanism as the sealed-edge override
+  // (see tests/toolDungeonMaps.test.js) - so an entrance sitting on painted
+  // tree/water is still walkable in-game. Without this, farNorth (13,7)
+  // (the real axe entrance, currently painted over with tree) reads as a
+  // false negative here.
+  const entranceKeys = new Set(
+    [...Object.values(toolDungeonEntrances), dungeonEntrancePosition]
+      .map((e) => `${e.screenId}:${e.x},${e.y}`)
+  );
+
+  function isPassableAtStage(map, x, y, unlockedTools) {
+    if (entranceKeys.has(`${map.id}:${x},${y}`)) return true;
+    if (isTrueWorldBoundary(map, x, y)) return false;
+    const char = map.rows[y]?.[x];
+    if (!char) return false;
+    const tile = TILES[map.legend[char]];
+    if (!tile) return false;
+    if (tile.walkable) return true;
+    return Boolean(tile.requiresTool && unlockedTools.has(tile.requiresTool));
+  }
+
+  const stages = [
+    { label: 'axe dungeon', entry: toolDungeonEntrances.axe, grants: 'axe' },
+    { label: 'pick dungeon', entry: toolDungeonEntrances.pick, grants: 'miningPick' },
+    { label: 'canoe dungeon (boat)', entry: toolDungeonEntrances.canoe, grants: 'boat' },
+    { label: 'dragon dungeon', entry: dungeonEntrancePosition, grants: null },
+  ];
+
+  const unlockedTools = new Set();
+  const start = { id: 'center', ...wilderness.center.startPosition };
+  let { visited } = floodFillWholeWorld(wilderness, start, (map, x, y) => isPassableAtStage(map, x, y, unlockedTools));
+
+  for (const stage of stages) {
+    assert.ok(stage.entry, `${stage.label}'s entrance position is not configured`);
+    const key = `${stage.entry.screenId}:${stage.entry.x},${stage.entry.y}`;
+    assert.ok(
+      visited.has(key),
+      `${stage.label} at ${stage.entry.screenId} (${stage.entry.x},${stage.entry.y}) is not reachable with tools unlocked so far (${[...unlockedTools].join(', ') || 'none'})`
+    );
+    if (stage.grants) {
+      unlockedTools.add(stage.grants);
+      ({ visited } = floodFillWholeWorld(wilderness, start, (map, x, y) => isPassableAtStage(map, x, y, unlockedTools)));
     }
   }
 }
@@ -224,9 +292,9 @@ test('dungeon map has an axe-gated thicket shortcut connecting the interior maze
   assert.equal(TILES.thicket.requiresTool, 'axe');
 });
 
-test('every wilderness screen is well-formed with a walkable start position', () => {
+test('every wilderness screen is well-formed (legend/rows structure)', () => {
   for (const map of Object.values(WILDERNESS)) {
-    assertValidMap(map);
+    assertValidMap(map, false);
   }
 });
 
@@ -239,8 +307,10 @@ test('every wilderness screen is exactly 30x22', () => {
   }
 });
 
-test('every passable tile in the stitched 5x5 wilderness is reachable from the real game start', () => {
-  assertWholeWorldReachable(WILDERNESS);
+test('the real axe -> pick -> canoe (boat) -> dragon entrance chain is reachable in tool-unlock order', async () => {
+  const { TOOL_DUNGEON_ENTRANCES } = await import('../js/data/toolDungeons.js');
+  const { DEFAULT_DUNGEON_ENTRANCE_POSITION } = await import('../js/state.js');
+  assertRealEntranceChainReachable(WILDERNESS, TOOL_DUNGEON_ENTRANCES, DEFAULT_DUNGEON_ENTRANCE_POSITION);
 });
 
 test('every FLAVOR_TEXT key is a real wilderness screen or an explicitly allowed extra', () => {

@@ -1,12 +1,7 @@
-const LEGEND = {
-  '#': 'tree',
-  '.': 'grass',
-  W: 'mountainWall',
-  '~': 'water',
-};
+const LEGEND = { '.': 'grass', W: 'mountainWall', '~': 'water', '#': 'tree' };
 
 const ROWS = [
-  '#.......................WWWWWW',
+  '........................WWWWWW',
   '........................WWWWWW',
   '........................WWWWWW',
   '........................WWWWWW',

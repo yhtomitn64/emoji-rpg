@@ -29,13 +29,13 @@ Tiles you have already stood on stay visibly tinted, so you can see where you've
 
 ## Dev tools
 
-`tools/terrain-painter/` is a browser-based tool for hand-painting organic
-terrain across all 25 wilderness screens on one continuous canvas, so terrain
-reads as connected across screen boundaries instead of being authored
-per-screen in isolation. Run it the same way as the game itself
-(`python3 -m http.server 8000` from the repo root), then open
-http://localhost:8000/tools/terrain-painter/index.html. Pick a brush from the
-palette, then click or click-drag on the canvas to paint. Use the "Export
-screen" dropdown to pick a screen and the "Copy LEGEND/ROWS" button to copy
-its `LEGEND`/`ROWS` data, then paste that over the existing `LEGEND`/`ROWS`
-declaration in that screen's file under `js/maps/wilderness/`.
+`tools/terrain-painter/` is a browser-based, dev-only tool for hand-painting
+organic terrain across all 25 wilderness screens on one continuous canvas
+(plus the dungeon and mini-dungeon interiors), so terrain reads as connected
+across screen boundaries instead of being authored per-screen in isolation.
+Run it the same way as the game itself (`python3 -m http.server 8000` from
+the repo root), then open
+http://localhost:8000/tools/terrain-painter/index.html. It's never deployed
+— see `tools/terrain-painter/README.md` for the full feature list, keyboard
+shortcuts, and exactly how painted changes get saved into the real game
+files.

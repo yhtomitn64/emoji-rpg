@@ -457,6 +457,43 @@ whatever palette/brush addition mechanism the tool ends up with for
 future terrain types (see the "map editor should support new zones and
 assets" thread the same day) should cover these too.
 
+## Hand-placed zone 1 loot, rebalanced around it (big idea — needs its own design pass)
+
+Raised 2026-08-24, while placing tool dungeons and reviewing the check-map
+progression. Timothy's own words: "I want a bunch of other loot for zone
+1 even if we have to redo our loot. I want loot I can put in various
+locations on the map. So maybe you make the store gear much weaker so
+that the stuff we find can be better. I want a bunch of pieces I can
+select from dropdowns and place in different places behind some tool
+unlocks." Explicitly framed as backlog/whenever, not for now.
+
+Two things bundled together here, both real design work:
+
+- **A rebalance of the shop's gear**, deliberately weaker than it is
+  today, so hand-placed world loot has room to be the exciting upgrade
+  path instead of the shop being the main gearing loop. Touches
+  `js/data/items.js` (shop-purchasable items) and whatever balance specs
+  already govern shop pricing/stats
+  (`docs/superpowers/specs/2026-08-16-inventory-equipment-design.md`
+  and related) - not a small tweak, a real rebalance pass with its own
+  playtesting.
+- **A hand-placement system for world loot**, parallel to the existing
+  tool-dungeon-entrance placement UI: pick an item from a dropdown (like
+  `toolDungeonSelect`) in the terrain painter, click a wilderness tile to
+  place it there, and have that persist into the real map data alongside
+  the dungeon/tool-dungeon markers already in `js/data/toolDungeons.js`-
+  style config. Explicitly wants pieces placeable "behind some tool
+  unlocks" - i.e. sitting on/behind thicket, mountain, or water tiles, so
+  finding an item can itself be gated by which tools you already have,
+  same shape as the mini-dungeon-cache system
+  (`js/systems/miniDungeons.js`) but player-curated per item/location
+  instead of randomized.
+
+Not designed here - needs its own brainstorming pass (item pool, how
+placement data is structured/stored, whether it reuses or replaces the
+existing cache-reward system, how the shop rebalance numbers actually
+land) before implementation.
+
 ## Bugs
 
 *(none open right now — the boss-tier skip bug and the inventory-panel

@@ -14,6 +14,6 @@ export const TOOL_DUNGEON_ENTRANCES = {
     screenId: 'southSoutheast', x: 18, y: 14, mapId: 'pickDungeon', tileKind: 'pickDungeonEntrance',
   },
   canoe: {
-    screenId: 'south', x: 15, y: 11, mapId: 'canoeDungeon', tileKind: 'canoeDungeonEntrance',
+    screenId: 'west', x: 18, y: 13, mapId: 'canoeDungeon', tileKind: 'canoeDungeonEntrance',
   },
 };

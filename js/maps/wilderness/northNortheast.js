@@ -1,8 +1,4 @@
-const LEGEND = {
-  '#': 'tree',
-  '.': 'grass',
-  M: 'mountain',
-};
+const LEGEND = { '#': 'tree', '.': 'grass', M: 'mountain' };
 
 const ROWS = [
   '##########....................',
@@ -17,8 +13,8 @@ const ROWS = [
   '......MMMMM##########.........',
   '...MMMMMMM#######.............',
   'MMMMMMMMMM#####...............',
-  'MMMMMMMMM######...............',
-  'MMMMMMMMM######...............',
+  'MMMMMMMMM######............###',
+  'MMMMMMMMM######............##.',
   'MMMMMMMMMM#####...............',
   '......MMMMMM###...............',
   '......MMMMMM########..........',
@@ -26,7 +22,7 @@ const ROWS = [
   '.........MMMMMM######.........',
   '.........MMMMMMMMM###.........',
   '..........MMMMMMMM###.........',
-  '#...........MMMMMMM##.........',
+  '............MMMMMMM##.........',
 ];
 
 export const northNortheastMap = {
