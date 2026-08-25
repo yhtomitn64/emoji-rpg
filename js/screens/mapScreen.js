@@ -27,10 +27,12 @@ const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
 const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountainCache, TILES.thicket, TILES.thicketCache]);
 // Shared "fills the tile" reference size (cqb = % of the tile's own
 // rendered height) - used both as the obstacles' 100% baseline (see
-// OBSTACLE_MAX_EXTRA below) and, unscaled, for markers that should always
-// read as prominent/findable rather than small: town, cave/dungeon
-// entrances, loot, and the player's own hero emoji.
+// OBSTACLE_MAX_EXTRA below) and, unscaled, for landmarks that should always
+// read as prominent/findable rather than small: town and cave/dungeon
+// entrances. The hero and loot get their own, slightly smaller size -
+// see HERO_AND_LOOT_CQB.
 const FULL_SQUARE_CQB = 85;
+const HERO_AND_LOOT_CQB = 75;
 const OBSTACLE_MAX_EXTRA = 0.5; // up to +50% (150% total, i.e. 50% overlap)
 
 // Important landmarks the player needs to spot at a glance - always full
@@ -196,6 +198,11 @@ function render() {
         const marker = document.createElement('span');
         marker.className = 'map-tile-fullsize';
         marker.textContent = isPlayer ? state.player.emoji : emoji;
+        // Hero and loot read better a touch smaller than town/cave
+        // entrances - the CSS class's own font-size (FULL_SQUARE_CQB)
+        // stays the default for everything else in this branch.
+        const isHeroOrLoot = isPlayer || hasTileCache || tile === TILES.miniDungeonTreasure;
+        if (isHeroOrLoot) marker.style.fontSize = `${HERO_AND_LOOT_CQB}cqb`;
         cell.appendChild(marker);
       } else {
         cell.textContent = emoji;
