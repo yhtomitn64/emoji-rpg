@@ -101,10 +101,16 @@ function render() {
       const cell = document.createElement('div');
       const tile = tileAt(x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
+      // A tile currently blocking the way is never shown as visited, even if
+      // state.visited has a stale record from before the map was repainted
+      // (the player really did stand on grass there once, but that record
+      // shouldn't outlive the terrain it was standing on) - a permanent or
+      // still-locked obstacle can never actually have been walked on.
+      const isCurrentlyPassable = tile.walkable || (tile.requiresTool && hasRequiredTool(tile, state.inventory));
       cell.className = 'map-tile'
         + (tile === TILES.grass ? ' map-tile-grass' : '')
         + (tile === TILES.water ? ' map-tile-water' : '')
-        + (isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '')
+        + (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '')
         + (isPlayer ? ' map-tile-player' : '');
       const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
       const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
