@@ -400,6 +400,18 @@ test('center screen has the town entrance', () => {
   assert.ok(centerTileKeys.includes('townEntrance'));
 });
 
+test('center screen start position (where exiting town lands you) is orthogonally adjacent to the town entrance, not diagonal', () => {
+  let entranceX, entranceY;
+  for (let y = 0; y < centerMap.rows.length; y++) {
+    const x = centerMap.rows[y].indexOf('@');
+    if (x >= 0) { entranceX = x; entranceY = y; }
+  }
+  const { x: startX, y: startY } = centerMap.startPosition;
+  const dx = Math.abs(startX - entranceX);
+  const dy = Math.abs(startY - entranceY);
+  assert.equal(dx + dy, 1, `startPosition (${startX},${startY}) must be exactly one orthogonal step from the town entrance (${entranceX},${entranceY})`);
+});
+
 test('southeast screen has no static dungeon entrance tile — the entrance is a per-save override now', () => {
   assert.ok(!Object.values(southeastMap.legend).includes('dungeonEntrance'));
   assert.ok(!southeastMap.rows.join('').includes('D'));

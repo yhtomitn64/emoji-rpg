@@ -29,7 +29,7 @@ export const centerMap = {
   id: 'center',
   legend: LEGEND,
   rows: ROWS,
-  startPosition: { x: 15, y: 11 },
+  startPosition: { x: 14, y: 11 },
   encounterChance: 0,
   cacheChance: 0.03,
   miniDungeonChance: 0,
