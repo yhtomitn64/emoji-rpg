@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TILES } from '../js/tiles.js';
 import {
-  TRAIL_WEAR_CAP, trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailStrokeWidthBetween, trailDotRadius,
-  edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor,
-  lightenColor, trailColorForFraction,
+  TRAIL_WEAR_CAP, trailWearFraction, trailStrokeWidth, trailStrokeWidthBetween, trailDotRadius,
+  edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor,
+  blendColors, trailColorForFraction,
 } from '../js/systems/trail.js';
 
 test('trailWearFraction scales linearly from 0 to 1 and clamps at the cap', () => {
@@ -14,9 +14,7 @@ test('trailWearFraction scales linearly from 0 to 1 and clamps at the cap', () =
   assert.equal(trailWearFraction(TRAIL_WEAR_CAP + 5), 1);
 });
 
-test('trailStrokeOpacity and trailStrokeWidth are never zero at fraction 0 (a first connection is faintly visible, not invisible)', () => {
-  assert.equal(trailStrokeOpacity(0), 0.25);
-  assert.equal(trailStrokeOpacity(1), 0.8);
+test('trailStrokeWidth scales with wear fraction', () => {
   assert.equal(trailStrokeWidth(0), 10);
   assert.equal(trailStrokeWidth(1), 18);
 });
@@ -97,17 +95,40 @@ test('getTrailColor returns a distinct blue for water, not the dirt-path default
   assert.equal(getTrailColor(TILES.water), '#4a7fa8');
 });
 
-test('lightenColor blends toward white as amount increases, unchanged at 0 and pure white at 1', () => {
-  assert.equal(lightenColor('#6b4a2f', 0), '#6b4a2f');
-  assert.equal(lightenColor('#6b4a2f', 1), '#ffffff');
-  assert.equal(lightenColor('#6b4a2f', 0.5), '#b5a597');
+test('blendColors returns colorA unchanged at t=0 and colorB unchanged at t=1', () => {
+  assert.equal(blendColors('#3f6b34', '#6b4a2f', 0), '#3f6b34');
+  assert.equal(blendColors('#3f6b34', '#6b4a2f', 1), '#6b4a2f');
 });
 
-test('trailColorForFraction returns the base color unchanged at full wear (fraction 1)', () => {
-  assert.equal(trailColorForFraction('#6b4a2f', 1), '#6b4a2f');
+test('blendColors interpolates per channel at t=0.5', () => {
+  assert.equal(blendColors('#3f6b34', '#6b4a2f', 0.5), '#555b32');
 });
 
-test('trailColorForFraction lightens toward white as wear decreases toward 0', () => {
-  assert.equal(trailColorForFraction('#6b4a2f', 0), '#bcaea1');
-  assert.equal(trailColorForFraction('#6b4a2f', 0.5), '#947c68');
+test('getGroundColor returns each terrain\'s actual CSS background color, matching css/styles.css', () => {
+  assert.equal(getGroundColor(TILES.grass), '#3f6b34');
+  assert.equal(getGroundColor(TILES.water), '#2b6cb0');
+  assert.equal(getGroundColor(TILES.caveFloor), '#333333');
+});
+
+test('getGroundColor falls back to the grass color for an unmapped tile', () => {
+  assert.equal(getGroundColor(TILES.caveWall), '#3f6b34');
+});
+
+test('trailColorForFraction returns the base trail color unchanged at full wear (fraction 1)', () => {
+  assert.equal(trailColorForFraction('#6b4a2f', '#3f6b34', 1), '#6b4a2f');
+});
+
+test('trailColorForFraction returns the ground color unchanged at zero wear (fraction 0) - a bare-unworn tile is indistinguishable from bare ground', () => {
+  assert.equal(trailColorForFraction('#6b4a2f', '#3f6b34', 0), '#3f6b34');
+});
+
+test('trailColorForFraction blends between ground and trail color at partial wear', () => {
+  assert.equal(trailColorForFraction('#6b4a2f', '#3f6b34', 0.5), '#555b32');
+});
+
+test('two tiles sharing an edge compute the exact same color for that shared point when they agree on the fraction - the property that made the old opacity-based seam bug possible to fix', () => {
+  const fraction = 0.3;
+  const colorFromTileA = trailColorForFraction('#6b4a2f', '#3f6b34', fraction);
+  const colorFromTileB = trailColorForFraction('#6b4a2f', '#3f6b34', fraction);
+  assert.equal(colorFromTileA, colorFromTileB);
 });

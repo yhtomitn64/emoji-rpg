@@ -1,7 +1,7 @@
 import { TILES } from '../tiles.js';
 import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
 import { markVisited, markDirection, isVisited, getVisitCount, getVisitDirs } from '../systems/exploration.js';
-import { trailWearFraction, trailStrokeOpacity, trailStrokeWidthBetween, trailDotRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, trailColorForFraction } from '../systems/trail.js';
+import { trailWearFraction, trailStrokeWidthBetween, trailDotRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor, trailColorForFraction } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
@@ -182,19 +182,22 @@ function getNeighborWearFraction(nx, ny) {
 // tapers from this tile's own wear (at the center) toward the connected
 // neighbor's own wear (at the edge) via a gradient, so a heavily-walked
 // tile reaching toward a barely-walked one visibly fades as it gets there,
-// rather than the whole stroke reading as one flat, uniform tone.
-function buildTrailFragment(x, y, dirs, fraction, color) {
+// rather than the whole stroke reading as one flat, uniform tone. Wear is
+// baked entirely into color (trailColorForFraction blends toward the
+// tile's own ground color as wear drops toward 0) - deliberately not
+// opacity, which would need to be one flat value per tile to avoid
+// overlapping strokes alpha-stacking at a junction's center, and a flat
+// per-tile value can't agree with a neighbor tile's own different flat
+// value at the border they share (confirmed live: a hard seam where a
+// heavily-walked tile's high opacity met a barely-walked neighbor's low
+// opacity, even though the gradient's color values already matched).
+// Every stroke here is fully opaque - overlapping ones at a center simply
+// paint over each other, no compositing artifact possible.
+function buildTrailFragment(x, y, dirs, fraction, color, groundColor) {
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('class', 'map-tile-trail');
   svg.setAttribute('viewBox', `0 0 ${TRAIL_VIEWBOX_SIZE} ${TRAIL_VIEWBOX_SIZE}`);
   svg.setAttribute('preserveAspectRatio', 'none');
-  // Opacity lives on the <svg> itself, not on each child path/circle: that
-  // composites the whole subtree to an offscreen buffer first, so multiple
-  // full-alpha connector arms overlapping near the tile's center (any tile
-  // with 2+ connected directions) don't stack their alphas into a visibly
-  // darker "bead" - the opacity multiplier applies once, to the group, not
-  // once per overlapping child.
-  svg.setAttribute('opacity', trailStrokeOpacity(fraction));
   // Pure decoration - the cell already carries the real semantic info via
   // its own `title` attribute, so this shouldn't be exposed to a11y tools
   // or picked up by keyboard focus.
@@ -205,7 +208,7 @@ function buildTrailFragment(x, y, dirs, fraction, color) {
     circle.setAttribute('cx', TRAIL_VIEWBOX_SIZE / 2);
     circle.setAttribute('cy', TRAIL_VIEWBOX_SIZE / 2);
     circle.setAttribute('r', trailDotRadius(fraction));
-    circle.setAttribute('fill', trailColorForFraction(color, fraction));
+    circle.setAttribute('fill', trailColorForFraction(color, groundColor, fraction));
     svg.appendChild(circle);
     return svg;
   }
@@ -229,10 +232,10 @@ function buildTrailFragment(x, y, dirs, fraction, color) {
     gradient.setAttribute('y2', ty);
     const startStop = document.createElementNS(SVG_NS, 'stop');
     startStop.setAttribute('offset', '0%');
-    startStop.setAttribute('stop-color', trailColorForFraction(color, fraction));
+    startStop.setAttribute('stop-color', trailColorForFraction(color, groundColor, fraction));
     const endStop = document.createElementNS(SVG_NS, 'stop');
     endStop.setAttribute('offset', '100%');
-    endStop.setAttribute('stop-color', trailColorForFraction(color, neighborFraction));
+    endStop.setAttribute('stop-color', trailColorForFraction(color, groundColor, neighborFraction));
     gradient.append(startStop, endStop);
     svg.appendChild(gradient);
     const path = document.createElementNS(SVG_NS, 'path');
@@ -288,8 +291,9 @@ function render() {
       if (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y)) {
         const fraction = trailWearFraction(getVisitCount(state.visited, mapConfig.id, x, y));
         const color = getTrailColor(tile);
+        const groundColor = getGroundColor(tile);
         const dirs = getVisitDirs(state.visited, mapConfig.id, x, y);
-        cell.appendChild(buildTrailFragment(x, y, dirs, fraction, color));
+        cell.appendChild(buildTrailFragment(x, y, dirs, fraction, color, groundColor));
       }
       // Depth-sort by row instead of a fixed always-on-top/always-behind
       // z-index: a row's cells sit above every cell in the row above it, so

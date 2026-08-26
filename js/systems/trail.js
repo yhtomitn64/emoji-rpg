@@ -9,11 +9,6 @@ export function trailWearFraction(visitCount) {
   return Math.min(visitCount, TRAIL_WEAR_CAP) / TRAIL_WEAR_CAP;
 }
 
-// A first-time connection is already faintly visible, never fully invisible.
-export function trailStrokeOpacity(fraction) {
-  return 0.25 + 0.55 * fraction;
-}
-
 export function trailStrokeWidth(fraction) {
   return 10 + 8 * fraction;
 }
@@ -105,23 +100,52 @@ export function getTrailColor(tile) {
   return TRAIL_COLOR_BY_TILE.get(tile) || DEFAULT_TRAIL_COLOR;
 }
 
-// How far a fully-unworn (fraction 0) endpoint lightens toward white -
-// used so a connector stroke can visually taper toward however worn the
-// neighbor it's reaching for actually is, without touching opacity (opacity
-// stays a single group-level value per tile - see mapScreen.js's
-// buildTrailFragment - so overlapping strokes at a tile's center still don't
-// alpha-stack into a dark blob; this is a separate, fully-opaque color axis).
-const MAX_LIGHTEN = 0.55;
+// The tile's own actual ground color underneath the trail - matches the
+// background each terrain's .map-tile-* CSS class already paints (see
+// css/styles.css), so a bare-unworn stroke reads as fully blended into the
+// ground and a fully-worn one reads as the solid trail color, with nothing
+// in between relying on transparency. `caveFloor` has no dedicated CSS
+// class of its own, falling through to the base .map-tile background.
+const TRAIL_GROUND_COLOR_BY_TILE = new Map([
+  [TILES.grass, '#3f6b34'],
+  [TILES.caveFloor, '#333333'],
+  [TILES.water, '#2b6cb0'],
+]);
+const DEFAULT_GROUND_COLOR = '#3f6b34';
 
-export function lightenColor(hexColor, amount) {
-  const r = parseInt(hexColor.slice(1, 3), 16);
-  const g = parseInt(hexColor.slice(3, 5), 16);
-  const b = parseInt(hexColor.slice(5, 7), 16);
-  const lighten = (channel) => Math.round(channel + (255 - channel) * amount);
-  const toHex = (channel) => channel.toString(16).padStart(2, '0');
-  return `#${toHex(lighten(r))}${toHex(lighten(g))}${toHex(lighten(b))}`;
+export function getGroundColor(tile) {
+  return TRAIL_GROUND_COLOR_BY_TILE.get(tile) || DEFAULT_GROUND_COLOR;
 }
 
-export function trailColorForFraction(baseColor, fraction) {
-  return lightenColor(baseColor, MAX_LIGHTEN * (1 - fraction));
+// Linear per-channel blend from colorA (t=0) to colorB (t=1), both #rrggbb.
+export function blendColors(colorA, colorB, t) {
+  const parse = (hex) => [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ];
+  const [r1, g1, b1] = parse(colorA);
+  const [r2, g2, b2] = parse(colorB);
+  const mix = (c1, c2) => Math.round(c1 + (c2 - c1) * t);
+  const toHex = (c) => c.toString(16).padStart(2, '0');
+  return `#${toHex(mix(r1, r2))}${toHex(mix(g1, g2))}${toHex(mix(b1, b2))}`;
+}
+
+// A wear fraction expressed as a color, not an opacity: fully unworn (0)
+// is indistinguishable from the bare ground, fully worn (1) is the solid
+// trail color, and everything between is a real blended color - never a
+// separate transparency value. This is deliberate: an earlier version used
+// opacity for this, which had to live as one flat value per *tile* (to
+// avoid overlapping strokes at a junction's center alpha-stacking into a
+// dark blob), so two connected tiles with very different wear rendered
+// their nominally-matching gradient colors at very different translucency
+// and produced a hard seam right at the border - confirmed live against a
+// real save (tile with 38 visits next to one with 1: same gradient hex on
+// both sides, but 0.8 opacity meeting 0.305). Baking wear into fully-opaque
+// color instead sidesteps that class of bug entirely: overlapping strokes
+// at a center simply paint over each other with no compositing artifact,
+// and two tiles sharing an edge already agree on this fraction (see
+// getNeighborWearFraction in mapScreen.js), so their colors always match.
+export function trailColorForFraction(baseColor, groundColor, fraction) {
+  return blendColors(groundColor, baseColor, fraction);
 }
