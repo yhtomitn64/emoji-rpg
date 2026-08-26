@@ -548,32 +548,18 @@ inspection (found a live tree-below-player case, confirmed z-index
 ordering and visual paint order) plus a zoomed screenshot showing the
 tree tip rendering over the character's torso.
 
-### Idea: a real worn-path/trail effect instead of a flat visited tint
+### ~~Idea: a real worn-path/trail effect instead of a flat visited tint~~ Fixed 2026-08-25
 
-Currently "you've walked here" is a single flat background-color swap
-per tile (`.visited`, `js/screens/mapScreen.js` / `css/styles.css`) -
-binary, no sense of *how much* a tile's been walked, and no connection
-between adjacent walked tiles. Timothy wants to explore something more
-like an actual dirt path/road that visibly builds up the more a tile is
-re-walked ("more and more pixels of brown dirt appear as you walk over
-something again and again"), and one that's directionally connected
-across tiles rather than each tile just changing color independently:
-"if you walk north one tile then east the path should be drawn like you
-went north a bit into a tile then east a bit to the next tile" - i.e. a
-path segment that reflects the actual entry/exit edges of each tile, not
-just a uniform tint.
-
-This is a genuinely bigger feature, not a quick fix - needs its own
-brainstorm on at least: how to track *how much* a tile's been walked
-(today `state.visited` is a boolean set, not a count - a real
-progressive-wear effect needs a counter or decay curve), how to
-represent partial/directional path segments per tile (probably a small
-set of path "shapes" - straight through, corner, T-junction, dead-end -
-picked from which neighbor tiles are also path, similar to autotiling in
-other tile-based games), and whether it's pure CSS/emoji layering or
-needs actual per-tile path-segment art. Explicitly deferred by Timothy:
-"put this in the backlog and then we can brainstorm a bit in another
-session."
+Shipped as the worn-path trail effect: `state.visited` became a walk-
+count per tile instead of a boolean, and `js/systems/trail.js` +
+`js/screens/mapScreen.js` now render a wear-scaled, directionally-
+connected dirt-trail stroke per tile (or a small dot if isolated)
+instead of the old flat tint, with trail color keyed by terrain
+(grass/cave floor/water) and landmark tiles acting as an implicit
+connected anchor so the trail visibly emerges from town's gate. See
+`docs/superpowers/specs/2026-08-25-worn-path-trail-design.md` and
+`docs/superpowers/plans/2026-08-25-worn-path-trail.md` for the full
+design/plan.
 
 ## Bugs
 

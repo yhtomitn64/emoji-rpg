@@ -50,6 +50,22 @@ public API, no formal release process — commits land straight on
   clipboard for pasting back over that screen's file. See
   `docs/superpowers/BACKLOG.md`'s "Zone 1 map expansion + organic
   terrain" entry for what's left.
+- A real worn-path trail effect, replacing the old flat "visited tile"
+  tint (`js/systems/trail.js`, `js/screens/mapScreen.js`,
+  `js/systems/exploration.js`; design doc/plan under
+  `docs/superpowers/specs/` and `docs/superpowers/plans/`,
+  `2026-08-25-worn-path-trail`). `state.visited` is now a walk-count per
+  tile instead of a boolean, and walking over ground leaves a wavy dirt-
+  trail stroke reaching toward whichever neighbors are also visited (or
+  a small centered dot when a visited tile has no visited neighbor),
+  scaling in opacity/thickness with wear up to a 10-visit cap. Trail
+  color is keyed by the underlying terrain (grass, cave floor, water),
+  and town/dungeon entrances and other landmark tiles always count as an
+  implicit connected neighbor so the trail visibly emerges from a gate
+  rather than floating as an isolated dot next to it. Exiting town now
+  lands the player orthogonally adjacent to the town gate instead of
+  diagonal to it, so that connection actually renders on the first
+  frame.
 
 ### Fixed
 - Three map-rendering layering bugs, raised by Timothy 2026-08-25 (see
