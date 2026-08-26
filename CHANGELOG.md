@@ -118,6 +118,27 @@ public API, no formal release process — commits land straight on
     font-size) instead of as full-square landmarks like the wilderness's
     town/dungeon entrances. They were simply missing from `mapScreen.js`'s
     `FULL_SQUARE_MARKERS` set; added.
+- Two more map-rendering bugs, raised by Timothy 2026-08-26:
+  - Town/wilderness/dungeon landmark tiles (shop, smith, quest board,
+    well, exit, town/dungeon entrances) rendered with a dark box around
+    them instead of the surrounding grass showing through. Each one is
+    its own distinct tile type in a map's `ROWS` grid (not an overlay on
+    a separate grass tile), so it never matched `tile === TILES.grass`
+    in `render()`'s className logic and fell through to `.map-tile`'s
+    bare default background. Added `GRASS_CONTEXT_MARKERS`
+    (`js/screens/mapScreen.js`) - the subset of landmark tiles that
+    always sit on a grass floor (every map that places them has
+    `'.': 'grass'` in its own `LEGEND`) - and give those the same
+    `.map-tile-grass` class obstacles already get. Deliberately excludes
+    `miniDungeonEntrance`/`miniDungeonTreasure`, which only ever appear
+    inside a mini-dungeon's cave-floor interior.
+  - A tall obstacle's canopy overlaps upward into the row above it by
+    design (see the character/tree layering fix above), but the map's
+    own top row and outer columns have no neighboring row/column to
+    absorb that overlap into, so it bled straight past the game's own
+    border into the HUD/page behind it. `.map-grid` now clips
+    (`overflow: hidden`), cutting that bleed at the map's own edge
+    without touching any interior overlap.
 - Parries against ranged monsters (goblin/spider/dragon/wraith/skeleton/
   Jurassic Jerky) could silently fail even on a well-timed press: the
   earlier themed-attack-animation pass added a 350ms delay after the

@@ -561,7 +561,7 @@ connected anchor so the trail visibly emerges from town's gate. See
 `docs/superpowers/plans/2026-08-25-worn-path-trail.md` for the full
 design/plan.
 
-## Strip emoji background boxes so the tile color shows through
+## ~~Strip emoji background boxes so the tile color shows through~~ Shipped 2026-08-26
 
 Raised 2026-08-26, mid worn-path-trail polish. Timothy's example: the
 house/town-entrance emoji currently renders with its own baked-in
@@ -569,12 +569,19 @@ square-ish background tint (visible as a dark box around it) instead of
 sitting directly on the tile's actual color. His ask: remove that
 per-emoji background so whatever's actually underneath (grass green,
 dirt trail, water blue, etc.) shows through around the glyph, the same
-way a plain text emoji already does elsewhere. Not investigated yet -
-likely means either the emoji glyphs themselves render with a platform-
-default background swatch in some rendering path, or there's a CSS rule
-giving `.map-tile-fullsize`/similar a background. Needs a look at how
-each affected marker is actually styled before scoping a fix; captured
-here as the raw ask only.
+way a plain text emoji already does elsewhere.
+
+Not an emoji-rendering issue after all: the dark box was `.map-tile`'s
+own bare default background (`#333`) showing through, because these
+landmark tiles (shop, smith, quest board, well, exit, town/dungeon
+entrances) are each their own distinct tile type in a map's `ROWS` grid
+and never matched the `tile === TILES.grass` check that gives obstacles
+their green background. Fixed by adding a `GRASS_CONTEXT_MARKERS` set in
+`js/screens/mapScreen.js` for the subset of landmarks that always sit on
+a grass floor - see CHANGELOG. Same session, Timothy also caught tree
+canopies bleeding past the map's own border at the top row/outer
+columns (no neighboring row to absorb the overlap into there) - fixed
+alongside this with `overflow: hidden` on `.map-grid`.
 
 ## Bugs
 

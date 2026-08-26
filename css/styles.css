@@ -6,6 +6,14 @@ body { margin: 0; background: #222; color: #eee; }
 .map-grid {
   display: grid;
   gap: 0;
+  /* A tall obstacle overlaps upward into the row above it (see
+     .map-tile-obstacle below) - fine for an interior tile, since the row
+     above absorbs it, but the top row and outer columns have no
+     neighbor to absorb into, so the canopy used to bleed straight past
+     the game's own border into the page/HUD behind it. Clipping here
+     cuts that overflow at the map's own edge while leaving every
+     interior overlap untouched. */
+  overflow: hidden;
 }
 .map-tile {
   aspect-ratio: 1;

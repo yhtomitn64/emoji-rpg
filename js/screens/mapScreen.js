@@ -57,6 +57,31 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.exit,
 ]);
 
+// The subset of FULL_SQUARE_MARKERS above that always sit on a grass
+// floor (every map that places them - town, wilderness, the dragon
+// dungeon, the tool dungeons - has '.': 'grass' in its own LEGEND; see
+// e.g. js/maps/townMap.js). Deliberately excludes miniDungeonEntrance/
+// miniDungeonTreasure: those only ever appear inside a mini-dungeon
+// interior, which uses caveFloor instead (js/maps/miniDungeons/*.js) -
+// giving them the grass class would paint them green inside a cave. Each
+// of these tiles is its own distinct type in the map's own ROWS grid
+// (not an overlay on top of a separate grass tile), so it never matched
+// `tile === TILES.grass` below and fell through to .map-tile's bare
+// default background instead of grass - showing as a dark box with no
+// green underneath, raised by Timothy 2026-08-26 (see BACKLOG.md).
+const GRASS_CONTEXT_MARKERS = new Set([
+  TILES.townEntrance,
+  TILES.dungeonEntrance,
+  TILES.axeDungeonEntrance,
+  TILES.pickDungeonEntrance,
+  TILES.canoeDungeonEntrance,
+  TILES.shop,
+  TILES.smith,
+  TILES.questBoard,
+  TILES.well,
+  TILES.exit,
+]);
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Every trail fragment's SVG uses this fixed 0..100 coordinate space
 // (independent of the tile's actual rendered pixel size) - trail.js's
@@ -300,9 +325,12 @@ function render() {
       const isCurrentlyPassable = isPassableTile(tile);
       // Obstacles grow out of the grass, so they keep its green background
       // rather than looking like a hole cut in the field - see
-      // RANDOM_SIZE_OBSTACLES above.
+      // RANDOM_SIZE_OBSTACLES above. Grass-context landmarks (town/
+      // wilderness/dungeon action tiles) are their own distinct tile type
+      // but conceptually sit on that same grass, so they get it too - see
+      // GRASS_CONTEXT_MARKERS above.
       cell.className = 'map-tile'
-        + (tile === TILES.grass || RANDOM_SIZE_OBSTACLES.has(tile) ? ' map-tile-grass' : '')
+        + (tile === TILES.grass || RANDOM_SIZE_OBSTACLES.has(tile) || GRASS_CONTEXT_MARKERS.has(tile) ? ' map-tile-grass' : '')
         + (tile === TILES.water ? ' map-tile-water' : '')
         + (isPlayer ? ' map-tile-player' : '');
       // A tile's own worn-path trail: dirt strokes reaching toward whichever
