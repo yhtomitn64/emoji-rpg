@@ -54,18 +54,24 @@ public API, no formal release process — commits land straight on
   tint (`js/systems/trail.js`, `js/screens/mapScreen.js`,
   `js/systems/exploration.js`; design doc/plan under
   `docs/superpowers/specs/` and `docs/superpowers/plans/`,
-  `2026-08-25-worn-path-trail`). `state.visited` is now a walk-count per
-  tile instead of a boolean, and walking over ground leaves a wavy dirt-
-  trail stroke reaching toward whichever neighbors are also visited (or
-  a small centered dot when a visited tile has no visited neighbor),
-  scaling in opacity/thickness with wear up to a 10-visit cap. Trail
-  color is keyed by the underlying terrain (grass, cave floor, water),
-  and town/dungeon entrances and other landmark tiles always count as an
-  implicit connected neighbor so the trail visibly emerges from a gate
-  rather than floating as an isolated dot next to it. Exiting town now
-  lands the player orthogonally adjacent to the town gate instead of
-  diagonal to it, so that connection actually renders on the first
-  frame.
+  `2026-08-25-worn-path-trail`). `state.visited`'s per-tile entry is now
+  `{ count, dirs }` instead of a boolean - `count` is the walk count
+  (drives wear), `dirs` is the exact set of edges (n/s/e/w) the player
+  has actually crossed at that tile. Walking over ground leaves a wavy
+  dirt-trail stroke reaching toward only those directions - not inferred
+  from whether a neighbor happens to also be visited, which produced a
+  "ladder" of false connections between separately-walked parallel
+  corridors - or a small centered dot when nothing's been crossed yet.
+  Each stroke's color gradients from this tile's own wear toward the
+  connected neighbor's, and its width is the average of both tiles' wear
+  (symmetric, so the two tiles sharing an edge always agree), so wear
+  differences between adjacent tiles taper instead of meeting at a hard
+  seam. Wear scales in opacity/thickness up to a 10-visit cap, and trail
+  color is keyed by the underlying terrain (grass, cave floor, water).
+  Exiting town lands the player orthogonally adjacent to the town gate
+  instead of diagonal to it, so a first step toward town connects to it
+  in one move; the landing tile itself still starts as an isolated dot
+  until that first real step, same as any other fresh tile.
 
 ### Fixed
 - Three map-rendering layering bugs, raised by Timothy 2026-08-25 (see
