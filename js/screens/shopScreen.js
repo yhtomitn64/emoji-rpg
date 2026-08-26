@@ -29,7 +29,7 @@ function renderEquipPrompt() {
 function render() {
   const rows = SHOP_CATALOG.map((itemId) => {
     const item = ITEMS[itemId];
-    const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId);
+    const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId && !entry.tier);
     const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
     const isEquipped = item.slot && state.equipment[item.slot] === itemId;
     const buyButtons = BUY_QUANTITIES.map((qty) => {
@@ -89,10 +89,10 @@ function buyItem(itemId, quantity = 1) {
 }
 
 function sellItem(itemId) {
-  const owned = state.inventory.some((entry) => entry.itemId === itemId && entry.quantity > 0);
+  const owned = state.inventory.some((entry) => entry.itemId === itemId && !entry.tier && entry.quantity > 0);
   if (!owned) return;
 
-  let next = removeItem(state, itemId, 1);
+  let next = removeItem(state, itemId, 1); // tier defaults to undefined - only ever sells the Plain stack
   next = addGold(next, sellPrice(ITEMS[itemId].price));
   Object.assign(state, next);
   pendingEquip = null;
