@@ -514,15 +514,17 @@ placement data is structured/stored, whether it reuses or replaces the
 existing cache-reward system, how the shop rebalance numbers actually
 land) before implementation.
 
-## Character/tree layering + a real worn-path trail effect (needs its own design session)
+## ~~Character/tree layering + a real worn-path trail effect~~ All three shipped 2026-08-26
 
 Raised 2026-08-25, right after the "non-moving obstacles render
 full-square with randomized overlap" pass shipped
 (`js/screens/mapScreen.js`, `css/styles.css` - commits `41ce69c`/
 `5bd0452`/`0de74f9`). Three related layering/rendering issues Timothy
 wanted to brainstorm together next session - the two bugs below turned
-out simple enough to just fix directly instead; the worn-path idea is
-still open.
+out simple enough to just fix directly instead, and the worn-path idea
+(design session, SDD build, then several rounds of live-play polish -
+see the two "Shipped"/"fix:" entries directly above this one in
+CHANGELOG.md) is now done too.
 
 ### ~~Bug: the hero disappears behind a grass decoration (clover/flower)~~ Fixed 2026-08-25
 
