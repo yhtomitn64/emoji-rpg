@@ -1,5 +1,6 @@
 import { ITEMS } from '../data/items.js';
 import { getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses, describeItem } from '../systems/inventory.js';
+import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
 
@@ -20,8 +21,9 @@ function renderEquippedRows() {
     if (!itemId) return `<div class="inventory-row">${slot}: (empty)</div>`;
     const item = ITEMS[itemId];
     const level = state.upgrades?.[itemId] || 0;
+    const tier = state.equipmentTiers?.[slot];
     return `<div class="inventory-row">
-      <span title="${describeItem(itemId)}">${slot}: ${item.emoji} ${item.name} +${level}</span>
+      <span title="${describeItem(itemId)}">${slot}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <button data-unequip="${slot}">Unequip</button>
     </div>`;
   }).join('');
@@ -32,12 +34,12 @@ function renderGearRows() {
   if (gearEntries.length === 0) return '<div class="inventory-empty">No unequipped gear.</div>';
   return gearEntries.map((entry) => {
     const item = ITEMS[entry.itemId];
-    const delta = getItemStatDelta(state, entry.itemId);
+    const delta = getItemStatDelta(state, entry.itemId, entry.tier);
     const deltaText = formatDelta(delta);
     const qtyText = entry.quantity > 1 ? ` x${entry.quantity}` : '';
     return `<div class="inventory-row">
-      <span title="${describeItem(entry.itemId)}">${item.emoji} ${item.name}${qtyText}${deltaText ? ` (${deltaText})` : ''}</span>
-      <button data-equip="${entry.itemId}">Equip</button>
+      <span title="${describeItem(entry.itemId)}">${item.emoji} ${tierLabel(entry.tier)}${item.name}${qtyText}${deltaText ? ` (${deltaText})` : ''}</span>
+      <button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}">Equip</button>
     </div>`;
   }).join('');
 }
@@ -97,7 +99,8 @@ function render() {
   rootEl.querySelectorAll('button[data-equip]').forEach((btn) => {
     btn.onclick = () => {
       const itemId = btn.dataset.equip;
-      Object.assign(state, equipItem(state, itemId, ITEMS[itemId].slot));
+      const tier = btn.dataset.tier || undefined;
+      Object.assign(state, equipItem(state, itemId, ITEMS[itemId].slot, tier));
       callbacks.onChange();
       render();
     };
