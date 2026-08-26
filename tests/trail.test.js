@@ -67,9 +67,13 @@ test('connectorPathD throws for an unknown direction', () => {
 
 test('getTrailColor returns the grass color for grass and falls back to it for an unmapped tile', () => {
   assert.equal(getTrailColor(TILES.grass), '#6b4a2f');
-  assert.equal(getTrailColor(TILES.water), '#6b4a2f');
+  assert.equal(getTrailColor(TILES.caveWall), '#6b4a2f');
 });
 
 test('getTrailColor returns a distinct color for cave floor', () => {
   assert.equal(getTrailColor(TILES.caveFloor), '#7a7a7a');
+});
+
+test('getTrailColor returns a distinct blue for water, not the dirt-path default', () => {
+  assert.equal(getTrailColor(TILES.water), '#4a7fa8');
 });

@@ -72,6 +72,11 @@ export function connectorPathD(direction, jitterFraction, size = 100) {
 const TRAIL_COLOR_BY_TILE = new Map([
   [TILES.grass, '#6b4a2f'],
   [TILES.caveFloor, '#7a7a7a'],
+  // Lighter, more saturated blue than water's own base tile color
+  // (#2b6cb0, see .map-tile-water in css/styles.css) - reads as a wake/foam
+  // trail left by the boat rather than the brown dirt-path color bleeding
+  // across blue water.
+  [TILES.water, '#4a7fa8'],
 ]);
 const DEFAULT_TRAIL_COLOR = '#6b4a2f';
 
