@@ -1,6 +1,7 @@
 import { TILES } from '../tiles.js';
 import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
-import { markVisited, isVisited } from '../systems/exploration.js';
+import { markVisited, isVisited, getVisitCount } from '../systems/exploration.js';
+import { trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailDotRadius, edgeOwner, edgeJitter, connectorPathD, getTrailColor } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
@@ -55,6 +56,13 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.well,
   TILES.exit,
 ]);
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+// Every trail fragment's SVG uses this fixed 0..100 coordinate space
+// (independent of the tile's actual rendered pixel size) - trail.js's
+// wear/geometry functions already return numbers on roughly this scale.
+const TRAIL_VIEWBOX_SIZE = 100;
+const TRAIL_DIRECTIONS = [['n', 0, -1], ['s', 0, 1], ['w', -1, 0], ['e', 1, 0]];
 
 // Grass decoration (clover/flower) sizing and placement: smaller than a
 // full tile and scattered around it rather than dead-center, so a field of
@@ -136,6 +144,59 @@ function checkGateProximity(x, y) {
   }
 }
 
+function isPassableTile(t) {
+  return Boolean(t) && (t.walkable || (t.requiresTool && hasRequiredTool(t, state.inventory)));
+}
+
+// A neighbor counts as "connected" for trail purposes if it's ground the
+// player has actually walked (currently-passable and visited), OR it's a
+// landmark tile (town/dungeon/tool-dungeon entrance, shop, well, ...) -
+// every player has necessarily passed through one even though it never
+// accumulates its own walk count (stepping onto it triggers a map-switch
+// action before it would render as ordinary ground). See the "Entrance/
+// landmark tiles" section of the design doc.
+function isTrailConnected(nx, ny) {
+  if (isOutOfBounds(nx, ny)) return false;
+  const t = tileAt(nx, ny);
+  if (!t) return false;
+  if (FULL_SQUARE_MARKERS.has(t)) return true;
+  return isPassableTile(t) && isVisited(state.visited, mapConfig.id, nx, ny);
+}
+
+// One tile's own trail fragment: a wavy stroke reaching toward each
+// connected neighbor direction, or (if none are connected) a small
+// centered dot - see docs/superpowers/specs/2026-08-25-worn-path-trail-
+// design.md's "Rendering" and "Wear amount" sections.
+function buildTrailFragment(x, y, dirs, fraction, color) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'map-tile-trail');
+  svg.setAttribute('viewBox', `0 0 ${TRAIL_VIEWBOX_SIZE} ${TRAIL_VIEWBOX_SIZE}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  if (dirs.length === 0) {
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', TRAIL_VIEWBOX_SIZE / 2);
+    circle.setAttribute('cy', TRAIL_VIEWBOX_SIZE / 2);
+    circle.setAttribute('r', trailDotRadius(fraction));
+    circle.setAttribute('fill', color);
+    circle.setAttribute('opacity', trailStrokeOpacity(fraction));
+    svg.appendChild(circle);
+    return svg;
+  }
+  for (const dir of dirs) {
+    const owner = edgeOwner(x, y, dir);
+    const jitter = edgeJitter(owner.x, owner.y, owner.axis);
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', connectorPathD(dir, jitter, TRAIL_VIEWBOX_SIZE));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', trailStrokeWidth(fraction));
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('opacity', trailStrokeOpacity(fraction));
+    svg.appendChild(path);
+  }
+  return svg;
+}
+
 function render() {
   const cols = mapConfig.rows[0].length;
   const grid = document.createElement('div');
@@ -154,15 +215,28 @@ function render() {
       // (the player really did stand on grass there once, but that record
       // shouldn't outlive the terrain it was standing on) - a permanent or
       // still-locked obstacle can never actually have been walked on.
-      const isCurrentlyPassable = tile.walkable || (tile.requiresTool && hasRequiredTool(tile, state.inventory));
+      const isCurrentlyPassable = isPassableTile(tile);
       // Obstacles grow out of the grass, so they keep its green background
       // rather than looking like a hole cut in the field - see
       // RANDOM_SIZE_OBSTACLES above.
       cell.className = 'map-tile'
         + (tile === TILES.grass || RANDOM_SIZE_OBSTACLES.has(tile) ? ' map-tile-grass' : '')
         + (tile === TILES.water ? ' map-tile-water' : '')
-        + (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '')
         + (isPlayer ? ' map-tile-player' : '');
+      // A tile's own worn-path trail: dirt strokes reaching toward whichever
+      // neighbors are also visited (or a landmark everyone necessarily
+      // passes through), or a small dot if nothing connects yet. Appended
+      // first so it paints underneath every other branch below, same
+      // "append earlier = paints behind" rule the decoration-behind-hero
+      // fix uses.
+      if (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y)) {
+        const fraction = trailWearFraction(getVisitCount(state.visited, mapConfig.id, x, y));
+        const color = getTrailColor(tile);
+        const dirs = TRAIL_DIRECTIONS
+          .filter(([, dx, dy]) => isTrailConnected(x + dx, y + dy))
+          .map(([dir]) => dir);
+        cell.appendChild(buildTrailFragment(x, y, dirs, fraction, color));
+      }
       // Depth-sort by row instead of a fixed always-on-top/always-behind
       // z-index: a row's cells sit above every cell in the row above it, so
       // a tall obstacle's canopy (which overflows upward into the row

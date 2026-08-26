@@ -93,6 +93,14 @@ body { margin: 0; background: #222; color: #eee; }
   pointer-events: none;
 }
 
+.map-tile-trail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .shop-screen, .smith-screen, .start-screen, .quest-board-screen {
   max-width: min(90vw, 720px);
   margin: 0 auto;
@@ -515,19 +523,6 @@ button:focus-visible {
   border-bottom: 1px solid #333;
   font-size: 0.85rem;
   line-height: 1.4;
-}
-
-.map-tile.visited {
-  background: #5c4a35;
-}
-/* Higher specificity than .map-tile.visited so visited grass stays green
-   (with a slight tint) instead of losing its color entirely. */
-.map-tile.map-tile-grass.visited {
-  background: #4f5c30;
-}
-/* Same idea for water (reachable, and visitable, once boat-cleared). */
-.map-tile.map-tile-water.visited {
-  background: #395a78;
 }
 
 .map-tile-player {
