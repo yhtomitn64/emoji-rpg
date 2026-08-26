@@ -85,7 +85,7 @@ yet — this is the mechanism, not confirmation the pacing now *feels*
 right; needs real playthrough data same as the armor-cliff half of this
 item did before it got marked resolved above.
 
-## ~~Zone 1 map expansion + organic terrain~~ **Mechanics shipped 2026-08-24, terrain painting still outstanding.**
+## ~~Zone 1 map expansion + organic terrain~~ **All three pieces shipped — mechanics 2026-08-24, hand-painted terrain by 2026-08-25 (commit `8615045`, touched up in `b721864`).**
 
 Raised 2026-08-23, distinct from Multi-zone progression below — this is
 about the *existing* single zone getting physically bigger and more
@@ -119,43 +119,20 @@ Three related pieces — the first two are **shipped**, the third is the
   4 corner screens to the new 5x5 grid's 4 far-corner screens
   (`farNortheast`/`farNorthwest`/`farSoutheast`/`farSouthwest`), so it
   stays at the true edge of the expanded world. See CHANGELOG.
-- **Still outstanding: more organic terrain, especially connected water —
-  and terrain
-  features should be able to span across screens.** Today's terrain
-  (mountain/thicket gates, water blocks) is placed as simple rectangular
-  blocks of repeated tiles per-screen (see any `js/maps/wilderness/*.js`
-  `ROWS` array). Wants mountains/lakes/woods to read as actual varied
-  shapes, not squares/rectangles. **Explicit follow-up, 2026-08-23:** this
-  isn't limited to water — "the different map elements could span into a
-  different map. So lake could go into another map and so on" — any
-  terrain feature (a lake, a mountain range, a forest) should be able to
-  continue across a screen boundary into its neighbor, not just water.
-  Checked what exists today: `tests/maps.test.js` already verifies border
-  *walkability* matches up between neighboring screens (a walkable edge
-  tile has a walkable tile on the other side) and that neighbor links are
-  symmetric — but nothing checks or enforces that a *terrain feature*
-  itself continues coherently across that boundary (e.g. a lake's edge
-  tiles lining up with water tiles on the neighboring screen's matching
-  edge). Each screen's `ROWS` array is authored fully independently today,
-  with no awareness of its neighbors' edge tiles at all — real gap this
-  idea would need to close, not just a content/authoring question. The
-  authoring/tooling question (how do you *design* an organic shape that
-  continues correctly across a 30x22 ASCII grid's edge, readably, by
-  hand) now has an answer, shipped 2026-08-24 alongside the two pieces
-  above: `tools/terrain-painter/` (`index.html` + `painter.js`), a
-  browser dev tool that loads all 25 wilderness screens onto one
-  continuous canvas laid out exactly like the real 5x5 world, so terrain
-  painted across a screen boundary is connected by construction, then
-  exports one screen's `LEGEND`/`ROWS` at a time to paste back over that
-  screen's file. Today all 25 screens still ship as plain grass (16 new
-  ones placed by this expansion, plus the original 9 never had organic
-  terrain either) — the tool exists, but nobody has used it yet to
-  actually hand-paint the mountains/lakes/woods. That painting pass is
-  Timothy's own hand-authoring work, still fully outstanding.
-
-**Next-session prompt suggestion:** "Let's hand-paint the zone 1 wilderness
-terrain using tools/terrain-painter/ — see the 'Zone 1 map expansion +
-organic terrain' item in docs/superpowers/BACKLOG.md."
+- ~~**More organic terrain, especially connected water — and terrain
+  features should be able to span across screens.**~~ **Shipped.** All 25
+  wilderness screens (`js/maps/wilderness/*.js`) now carry hand-painted
+  mountains/lakes/woods instead of the old rectangular blocks, painted
+  using `tools/terrain-painter/`'s continuous-canvas view so shapes
+  (including water) connect coherently across screen boundaries by
+  construction — confirmed directly in the map files, not just via the
+  tool. The cross-screen-continuity *test coverage* gap this entry
+  originally flagged (`tests/maps.test.js` checks border walkability and
+  neighbor-link symmetry, but nothing asserts a terrain feature's edge
+  tiles actually line up with the matching tiles on the neighboring
+  screen) was never specifically closed — worth a follow-up test if a
+  seam-at-the-border bug ever turns up here, but not blocking since the
+  painting is already done and visually verified.
 
 ## Multi-zone progression (big idea — needs its own design pass)
 
@@ -418,17 +395,26 @@ one screen at a time and the whole map just move as you move around."
   screens' local coordinate systems at the boundary (doable within the
   current architecture) or an entity position expressed in world-space
   from the start.
-- **The dragon scaling with the player's own pre-fight strength, so the
-  final boss is never a pushover.** This is different from the existing
-  boss-rematch tier system (which scales *after* each dragon kill, not
-  based on player level going in) and different from the already-shipped
-  "zone 1 should get easier over time, not track the player" call for
-  regular wilderness monsters (see "The player outpaces near-town/far-corner
-  content" thread below) — this is deliberately the opposite,
-  scoped to the dragon fight specifically, not zone 1's regular roster.
-  Needs its own design pass: what "how strong before the dragon" measures
-  (character level? gear score? both?), and how it maps to a difficulty
-  curve, are both undecided.
+- ~~**The dragon scaling with the player's own pre-fight strength, so the
+  final boss is never a pushover.**~~ **Steer, 2026-08-26: nixed as
+  replacing the standard fight — kept as a separate, optional bonus mode
+  instead.** Timothy's call: there should still be a standard, fixed
+  power-level dragon fight the player can reliably prepare for and beat —
+  don't make the "real" dragon a moving target based on player strength.
+  Instead, offer power-scaling dragon as *another option you can fight*
+  alongside the standard one (and the existing boss-rematch tiers, which
+  scale *after* each kill, not based on pre-fight player strength) — a
+  distinct, harder, opt-in bonus encounter for a player who wants the
+  fight to always be tough regardless of how strong they've gotten,
+  without changing what the base dragon fight is. Still not designed:
+  what "how strong before the fight" measures (character level? gear
+  score? both?), how that maps to a difficulty curve, and how a player
+  chooses to enter this mode (a new option in `bossPromptScreen.js`
+  alongside the existing tier-select buttons?) are all undecided. Doesn't
+  touch the already-shipped "zone 1 should get easier over time, not
+  track the player" call for regular wilderness monsters (see "The player
+  outpaces near-town/far-corner content" thread below) — this is scoped
+  to this one optional dragon-fight mode only.
 - **Possible bigger dependency, flagged but not committed to:** cleanly
   doing "roaming enemies that cross screen borders" might be much
   easier — maybe even want — under a continuous single-map-that-scrolls-
@@ -745,6 +731,31 @@ materials pile up faster, or a future economy pass tightens gold flow).
 Several related mid-combat ideas, raised together as things to think
 through in a dedicated future combat pass rather than one-off adds:
 
+- **Rung-3 gear effects, raised 2026-08-26 during the gear/progression
+  design pass (see `docs/superpowers/specs/2026-08-26-item-quality-and-
+  effects-design.md`):** candidate additions to that spec's "growable
+  list" of unique-item effects, captured but not scoped for v1 (v1 is
+  lifesteal, extra-swing chance, elemental proc):
+  - **Crit chance increase** — a flat bonus to `CRIT_CHANCE`
+    (`js/systems/combat.js`) from an equipped item.
+  - **Parry window trade-offs, two directions floated:** (a) a wider
+    parry window but the successful parry deals less reflected damage,
+    or (b) a narrower window that rewards good timing with more
+    reflected damage than the current fixed 50% (`js/systems/parry.js`).
+    Not designed — which direction (or both, as two separate items) is
+    undecided.
+- **Rhythm-style multi-hit parry / synchronized multi-mob parry bar,
+  raised 2026-08-26.** Timothy's own words, explicitly tentative
+  ("seems a little funky," "not sure"): enemies that land multiple
+  hits per attack, each needing its own parry in sequence — "almost
+  like a rhythm game" — rather than today's single wind-up-then-one-
+  parry-window per attack (`js/systems/parry.js`). For multi-mob
+  fights, floated a single larger shared bar appearing when several
+  monsters attack at once instead of each monster's own independent
+  wind-up bar (today's model, see the multi-mob encounters design).
+  Floated as possibly its own special encounter type rather than a
+  change to normal combat. Not designed at all — raw idea only, capture
+  only per his explicit "maybe backlog for the future."
 - **Potions currently cost a full turn like an attack.**
   `playerUseItem()` (js/screens/battleScreen.js:189) resets
   `playerCombatant.atb = 0`, same as `playerAttack()`. Wants potions
