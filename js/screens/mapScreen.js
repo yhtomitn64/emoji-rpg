@@ -307,8 +307,8 @@ function render() {
         cell.appendChild(marker);
       } else if (isDecoratedGrass) {
         appendDecoration();
-      } else {
-        cell.textContent = emoji;
+      } else if (emoji) {
+        cell.append(emoji);
       }
       cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
       grid.appendChild(cell);
