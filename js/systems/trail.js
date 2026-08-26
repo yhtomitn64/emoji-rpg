@@ -18,6 +18,17 @@ export function trailStrokeWidth(fraction) {
   return 10 + 8 * fraction;
 }
 
+// A stroke's width, unlike its color, can't be gradiented along its own
+// length - SVG paints (fill/stroke color) support gradients, stroke-width
+// doesn't. Averaging the two endpoints' fractions instead is the next best
+// thing: it's symmetric (fractionA, fractionB) and (fractionB, fractionA)
+// give the same result, so the two tiles sharing an edge always compute the
+// exact same width for their half of that connection - no hard step where a
+// heavily-worn tile's thick stroke meets a lightly-worn neighbor's thin one.
+export function trailStrokeWidthBetween(fractionA, fractionB) {
+  return trailStrokeWidth((fractionA + fractionB) / 2);
+}
+
 export function trailDotRadius(fraction) {
   return 6 + 6 * fraction;
 }

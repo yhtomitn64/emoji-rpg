@@ -1,7 +1,7 @@
 import { TILES } from '../tiles.js';
 import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
 import { markVisited, isVisited, getVisitCount } from '../systems/exploration.js';
-import { trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailDotRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, trailColorForFraction } from '../systems/trail.js';
+import { trailWearFraction, trailStrokeOpacity, trailStrokeWidthBetween, trailDotRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, trailColorForFraction } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
@@ -246,7 +246,7 @@ function buildTrailFragment(x, y, dirs, fraction, color) {
     path.setAttribute('d', connectorPathD(dir, jitter, TRAIL_VIEWBOX_SIZE));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', `url(#${gradientId})`);
-    path.setAttribute('stroke-width', trailStrokeWidth(fraction));
+    path.setAttribute('stroke-width', trailStrokeWidthBetween(fraction, neighborFraction));
     path.setAttribute('stroke-linecap', 'round');
     svg.appendChild(path);
   }

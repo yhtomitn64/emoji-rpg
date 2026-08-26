@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TILES } from '../js/tiles.js';
 import {
-  TRAIL_WEAR_CAP, trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailDotRadius,
+  TRAIL_WEAR_CAP, trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailStrokeWidthBetween, trailDotRadius,
   edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor,
   lightenColor, trailColorForFraction,
 } from '../js/systems/trail.js';
@@ -19,6 +19,13 @@ test('trailStrokeOpacity and trailStrokeWidth are never zero at fraction 0 (a fi
   assert.equal(trailStrokeOpacity(1), 0.8);
   assert.equal(trailStrokeWidth(0), 10);
   assert.equal(trailStrokeWidth(1), 18);
+});
+
+test('trailStrokeWidthBetween is symmetric and equals trailStrokeWidth of the average fraction', () => {
+  assert.equal(trailStrokeWidthBetween(0.2, 0.8), trailStrokeWidthBetween(0.8, 0.2));
+  assert.equal(trailStrokeWidthBetween(0.2, 0.8), trailStrokeWidth(0.5));
+  assert.equal(trailStrokeWidthBetween(1, 1), trailStrokeWidth(1));
+  assert.equal(trailStrokeWidthBetween(0, 0), trailStrokeWidth(0));
 });
 
 test('trailDotRadius scales with wear fraction the same way', () => {
