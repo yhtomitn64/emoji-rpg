@@ -52,6 +52,29 @@ public API, no formal release process — commits land straight on
   terrain" entry for what's left.
 
 ### Fixed
+- Three map-rendering layering bugs, raised by Timothy 2026-08-25 (see
+  `docs/superpowers/BACKLOG.md`'s "Character/tree layering + a real
+  worn-path trail effect" entry) and one more he spotted mid-session:
+  - The hero could disappear entirely behind a grass decoration
+    (clover/flower): `render()`'s branch order in `js/screens/
+    mapScreen.js` checked `isDecoratedGrass` before `isPlayer`, so a
+    decorated tile the player stood on rendered only the decoration.
+    Restructured so the decoration (when present) and the hero/landmark
+    marker both render into the same cell, decoration appended first so
+    it still peeks out from behind the hero instead of being suppressed.
+  - The character always rendered in front of a tall tree's canopy
+    overlapping up from the row below, making it look like standing
+    inside the tree rather than behind it. Replaced the fixed `.map-tile-
+    player { z-index: 10 }` override with per-row depth sorting: each
+    `.map-tile` cell's `z-index` is now set to its own row index in
+    `render()`, so a cell's content always paints above the row directly
+    north of it, matching normal top-down 2.5D depth rules for any
+    overlapping content, not just the hero.
+  - Town's action tiles - shop, smith, quest board, well, and the exit
+    door - rendered as tiny plain text (the bare `.map-tile`'s 1.2rem
+    font-size) instead of as full-square landmarks like the wilderness's
+    town/dungeon entrances. They were simply missing from `mapScreen.js`'s
+    `FULL_SQUARE_MARKERS` set; added.
 - Parries against ranged monsters (goblin/spider/dragon/wraith/skeleton/
   Jurassic Jerky) could silently fail even on a well-timed press: the
   earlier themed-attack-animation pass added a 350ms delay after the

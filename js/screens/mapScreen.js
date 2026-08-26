@@ -46,6 +46,14 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.canoeDungeonEntrance,
   TILES.miniDungeonEntrance,
   TILES.miniDungeonTreasure,
+  // The town interior's own action tiles - previously missing from this
+  // set, so they fell through to the tiny plain-text render (the
+  // .map-tile's own 1.2rem font-size) instead of reading as landmarks.
+  TILES.shop,
+  TILES.smith,
+  TILES.questBoard,
+  TILES.well,
+  TILES.exit,
 ]);
 
 // Grass decoration (clover/flower) sizing and placement: smaller than a
@@ -155,12 +163,38 @@ function render() {
         + (tile === TILES.water ? ' map-tile-water' : '')
         + (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y) ? ' visited' : '')
         + (isPlayer ? ' map-tile-player' : '');
+      // Depth-sort by row instead of a fixed always-on-top/always-behind
+      // z-index: a row's cells sit above every cell in the row above it, so
+      // a tall obstacle's canopy (which overflows upward into the row
+      // above, see .map-tile-obstacle) correctly paints over whatever's
+      // there - including the player - while a player standing in a row
+      // below an obstacle still renders in front of it, same as any other
+      // ground content would.
+      cell.style.zIndex = String(y);
       const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
       const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
         ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
       const isRandomSizeObstacle = !hasMiniDungeon && !hasTileCache && RANDOM_SIZE_OBSTACLES.has(tile);
       const isFullSquareMarker = hasMiniDungeon || hasTileCache || FULL_SQUARE_MARKERS.has(tile);
       const isDecoratedGrass = !isFullSquareMarker && tile === TILES.grass && emoji !== '';
+      // Appended before the hero/marker span below (when both apply to the
+      // same tile) so the decoration sits underneath it in paint order,
+      // peeking out from around the edges instead of hiding whatever's
+      // standing on the tile.
+      function appendDecoration() {
+        const decoration = document.createElement('span');
+        decoration.className = 'map-tile-decoration';
+        decoration.textContent = emoji;
+        // Independently-salted hash streams so size and position don't
+        // move in lockstep with each other or with the decoration pick.
+        const scale = DECORATION_MIN_SCALE + hash01(x + 1000, y + 1000) * (DECORATION_MAX_SCALE - DECORATION_MIN_SCALE);
+        const left = DECORATION_POSITION_MIN_PCT + hash01(x + 2000, y + 2000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
+        const top = DECORATION_POSITION_MIN_PCT + hash01(x + 3000, y + 3000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
+        decoration.style.fontSize = `${(DECORATION_BASE_REM * scale).toFixed(2)}rem`;
+        decoration.style.left = `${left.toFixed(1)}%`;
+        decoration.style.top = `${top.toFixed(1)}%`;
+        cell.appendChild(decoration);
+      }
       if (mountEmoji) {
         const mount = document.createElement('span');
         mount.className = 'map-tile-mount';
@@ -176,20 +210,13 @@ function render() {
         const size = FULL_SQUARE_CQB * (1 + hash01(x, y) * OBSTACLE_MAX_EXTRA);
         obstacle.style.fontSize = `${size.toFixed(1)}cqb`;
         cell.appendChild(obstacle);
-      } else if (isDecoratedGrass) {
-        const decoration = document.createElement('span');
-        decoration.className = 'map-tile-decoration';
-        decoration.textContent = emoji;
-        // Independently-salted hash streams so size and position don't
-        // move in lockstep with each other or with the decoration pick.
-        const scale = DECORATION_MIN_SCALE + hash01(x + 1000, y + 1000) * (DECORATION_MAX_SCALE - DECORATION_MIN_SCALE);
-        const left = DECORATION_POSITION_MIN_PCT + hash01(x + 2000, y + 2000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
-        const top = DECORATION_POSITION_MIN_PCT + hash01(x + 3000, y + 3000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
-        decoration.style.fontSize = `${(DECORATION_BASE_REM * scale).toFixed(2)}rem`;
-        decoration.style.left = `${left.toFixed(1)}%`;
-        decoration.style.top = `${top.toFixed(1)}%`;
-        cell.appendChild(decoration);
       } else if (isFullSquareMarker || isPlayer) {
+        // The hero can land on a decorated grass tile - render the
+        // decoration first so it still peeks out from behind the hero
+        // instead of the hero vanishing behind it (the old bug: this
+        // branch used to be checked *after* isDecoratedGrass, so the
+        // decoration won outright and hid the player entirely).
+        if (isDecoratedGrass) appendDecoration();
         // The hero is always full-square. cqb units only resolve against
         // the nearest ANCESTOR query container - .map-tile establishes
         // that containment itself, so this has to be a child span, not a
@@ -204,6 +231,8 @@ function render() {
         const isHeroOrLoot = isPlayer || hasTileCache || tile === TILES.miniDungeonTreasure;
         if (isHeroOrLoot) marker.style.fontSize = `${HERO_AND_LOOT_CQB}cqb`;
         cell.appendChild(marker);
+      } else if (isDecoratedGrass) {
+        appendDecoration();
       } else {
         cell.textContent = emoji;
       }

@@ -426,6 +426,26 @@ one screen at a time and the whole map just move as you move around."
   ship first on the current screen-based world (with the border-crossing
   piece handled as a special case) or wait for/motivate the bigger
   rendering change.
+- **Raised again independently, 2026-08-25, with a clearer shape:**
+  Timothy's own words: "in the future thinking we want to move away
+  from the only show one square of map at a time. I think I want the
+  game to go in a direction of the character always centered until you
+  get closer to an edge so the whole map moves as the character walks
+  around. Might need to a/b test this on myself. But I also think that
+  could solve different screensizes as well and we could design the
+  game to be more aware of the screen size you are on. So on mobile you
+  might get less of the land showing or osmething." Same underlying
+  architecture change as the bullet above (continuous scrolling world
+  instead of discrete screen-swap), but now framed with its own
+  motivation independent of roaming enemies: a hero-centered camera that
+  only pans near world edges, and using it to make the visible viewport
+  responsive to actual screen size (mobile sees less land, desktop sees
+  more) rather than a fixed 30x22 grid regardless of device. Explicitly
+  uncertain and exploratory - Timothy flagged wanting to A/B test the
+  feel on himself before committing. Not designed - still needs its own
+  pass whenever this gets picked up, likely alongside or after the
+  roaming-enemies dependency above since they'd share the same
+  rendering rewrite.
 
 ## New terrain types: sand and tarpit, each with their own monsters
 
@@ -500,48 +520,33 @@ Raised 2026-08-25, right after the "non-moving obstacles render
 full-square with randomized overlap" pass shipped
 (`js/screens/mapScreen.js`, `css/styles.css` - commits `41ce69c`/
 `5bd0452`/`0de74f9`). Three related layering/rendering issues Timothy
-wants to brainstorm together next session, not fixed blind here.
+wanted to brainstorm together next session - the two bugs below turned
+out simple enough to just fix directly instead; the worn-path idea is
+still open.
 
-### Bug: the hero disappears behind a grass decoration (clover/flower)
+### ~~Bug: the hero disappears behind a grass decoration (clover/flower)~~ Fixed 2026-08-25
 
-Real code bug, not just a nice-to-have: `isDecoratedGrass` in
-`js/screens/mapScreen.js`'s `render()` doesn't exclude `isPlayer`, and
-its branch is checked *before* the `isFullSquareMarker || isPlayer`
-branch in the if/else-if chain - so when the player stands on a tile
-whose `pickTileVariant` roll picked a clover/flower, the decoration
-renders instead of the hero and the character vanishes entirely.
-Confirmed from Timothy's screenshot (yellow flower, no visible character
-underneath, on a tile he was standing on).
+Went with the layered version Timothy wanted to look at first, not the
+simpler branch-order fallback: `render()` in `js/screens/mapScreen.js`
+now appends the decoration span (when the tile has one) *and* the hero/
+landmark marker span into the same cell, decoration first so it paints
+underneath and still peeks out from behind the hero instead of being
+suppressed outright. Verified in-browser: standing on a decorated grass
+tile now shows both, hero on top.
 
-His ask: "Can the character be layered on top? I want to see the flower
-behind the character/hero if possible? If not then just show the
-character." So the fix has two tiers - ideally the hero renders on top
-of the decoration with the decoration still peeking out from
-behind/around it (real z-stacking, decoration not simply suppressed),
-and if that's not clean to pull off, the fallback is simpler: just never
-let `isDecoratedGrass` win over `isPlayer` in the branch order (hero
-always wins outright, decoration is skipped for that tile while
-occupied) - already close to a one-line fix, but bundled here since
-Timothy wants to look at the layered version first.
+### ~~Character vs. tall-tree overlap: wrong depth order~~ Fixed 2026-08-25
 
-### Character vs. tall-tree overlap: wrong depth order
-
-The obstacle-overlap feature added `.map-tile-player { z-index: 10 }`
-specifically so a tree's canopy overlapping up from the row below could
-never visually cover the character. Timothy's screenshot shows why that
-reads wrong: standing where a tall tree's canopy overlaps into his row,
-the character renders fully in front of the tree, which looks like he's
-standing on top of/inside the tree rather than walking behind or through
-the tree line. His words: "the character will be on top of tree. But if
-they are up there they should be behind the tree. Can the tree be in
-front of character and not have character/hero and the grass/walked on
-grass be on top of tree?" Reading that last clause as: whatever
-depth-ordering fix happens here should still let the ground underneath
-(including the visited-tint blend, `.map-tile.map-tile-grass.visited`)
-show through correctly - not just a blind z-index flip. Needs an actual
-design pass: probably the character needs to be depth-sorted per-row
-against overlapping obstacles from the row below, rather than an
-unconditional always-on-top/always-behind z-index.
+Replaced the fixed `.map-tile-player { z-index: 10 }` override (which
+always painted the hero over everything, including a tree canopy
+overlapping up from the row below) with real per-row depth sorting:
+`render()` now sets every `.map-tile` cell's `z-index` to its own row
+index, so a row's content always paints above the row directly north of
+it - a general rule, not hero-specific, matching normal top-down 2.5D
+depth conventions. A tall tree in the row below the hero now correctly
+overlaps in front of him. Verified in-browser via a scripted DOM
+inspection (found a live tree-below-player case, confirmed z-index
+ordering and visual paint order) plus a zoomed screenshot showing the
+tree tip rendering over the character's torso.
 
 ### Idea: a real worn-path/trail effect instead of a flat visited tint
 

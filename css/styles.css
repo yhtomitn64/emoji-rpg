@@ -532,9 +532,11 @@ button:focus-visible {
 
 .map-tile-player {
   position: relative;
-  /* Above .map-tile-obstacle (z-index: 2) so a tall tree overlapping up
-     from the row below never paints over the character standing here. */
-  z-index: 10;
+  /* No fixed z-index here on purpose: depth is now sorted per-row (see
+     mapScreen.js's render(), which sets each .map-tile's z-index to its
+     own row). A tall obstacle in the row below correctly overlaps in
+     front of the player standing in the row above it, rather than the
+     player always winning regardless of position. */
 }
 .map-tile-player.map-tile-levelup {
   animation: map-tile-levelup-pulse 1.2s ease-out;
