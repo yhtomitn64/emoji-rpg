@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { TILES } from '../js/tiles.js';
 import {
   TRAIL_WEAR_CAP, trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailDotRadius,
-  edgeOwner, edgeJitter, connectorPathD, getTrailColor,
+  edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor,
+  lightenColor, trailColorForFraction,
 } from '../js/systems/trail.js';
 
 test('trailWearFraction scales linearly from 0 to 1 and clamps at the cap', () => {
@@ -65,6 +66,17 @@ test('connectorPathD throws for an unknown direction', () => {
   assert.throws(() => connectorPathD('nowhere', 0, 100));
 });
 
+test('edgeTargetPoint returns the edge-midpoint per direction, matching connectorPathD\'s own endpoints', () => {
+  assert.deepEqual(edgeTargetPoint('n', 100), [50, 0]);
+  assert.deepEqual(edgeTargetPoint('s', 100), [50, 100]);
+  assert.deepEqual(edgeTargetPoint('w', 100), [0, 50]);
+  assert.deepEqual(edgeTargetPoint('e', 100), [100, 50]);
+});
+
+test('edgeTargetPoint throws for an unknown direction', () => {
+  assert.throws(() => edgeTargetPoint('nowhere', 100));
+});
+
 test('getTrailColor returns the grass color for grass and falls back to it for an unmapped tile', () => {
   assert.equal(getTrailColor(TILES.grass), '#6b4a2f');
   assert.equal(getTrailColor(TILES.caveWall), '#6b4a2f');
@@ -76,4 +88,19 @@ test('getTrailColor returns a distinct color for cave floor', () => {
 
 test('getTrailColor returns a distinct blue for water, not the dirt-path default', () => {
   assert.equal(getTrailColor(TILES.water), '#4a7fa8');
+});
+
+test('lightenColor blends toward white as amount increases, unchanged at 0 and pure white at 1', () => {
+  assert.equal(lightenColor('#6b4a2f', 0), '#6b4a2f');
+  assert.equal(lightenColor('#6b4a2f', 1), '#ffffff');
+  assert.equal(lightenColor('#6b4a2f', 0.5), '#b5a597');
+});
+
+test('trailColorForFraction returns the base color unchanged at full wear (fraction 1)', () => {
+  assert.equal(trailColorForFraction('#6b4a2f', 1), '#6b4a2f');
+});
+
+test('trailColorForFraction lightens toward white as wear decreases toward 0', () => {
+  assert.equal(trailColorForFraction('#6b4a2f', 0), '#bcaea1');
+  assert.equal(trailColorForFraction('#6b4a2f', 0.5), '#947c68');
 });

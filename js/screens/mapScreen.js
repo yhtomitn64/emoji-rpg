@@ -1,7 +1,7 @@
 import { TILES } from '../tiles.js';
 import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
 import { markVisited, isVisited, getVisitCount } from '../systems/exploration.js';
-import { trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailDotRadius, edgeOwner, edgeJitter, connectorPathD, getTrailColor } from '../systems/trail.js';
+import { trailWearFraction, trailStrokeOpacity, trailStrokeWidth, trailDotRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, trailColorForFraction } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
@@ -67,6 +67,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 // tile would shear the strokes non-uniformly.
 const TRAIL_VIEWBOX_SIZE = 100;
 const TRAIL_DIRECTIONS = [['n', 0, -1], ['s', 0, 1], ['w', -1, 0], ['e', 1, 0]];
+const TRAIL_DIR_DELTA = Object.fromEntries(TRAIL_DIRECTIONS.map(([dir, dx, dy]) => [dir, [dx, dy]]));
 
 // Grass decoration (clover/flower) sizing and placement: smaller than a
 // full tile and scattered around it rather than dead-center, so a field of
@@ -171,10 +172,24 @@ function isTrailConnected(nx, ny) {
   return isPassableTile(t) && isVisited(state.visited, mapConfig.id, nx, ny);
 }
 
+// How worn a connected neighbor itself is, for tapering a connector stroke's
+// color toward it (see buildTrailFragment) - a landmark reads as fully worn
+// (1) since literally every player has passed through one, same reasoning
+// as isTrailConnected's landmark override above.
+function getNeighborWearFraction(nx, ny) {
+  const t = tileAt(nx, ny);
+  if (t && FULL_SQUARE_MARKERS.has(t)) return 1;
+  return trailWearFraction(getVisitCount(state.visited, mapConfig.id, nx, ny));
+}
+
 // One tile's own trail fragment: a wavy stroke reaching toward each
 // connected neighbor direction, or (if none are connected) a small
 // centered dot - see docs/superpowers/specs/2026-08-25-worn-path-trail-
-// design.md's "Rendering" and "Wear amount" sections.
+// design.md's "Rendering" and "Wear amount" sections. Each stroke's color
+// tapers from this tile's own wear (at the center) toward the connected
+// neighbor's own wear (at the edge) via a gradient, so a heavily-walked
+// tile reaching toward a barely-walked one visibly fades as it gets there,
+// rather than the whole stroke reading as one flat, uniform tone.
 function buildTrailFragment(x, y, dirs, fraction, color) {
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('class', 'map-tile-trail');
@@ -197,17 +212,40 @@ function buildTrailFragment(x, y, dirs, fraction, color) {
     circle.setAttribute('cx', TRAIL_VIEWBOX_SIZE / 2);
     circle.setAttribute('cy', TRAIL_VIEWBOX_SIZE / 2);
     circle.setAttribute('r', trailDotRadius(fraction));
-    circle.setAttribute('fill', color);
+    circle.setAttribute('fill', trailColorForFraction(color, fraction));
     svg.appendChild(circle);
     return svg;
   }
   for (const dir of dirs) {
     const owner = edgeOwner(x, y, dir);
     const jitter = edgeJitter(owner.x, owner.y, owner.axis);
+    const [dx, dy] = TRAIL_DIR_DELTA[dir];
+    const neighborFraction = getNeighborWearFraction(x + dx, y + dy);
+    // A gradient per stroke (not a flat color) so it visually tapers toward
+    // however worn the neighbor it's reaching for actually is - unique id
+    // per (x, y, dir) since SVG gradient ids share the whole document's
+    // namespace, not just their own <svg>.
+    const gradientId = `trail-grad-${x}-${y}-${dir}`;
+    const gradient = document.createElementNS(SVG_NS, 'linearGradient');
+    gradient.setAttribute('id', gradientId);
+    gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+    gradient.setAttribute('x1', TRAIL_VIEWBOX_SIZE / 2);
+    gradient.setAttribute('y1', TRAIL_VIEWBOX_SIZE / 2);
+    const [tx, ty] = edgeTargetPoint(dir, TRAIL_VIEWBOX_SIZE);
+    gradient.setAttribute('x2', tx);
+    gradient.setAttribute('y2', ty);
+    const startStop = document.createElementNS(SVG_NS, 'stop');
+    startStop.setAttribute('offset', '0%');
+    startStop.setAttribute('stop-color', trailColorForFraction(color, fraction));
+    const endStop = document.createElementNS(SVG_NS, 'stop');
+    endStop.setAttribute('offset', '100%');
+    endStop.setAttribute('stop-color', trailColorForFraction(color, neighborFraction));
+    gradient.append(startStop, endStop);
+    svg.appendChild(gradient);
     const path = document.createElementNS(SVG_NS, 'path');
     path.setAttribute('d', connectorPathD(dir, jitter, TRAIL_VIEWBOX_SIZE));
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', color);
+    path.setAttribute('stroke', `url(#${gradientId})`);
     path.setAttribute('stroke-width', trailStrokeWidth(fraction));
     path.setAttribute('stroke-linecap', 'round');
     svg.appendChild(path);
