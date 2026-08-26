@@ -494,6 +494,82 @@ placement data is structured/stored, whether it reuses or replaces the
 existing cache-reward system, how the shop rebalance numbers actually
 land) before implementation.
 
+## Character/tree layering + a real worn-path trail effect (needs its own design session)
+
+Raised 2026-08-25, right after the "non-moving obstacles render
+full-square with randomized overlap" pass shipped
+(`js/screens/mapScreen.js`, `css/styles.css` - commits `41ce69c`/
+`5bd0452`/`0de74f9`). Three related layering/rendering issues Timothy
+wants to brainstorm together next session, not fixed blind here.
+
+### Bug: the hero disappears behind a grass decoration (clover/flower)
+
+Real code bug, not just a nice-to-have: `isDecoratedGrass` in
+`js/screens/mapScreen.js`'s `render()` doesn't exclude `isPlayer`, and
+its branch is checked *before* the `isFullSquareMarker || isPlayer`
+branch in the if/else-if chain - so when the player stands on a tile
+whose `pickTileVariant` roll picked a clover/flower, the decoration
+renders instead of the hero and the character vanishes entirely.
+Confirmed from Timothy's screenshot (yellow flower, no visible character
+underneath, on a tile he was standing on).
+
+His ask: "Can the character be layered on top? I want to see the flower
+behind the character/hero if possible? If not then just show the
+character." So the fix has two tiers - ideally the hero renders on top
+of the decoration with the decoration still peeking out from
+behind/around it (real z-stacking, decoration not simply suppressed),
+and if that's not clean to pull off, the fallback is simpler: just never
+let `isDecoratedGrass` win over `isPlayer` in the branch order (hero
+always wins outright, decoration is skipped for that tile while
+occupied) - already close to a one-line fix, but bundled here since
+Timothy wants to look at the layered version first.
+
+### Character vs. tall-tree overlap: wrong depth order
+
+The obstacle-overlap feature added `.map-tile-player { z-index: 10 }`
+specifically so a tree's canopy overlapping up from the row below could
+never visually cover the character. Timothy's screenshot shows why that
+reads wrong: standing where a tall tree's canopy overlaps into his row,
+the character renders fully in front of the tree, which looks like he's
+standing on top of/inside the tree rather than walking behind or through
+the tree line. His words: "the character will be on top of tree. But if
+they are up there they should be behind the tree. Can the tree be in
+front of character and not have character/hero and the grass/walked on
+grass be on top of tree?" Reading that last clause as: whatever
+depth-ordering fix happens here should still let the ground underneath
+(including the visited-tint blend, `.map-tile.map-tile-grass.visited`)
+show through correctly - not just a blind z-index flip. Needs an actual
+design pass: probably the character needs to be depth-sorted per-row
+against overlapping obstacles from the row below, rather than an
+unconditional always-on-top/always-behind z-index.
+
+### Idea: a real worn-path/trail effect instead of a flat visited tint
+
+Currently "you've walked here" is a single flat background-color swap
+per tile (`.visited`, `js/screens/mapScreen.js` / `css/styles.css`) -
+binary, no sense of *how much* a tile's been walked, and no connection
+between adjacent walked tiles. Timothy wants to explore something more
+like an actual dirt path/road that visibly builds up the more a tile is
+re-walked ("more and more pixels of brown dirt appear as you walk over
+something again and again"), and one that's directionally connected
+across tiles rather than each tile just changing color independently:
+"if you walk north one tile then east the path should be drawn like you
+went north a bit into a tile then east a bit to the next tile" - i.e. a
+path segment that reflects the actual entry/exit edges of each tile, not
+just a uniform tint.
+
+This is a genuinely bigger feature, not a quick fix - needs its own
+brainstorm on at least: how to track *how much* a tile's been walked
+(today `state.visited` is a boolean set, not a count - a real
+progressive-wear effect needs a counter or decay curve), how to
+represent partial/directional path segments per tile (probably a small
+set of path "shapes" - straight through, corner, T-junction, dead-end -
+picked from which neighbor tiles are also path, similar to autotiling in
+other tile-based games), and whether it's pure CSS/emoji layering or
+needs actual per-tile path-segment art. Explicitly deferred by Timothy:
+"put this in the backlog and then we can brainstorm a bit in another
+session."
+
 ## Bugs
 
 *(none open right now — the boss-tier skip bug and the inventory-panel
