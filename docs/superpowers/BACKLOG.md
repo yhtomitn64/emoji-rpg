@@ -561,6 +561,21 @@ connected anchor so the trail visibly emerges from town's gate. See
 `docs/superpowers/plans/2026-08-25-worn-path-trail.md` for the full
 design/plan.
 
+## Strip emoji background boxes so the tile color shows through
+
+Raised 2026-08-26, mid worn-path-trail polish. Timothy's example: the
+house/town-entrance emoji currently renders with its own baked-in
+square-ish background tint (visible as a dark box around it) instead of
+sitting directly on the tile's actual color. His ask: remove that
+per-emoji background so whatever's actually underneath (grass green,
+dirt trail, water blue, etc.) shows through around the glyph, the same
+way a plain text emoji already does elsewhere. Not investigated yet -
+likely means either the emoji glyphs themselves render with a platform-
+default background swatch in some rendering path, or there's a CSS rule
+giving `.map-tile-fullsize`/similar a background. Needs a look at how
+each affected marker is actually styled before scoping a fix; captured
+here as the raw ask only.
+
 ## Bugs
 
 *(none open right now — the boss-tier skip bug and the inventory-panel
