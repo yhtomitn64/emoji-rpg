@@ -1,7 +1,7 @@
 import { TILES } from '../tiles.js';
 import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
 import { markVisited, markDirection, isVisited, getVisitCount, getVisitDirs } from '../systems/exploration.js';
-import { trailWearFraction, trailStrokeWidthBetween, trailDotRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor, trailColorForFraction } from '../systems/trail.js';
+import { trailWearFraction, trailStrokeWidthBetween, trailBorderFraction, trailDotRadius, trailHubRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor, trailColorForFraction } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
@@ -179,10 +179,19 @@ function getNeighborWearFraction(nx, ny) {
 // connected neighbor direction, or (if none are connected) a small
 // centered dot - see docs/superpowers/specs/2026-08-25-worn-path-trail-
 // design.md's "Rendering" and "Wear amount" sections. Each stroke's color
-// tapers from this tile's own wear (at the center) toward the connected
-// neighbor's own wear (at the edge) via a gradient, so a heavily-walked
-// tile reaching toward a barely-walked one visibly fades as it gets there,
-// rather than the whole stroke reading as one flat, uniform tone. Wear is
+// tapers from this tile's own wear (at the center) toward the *border
+// fraction* shared with the connected neighbor (at the edge - see
+// trailBorderFraction, the midpoint of this tile's own wear and the
+// neighbor's) via a gradient, so a heavily-walked tile reaching toward a
+// barely-walked one visibly fades as it gets there, rather than the whole
+// stroke reading as one flat, uniform tone. The border fraction - not the
+// neighbor's own raw fraction - is what the two tiles sharing that edge
+// need to agree on: each tile's edge used to taper all the way to the
+// *other* tile's own color, so two different colors landed on the same
+// physical point (each side insisting the border already IS the far
+// side) instead of one shared value, a hard color wall confirmed live on
+// a real save even though each side's gradient used matching hex values
+// somewhere, just at opposite ends. Wear is
 // baked entirely into color (trailColorForFraction blends toward the
 // tile's own ground color as wear drops toward 0) - deliberately not
 // opacity, which would need to be one flat value per tile to avoid
@@ -212,6 +221,7 @@ function buildTrailFragment(x, y, dirs, fraction, color, groundColor) {
     svg.appendChild(circle);
     return svg;
   }
+  const widths = [];
   for (const dir of dirs) {
     const owner = edgeOwner(x, y, dir);
     const jitter = edgeJitter(owner.x, owner.y, owner.axis);
@@ -235,16 +245,36 @@ function buildTrailFragment(x, y, dirs, fraction, color, groundColor) {
     startStop.setAttribute('stop-color', trailColorForFraction(color, groundColor, fraction));
     const endStop = document.createElementNS(SVG_NS, 'stop');
     endStop.setAttribute('offset', '100%');
-    endStop.setAttribute('stop-color', trailColorForFraction(color, groundColor, neighborFraction));
+    endStop.setAttribute('stop-color', trailColorForFraction(color, groundColor, trailBorderFraction(fraction, neighborFraction)));
     gradient.append(startStop, endStop);
     svg.appendChild(gradient);
+    const width = trailStrokeWidthBetween(fraction, neighborFraction);
+    widths.push(width);
     const path = document.createElementNS(SVG_NS, 'path');
     path.setAttribute('d', connectorPathD(dir, jitter, TRAIL_VIEWBOX_SIZE));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', `url(#${gradientId})`);
-    path.setAttribute('stroke-width', trailStrokeWidthBetween(fraction, neighborFraction));
+    path.setAttribute('stroke-width', width);
     path.setAttribute('stroke-linecap', 'round');
     svg.appendChild(path);
+  }
+  // Each direction above is stroked independently at its own width (SVG
+  // can't taper a stroke's width along its length - see
+  // trailStrokeWidthBetween in trail.js), so at a fork where two connected
+  // directions have different widths, a thinner one's edge falls short of a
+  // wider one's right where they meet at this shared center point - a hard
+  // rectangular notch, confirmed live against a real save. Painting a solid
+  // hub on top, sized to the widest connected stroke (trailHubRadius),
+  // covers that notch: every narrower stroke now visually emerges from
+  // *inside* the hub rather than butting up against a wider neighbor. A
+  // single direction has no other width to clash with, so it's skipped.
+  if (dirs.length > 1) {
+    const hub = document.createElementNS(SVG_NS, 'circle');
+    hub.setAttribute('cx', TRAIL_VIEWBOX_SIZE / 2);
+    hub.setAttribute('cy', TRAIL_VIEWBOX_SIZE / 2);
+    hub.setAttribute('r', trailHubRadius(widths));
+    hub.setAttribute('fill', trailColorForFraction(color, groundColor, fraction));
+    svg.appendChild(hub);
   }
   return svg;
 }

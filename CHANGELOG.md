@@ -70,7 +70,25 @@ public API, no formal release process — commits land straight on
   bare-unworn stroke blends into the tile's own ground color, a fully
   worn one is the solid trail color - deliberately not opacity, which
   couldn't stay consistent across a tile border; trail color itself is
-  keyed by the underlying terrain (grass, cave floor, water).
+  keyed by the underlying terrain (grass, cave floor, water). A tile with
+  2+ connected directions (a fork/junction) now paints a solid hub circle
+  at its own center, on top of every stroke, sized to the widest connected
+  stroke there (`trailHubRadius` in `js/systems/trail.js`) - each
+  direction is stroked independently at its own width (SVG can't taper a
+  stroke's width along its length), so a fork whose branches carry
+  different wear used to show a hard rectangular notch right where a
+  thinner stroke met a wider one; the hub covers it so narrower strokes
+  now visually emerge from inside it instead. A stroke's color at the tile
+  *border* it's reaching toward is now the midpoint between this tile's
+  own wear and the neighbor's (`trailBorderFraction`), not the neighbor's
+  raw wear - each tile used to taper all the way to the *other* tile's own
+  color right at the shared edge, so two different colors landed on the
+  same physical point (each side insisting the border already was the far
+  side) and produced a hard color wall, confirmed live on a real save,
+  even though each side's gradient used matching hex values *somewhere*,
+  just at opposite ends. This was the real cause behind several rounds of
+  "there's a seam" reports across the session; the hub-notch fix above
+  was real too but smaller in effect.
   Exiting town lands the player orthogonally adjacent to the town gate
   instead of diagonal to it, so a first step toward town connects to it
   in one move; the landing tile itself still starts as an isolated dot

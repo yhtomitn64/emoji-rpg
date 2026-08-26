@@ -28,6 +28,23 @@ export function trailDotRadius(fraction) {
   return 6 + 6 * fraction;
 }
 
+// The radius of a filled hub drawn at a tile's own center, on top of every
+// connected direction's own stroke - see buildTrailFragment in
+// mapScreen.js. Needed whenever a tile has 2+ connected directions: each
+// direction is its own independently-stroked path (SVG can't taper a
+// stroke's width along its own length, only its color - see
+// trailColorForFraction above), so at the shared center point a thinner
+// stroke's edge falls short of a wider one's, leaving a visible hard-edged
+// notch where they meet - confirmed live against a real save (a fork with
+// stroke widths 14.4/18/15.2 showed a rectangular step right at the
+// junction). Sizing the hub to the WIDEST connected stroke's own half-width
+// guarantees it fully covers that notch: every narrower stroke's edge is
+// then inside the hub's own circle, so it visually "emerges" from the hub
+// rather than butting up against a wider neighbor.
+export function trailHubRadius(widths) {
+  return Math.max(...widths) / 2;
+}
+
 // The edge between two adjacent tiles is always "owned" by whichever tile
 // has the lower coordinate on that axis, so both tiles compute the exact
 // same (x, y, axis) for their shared border and therefore the same jitter -
@@ -148,4 +165,22 @@ export function blendColors(colorA, colorB, t) {
 // getNeighborWearFraction in mapScreen.js), so their colors always match.
 export function trailColorForFraction(baseColor, groundColor, fraction) {
   return blendColors(groundColor, baseColor, fraction);
+}
+
+// The wear fraction a stroke's color should reach at the tile BORDER it's
+// heading toward - the midpoint between this tile's own fraction and the
+// neighbor's, not simply the neighbor's own raw fraction. Symmetric (like
+// trailStrokeWidthBetween already is for width), so both tiles sharing
+// that border always compute the exact same color there. Using the
+// neighbor's raw fraction instead put each tile's own edge at *the other
+// tile's own* color - since the neighbor does the same thing in reverse,
+// the two sides land on two DIFFERENT colors at the same physical point
+// (each one insists the border already IS the far side), producing a hard
+// color wall rather than a blend - confirmed live against a real save (a
+// heavy tile's edge painted the light neighbor's color while the light
+// neighbor's edge painted the heavy tile's color, right on top of each
+// other) despite each side's gradient using matching hex values
+// *somewhere* - just at opposite, mismatched ends.
+export function trailBorderFraction(fraction, neighborFraction) {
+  return (fraction + neighborFraction) / 2;
 }

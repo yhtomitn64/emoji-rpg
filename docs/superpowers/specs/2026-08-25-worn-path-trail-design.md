@@ -278,6 +278,44 @@ ones at a center simply paint over each other with no compositing
 artifact, sidestepping the original alpha-stacking problem without
 needing a flat group-level value at all.
 
+**Fork/junction notch — superseded 2026-08-26:** `trailStrokeWidthBetween`
+above fixes the seam at a *border between two tiles*, but not the case
+where a single tile has 2+ connected directions whose own widths differ
+from each other (a fork). Each direction is its own independently-stroked
+`<path>` (SVG can't taper a stroke's width along its own length), so where
+a thinner stroke and a wider one both start from the same tile-center
+point, the thinner one's edge fell short of the wider one's — a hard
+rectangular notch right at the junction, confirmed live against a real
+save (a fork with stroke widths 14.4/18/15.2 across its three connected
+directions). Fixed by painting a solid hub circle at the tile's own
+center, on top of every connector stroke, radius sized to the *widest*
+connected stroke there (`trailHubRadius`, `Math.max(...widths) / 2`),
+filled with the tile's own wear color. This is a small, deliberate
+exception to "no round-cap blobs" from Rendering above: that guidance was
+about the overall look at ordinary connected tiles (already satisfied —
+strokes still taper via gradient, no cap shows on a simple 2-direction
+passthrough), not about forks specifically, and the hub only ever appears
+where 2+ directions actually meet with different widths — it reads as a
+trail widening at a real junction, not a blob on an ordinary stretch.
+
+**Border color — superseded 2026-08-26:** a stroke's gradient end-stop
+(the color at the tile *border* it's reaching toward) was originally just
+`trailColorForFraction(color, groundColor, neighborFraction)` — the
+neighbor's own raw wear. That's the bug the "notch" fix above never
+touched: at the shared physical border point, this tile's own stroke
+paints the *neighbor's* color, while the neighbor's stroke (from its own
+side) paints *this tile's* color — two different colors landing on the
+same point, each side insisting the border already IS the far side,
+rather than one shared value. Confirmed live on a real save as a hard
+color wall exactly at a heavy/light border, despite the two gradients
+using matching hex values *somewhere* (just at opposite, mismatched
+ends) — which is what made it look, from a quick check of "do the colors
+match," like nothing was wrong. Fixed by using the *midpoint* of this
+tile's own fraction and the neighbor's (`trailBorderFraction`, symmetric
+like `trailStrokeWidthBetween` already is for width) as the end-stop's
+fraction instead — both tiles sharing a border now always agree on
+exactly the same color there.
+
 The isolated-tile worn dot (no connected neighbors — see Scope) uses
 the same `trailWearFraction` off the same tile's count, sized as a
 small centered circle instead of an edge-reaching stroke (radius

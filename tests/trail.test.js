@@ -4,7 +4,7 @@ import { TILES } from '../js/tiles.js';
 import {
   TRAIL_WEAR_CAP, trailWearFraction, trailStrokeWidth, trailStrokeWidthBetween, trailDotRadius,
   edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor,
-  blendColors, trailColorForFraction,
+  blendColors, trailColorForFraction, trailHubRadius, trailBorderFraction,
 } from '../js/systems/trail.js';
 
 test('trailWearFraction scales linearly from 0 to 1 and clamps at the cap', () => {
@@ -126,9 +126,32 @@ test('trailColorForFraction blends between ground and trail color at partial wea
   assert.equal(trailColorForFraction('#6b4a2f', '#3f6b34', 0.5), '#555b32');
 });
 
+test('trailHubRadius is half of the widest given width', () => {
+  assert.equal(trailHubRadius([14.4, 18, 15.2]), 9);
+  assert.equal(trailHubRadius([10]), 5);
+});
+
+test('trailHubRadius is order-independent', () => {
+  assert.equal(trailHubRadius([18, 14.4, 15.2]), trailHubRadius([14.4, 15.2, 18]));
+});
+
 test('two tiles sharing an edge compute the exact same color for that shared point when they agree on the fraction - the property that made the old opacity-based seam bug possible to fix', () => {
   const fraction = 0.3;
   const colorFromTileA = trailColorForFraction('#6b4a2f', '#3f6b34', fraction);
   const colorFromTileB = trailColorForFraction('#6b4a2f', '#3f6b34', fraction);
   assert.equal(colorFromTileA, colorFromTileB);
+});
+
+test('trailBorderFraction is the midpoint of the two fractions', () => {
+  assert.equal(trailBorderFraction(1, 0.2), 0.6);
+  assert.equal(trailBorderFraction(0, 1), 0.5);
+});
+
+test('trailBorderFraction is symmetric, so two tiles sharing a border always agree on its color even when their own wear differs a lot - the property whose absence (each side tapering to the *other* tile\'s raw fraction instead) produced a hard color wall right at a real border, confirmed live', () => {
+  const fromHeavySide = trailBorderFraction(1, 0.2);
+  const fromLightSide = trailBorderFraction(0.2, 1);
+  assert.equal(fromHeavySide, fromLightSide);
+  const colorFromHeavySide = trailColorForFraction('#6b4a2f', '#3f6b34', fromHeavySide);
+  const colorFromLightSide = trailColorForFraction('#6b4a2f', '#3f6b34', fromLightSide);
+  assert.equal(colorFromHeavySide, colorFromLightSide);
 });

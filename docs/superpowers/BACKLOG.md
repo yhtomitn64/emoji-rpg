@@ -1289,6 +1289,36 @@ first: `buildMonsterCombatant` silently dropping `attackStyle`/
 **Timothy's call:** don't add jsdom (or similar) now — live verification is
 an acceptable trade-off for a project this size today. Revisit if
 DOM-timing regressions in this file keep showing up.
+
+### Pixel-level visual regression test for the worn-path trail (and similar rendering bugs) — raised 2026-08-26
+Timothy, after several rounds of "there's a seam" reports that turned out
+real but took multiple live-browser screenshot/zoom cycles each to pin
+down and confirm fixed (two separate bugs found this way in one session:
+a stroke-width notch at forks, then a worse color-gradient mismatch at
+tile borders — see CHANGELOG): "Be cool if we had a unit test which could
+test the actual pixel values or something like that so we at least had a
+target to shoot for. Like something even outside of this game that
+grabbed a screenshot and looked at tile borders."
+
+The idea: something that renders a known trail scenario (e.g. two
+adjacent tiles with deliberately different wear), takes/reads a real
+rendered pixel buffer at the shared border, and asserts the color on both
+sides actually matches — as an automated gate, not just the existing
+`trail.test.js` unit tests (which test the color/width *math* in
+isolation and would never have caught this class of bug, since the bug
+was in how two separately-computed gradients disagree about a shared
+physical point, not in either formula alone). Node's test runner has no
+canvas/rendering support built in, so this needs either: a headless
+browser (Playwright/Puppeteer) rendering the actual SVG and reading back
+pixel colors via canvas, or a lighter node-canvas-based harness that
+re-implements just enough SVG gradient math to sample a point - the
+former is more real but adds a browser-automation dependency this repo
+doesn't have yet; the latter is faster/cheaper but risks testing a
+reimplementation instead of the real renderer.
+
+**Not started.** Raised as a good idea, not yet scoped or estimated -
+would need its own small design pass (which approach, how many scenarios,
+where the images/expected-pixel data live) before implementation.
 ### ~~Host on Cloudflare (free tier) with GitHub Actions auto-publish, raised 2026-08-20~~ Shipped 2026-08-22
 Timothy: "I want to host this on cloudflare free tier and push to my
 personal github and then have a github action that lets me easily
