@@ -2,47 +2,73 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_ZONE_END_PERCENT,
-  createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent,
+  createWindupState, startWindup, windupElapsedMs, isWindupComplete, windupElapsedPercent,
   resolveParryAttempt, rollIncomingDamage, resolveParrySuccess,
 } from '../js/systems/parry.js';
 
 test('createWindupState returns an inactive state', () => {
-  assert.deepEqual(createWindupState(), { active: false, elapsedMs: 0 });
+  assert.deepEqual(createWindupState(), { active: false, startedAt: 0 });
 });
 
-test('startWindup returns an active state at 0 elapsed', () => {
-  assert.deepEqual(startWindup(), { active: true, elapsedMs: 0 });
+test('startWindup returns an active state stamped with the given clock time', () => {
+  assert.deepEqual(startWindup(1000), { active: true, startedAt: 1000 });
 });
 
-test('tickWindup advances elapsedMs on an active state', () => {
-  const state = tickWindup({ active: true, elapsedMs: 300 }, 300);
-  assert.deepEqual(state, { active: true, elapsedMs: 600 });
+test('startWindup defaults to Date.now() when no clock time is given', () => {
+  const before = Date.now();
+  const state = startWindup();
+  const after = Date.now();
+  assert.equal(state.active, true);
+  assert.ok(state.startedAt >= before && state.startedAt <= after);
 });
 
-test('tickWindup is a no-op on an inactive state', () => {
-  const state = tickWindup({ active: false, elapsedMs: 0 }, 300);
-  assert.deepEqual(state, { active: false, elapsedMs: 0 });
+// windupElapsedMs/isWindupComplete/windupElapsedPercent all take an
+// explicit `now` so the checked value is always real wall-clock time
+// (startedAt vs. now), not a value accumulated in fixed ticks - the tick
+// cadence used to be the only thing advancing state, so a press mid-tick
+// could read a stale value even though the (CSS-interpolated) bar had
+// already visually moved into the parry zone. See js/systems/parry.js.
+test('windupElapsedMs measures real time since startedAt', () => {
+  assert.equal(windupElapsedMs({ active: true, startedAt: 1000 }, 1350), 350);
+});
+
+test('windupElapsedMs is 0 on an inactive state regardless of startedAt', () => {
+  assert.equal(windupElapsedMs({ active: false, startedAt: 1000 }, 5000), 0);
+});
+
+test('windupElapsedMs never goes negative if now is somehow before startedAt', () => {
+  assert.equal(windupElapsedMs({ active: true, startedAt: 1000 }, 900), 0);
 });
 
 test('isWindupComplete is false before the duration elapses', () => {
-  assert.equal(isWindupComplete({ active: true, elapsedMs: 900 }), false);
+  assert.equal(isWindupComplete({ active: true, startedAt: 0 }, 900), false);
 });
 
-test('isWindupComplete is true once elapsedMs reaches the duration', () => {
-  assert.equal(isWindupComplete({ active: true, elapsedMs: PARRY_WINDUP_DURATION_MS }), true);
+test('isWindupComplete is true once elapsed time reaches the duration', () => {
+  assert.equal(isWindupComplete({ active: true, startedAt: 0 }, PARRY_WINDUP_DURATION_MS), true);
 });
 
 test('isWindupComplete is false on an inactive state even past the duration', () => {
-  assert.equal(isWindupComplete({ active: false, elapsedMs: PARRY_WINDUP_DURATION_MS + 100 }), false);
+  assert.equal(isWindupComplete({ active: false, startedAt: 0 }, PARRY_WINDUP_DURATION_MS + 100), false);
 });
 
 test('windupElapsedPercent computes the right percentage', () => {
-  assert.equal(windupElapsedPercent({ active: true, elapsedMs: 500 }), 50);
-  assert.equal(windupElapsedPercent({ active: true, elapsedMs: 0 }), 0);
+  assert.equal(windupElapsedPercent({ active: true, startedAt: 0 }, 500), 50);
+  assert.equal(windupElapsedPercent({ active: true, startedAt: 0 }, 0), 0);
 });
 
 test('windupElapsedPercent clamps at 100', () => {
-  assert.equal(windupElapsedPercent({ active: true, elapsedMs: PARRY_WINDUP_DURATION_MS + 500 }), 100);
+  assert.equal(windupElapsedPercent({ active: true, startedAt: 0 }, PARRY_WINDUP_DURATION_MS + 500), 100);
+});
+
+test('a press between 300ms ticks reads the true in-between percentage, not the last tick value', () => {
+  // The bug this fixed: the old tick-accumulator only ever produced
+  // 0/30/60/90/100%, so a press at the real 85% mark (inside the parry
+  // zone) would have read the stale 60% tick value and failed. With real
+  // elapsed time, a press at any wall-clock moment reads its true percent.
+  const state = startWindup(0);
+  assert.equal(windupElapsedPercent(state, 850), 85);
+  assert.equal(resolveParryAttempt(windupElapsedPercent(state, 850)), true);
 });
 
 test('resolveParryAttempt is true at the zone start boundary', () => {

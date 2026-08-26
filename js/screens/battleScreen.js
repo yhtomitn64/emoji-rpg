@@ -3,7 +3,7 @@ import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
-import { createWindupState, startWindup, tickWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
+import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -841,11 +841,12 @@ function tick() {
     mc.atb = tickGauge(mc.atb, mc.speed, 1);
     if (isReady(mc.atb) && !mc.windup.active) {
       mc.windup = startWindup();
-    } else if (mc.windup.active) {
-      mc.windup = tickWindup(mc.windup, 300);
-      if (isWindupComplete(mc.windup)) {
-        resolveMonsterWindup(mc, false);
-      }
+    } else if (mc.windup.active && isWindupComplete(mc.windup)) {
+      // isWindupComplete/windupElapsedPercent read real elapsed wall-clock
+      // time now, not a value this tick advances - this is just a poll to
+      // catch "the window closed and nothing was pressed," not the source
+      // of truth (see js/systems/parry.js).
+      resolveMonsterWindup(mc, false);
     }
     if (battleOver) return;
 
