@@ -57,6 +57,7 @@ import { playItemPickupToast } from './screens/itemPickupToast.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { ABILITIES } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
+import { tierLabel } from './systems/itemQuality.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
@@ -471,14 +472,15 @@ function handleToolGateNearby(message) {
 // you first get it, unlike a regular material - worth a first-time
 // celebration that tells the player what they can now do. Any repeat drop
 // of a tool the player already carries is a quiet, ordinary pickup.
-function grantDropItem(itemId) {
+function grantDropItem(itemId, tier) {
   const item = ITEMS[itemId];
   const isNewTool = item.type === 'tool' && !state.inventory.some((entry) => entry.itemId === itemId && entry.quantity > 0);
-  Object.assign(state, addItem(state, itemId, 1));
+  Object.assign(state, addItem(state, itemId, 1, tier));
+  const displayName = `${tierLabel(tier)}${item.name}`;
   if (isNewTool) {
-    playCelebration(item.emoji, `You found a ${item.name}! ${item.description}.`);
+    playCelebration(item.emoji, `You found a ${displayName}! ${item.description}.`);
   } else {
-    playItemPickupToast(item.emoji, item.name);
+    playItemPickupToast(item.emoji, displayName);
   }
 }
 
@@ -704,7 +706,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       const gold = Math.round(drop.gold * rewardMultiplier.gold);
       Object.assign(state, addGold(state, gold));
       if (drop.item) {
-        grantDropItem(drop.item);
+        grantDropItem(drop.item, drop.tier);
       }
       if (monster.isBoss) {
         state.flags.dungeonBossDefeated = true;
@@ -760,7 +762,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     const gold = Math.round(drop.gold * rewardMultiplier.gold);
     Object.assign(state, addGold(state, gold));
     if (drop.item) {
-      grantDropItem(drop.item);
+      grantDropItem(drop.item, drop.tier);
     }
     persist();
     renderHud();
@@ -777,7 +779,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       const gold = Math.round(drop.gold * rewardMultiplier.gold);
       Object.assign(state, addGold(state, gold));
       if (drop.item) {
-        grantDropItem(drop.item);
+        grantDropItem(drop.item, drop.tier);
       }
       Object.assign(state, incrementQuestProgress(state, monsterId));
       Object.assign(state, { monsterKillCounts: incrementKillCount(state.monsterKillCounts, monsterId) });
