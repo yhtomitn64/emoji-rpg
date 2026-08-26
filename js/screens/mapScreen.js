@@ -1,6 +1,6 @@
 import { TILES } from '../tiles.js';
 import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
-import { markVisited, isVisited, getVisitCount } from '../systems/exploration.js';
+import { markVisited, markDirection, isVisited, getVisitCount, getVisitDirs } from '../systems/exploration.js';
 import { trailWearFraction, trailStrokeOpacity, trailStrokeWidthBetween, trailDotRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, trailColorForFraction } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
@@ -68,6 +68,18 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const TRAIL_VIEWBOX_SIZE = 100;
 const TRAIL_DIRECTIONS = [['n', 0, -1], ['s', 0, 1], ['w', -1, 0], ['e', 1, 0]];
 const TRAIL_DIR_DELTA = Object.fromEntries(TRAIL_DIRECTIONS.map(([dir, dx, dy]) => [dir, [dx, dy]]));
+const TRAIL_OPPOSITE_DIR = { n: 's', s: 'n', e: 'w', w: 'e' };
+
+// A move's own short direction code (matching trail.js's 'n'/'s'/'e'/'w'
+// convention), from its (dx, dy) - used to record which edge a step
+// actually crossed, on both the tile being left and the tile being
+// entered. Returns null for a non-cardinal delta, which never happens in
+// practice (every call site's dx/dy comes from KEY_TO_DELTA), but there's
+// no reason to trust that invariant blindly here.
+function trailDirFromDelta(dx, dy) {
+  const found = TRAIL_DIRECTIONS.find(([, ddx, ddy]) => ddx === dx && ddy === dy);
+  return found ? found[0] : null;
+}
 
 // Grass decoration (clover/flower) sizing and placement: smaller than a
 // full tile and scattered around it rather than dead-center, so a field of
@@ -153,32 +165,13 @@ function isPassableTile(t) {
   return Boolean(t) && (t.walkable || (t.requiresTool && hasRequiredTool(t, state.inventory)));
 }
 
-// A neighbor counts as "connected" for trail purposes if it's ground the
-// player has actually walked (currently-passable and visited), OR it's a
-// landmark tile (town/dungeon/tool-dungeon entrance, shop, well, ...) -
-// every player has necessarily passed through one. This is an explicit
-// override, not just relying on its own walk count: tryMove *does* mark a
-// landmark visited (and render its own trail fragment) before firing its
-// action callback, but the very first time a screen renders a landmark as
-// a neighbor - e.g. the town gate right after exiting town, which lands
-// the player adjacent to it without ever having stepped on it from this
-// screen's side - that landmark's own count is still 0. See the "Entrance/
-// landmark tiles" section of the design doc.
-function isTrailConnected(nx, ny) {
-  if (isOutOfBounds(nx, ny)) return false;
-  const t = tileAt(nx, ny);
-  if (!t) return false;
-  if (FULL_SQUARE_MARKERS.has(t)) return true;
-  return isPassableTile(t) && isVisited(state.visited, mapConfig.id, nx, ny);
-}
-
 // How worn a connected neighbor itself is, for tapering a connector stroke's
-// color toward it (see buildTrailFragment) - a landmark reads as fully worn
-// (1) since literally every player has passed through one, same reasoning
-// as isTrailConnected's landmark override above.
+// color toward it (see buildTrailFragment). No landmark special-casing
+// needed: a direction only ever appears in a tile's own recorded dirs (see
+// getVisitDirs) because the player actually crossed that edge, which by
+// construction (see tryMove) means the neighbor on the other side already
+// has a real walk count of its own by the time this is called.
 function getNeighborWearFraction(nx, ny) {
-  const t = tileAt(nx, ny);
-  if (t && FULL_SQUARE_MARKERS.has(t)) return 1;
   return trailWearFraction(getVisitCount(state.visited, mapConfig.id, nx, ny));
 }
 
@@ -280,22 +273,22 @@ function render() {
         + (tile === TILES.water ? ' map-tile-water' : '')
         + (isPlayer ? ' map-tile-player' : '');
       // A tile's own worn-path trail: dirt strokes reaching toward whichever
-      // neighbors are also visited (or a landmark everyone necessarily
-      // passes through), or a small dot if nothing connects yet. Appended
-      // first so it paints underneath every other *positioned* branch below
-      // (mount/rider, obstacle, fullsize marker, decoration - same "append
-      // earlier = paints behind" rule the decoration-behind-hero fix uses),
-      // with one exception: the plain in-flow `cell.append(emoji)` fallback
-      // branch has no `position`, and non-positioned in-flow content always
-      // paints before positioned descendants regardless of DOM order - so
-      // on a tile that falls through to that branch, the trail SVG actually
-      // paints ON TOP of the emoji, not underneath it.
+      // directions the player has actually walked across at this exact tile
+      // (getVisitDirs - never inferred from a neighbor's own state, see
+      // exploration.js), or a small dot if it's been visited but nothing's
+      // been walked across it yet. Appended first so it paints underneath
+      // every other *positioned* branch below (mount/rider, obstacle,
+      // fullsize marker, decoration - same "append earlier = paints behind"
+      // rule the decoration-behind-hero fix uses), with one exception: the
+      // plain in-flow `cell.append(emoji)` fallback branch has no
+      // `position`, and non-positioned in-flow content always paints before
+      // positioned descendants regardless of DOM order - so on a tile that
+      // falls through to that branch, the trail SVG actually paints ON TOP
+      // of the emoji, not underneath it.
       if (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y)) {
         const fraction = trailWearFraction(getVisitCount(state.visited, mapConfig.id, x, y));
         const color = getTrailColor(tile);
-        const dirs = TRAIL_DIRECTIONS
-          .filter(([, dx, dy]) => isTrailConnected(x + dx, y + dy))
-          .map(([dir]) => dir);
+        const dirs = getVisitDirs(state.visited, mapConfig.id, x, y);
         cell.appendChild(buildTrailFragment(x, y, dirs, fraction, color));
       }
       // Depth-sort by row instead of a fixed always-on-top/always-behind
@@ -404,8 +397,21 @@ function tryMove(dx, dy) {
     callbacks.onToolGateCleared(getToolClearedMessage(tile.requiresTool));
   }
 
+  // Record which edge this step actually crossed on both sides of it: the
+  // tile being left gets the direction moved (its own exit edge), the tile
+  // being entered gets the opposite (the edge it was entered through) - see
+  // exploration.js's markDirection/markVisited. This is what replaces
+  // inferring a trail's connected directions from "is the neighbor also
+  // visited," which produced false connections (a "ladder" of rungs
+  // between two separately-walked parallel corridors) whenever two tiles
+  // happened to both be visited without the player ever actually stepping
+  // directly between them.
+  const exitDir = trailDirFromDelta(dx, dy);
+  if (exitDir) {
+    Object.assign(state, { visited: markDirection(state.visited, mapConfig.id, state.position.x, state.position.y, exitDir) });
+  }
   state.position = { x: nx, y: ny };
-  Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny) });
+  Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny, exitDir ? TRAIL_OPPOSITE_DIR[exitDir] : undefined) });
 
   const discovery = resolveStepDiscovery(state, mapConfig, nx, ny, tile);
   if (discovery.miniDungeons) {

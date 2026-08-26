@@ -108,62 +108,82 @@ again.
 tile (`mount()`) — both already exist today; neither call site changes,
 they just now increment instead of set.
 
-### Connectivity: inferred from neighbor adjacency, not tracked history
+### Connectivity: tracked per-edge, not inferred from neighbor state
 
-No new data structure for "which exact tiles you walked between." At
-render time, for each visited+passable tile, check its 4 neighbors
-(`tileAt(x, y±1)`, `tileAt(x±1, y)`) — if a neighbor is also
-currently-visited and currently-passable, that direction counts as
-connected and gets a trail stroke drawn toward it.
+**Superseded 2026-08-26 — see below for what actually ships.** The
+original design (kept here for the record) inferred connectivity from
+neighbor adjacency: at render time, a tile connected toward any
+neighbor that was *also* visited, on the reasoning that "both neighbors
+visited" and "you actually stepped directly between them" coincide in
+essentially every real case, with a rare exception dismissed as
+harmless. Live play proved that reasoning wrong: walking two parallel
+corridors one tile apart made *every* column between them look
+connected — a "ladder" of false rungs where the player never once
+stepped sideways — and the same false-positive pattern showed up
+constantly, not rarely, any time exploration doubled back near itself.
+Timothy: "I only want where you walk to have a path... if you walk
+north to a tile and then west you should only get a north path in that
+tile half way and then a west path half way."
 
-This was the one real trade-off discussed and deliberately chosen over
-tracking literal step-by-step transitions: since a tile can only ever
-become visited by walking from an already-adjacent tile (or as a
-screen's landing tile on entry), "both neighbors visited" and "you
-actually stepped directly between them" coincide in essentially every
-real case. The rare exception — two separately-explored patches later
-joined by a single tile visited between them — just reads as the worn
-areas merging into one connected trail, which is the desired look
-anyway, not a bug. This keeps the data model to a single per-tile
-counter (needed for wear amount regardless) with no separate edge/
-transition storage to bound or cap.
+**What ships instead:** track, per tile, the literal set of edges
+(`n`/`s`/`e`/`w`) the player has ever actually crossed there — no
+inference, no neighbor lookup for connectivity at all. `state.visited`'s
+per-tile entry becomes `{ count, dirs }` (see Data model below). A
+single move updates both tiles it touches, symmetrically: the tile being
+left gets the direction moved added to its own `dirs` (its exit edge),
+and the tile being entered gets the *opposite* direction added to its
+`dirs` (the edge it was entered through) — see `markVisited`/
+`markDirection` in `js/systems/exploration.js` and their call sites in
+`tryMove` (`js/screens/mapScreen.js`). Walking north then west produces
+exactly the worked example above: the first tile gets `n` only, the
+second gets `s` (entered from below) and `w` (left westward), the third
+gets `e` (entered from the east) — because unlock order and array order
+already happen to match, nothing about *which* edges get marked depends
+on inferring anything from a neighbor.
 
-**Entrance/landmark tiles count as an implicit, always-visited anchor.**
-Raised by Timothy: walking out of town for the very first time should
-visibly read as the trail emerging from the town gate, not as an
-isolated dot floating next to it. `tryMove` (`js/screens/mapScreen.js`)
-does mark a landmark tile visited, and does render its own trail
-fragment for it, before firing that tile's action callback — so a
-`townEntrance` tile (or any other `FULL_SQUARE_MARKERS` landmark —
-`dungeonEntrance`, the axe/pick/canoe dungeon entrances,
-`miniDungeonEntrance`) isn't fundamentally exempt from the normal walk
-count. The problem is narrower and only bites on a first crossing: the
-very first time a screen renders such a tile as a *neighbor* of the
-player's current position, that landmark's own count can still be 0 in
-this screen's `state.visited`, because the crossing that would have
-incremented it hasn't happened yet from this screen's side — most
-concretely, exiting town for the first time lands the player adjacent
-to the town gate without ever having stepped onto that gate tile in the
-wilderness screen's own data. So the neighbor check above treats any
-`FULL_SQUARE_MARKERS` tile as connected/visited automatically,
-without needing its own count in `state.visited` — a plain rule, not a
-special case, since it reuses the same `FULL_SQUARE_MARKERS` set
-`render()` already has.
+Render-time connectivity is now trivial: a tile's connected directions
+are just its own `dirs`, read directly (`getVisitDirs`). No
+`isTrailConnected`/neighbor-inspection function exists anymore.
 
-That rule alone isn't sufficient for the town case specifically,
-though: `center.js`'s wilderness `startPosition` (`{x: 15, y: 11}`,
-where the player lands after `exitMap` from town) turns out to be
-*diagonal* to the town-entrance tile at `{x: 14, y: 12}`, not
-orthogonally adjacent — and connectivity here, like movement, is only
-ever 4-directional. Verified via the actual map data
-(`js/maps/wilderness/center.js`) that all 4 of the entrance's true
-cardinal neighbors are plain grass, so `startPosition` moves to
-`{x: 14, y: 11}` (directly north of the gate) as part of this work —
-a one-line map-data nudge, not a rendering change. This was checked
-only for the town/`center` case Timothy raised; dungeon and tool-
-dungeon entrance landing positions weren't audited for the same
-diagonal-offset issue and may or may not need the same nudge — flagged
-here rather than silently assumed fixed.
+**The old entrance-anchor special case is gone, not replaced.** The
+original design needed an explicit "landmark tiles always count as
+connected" override because inferred connectivity had no other way to
+handle the town gate reading as isolated right after exiting town. Under
+per-edge tracking, that need disappears on its own: any tile — landmark
+or not — only ever gets a `dirs` entry because the player actually
+crossed that specific edge, at which point the tile on the other side of
+that same move necessarily already has (or just gained) a real walk
+count of its own. There's nothing left to special-case.
+
+**The town-gate landing tile itself is a deliberate, explicitly-decided
+exception to "always connects to the gate."** `exitMap` teleports the
+player to `startPosition` — there's no directional keypress to record
+for that specific transition, so that tile shows an isolated dot until
+the player's first real step, exactly like landing on any other fresh
+screen. Discussed directly with Timothy and decided in favor of strict
+consistency ("keep the dot") over synthesizing a fake direction just to
+preserve the old immediate-connection visual.
+
+`center.js`'s wilderness `startPosition` (`{x: 15, y: 11}` originally,
+where the player lands after `exitMap` from town) still moved to
+`{x: 14, y: 11}` as part of the original work, and that nudge is still
+worth keeping even though it's no longer load-bearing for an *immediate*
+connection: it means the tile the player lands on is genuinely
+orthogonally adjacent to the gate, so a player who takes their very
+first step toward town connects to it in one move instead of needing a
+detour first (the original diagonal placement made that literally
+impossible in a single step, since movement — and now connectivity — is
+4-directional only). This was checked only for the town/`center` case
+Timothy raised; dungeon and tool-dungeon entrance landing positions
+weren't audited for the same diagonal-offset issue.
+
+**Backward compatibility carries over unchanged in spirit:** a shared
+`normalizeEntry()` helper in `exploration.js` reads all three shapes a
+saved entry has ever had — legacy `true`, the plain-number walk-count
+format, and the current `{ count, dirs }` object — normalizing the first
+two to `dirs: []`. An existing save's tiles all render as isolated dots
+again until walked over post-upgrade, same graceful-degrade approach as
+the original `true → 1` shim, still with no explicit migration step.
 
 ### Rendering: a trail fragment per tile, not one shared canvas
 
@@ -283,12 +303,18 @@ fragment system, never a whole-tile background change.
 
 ## Data model
 
-`state.visited[screenId][x,y]`: was `true`, now a `number` (walk count).
-`markVisited`/`isVisited`/`getVisitCount` (`js/systems/exploration.js`)
-are the only code that reads or writes this shape — no other file
-touches `state.visited` directly (confirmed via grep). No explicit save
-migration: `getVisitCount` normalizes a legacy `true` to `1` on read,
-and every write from then on stores a real number.
+`state.visited[screenId][x,y]` has taken three shapes over time, oldest
+first: `true` (a boolean set), a plain `number` (walk count only — the
+shape this feature originally shipped with), and now (2026-08-26)
+`{ count, dirs }`, where `dirs` is the array of edges (`n`/`s`/`e`/`w`)
+actually crossed at that tile — see the superseded-connectivity
+discussion above. `markVisited`/`markDirection`/`isVisited`/
+`getVisitCount`/`getVisitDirs` (`js/systems/exploration.js`) are the
+only code that reads or writes this shape — no other file touches
+`state.visited` directly (confirmed via grep). No explicit save
+migration for either transition: a shared `normalizeEntry()` helper
+reads all three legacy/current shapes into `{ count, dirs }`, and every
+write from then on stores the current shape.
 
 ## Wiring changes
 
