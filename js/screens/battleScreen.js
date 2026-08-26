@@ -314,9 +314,8 @@ function updateBuffIndicator() {
 function abilityButtonsHtml() {
   const ready = isReady(playerCombatant.atb);
   const target = monsterCombatants[selectedMonsterIndex];
-  return ABILITIES.map((ability, index) => {
+  return getUnlockedAbilities(state.player.level).map((ability, index) => {
     const slot = index + 1;
-    const locked = state.player.level < ability.unlockLevel;
     const cooldownRemaining = abilityCooldowns[ability.id] || 0;
     // A primed payoff (e.g. Chop after Stab landed) can be pressed even
     // before the swing timer is full - that's the "instant" combo feel.
@@ -324,7 +323,7 @@ function abilityButtonsHtml() {
     // get this bypass, only the extra damage - see Global Constraints.
     const comboPrimed = !!comboState[ability.id];
     const alwaysReady = ability.type === 'buff';
-    const disabled = !canUseAbility({ locked, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole, alwaysReady });
+    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole, alwaysReady });
     const cooldownSuffix = cooldownRemaining > 0 ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
     const comboSuffix = comboPrimed
       ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
@@ -524,11 +523,11 @@ function handleKeydown(event) {
     if (!isReady(playerCombatant.atb)) return;
     playerFlee();
   } else if (key >= '1' && key <= '4') {
-    const ability = ABILITIES[Number(key) - 1];
-    const locked = state.player.level < ability.unlockLevel;
+    const ability = getUnlockedAbilities(state.player.level)[Number(key) - 1];
+    if (!ability) return;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
     const comboPrimed = !!comboState[ability.id];
-    if (canUseAbility({ locked, onCooldown, ready: isReady(playerCombatant.atb), comboPrimed, comboRole: ability.comboRole })) {
+    if (canUseAbility({ locked: false, onCooldown, ready: isReady(playerCombatant.atb), comboPrimed, comboRole: ability.comboRole })) {
       playerUseAbility(ability.id);
     }
   }

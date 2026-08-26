@@ -329,23 +329,38 @@ here. No new work was needed.
   distinct item under Feature requests below) was already independently
   marked shipped 2026-08-22.
 
-## Terrain painter: small UX polish items
+## ~~Terrain painter: small UX polish items~~ All three shipped 2026-08-26
 
 Raised 2026-08-24 while Timothy was actively painting. Small, independent
 fixes - not a design pass, just a punch list.
 
-- **Page scroll fights with painting near the canvas edges.** Timothy's
-  words: "disable scroll while drawing on the map? It keeps moving
-  around driving me nuts." Likely needs `e.preventDefault()` or similar
-  on the canvas's mousedown/mousemove/touch handlers, or an
-  `overscroll-behavior`/`touch-action` CSS fix - not investigated yet.
-- **No indicator of the brush's shape/size before you click.** "I keep
-  making bigger shapes by accident." A hover preview (a translucent
-  outline at the cursor showing exactly which cells the next click would
-  paint, using the current `brushSize`/`brushShape`) would fix this.
-- **Keyboard shortcuts to bump brush size up/down** (e.g. `[`/`]`),
-  raised alongside the hover-indicator ask, same underlying complaint -
-  wants faster/more precise control over accidentally-large strokes.
+- ~~**Page scroll fights with painting near the canvas edges.**~~ **Shipped.**
+  Timothy's words: "disable scroll while drawing on the map? It keeps
+  moving around driving me nuts." Root cause: trackpad two-finger scroll
+  fires as a `wheel` event on desktop Chrome/Firefox (not a touch event),
+  so `touch-action` alone doesn't stop it - it scrolls the page mid-stroke,
+  shifting the canvas under the cursor. Fixed with a non-passive `wheel`
+  listener on the canvas that calls `preventDefault()` only while a stroke
+  is actively in progress (`painting === true`), so scrolling to see the
+  rest of the map still works normally between strokes. `touch-action: none`
+  also added to the canvas defensively for actual touchscreen input.
+  Verified via a real `WheelEvent` dispatch: default scroll behavior
+  allowed when idle, prevented mid-stroke.
+- ~~**No indicator of the brush's shape/size before you click.**~~
+  **Shipped.** "I keep making bigger shapes by accident." Hovering the
+  canvas (when not actively painting) now draws a translucent white
+  outline over exactly the cells the current `brushSize`/`brushShape`
+  would paint - shares the same cell-offset calculation (`brushCells`)
+  the actual paint stroke uses, so the preview can't drift out of sync
+  with what a click does. Verified in-browser at brush sizes 1 and 5, both
+  square and circle shapes - preview shape matched the brush exactly, and
+  disappears while a stroke is active or the cursor leaves the canvas.
+- ~~**Keyboard shortcuts to bump brush size up/down**~~ **Shipped**
+  (`[`/`]`), raised alongside the hover-indicator ask, same underlying
+  complaint - wants faster/more precise control over accidentally-large
+  strokes. Clamped to the same 1-15 range as the brush-size slider, and
+  keeps the slider/label in sync. Verified via dispatched keydown events:
+  clamps correctly at both ends.
 
 ## Painter tool: paint which monsters can appear where (big idea — not designed yet)
 
@@ -794,7 +809,7 @@ through in a dedicated future combat pass rather than one-off adds:
   separate future project (see "Multi-mob encounters in zone 1" and
   "Multi-zone progression" above, since Slash/Sweep were specifically
   built to extend to real multi-target without rework once that lands).
-- **Hide locked abilities entirely instead of showing them disabled, raised 2026-08-26.** Timothy's own words: "don't show abilities until you leveled up enough to acquire them. so the start of the game you just have attack and item and then slowly you get more things." Today `abilityButtonsHtml()` (`js/screens/battleScreen.js`) renders all 5 buttons from the full `ABILITIES` array every battle, `disabled` (grayed out, no unlock hint shown) when `state.player.level < ability.unlockLevel` — the gating logic already exists (`getUnlockedAbilities(level)` in `js/systems/abilities.js` already filters correctly and is already used elsewhere, e.g. the attack-decay divisor), it's just not applied to what gets *rendered*. The straightforward fix is mapping over `getUnlockedAbilities(state.player.level)` instead of `ABILITIES` there. One real wrinkle to handle, not just a swap: the 1-4 number-key shortcuts (`handleKeydown`, same file) look an ability up by fixed position in the *full* `ABILITIES` array (`ABILITIES[Number(key) - 1]`), not the filtered list - switching the buttons to a filtered list without also switching the keybinding lookup to that same filtered list's index would desync what key "2" does from what button "2" shows. Not a blocker (unlock levels are already monotonically increasing in the same order as the array, so a filtered-list index stays stable and correctly ordered as abilities unlock over time), just something the fix needs to change consistently in both places. Super Scream is unaffected either way - it's exempt from numbered slots entirely (fixed to Space, `alwaysReady`), only ever needs the existing `locked` check kept as-is wherever it's read directly by id.
+- ~~**Hide locked abilities entirely instead of showing them disabled, raised 2026-08-26.**~~ **Shipped 2026-08-26.** Timothy's own words: "don't show abilities until you leveled up enough to acquire them. so the start of the game you just have attack and item and then slowly you get more things." `abilityButtonsHtml()` (`js/screens/battleScreen.js`) now maps over `getUnlockedAbilities(state.player.level)` instead of the full `ABILITIES` array, and the digit-key handler (`handleKeydown`, same file) looks up `getUnlockedAbilities(state.player.level)[Number(key) - 1]` instead of indexing the full array, with a guard for a key beyond however many abilities are currently unlocked - keeps the filtered-list index consistent between what a button shows and what its key press fires, exactly as the note flagged. Verified in-browser (not just unit tests, since this repo has no jsdom setup for `battleScreen.js` - see the deferred jsdom item below) by mounting real battle instances at levels 1, 3, 5, and 10: level 1 shows zero ability buttons, each unlock threshold shows exactly the right buttons with correctly-numbered key labels, and dispatched keydown events for keys beyond the unlocked count no-op with no errors. Super Scream (Space-bound, exempt from numbered slots) unaffected. `docs/superpowers/BACKLOG.md`'s own separately-tracked "Level-up and general animation pass" idea got a related add-on the same day: a level-up battle now also announces any ability newly unlocked that battle (`js/main.js`), staggered after the level-up celebration so the two banners don't clobber each other - see CHANGELOG.
 - **Research: how do other games avoid pure exponential stat inflation?**
   Timothy, 2026-08-17, raised alongside the pacing-curve discussion —
   rather than only fighting "numbers get big and trivialize old content"

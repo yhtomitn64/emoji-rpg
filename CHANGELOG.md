@@ -25,6 +25,26 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- A level-up that crosses one or more ability-unlock thresholds now
+  announces the newly-unlocked ability/abilities (e.g. "New ability
+  unlocked: 🗡️ Stab!") right after the existing level-up celebration
+  (`js/main.js`). Staggered 1600ms after the level-up banner rather than
+  fired in the same tick, since `playCelebration` isn't queued — it just
+  overwrites the shared banner/burst elements immediately, so an
+  unstaggered second call would clobber the level-up message before it
+  was ever seen. Multiple abilities crossed in one battle (a big single
+  XP grant can jump several levels via `applyXp`'s loop) combine into one
+  message rather than firing once each. Verified in-browser via a
+  temporary debug hook driving real `handleBattleEnd` calls: a level 1→2
+  jump announced Stab alone, a forced 3→9 jump announced Chop/Slash/Sweep
+  together, both correctly sequenced after "Level up!" rather than
+  replacing it.
+- Terrain painter (`tools/terrain-painter/`): hovering the canvas now
+  shows a translucent outline over exactly the cells the current brush
+  would paint (`drawBrushPreview`/`brushCells` in `painter.js`), and
+  `[`/`]` bump brush size up/down (clamped to the existing 1-15 slider
+  range, kept in sync with it). Both close out the "Terrain painter:
+  small UX polish items" backlog entry alongside the scroll fix below.
 - Wilderness grid grew from 3x3 (9 screens) to 5x5 (25 screens): 16 new
   outer-ring screens (`js/maps/wilderness/*.js`, e.g. `farNorthwest`,
   `northNortheast`, `farSouth`) wired into the existing generic
@@ -95,6 +115,14 @@ public API, no formal release process — commits land straight on
   until that first real step, same as any other fresh tile.
 
 ### Fixed
+- Terrain painter: trackpad two-finger scroll (a `wheel` event on desktop
+  Chrome/Firefox, not a touch event, so `touch-action` alone didn't stop
+  it) scrolled the page mid-paint-stroke, shifting the canvas under the
+  cursor — "it keeps moving around driving me nuts." A non-passive
+  `wheel` listener on the canvas now calls `preventDefault()` only while
+  a stroke is actively in progress, so scrolling between strokes still
+  works normally. `touch-action: none` also added to the canvas
+  defensively for real touchscreen input.
 - Three map-rendering layering bugs, raised by Timothy 2026-08-25 (see
   `docs/superpowers/BACKLOG.md`'s "Character/tree layering + a real
   worn-path trail effect" entry) and one more he spotted mid-session:
@@ -160,6 +188,14 @@ public API, no formal release process — commits land straight on
   new Infrastructure entry on that trade-off.
 
 ### Changed
+- Locked combat abilities are no longer shown disabled — they're hidden
+  entirely until unlocked (`abilityButtonsHtml()` in
+  `js/screens/battleScreen.js` now maps over `getUnlockedAbilities(state.
+  player.level)` instead of the full `ABILITIES` array). The digit-key
+  shortcuts (`1`-`4`, `handleKeydown`, same file) now index into that same
+  filtered list instead of the full array, so a key's number always
+  matches the button showing that number — a fresh level-1 character now
+  sees only Attack/Item/Flee, same as Timothy asked.
 - Leveling slowed down 4x: `xpForLevel`'s base coefficient (`js/systems/
   leveling.js`) goes 12→48 (the 2026-08-22 balance pass had already taken
   it 10→12; this is a further 4x on top of that, not from the original

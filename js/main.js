@@ -55,6 +55,7 @@ import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/mess
 import { playCelebration } from './screens/celebrationEffect.js';
 import { playItemPickupToast } from './screens/itemPickupToast.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
+import { ABILITIES } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
@@ -678,6 +679,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       playCelebration('🎉', 'First blood! You feel like a real adventurer now.');
     }
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
+    const levelBeforeRewards = state.player.level;
     let leveledUpThisBattle = false;
     // A surrender leaves the monster at full HP - killedMonsterIds is empty,
     // so surrender (always solo) must reward the full original roster instead.
@@ -716,6 +718,21 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     if (leveledUpThisBattle) {
       playCelebration('⭐', `Level up! You are now level ${state.player.level}.`, { bigText: 'LEVEL UP!' });
       mapScreen.playLevelUpEffect();
+      const newlyUnlockedAbilities = ABILITIES.filter(
+        (ability) => ability.unlockLevel > levelBeforeRewards && ability.unlockLevel <= state.player.level
+      );
+      if (newlyUnlockedAbilities.length > 0) {
+        const names = newlyUnlockedAbilities.map((ability) => `${ability.icon} ${ability.name}`).join(', ');
+        const emoji = newlyUnlockedAbilities.length === 1 ? newlyUnlockedAbilities[0].icon : '🔓';
+        // playCelebration isn't queued - it just overwrites the shared banner/burst
+        // elements immediately, so firing this in the same tick as the level-up
+        // celebration above would clobber it before it's ever seen. Stagger past
+        // that celebration's own burst animation (celebrationEffect.js's
+        // BURST_DURATION_MS, 1400ms) so the two show in sequence instead.
+        setTimeout(() => {
+          playCelebration(emoji, `New ability unlocked: ${names}!`);
+        }, 1600);
+      }
     }
     state.lossStreak = 0;
 

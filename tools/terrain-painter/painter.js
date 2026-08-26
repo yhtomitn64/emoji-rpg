@@ -131,6 +131,7 @@ let activeBrush = 'grass';
 let painting = false;
 let brushSize = 1; // radius in cells - 1 means "just the cell under the cursor"
 let brushShape = 'square';
+let hoverCell = null; // { x, y } in active-grid coordinates, or null when the cursor is off-canvas
 let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance spot (wilderness only)
 let placingDungeon = false;
 let toolDungeonMarkers = {}; // toolId -> { screenId, x, y } (wilderness only)
@@ -355,6 +356,7 @@ function renderSingleMap(ctx) {
 function render(ctx) {
   if (currentMapKey === 'wilderness') renderWilderness(ctx);
   else renderSingleMap(ctx);
+  drawBrushPreview(ctx);
 }
 
 function paintAt(x, y) {
@@ -366,14 +368,39 @@ function paintAt(x, y) {
   if (active.isWilderness) checkOverlay = null; // stale as soon as the terrain changes
 }
 
-function paintBrush(cx, cy) {
+function brushCells(cx, cy) {
   const r = brushSize - 1;
+  const cells = [];
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       if (brushShape === 'circle' && Math.sqrt(dx * dx + dy * dy) > r + 0.5) continue;
-      paintAt(cx + dx, cy + dy);
+      cells.push([cx + dx, cy + dy]);
     }
   }
+  return cells;
+}
+
+function paintBrush(cx, cy) {
+  for (const [x, y] of brushCells(cx, cy)) paintAt(x, y);
+}
+
+// Shows exactly which cells the next click would paint, so an oversized
+// brushSize (easy to lose track of, especially with the [/] shortcuts) is
+// visible before it lands instead of after. Hidden mid-stroke - the live
+// paint fill is already the feedback at that point.
+function drawBrushPreview(ctx) {
+  if (!hoverCell || painting) return;
+  const active = getActive();
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.lineWidth = 1;
+  for (const [x, y] of brushCells(hoverCell.x, hoverCell.y)) {
+    if (x < 0 || x >= active.w || y < 0 || y >= active.h) continue;
+    ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+    ctx.strokeRect(x * CELL + 0.5, y * CELL + 0.5, CELL - 1, CELL - 1);
+  }
+  ctx.restore();
 }
 
 function saveAutosave() {
@@ -814,6 +841,15 @@ async function init() {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       doUndo();
+      return;
+    }
+    if (e.key === '[' || e.key === ']') {
+      const next = Math.min(Number(brushSizeInput.max), Math.max(Number(brushSizeInput.min), brushSize + (e.key === ']' ? 1 : -1)));
+      if (next === brushSize) return;
+      brushSize = next;
+      brushSizeInput.value = String(brushSize);
+      brushSizeLabel.textContent = String(brushSize);
+      render(ctx);
     }
   });
 
@@ -887,6 +923,15 @@ async function init() {
     };
   }
 
+  // Trackpad two-finger scroll fires as a `wheel` event on desktop Chrome/
+  // Firefox (not a touch event), so it isn't stopped by touch-action - it
+  // scrolls the page mid-stroke, shifting the canvas under the cursor while
+  // painting. Only suppress it during an active stroke so scrolling to see
+  // the rest of the map still works between strokes.
+  canvas.addEventListener('wheel', (e) => {
+    if (painting) e.preventDefault();
+  }, { passive: false });
+
   canvas.addEventListener('mousedown', (e) => {
     const { x, y } = cellFromEvent(e);
     if (currentMapKey === 'wilderness' && placingDungeon) {
@@ -925,9 +970,14 @@ async function init() {
     render(ctx);
   });
   canvas.addEventListener('mousemove', (e) => {
-    if (!painting || !currentPalette().includes(activeBrush)) return;
     const { x, y } = cellFromEvent(e);
-    paintBrush(x, y);
+    const validBrush = currentPalette().includes(activeBrush);
+    hoverCell = validBrush ? { x, y } : null;
+    if (painting && validBrush) paintBrush(x, y);
+    render(ctx);
+  });
+  canvas.addEventListener('mouseleave', () => {
+    hoverCell = null;
     render(ctx);
   });
   window.addEventListener('mouseup', () => {
