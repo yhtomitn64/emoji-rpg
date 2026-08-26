@@ -241,24 +241,52 @@ function trailWearFraction(visitCount) {
 }
 ```
 
-Used for both stroke opacity and stroke width, e.g. opacity
-`0.25 + 0.55 * fraction` (a first-time connection is already faintly
-visible, never invisible) and width `10 + 8 * fraction` (in the same
+Used for stroke width, e.g. `10 + 8 * fraction` (in the same
 `cqb`-relative sizing units the rest of `render()` already uses for
-obstacles/markers). A tile's own count drives its own fragment only —
-not an average with its neighbor's count — so a heavily-walked stretch
-near town can read as more worn than a lightly-walked stretch further
-out even where they connect, which matches how real trails erode
-unevenly.
+obstacles/markers) — **superseded 2026-08-26**, see below: width is no
+longer purely this tile's own fraction, and wear is no longer
+represented as opacity at all.
+
+**Width, superseded:** a stroke's width is now the average of both
+endpoints' fractions (`trailStrokeWidthBetween`), not just this tile's
+own — symmetric, so the two tiles sharing an edge always compute the
+same width for their half of that connection. The original design
+deliberately used only this tile's own count so "a heavily-walked
+stretch near town can read as more worn than a lightly-walked stretch
+further out" — that intent is preserved (still no averaging for
+*color*, still no cross-tile smoothing beyond one shared edge), but pure
+per-tile width produced a visible hard step at a border between very
+differently-worn tiles, reported live ("the thickness doesn't flow into
+the thinner other line").
+
+**Opacity, removed entirely:** the original design used
+`0.25 + 0.55 * fraction` for stroke opacity, living as one flat
+`<svg>`-level value per tile (needed to stop overlapping connector arms
+at a junction's center from alpha-stacking into a dark blob — see
+Rendering above). That flat-per-tile constraint turned out to make a
+second, real bug possible: two tiles sharing an edge could have
+gradient stop-colors that matched exactly, while rendering at very
+different opacity (confirmed live against real save data — a tile
+visited 38 times next to one visited once, 0.8 opacity meeting 0.305),
+producing a hard seam since the low-opacity side blends into the grass
+underneath and visibly shifts hue. Wear is now baked entirely into
+color instead: `trailColorForFraction` blends between the tile's own
+ground color (`getGroundColor` — the same hex each terrain's own
+`.map-tile-*` CSS background already uses) at fraction 0 and the full
+trail color at fraction 1. Every stroke is fully opaque; overlapping
+ones at a center simply paint over each other with no compositing
+artifact, sidestepping the original alpha-stacking problem without
+needing a flat group-level value at all.
 
 The isolated-tile worn dot (no connected neighbors — see Scope) uses
 the same `trailWearFraction` off the same tile's count, sized as a
-small centered circle instead of an edge-reaching stroke, e.g. radius
-`6 + 6 * fraction` cqb-relative units and the same opacity formula
-above. It automatically upgrades to full connector strokes the moment a
-neighbor also becomes visited — no separate state to track, since
-"connected or not" is re-evaluated fresh every `render()` call the same
-as everything else here.
+small centered circle instead of an edge-reaching stroke (radius
+`6 + 6 * fraction` cqb-relative units), filled with
+`trailColorForFraction` the same way a stroke's endpoint is. It
+automatically upgrades to full connector strokes the moment a direction
+is actually crossed — no separate state to track, since a tile's
+connected directions are re-read fresh (`getVisitDirs`) every `render()`
+call the same as everything else here.
 
 ### Terrain-aware trail color
 
