@@ -1,5 +1,6 @@
 import { ITEMS } from '../data/items.js';
 import { upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL, describeItem } from '../systems/inventory.js';
+import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
 
@@ -21,10 +22,11 @@ function render() {
 
     const item = ITEMS[itemId];
     const level = state.upgrades?.[itemId] || 0;
+    const tier = state.equipmentTiers?.[slot];
 
     if (level >= MAX_UPGRADE_LEVEL) {
       return `<div class="smith-row">
-      <span title="${describeItem(itemId)}">${item.emoji} ${item.name} +${level} (MAX)</span>
+      <span title="${describeItem(itemId)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
     </div>`;
     }
 
@@ -35,7 +37,7 @@ function render() {
       .join('');
 
     return `<div class="smith-row">
-      <span title="${describeItem(itemId)}">${item.emoji} ${item.name} +${level}</span>
+      <span title="${describeItem(itemId)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
       <button data-slot="${slot}" ${materials.length === 0 ? 'disabled' : ''}>Upgrade (${cost}g)</button>
     </div>`;
