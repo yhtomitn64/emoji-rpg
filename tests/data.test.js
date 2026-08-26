@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MONSTERS } from '../js/data/monsters.js';
-import { ITEMS } from '../js/data/items.js';
+import { ITEMS, SHOP_CATALOG } from '../js/data/items.js';
 import { QUEST_REQUIREMENTS } from '../js/systems/quests.js';
 
 test('every monster has required fields and a valid drop table', () => {
@@ -125,6 +125,32 @@ test('the rare elite (jurassicJerky) has near-dragon stats, is not a boss, and d
   assert.equal(fang.slot, 'weapon');
   assert.equal(fang.price, 0);
   assert.equal(fang.stats.attack, 12);
+});
+
+test('the three v1 Unique-effect items have the documented slots, prices, and effect stats', () => {
+  const vampiricFang = ITEMS.vampiricFang;
+  assert.equal(vampiricFang.name, 'Vampiric Fang');
+  assert.equal(vampiricFang.slot, 'weapon');
+  assert.equal(vampiricFang.price, 0);
+  assert.equal(vampiricFang.stats.attack, 7);
+  assert.equal(vampiricFang.stats.lifestealPercent, 15);
+
+  const swiftStrikeCharm = ITEMS.swiftStrikeCharm;
+  assert.equal(swiftStrikeCharm.name, 'Swift Strike Charm');
+  assert.equal(swiftStrikeCharm.slot, 'accessory');
+  assert.equal(swiftStrikeCharm.price, 0);
+  assert.equal(swiftStrikeCharm.stats.extraSwingChance, 10);
+
+  const emberRing = ITEMS.emberRing;
+  assert.equal(emberRing.name, 'Ember Ring');
+  assert.equal(emberRing.slot, 'accessory');
+  assert.equal(emberRing.price, 0);
+  assert.equal(emberRing.stats.elementalProcChance, 20);
+  assert.equal(emberRing.stats.elementalProcDamage, 6);
+
+  for (const id of ['vampiricFang', 'swiftStrikeCharm', 'emberRing']) {
+    assert.ok(!SHOP_CATALOG.includes(id), `${id} must not be shop-purchasable`);
+  }
 });
 
 test('every monster has a valid attackStyle, and ranged monsters have a projectileEmoji', () => {

@@ -31,6 +31,15 @@ export const ITEMS = {
   powerRing: { id: 'powerRing', name: 'Power Ring', emoji: '💍', slot: 'accessory', price: 40, stats: { attack: 2 } },
   frostCharm: { id: 'frostCharm', name: 'Frost Charm', emoji: '❄️', slot: 'accessory', price: 40, stats: { enemySlowPercent: 15 }, description: "Slows the enemy's attack timer by 15%" },
 
+  // Unique-effect drops (found only, never sold - see js/systems/loot.js's
+  // UNIQUE_EFFECT_ITEM_IDS)
+  vampiricFang: { id: 'vampiricFang', name: 'Vampiric Fang', emoji: '🦴', slot: 'weapon', price: 0,
+    stats: { attack: 7, lifestealPercent: 15 } },
+  swiftStrikeCharm: { id: 'swiftStrikeCharm', name: 'Swift Strike Charm', emoji: '🔮', slot: 'accessory', price: 0,
+    stats: { extraSwingChance: 10 } },
+  emberRing: { id: 'emberRing', name: 'Ember Ring', emoji: '🔥', slot: 'accessory', price: 0,
+    stats: { elementalProcChance: 20, elementalProcDamage: 6 } },
+
   // Consumables
   potion: { id: 'potion', name: 'Potion', emoji: '🧪', type: 'consumable', price: 10, heal: 15 },
 
