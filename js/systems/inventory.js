@@ -1,7 +1,17 @@
 import { ITEMS } from '../data/items.js';
+import { QUALITY_TIER_MULTIPLIERS } from './itemQuality.js';
 
 export const UPGRADE_BASE_COST = 20;
 export const MAX_UPGRADE_LEVEL = 3;
+
+const STAT_KEYS = [
+  'attack', 'defense', 'maxHp', 'speed', 'enemySlowPercent',
+  'lifestealPercent', 'extraSwingChance', 'elementalProcChance', 'elementalProcDamage',
+];
+
+function zeroStats() {
+  return Object.fromEntries(STAT_KEYS.map((key) => [key, 0]));
+}
 
 export function addGold(state, amount) {
   return { ...state, player: { ...state.player, gold: state.player.gold + amount } };
@@ -12,33 +22,38 @@ export function spendGold(state, amount) {
   return { ...state, player: { ...state.player, gold: state.player.gold - amount } };
 }
 
-export function addItem(state, itemId, quantity = 1) {
+export function addItem(state, itemId, quantity = 1, tier) {
   const inventory = state.inventory.map((entry) => ({ ...entry }));
-  const existing = inventory.find((entry) => entry.itemId === itemId);
+  const existing = inventory.find((entry) => entry.itemId === itemId && entry.tier === tier);
   if (existing) {
     existing.quantity += quantity;
   } else {
-    inventory.push({ itemId, quantity });
+    inventory.push({ itemId, quantity, tier });
   }
   return { ...state, inventory };
 }
 
-export function removeItem(state, itemId, quantity = 1) {
+export function removeItem(state, itemId, quantity = 1, tier) {
   const inventory = state.inventory
-    .map((entry) => (entry.itemId === itemId ? { ...entry, quantity: entry.quantity - quantity } : entry))
+    .map((entry) => (entry.itemId === itemId && entry.tier === tier ? { ...entry, quantity: entry.quantity - quantity } : entry))
     .filter((entry) => entry.quantity > 0);
   return { ...state, inventory };
 }
 
-export function equipItem(state, itemId, slot) {
-  const inventoryEntry = state.inventory.find((entry) => entry.itemId === itemId && entry.quantity > 0);
+export function equipItem(state, itemId, slot, tier) {
+  const inventoryEntry = state.inventory.find((entry) => entry.itemId === itemId && entry.tier === tier && entry.quantity > 0);
   if (!inventoryEntry) throw new Error(`Item ${itemId} not in inventory`);
 
   const previouslyEquipped = state.equipment[slot];
-  let next = removeItem(state, itemId, 1);
-  next = { ...next, equipment: { ...next.equipment, [slot]: itemId } };
+  const previousTier = state.equipmentTiers?.[slot];
+  let next = removeItem(state, itemId, 1, tier);
+  next = {
+    ...next,
+    equipment: { ...next.equipment, [slot]: itemId },
+    equipmentTiers: { ...next.equipmentTiers, [slot]: tier },
+  };
   if (previouslyEquipped) {
-    next = addItem(next, previouslyEquipped, 1);
+    next = addItem(next, previouslyEquipped, 1, previousTier);
   }
   return next;
 }
@@ -46,8 +61,13 @@ export function equipItem(state, itemId, slot) {
 export function unequipItem(state, slot) {
   const itemId = state.equipment[slot];
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
-  let next = { ...state, equipment: { ...state.equipment, [slot]: null } };
-  next = addItem(next, itemId, 1);
+  const tier = state.equipmentTiers?.[slot];
+  let next = {
+    ...state,
+    equipment: { ...state.equipment, [slot]: null },
+    equipmentTiers: { ...state.equipmentTiers, [slot]: undefined },
+  };
+  next = addItem(next, itemId, 1, tier);
   return next;
 }
 
@@ -99,44 +119,47 @@ export function upgradeItem(state, slot, materialId, cost) {
   return next;
 }
 
-export function getItemEffectiveStats(itemId, upgradeLevel = 0) {
+export function getItemEffectiveStats(itemId, upgradeLevel = 0, tier) {
   const item = ITEMS[itemId];
-  const stats = { attack: 0, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 };
-  for (const stat of Object.keys(stats)) {
-    const base = item.stats?.[stat] || 0;
+  const stats = zeroStats();
+  const tierMultiplier = tier ? QUALITY_TIER_MULTIPLIERS[tier] : 1;
+  for (const stat of STAT_KEYS) {
+    const base = (item.stats?.[stat] || 0) * tierMultiplier;
     stats[stat] = base + base * 0.25 * upgradeLevel;
   }
   return stats;
 }
 
 export function getEquipmentBonuses(state) {
-  const bonuses = { attack: 0, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 };
+  const bonuses = zeroStats();
   for (const slot of Object.keys(state.equipment)) {
     const itemId = state.equipment[slot];
     if (!itemId) continue;
     const upgradeLevel = state.upgrades?.[itemId] || 0;
-    const itemStats = getItemEffectiveStats(itemId, upgradeLevel);
-    for (const stat of Object.keys(bonuses)) {
+    const tier = state.equipmentTiers?.[slot];
+    const itemStats = getItemEffectiveStats(itemId, upgradeLevel, tier);
+    for (const stat of STAT_KEYS) {
       bonuses[stat] += itemStats[stat];
     }
   }
-  // Upgrade scaling (0.25/level) is fractional for most items; round each total
-  // once so callers only ever see integer stats (HUD, battle, saved HP).
-  for (const stat of Object.keys(bonuses)) {
+  // Upgrade/tier scaling is fractional for most items; round each total once
+  // so callers only ever see integer stats (HUD, battle, saved HP).
+  for (const stat of STAT_KEYS) {
     bonuses[stat] = Math.round(bonuses[stat]);
   }
   return bonuses;
 }
 
-export function getItemStatDelta(state, itemId) {
+export function getItemStatDelta(state, itemId, tier) {
   const item = ITEMS[itemId];
   const currentItemId = state.equipment[item.slot];
   const currentUpgrade = currentItemId ? (state.upgrades?.[currentItemId] || 0) : 0;
+  const currentTier = currentItemId ? state.equipmentTiers?.[item.slot] : undefined;
   const newUpgrade = state.upgrades?.[itemId] || 0;
   const currentStats = currentItemId
-    ? getItemEffectiveStats(currentItemId, currentUpgrade)
-    : { attack: 0, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 };
-  const newStats = getItemEffectiveStats(itemId, newUpgrade);
+    ? getItemEffectiveStats(currentItemId, currentUpgrade, currentTier)
+    : zeroStats();
+  const newStats = getItemEffectiveStats(itemId, newUpgrade, tier);
   const delta = {};
   for (const stat of Object.keys(newStats)) {
     delta[stat] = Math.round(newStats[stat] - currentStats[stat]);

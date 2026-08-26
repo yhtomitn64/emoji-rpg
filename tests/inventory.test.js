@@ -110,7 +110,10 @@ test('getEquipmentBonuses sums stats from equipped, upgraded gear', () => {
 
 test('getItemEffectiveStats returns unrounded base stats at upgrade level 0', () => {
   const stats = getItemEffectiveStats('starterSword', 0);
-  assert.deepEqual(stats, { attack: 3, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0 });
+  assert.deepEqual(stats, {
+    attack: 3, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0,
+    lifestealPercent: 0, extraSwingChance: 0, elementalProcChance: 0, elementalProcDamage: 0,
+  });
 });
 
 test('getItemEffectiveStats scales fractionally per upgrade level without rounding', () => {
@@ -204,4 +207,103 @@ test('describeItem summarizes an upgrade material by its slot', () => {
 
 test('describeItem prefers an explicit description field over inferred text', () => {
   assert.equal(describeItem('miningPick'), 'Mining Pick: Clears mountain gates blocking the way');
+});
+
+test('addItem keeps a Plain and a Fine copy of the same base item as two separate stacks', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1); // Plain
+  state = addItem(state, 'ironSword', 1, 'fine');
+  const plainEntry = state.inventory.find((e) => e.itemId === 'ironSword' && e.tier === undefined);
+  const fineEntry = state.inventory.find((e) => e.itemId === 'ironSword' && e.tier === 'fine');
+  assert.equal(plainEntry.quantity, 1);
+  assert.equal(fineEntry.quantity, 1);
+});
+
+test('addItem stacks two drops of the same tier together', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1, 'superior');
+  state = addItem(state, 'ironSword', 1, 'superior');
+  const entries = state.inventory.filter((e) => e.itemId === 'ironSword');
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].quantity, 2);
+});
+
+test('removeItem only removes from the matching tier stack', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1);
+  state = addItem(state, 'ironSword', 1, 'fine');
+  state = removeItem(state, 'ironSword', 1, 'fine');
+  const plainEntry = state.inventory.find((e) => e.itemId === 'ironSword' && e.tier === undefined);
+  const fineEntry = state.inventory.find((e) => e.itemId === 'ironSword' && e.tier === 'fine');
+  assert.equal(plainEntry.quantity, 1);
+  assert.equal(fineEntry, undefined);
+});
+
+test('getItemEffectiveStats applies the tier multiplier before the upgrade-level scaling', () => {
+  // ironSword base attack 6. Superior (1.20): 6 * 1.20 = 7.2. At upgrade
+  // level 1: 7.2 + 7.2 * 0.25 = 9.
+  const stats = getItemEffectiveStats('ironSword', 1, 'superior');
+  assert.equal(stats.attack, 9);
+});
+
+test('getItemEffectiveStats treats an undefined tier as Plain (multiplier 1)', () => {
+  const stats = getItemEffectiveStats('ironSword', 0, undefined);
+  assert.equal(stats.attack, 6);
+});
+
+test('an effect stat (not just attack/defense) scales with smith-upgrade level via the same +25%/level formula, for free', () => {
+  // vampiricFang: lifestealPercent 15. At upgrade level 2: 15 + 15*0.25*2 = 22.5.
+  const stats = getItemEffectiveStats('vampiricFang', 2, undefined);
+  assert.equal(stats.lifestealPercent, 22.5);
+});
+
+test('equipItem and unequipItem carry the tier through state.equipmentTiers', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1, 'fine');
+  state = equipItem(state, 'ironSword', 'weapon', 'fine');
+  assert.equal(state.equipment.weapon, 'ironSword');
+  assert.equal(state.equipmentTiers.weapon, 'fine');
+
+  state = unequipItem(state, 'weapon');
+  const entry = state.inventory.find((e) => e.itemId === 'ironSword' && e.tier === 'fine');
+  assert.equal(entry.quantity, 1);
+});
+
+test('equipItem restores the previously-equipped item at its own tier when swapping', () => {
+  let state = createNewGame(); // starterSword equipped, Plain (no tier)
+  state = addItem(state, 'ironSword', 1, 'superior');
+  state = equipItem(state, 'ironSword', 'weapon', 'superior');
+  const restoredStarter = state.inventory.find((e) => e.itemId === 'starterSword' && e.tier === undefined);
+  assert.equal(restoredStarter.quantity, 1);
+});
+
+test('getEquipmentBonuses reads the equipped item at its stored tier, not Plain', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1, 'superior');
+  state = equipItem(state, 'ironSword', 'weapon', 'superior');
+  const bonuses = getEquipmentBonuses(state);
+  // starterSword (Plain, unequipped now) is gone from equipment; ironSword
+  // Superior at upgrade 0: 6 * 1.20 = 7.2, rounded once at the end -> 7.
+  assert.equal(bonuses.attack, 7);
+});
+
+test('getEquipmentBonuses includes the new effect stat keys, summed like any other stat', () => {
+  let state = createNewGame();
+  state = addItem(state, 'swiftStrikeCharm', 1);
+  state = equipItem(state, 'swiftStrikeCharm', 'accessory', undefined);
+  const bonuses = getEquipmentBonuses(state);
+  assert.equal(bonuses.extraSwingChance, 10);
+  assert.equal(bonuses.lifestealPercent, 0);
+});
+
+test('getItemStatDelta compares a tiered candidate against the currently-equipped tier', () => {
+  let state = createNewGame(); // starterSword equipped, Plain, attack 3
+  const delta = getItemStatDelta(state, 'ironSword', 'superior'); // 6 * 1.20 = 7.2
+  assert.equal(delta.attack, 4); // round(7.2 - 3) = 4
+});
+
+test('getItemStatDelta reports 0 for a new effect stat when neither item has it', () => {
+  const state = createNewGame();
+  const delta = getItemStatDelta(state, 'ironHelm');
+  assert.equal(delta.lifestealPercent, 0);
 });

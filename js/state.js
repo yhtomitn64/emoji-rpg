@@ -47,6 +47,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
     equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory: null },
     upgrades: {},
+    equipmentTiers: {},
     inventory: [{ itemId: 'potion', quantity: 2 }],
     map: 'center',
     position: null,
