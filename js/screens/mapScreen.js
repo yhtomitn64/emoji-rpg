@@ -61,6 +61,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 // Every trail fragment's SVG uses this fixed 0..100 coordinate space
 // (independent of the tile's actual rendered pixel size) - trail.js's
 // wear/geometry functions already return numbers on roughly this scale.
+// preserveAspectRatio="none" (set on the <svg> below) stretches that square
+// coordinate space to fit the tile's actual rendered box uniformly only
+// because .map-tile has `aspect-ratio: 1` in css/styles.css - a non-square
+// tile would shear the strokes non-uniformly.
 const TRAIL_VIEWBOX_SIZE = 100;
 const TRAIL_DIRECTIONS = [['n', 0, -1], ['s', 0, 1], ['w', -1, 0], ['e', 1, 0]];
 
@@ -151,9 +155,13 @@ function isPassableTile(t) {
 // A neighbor counts as "connected" for trail purposes if it's ground the
 // player has actually walked (currently-passable and visited), OR it's a
 // landmark tile (town/dungeon/tool-dungeon entrance, shop, well, ...) -
-// every player has necessarily passed through one even though it never
-// accumulates its own walk count (stepping onto it triggers a map-switch
-// action before it would render as ordinary ground). See the "Entrance/
+// every player has necessarily passed through one. This is an explicit
+// override, not just relying on its own walk count: tryMove *does* mark a
+// landmark visited (and render its own trail fragment) before firing its
+// action callback, but the very first time a screen renders a landmark as
+// a neighbor - e.g. the town gate right after exiting town, which lands
+// the player adjacent to it without ever having stepped on it from this
+// screen's side - that landmark's own count is still 0. See the "Entrance/
 // landmark tiles" section of the design doc.
 function isTrailConnected(nx, ny) {
   if (isOutOfBounds(nx, ny)) return false;
@@ -172,13 +180,24 @@ function buildTrailFragment(x, y, dirs, fraction, color) {
   svg.setAttribute('class', 'map-tile-trail');
   svg.setAttribute('viewBox', `0 0 ${TRAIL_VIEWBOX_SIZE} ${TRAIL_VIEWBOX_SIZE}`);
   svg.setAttribute('preserveAspectRatio', 'none');
+  // Opacity lives on the <svg> itself, not on each child path/circle: that
+  // composites the whole subtree to an offscreen buffer first, so multiple
+  // full-alpha connector arms overlapping near the tile's center (any tile
+  // with 2+ connected directions) don't stack their alphas into a visibly
+  // darker "bead" - the opacity multiplier applies once, to the group, not
+  // once per overlapping child.
+  svg.setAttribute('opacity', trailStrokeOpacity(fraction));
+  // Pure decoration - the cell already carries the real semantic info via
+  // its own `title` attribute, so this shouldn't be exposed to a11y tools
+  // or picked up by keyboard focus.
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
   if (dirs.length === 0) {
     const circle = document.createElementNS(SVG_NS, 'circle');
     circle.setAttribute('cx', TRAIL_VIEWBOX_SIZE / 2);
     circle.setAttribute('cy', TRAIL_VIEWBOX_SIZE / 2);
     circle.setAttribute('r', trailDotRadius(fraction));
     circle.setAttribute('fill', color);
-    circle.setAttribute('opacity', trailStrokeOpacity(fraction));
     svg.appendChild(circle);
     return svg;
   }
@@ -191,7 +210,6 @@ function buildTrailFragment(x, y, dirs, fraction, color) {
     path.setAttribute('stroke', color);
     path.setAttribute('stroke-width', trailStrokeWidth(fraction));
     path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('opacity', trailStrokeOpacity(fraction));
     svg.appendChild(path);
   }
   return svg;
@@ -226,9 +244,14 @@ function render() {
       // A tile's own worn-path trail: dirt strokes reaching toward whichever
       // neighbors are also visited (or a landmark everyone necessarily
       // passes through), or a small dot if nothing connects yet. Appended
-      // first so it paints underneath every other branch below, same
-      // "append earlier = paints behind" rule the decoration-behind-hero
-      // fix uses.
+      // first so it paints underneath every other *positioned* branch below
+      // (mount/rider, obstacle, fullsize marker, decoration - same "append
+      // earlier = paints behind" rule the decoration-behind-hero fix uses),
+      // with one exception: the plain in-flow `cell.append(emoji)` fallback
+      // branch has no `position`, and non-positioned in-flow content always
+      // paints before positioned descendants regardless of DOM order - so
+      // on a tile that falls through to that branch, the trail SVG actually
+      // paints ON TOP of the emoji, not underneath it.
       if (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y)) {
         const fraction = trailWearFraction(getVisitCount(state.visited, mapConfig.id, x, y));
         const color = getTrailColor(tile);

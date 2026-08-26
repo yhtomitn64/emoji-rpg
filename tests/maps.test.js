@@ -401,9 +401,11 @@ test('center screen has the town entrance', () => {
 });
 
 test('center screen start position (where exiting town lands you) is orthogonally adjacent to the town entrance, not diagonal', () => {
+  const entranceChar = Object.entries(centerMap.legend).find(([, kind]) => kind === 'townEntrance')?.[0];
+  assert.ok(entranceChar, 'center map legend must have a townEntrance character');
   let entranceX, entranceY;
   for (let y = 0; y < centerMap.rows.length; y++) {
-    const x = centerMap.rows[y].indexOf('@');
+    const x = centerMap.rows[y].indexOf(entranceChar);
     if (x >= 0) { entranceX = x; entranceY = y; }
   }
   const { x: startX, y: startY } = centerMap.startPosition;

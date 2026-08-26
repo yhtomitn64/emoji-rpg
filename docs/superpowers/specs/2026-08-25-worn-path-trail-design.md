@@ -38,7 +38,9 @@ live mockup session the same day.
   dungeon entrance, the tool dungeon entrances, mini dungeon entrances)
   count as an implicit, always-visited neighbor for connectivity
   purposes, since every player has necessarily walked through one even
-  though it never accumulates its own walk count the normal way.
+  though, the very first time a screen renders one as a neighbor, its
+  own walk count can still be 0 (that first crossing hasn't registered
+  yet).
 - A one-line map-data nudge to `js/maps/wilderness/center.js`'s
   `startPosition` (`{x:15,y:11}` → `{x:14,y:11}`), so the tile you land
   on when exiting town is orthogonally adjacent to the town-entrance
@@ -129,13 +131,21 @@ transition storage to bound or cap.
 **Entrance/landmark tiles count as an implicit, always-visited anchor.**
 Raised by Timothy: walking out of town for the very first time should
 visibly read as the trail emerging from the town gate, not as an
-isolated dot floating next to it. A `townEntrance` tile (or any other
-`FULL_SQUARE_MARKERS` landmark — `dungeonEntrance`, the axe/pick/canoe
-dungeon entrances, `miniDungeonEntrance`) never accumulates its own
-walk count the normal way (stepping onto one immediately triggers a
-map-switch action before it would render as ground), but every player
-has necessarily walked through it. So the neighbor check above treats
-any `FULL_SQUARE_MARKERS` tile as connected/visited automatically,
+isolated dot floating next to it. `tryMove` (`js/screens/mapScreen.js`)
+does mark a landmark tile visited, and does render its own trail
+fragment for it, before firing that tile's action callback — so a
+`townEntrance` tile (or any other `FULL_SQUARE_MARKERS` landmark —
+`dungeonEntrance`, the axe/pick/canoe dungeon entrances,
+`miniDungeonEntrance`) isn't fundamentally exempt from the normal walk
+count. The problem is narrower and only bites on a first crossing: the
+very first time a screen renders such a tile as a *neighbor* of the
+player's current position, that landmark's own count can still be 0 in
+this screen's `state.visited`, because the crossing that would have
+incremented it hasn't happened yet from this screen's side — most
+concretely, exiting town for the first time lands the player adjacent
+to the town gate without ever having stepped onto that gate tile in the
+wilderness screen's own data. So the neighbor check above treats any
+`FULL_SQUARE_MARKERS` tile as connected/visited automatically,
 without needing its own count in `state.visited` — a plain rule, not a
 special case, since it reuses the same `FULL_SQUARE_MARKERS` set
 `render()` already has.

@@ -32,6 +32,10 @@ test('edgeOwner resolves a shared edge to the same lower-coordinate tile from ei
   assert.deepEqual(edgeOwner(5, 6, 'n'), { x: 5, y: 5, axis: 'v' });
 });
 
+test('edgeOwner throws for an unknown direction', () => {
+  assert.throws(() => edgeOwner(5, 5, 'nowhere'));
+});
+
 test('edgeJitter is deterministic for the same inputs', () => {
   assert.equal(edgeJitter(5, 5, 'h'), edgeJitter(5, 5, 'h'));
 });
