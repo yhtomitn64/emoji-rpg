@@ -66,8 +66,11 @@ public API, no formal release process — commits land straight on
   connected neighbor's, and its width is the average of both tiles' wear
   (symmetric, so the two tiles sharing an edge always agree), so wear
   differences between adjacent tiles taper instead of meeting at a hard
-  seam. Wear scales in opacity/thickness up to a 10-visit cap, and trail
-  color is keyed by the underlying terrain (grass, cave floor, water).
+  seam. Wear (up to a 10-visit cap) is baked entirely into color - a
+  bare-unworn stroke blends into the tile's own ground color, a fully
+  worn one is the solid trail color - deliberately not opacity, which
+  couldn't stay consistent across a tile border; trail color itself is
+  keyed by the underlying terrain (grass, cave floor, water).
   Exiting town lands the player orthogonally adjacent to the town gate
   instead of diagonal to it, so a first step toward town connects to it
   in one move; the landing tile itself still starts as an isolated dot
