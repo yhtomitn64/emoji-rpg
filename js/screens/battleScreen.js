@@ -550,6 +550,49 @@ function handleKeydown(event) {
   }
 }
 
+function resolveOneAttack(countsTowardStreak) {
+  // Capture the target's index now: updateHpBars() below can re-anchor
+  // selectedMonsterIndex to a survivor the instant this hit is a killing
+  // blow, so re-reading selectedMonsterIndex after that point would make the
+  // hit effect render on the wrong (undamaged) monster.
+  const targetIndex = selectedMonsterIndex;
+  const target = monsterCombatants[targetIndex];
+  const unlockedAbilityCount = getUnlockedAbilities(state.player.level).length;
+  // A bonus swing from extraSwingChance is deliberately exempt from the
+  // attack-spam-decay system - see the Global Constraints at the top of
+  // this plan and the design spec's "Combat hooks" section for why: it's an
+  // automatic proc from one real press, not player spam, so it always hits
+  // at full strength (multiplier 1) and never advances or is throttled by
+  // the streak/cooldown state.
+  const streakMultiplier = countsTowardStreak ? attackStreakMultiplier(attackStreak, unlockedAbilityCount) : 1;
+  const knockbackMultiplier = countsTowardStreak ? attackKnockbackMultiplier(attackStreak) : 1;
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, knockbackMultiplier);
+  if (countsTowardStreak) {
+    attackStreak += 1;
+    attackStreakIdleMs = 0;
+    attackCooldownMs = attackCooldownMsForStreak(attackStreak);
+  }
+  target.hp = result.monsterHp;
+  target.atb = result.monsterAtb;
+  playerCombatant.atb = result.playerAtb;
+  log.push(result.isCrit
+    ? `Critical! You hit ${target.name} for ${result.damage}!`
+    : `You hit ${target.name} for ${result.damage}.`);
+  if (countsTowardStreak) {
+    const floor = Math.max(0, ATTACK_STREAK_FLOOR - unlockedAbilityCount * ATTACK_STREAK_FLOOR_PER_ABILITY);
+    if (streakMultiplier <= floor && unlockedAbilityCount > 0 && !attackTauntShown) {
+      attackTauntShown = true;
+      const taunt = ATTACK_TAUNT_LINES[Math.floor(Math.random() * ATTACK_TAUNT_LINES.length)];
+      log.push(taunt(target.name));
+    }
+  }
+  // Play the hit effect before updateHpBars() hides a killed monster's slot
+  // (display: none), so a killing blow's damage number/flash/shake is
+  // actually visible instead of rendering onto an already-hidden element.
+  playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
+  applyOnHitEffects(target, result.damage);
+}
+
 function playerAttack() {
   // Same re-entrancy hazard as playerUseAbility's own guard, but from the other
   // direction: while an ability's timing meter is pending, playerCombatant.atb
@@ -560,40 +603,31 @@ function playerAttack() {
   // `if (battleOver) return;` added after that await below for the other half
   // of this fix.
   if (abilityActionInFlight || attackCooldownMs > 0) return;
-  // Capture the target's index now: updateHpBars() below can re-anchor
-  // selectedMonsterIndex to a survivor the instant this hit is a killing
-  // blow, so re-reading selectedMonsterIndex after that point would make the
-  // hit effect render on the wrong (undamaged) monster.
-  const targetIndex = selectedMonsterIndex;
-  const target = monsterCombatants[targetIndex];
-  const unlockedAbilityCount = getUnlockedAbilities(state.player.level).length;
-  const streakMultiplier = attackStreakMultiplier(attackStreak, unlockedAbilityCount);
-  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, attackKnockbackMultiplier(attackStreak));
-  attackStreak += 1;
-  attackStreakIdleMs = 0;
-  attackCooldownMs = attackCooldownMsForStreak(attackStreak);
-  target.hp = result.monsterHp;
-  target.atb = result.monsterAtb;
-  playerCombatant.atb = result.playerAtb;
-  log.push(result.isCrit
-    ? `Critical! You hit ${target.name} for ${result.damage}!`
-    : `You hit ${target.name} for ${result.damage}.`);
-  const floor = Math.max(0, ATTACK_STREAK_FLOOR - unlockedAbilityCount * ATTACK_STREAK_FLOOR_PER_ABILITY);
-  if (streakMultiplier <= floor && unlockedAbilityCount > 0 && !attackTauntShown) {
-    attackTauntShown = true;
-    const taunt = ATTACK_TAUNT_LINES[Math.floor(Math.random() * ATTACK_TAUNT_LINES.length)];
-    log.push(taunt(target.name));
-  }
-  // Play the hit effect before updateHpBars() hides a killed monster's slot
-  // (display: none), so a killing blow's damage number/flash/shake is
-  // actually visible instead of rendering onto an already-hidden element.
-  playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
-  applyOnHitEffects(target, result.damage);
+  resolveOneAttack(true);
   updateHpBars();
   updateAtbBars();
   updateLog();
   checkOutcome();
   updateMenu();
+  // Extra-swing chance (e.g. Swift Strike Charm) - deliberately does not
+  // re-roll on the bonus swing itself, capping this at exactly one bonus
+  // swing per original attack by construction (there's no recursive call
+  // here, just this one guarded block). Gated on !battleOver: the first
+  // swing above may have just ended the battle via checkOutcome ->
+  // endBattle, which schedules callbacks.onBattleEnd via setTimeout: calling
+  // checkOutcome a second time from a second swing would double-schedule
+  // that callback and double-process rewards/XP for the same battle.
+  if (!battleOver && playerEffectBonuses.extraSwingChance > 0 && Math.random() * 100 < playerEffectBonuses.extraSwingChance) {
+    const bonusTarget = monsterCombatants[selectedMonsterIndex];
+    if (bonusTarget && bonusTarget.hp > 0) {
+      resolveOneAttack(false);
+      updateHpBars();
+      updateAtbBars();
+      updateLog();
+      checkOutcome();
+      updateMenu();
+    }
+  }
 }
 
 async function playerUseAbility(abilityId) {
