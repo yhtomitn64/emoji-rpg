@@ -679,6 +679,41 @@ public API, no formal release process — commits land straight on
   the battle log the first time Attack's decay bottoms out at the floor,
   nudging the player toward the ability rotation instead.
 
+### Added
+- Monster kills can now drop tiered (Fine/Superior) equipment or one of
+  three wholly new Unique-effect items, both weighted by how tough the
+  monster is relative to the rest of the roster (`js/systems/
+  itemQuality.js`'s `monsterToughness`, 0-1 by relative xp). Superior
+  chance scales 2%→10% and Fine 10%→25% by toughness for an ordinary
+  equipment drop (`rollQualityTier`); a separate, independent
+  Unique-effect check scales 1%→5% (`rollUniqueEffectChance`), tried
+  before and instead of the ordinary drop roll. Boss/elite/tool-dungeon-
+  guardian monsters are fully excluded from every roll here, keeping
+  their existing guaranteed drop tables untouched. The three new items
+  (`js/data/items.js`): Vampiric Fang 🦴 (weapon, +7 attack, 15%
+  lifesteal), Swift Strike Charm 🔮 (accessory, 10% chance of a bonus
+  Attack swing that's exempt from the attack-spam-decay system and never
+  itself re-rolls), and Ember Ring 🔥 (accessory, 20% chance of +6 bonus
+  fire damage on hit) — all found-only, never sold. Tier/effect data
+  threads through the full inventory model: `state.inventory` entries
+  and `state.equipmentTiers` now carry an optional `tier`
+  (`js/systems/inventory.js`), Fine/Superior multiply base stats 1.10x/
+  1.20x before the existing +25%/level smith-upgrade scaling, and a
+  Plain and a tiered copy of the same base item stack separately so
+  equipping either one equips exactly that copy. The shop only ever
+  sees/sells the Plain stack of anything it also stocks
+  (`js/screens/shopScreen.js`), and the smith/inventory screens show
+  each item's tier prefix in its name (`tierLabel`) alongside its normal
+  stat delta. Lifesteal and the elemental proc are wired into every
+  player damage source (`applyOnHitEffects`, called from `playerAttack`
+  and both branches of `playerUseAbility`); the extra-swing roll wraps
+  `playerAttack`'s body (extracted into `resolveOneAttack`) so a bonus
+  swing fires once, at full strength, without advancing or being
+  throttled by the attack-streak/cooldown decay
+  (`js/screens/battleScreen.js`). Design:
+  `docs/superpowers/specs/2026-08-26-item-quality-and-effects-design.md`.
+  Plan: `docs/superpowers/plans/2026-08-26-item-quality-and-effects.md`.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed

@@ -85,6 +85,25 @@ yet — this is the mechanism, not confirmation the pacing now *feels*
 right; needs real playthrough data same as the armor-cliff half of this
 item did before it got marked resolved above.
 
+**Update (2026-08-28):** Timothy: "Level 4 is a huge boost of power so I
+think our area away from town need to get quite a bit harder. You should
+still feel strong and battles go quicker but once I hit level 4 I got
+real strong quick." Read carefully, this pulls in a different direction
+than the standing "zone 1 should keep getting easier over time, not
+track the player" call (see "The player outpaces near-town/far-corner
+content" thread, Combat pass ideas section below) — that call was
+specifically about *not* scaling regular monster stats to match the
+player. This new note isn't asking for monster scaling, though; it reads
+more like farther-from-town content should simply be tuned harder at its
+own fixed difficulty, independent of the player's level — which is
+compatible with, and could be the same lever as, the already-open
+"spatial difficulty gradient" idea (Multi-zone progression, below:
+harder named monster variants the further from town). Not investigated
+yet whether level 4 specifically is the real inflection point or just
+where Timothy happened to notice it — worth checking against
+`docs/superpowers/specs/2026-08-16-player-growth-curve-design.md`'s
+levels-1-9 numbers directly.
+
 ## ~~Zone 1 map expansion + organic terrain~~ **All three pieces shipped — mechanics 2026-08-24, hand-painted terrain by 2026-08-25 (commit `8615045`, touched up in `b721864`).**
 
 Raised 2026-08-23, distinct from Multi-zone progression below — this is
@@ -285,6 +304,48 @@ one-off task.
   set shared across every variant; expanding that (or adding a genuinely
   new reward tier) is still open. No puzzle-triggered special-encounter
   mechanic exists at all yet.
+- **Town layout: south exit instead of a "door," expand town, and
+  per-shop signage, raised 2026-08-28.** Timothy: "Door of town should
+  be at the bottom of town or not even a door just a break in the trees
+  in the south of town. Also can we expand town a bit and have a
+  signpost or something or a label above each shop type or feature in
+  town. Also when you exit town then you should appear in the map below
+  the town if exit in south and for future towns maybe you can exit in
+  multiple directions. Actually in first town let's have an exit in all
+  directions and that's the direction you appear on the map." Several
+  distinct pieces in one note: (a) replace the current town door/exit
+  with a south-side tree-break, with matching correct landing placement
+  on the wilderness map below; (b) grow the town map itself; (c) label
+  each shop/feature with a visible sign or name tag rather than relying
+  on the player to walk up and discover it; (d) exits in all four
+  directions for town 1 specifically, each landing the player on the
+  correspondingly-adjacent wilderness screen — establishing the general
+  multi-exit pattern this section already expects future towns to need.
+  Not designed — needs a look at the existing town interior map and
+  exit-handling code (likely alongside whatever handles
+  `handleEdgeTransition`/wilderness screen transitions) before scoping.
+- **Town NPCs that hint at where to go next, using landmarks rather
+  than naming the tool location outright, raised 2026-08-28.** Timothy:
+  "I think we should have towns folks and one of them should give you
+  hints as to what to next. So if you don't have axe yet then something
+  about where to go. I think I will need to make something unique about
+  the map they can't hint at like a skull mountain or circle lake or
+  trees in certain shape so it's not ultra obvious. Also our icons on
+  the map clear show pick/canoe/axe. Well at least in the editor not
+  sure what they look like on the game because I have not got there
+  yet." Two pieces: (1) an NPC/hint system that reacts to which tools
+  the player still lacks and points toward the right tool-dungeon using
+  in-world landmark descriptions rather than direct coordinates — this
+  needs distinctive, nameable map features to exist first (Timothy's own
+  examples: a skull-shaped mountain, a circular lake), which is itself
+  unbuilt; (2) worth separately checking whether tool-dungeon entrance
+  icons are currently visible/distinct in actual gameplay (not just the
+  terrain-painter editor) — flagged by him as an open question, not yet
+  checked. **Authorship note:** per the standing "no AI-generated
+  narrative" boundary (see "The game needs an actual story" above), the
+  actual hint *text*/dialogue is Timothy's to write — this item is
+  scoped to the engineering (hint-selection logic, landmark detection,
+  NPC wiring), not drafting what the NPC says.
 
 ### ~~Smaller, sooner: a dragon-zone (dungeon) shortcut using the axe, and better tool-drop flavor~~ Already shipped 2026-08-17, backlog just never updated
 Discovered 2026-08-23 while working this list top to bottom: both pieces
@@ -609,10 +670,74 @@ canopies bleeding past the map's own border at the top row/outer
 columns (no neighboring row to absorb the overlap into there) - fixed
 alongside this with `overflow: hidden` on `.map-grid`.
 
+## Terrain visuals: mountains feel small and don't sit in the world, raised 2026-08-28
+
+Timothy: "Mountains look small. The ones you can never pass and no
+background under them. Maybe they just sit on the green so they match."
+Impassable mountain tiles render undersized relative to their footprint
+and float with no grounding color beneath them, unlike (per his own
+suggested fix) simply matching the surrounding grass tile so they read
+as sitting *in* the terrain rather than pasted on top of it. Not
+investigated yet — raw idea only, needs a look at the mountain tile's
+actual emoji/sizing/background treatment in the map rendering
+(`js/screens/mapScreen.js`, same area that already handles the
+`GRASS_CONTEXT_MARKERS` background-matching for landmark tiles above)
+before scoping a fix.
+
+## In-game tutorials / mechanic explainers, raised 2026-08-28
+
+Timothy, in the same note as the combo-priming timing gap flagged in
+Combat pass ideas below: "Also need something explaining how this works
+to the player. Maybe at each level of the game you have a little
+tutorial or popup or something explaining the mechanics." A general
+onboarding ask — as new mechanics/abilities unlock (starting with the
+combo-priming/timing system flagged below), explain them via some kind
+of tutorial or popup rather than expecting the player to infer them from
+play. Raw idea only, no UI shape decided. Related: the "proud tool-pickup
+moment" idea (Feature requests, below) and the town signpost/labeling
+idea (Multi-zone progression, above) are both instances of the same
+underlying "the game should explain itself more" theme.
+
 ## Bugs
 
-*(none open right now — the boss-tier skip bug and the inventory-panel
-scroll bug were both fixed 2026-08-17, see CHANGELOG.)*
+### Tool-dungeon guardian drops undermine the "no chance, find it" design intent, raised 2026-08-28
+Timothy: "I just got the axe dropped by a slippery breakstick and I want
+the axe/pick/canoe to only come from the special place I put on the map
+behind a special boss. It shouldn't be chance. the gamer has to figure
+out where to go!" Confirmed in code: alongside the guaranteed
+`axeGuardian` drop (`js/data/monsters.js:77`, `chance: 1`, behind its own
+gated dungeon), the regular wraith encounter (Ghost Apple Supreme) also
+carries a stray `{ itemId: 'axe', chance: 0.25 }` in its own dropTable
+(`js/data/monsters.js:132`) — a leftover chance-based path that directly
+contradicts the tool-gating design's whole point (see
+`docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-design.md`).
+No stray `pick`/`boat` chance-drops found elsewhere in
+`js/data/monsters.js` — this looks isolated to the one wraith entry.
+Likely fix: delete that dropTable entry so axe is only ever obtainable
+from `axeGuardian`.
+
+### Re-entering a mini-dungeon that blocks the only path forward is clunky, raised 2026-08-28
+Timothy: "a mini dungeon appears in a path where I could not go around
+it which feels clunky because when you go over it you have to go back
+in and then when you come back you have to go in again and right back
+out." A mini-dungeon placed with no way around it on the wilderness grid
+forces walking through its interior twice just to pass through the same
+tile of the outer map. Not investigated yet — needs a look at whether
+mini-dungeon placement (`js/systems/miniDungeons.js`) currently avoids
+gating the *only* path across a screen, or whether that's unconstrained
+today.
+
+### After clearing a tool-dungeon guardian, the player lands back outside the whole zone instead of at the entrance/shortcut, raised 2026-08-28
+Timothy: "after I kill axe guardian and walked back out of that mini
+forest zone the game placed me outside of the forst I was just in and I
+didn't even get to use the new axe to get out of there. so it should
+have placed me right back on the axe guardian entrance so I could use
+the shortcut my new axe ability gave me." Reads as a real placement bug
+in the post-guardian-kill exit logic — the player should land back at
+the tool-dungeon's own entrance point (letting them immediately use the
+new tool's shortcut), not wherever the current exit logic actually puts
+them. Not investigated yet — needs a look at whatever handles exiting
+`js/maps/toolDungeons/` interiors back to the wilderness map.
 
 ## Feature requests
 
@@ -704,6 +829,25 @@ level-up specifically, and the separately-bundled "Fun animation for
 items landing in inventory" idea (Pacing/progression section above) —
 neither was in scope for this pass.
 
+**Update (2026-08-28):** two more concrete asks landed in the same
+"spike up animations" bucket. Timothy, on landing a perfectly-timed hit:
+"When doing perfect timing should get a cool effect or visual and feel
+free to start going wild with some 3d thing or implementing three js at
+some point just to start spicking it up!" — a real visual payoff for a
+perfect-timing hit (parry or an ability's timing minigame), floated
+alongside an explicitly open-ended nudge toward introducing Three.js/3D
+effects at some point, not a firm requirement. And on battle
+transitions: "Need to do a cool animation/effect/transiation when the
+battle starts like the map slightly fades out or pixelates and the
+battle area swirls in or something. Maybe when you crit or enemy crits
+you the battle window shakes. Also battle is over transition back to
+map in a cool way." Three related, separable pieces: a battle-start
+transition (map fade/pixelate, battle area "swirls in"), a
+crit-triggered screen shake (either side landing a crit), and a
+battle-end transition back to the map. None designed or scoped yet —
+captured here as concrete additions to the same open animation
+initiative.
+
 ### ~~Fast-travel back to the dungeon entrance after death, for a gold cost~~ Shipped 2026-08-22
 A loss now offers a choice (`js/screens/postDeathTravelScreen.js`):
 free return to town, or warp straight to `state.dungeonEntrancePosition`
@@ -719,6 +863,49 @@ The rematch prompt (`js/screens/bossPromptScreen.js`) now shows one
 button per tier from 0 through the next uncleared tier, each labeled
 with its HP multiplier and a ⭐ if already cleared, instead of a single
 button that always auto-escalated. See CHANGELOG.
+
+### Fade out (don't just disable) the smith Upgrade button when you can't afford it, raised 2026-08-28
+Timothy: "Fade out upgrade buttons if you can't afford/don't have
+materials. Well if you don't have materials already works like that so
+just do that for can't afford." The missing-materials case already
+dims/disables correctly; only the can't-afford-gold case needs the same
+treatment in `js/screens/smithScreen.js`.
+
+### An explicit "X" / close control on store and upgrade screens, raised 2026-08-28
+Timothy: "Also include an X to leave stores/upgrade area because I keep
+looking for an X and not just the leave button." A close affordance in
+the conventional top-corner spot, alongside (not necessarily replacing)
+the existing Leave button, for `js/screens/shopScreen.js` and
+`js/screens/smithScreen.js`.
+
+### More single-key shortcuts beyond Tab navigation, raised 2026-08-28
+Timothy: "Full keyboard navigation I guess we already have it with tab
+but what else could help like 'l' for leave or something?" Tab-based
+focus navigation already works; wants a few more direct single-key
+shortcuts on top (e.g. `l` to leave a screen) rather than only tabbing
+through buttons.
+
+### Chopping/mining a gated tile should leave a visible stump/rubble; canoeing across water shouldn't change the tile at all, raised 2026-08-28
+Timothy: "Also when using axe, pick and walking into those blocks they
+should get cut down and leave a stump or rubble or something. water
+should not do anything from canoe. That just let's you canoe over."
+Today, clearing a tool-gated tile (`js/systems/toolGates.js`,
+`js/tiles.js`'s `requiresTool`) presumably just removes the obstacle
+outright — wants a visible after-state (stump for trees, rubble for
+rock) distinct from water, which should stay visually unchanged since
+the canoe only lets you cross it, not alter it.
+
+### A proud, visible "you can do this now" moment when a tool is first picked up, raised 2026-08-28
+Timothy: "Also after getting axe, pick, canoe the character should hold
+it over head, then it should fly around their body and then a message
+should prodouly exclaim what you can do and a big bubble or something on
+the screen so it's obvious to read." Extends the existing new-tool
+celebration (`playCelebration`, called from `grantDropItem`'s
+`isNewTool` branch in `js/main.js`, using the shared
+`js/screens/celebrationEffect.js`) with a specific richer sequence:
+hold-overhead pose, an orbit/fly-around flourish, then a large,
+hard-to-miss capability callout — rather than the current celebration's
+existing (simpler) treatment.
 
 ## Quests / economy
 
@@ -757,8 +944,10 @@ through in a dedicated future combat pass rather than one-off adds:
 - **Rung-3 gear effects, raised 2026-08-26 during the gear/progression
   design pass (see `docs/superpowers/specs/2026-08-26-item-quality-and-
   effects-design.md`):** candidate additions to that spec's "growable
-  list" of unique-item effects, captured but not scoped for v1 (v1 is
-  lifesteal, extra-swing chance, elemental proc):
+  list" of unique-item effects. **v1 (lifesteal, extra-swing chance,
+  elemental proc) shipped 2026-08-28** — Vampiric Fang, Swift Strike
+  Charm, Ember Ring; see CHANGELOG. Still open, not scoped for any
+  version yet:
   - **Crit chance increase** — a flat bonus to `CRIT_CHANCE`
     (`js/systems/combat.js`) from an equipped item.
   - **Parry window trade-offs, two directions floated:** (a) a wider
@@ -834,6 +1023,39 @@ through in a dedicated future combat pass rather than one-off adds:
   scales high enough, grant a small damage bonus too, so speed stays
   worth investing in past a soft cap. Raised more tentatively than the
   others ("more for our combat pass to think through").
+- **Parry timing may feel earlier than the visible red zone, raised
+  2026-08-28.** Timothy: "How does the parry work? Do I hit s in the red
+  section of the bar or before the red section? I feel like I hit
+  beofore the red section and it parrys." This may be the same known gap
+  flagged when parry shipped (see the "Known follow-up" note on the
+  shipped parry entry just below): the wind-up's real timing runs
+  ~1200ms but only a single ~300ms tick actually lands inside the true
+  parry zone due to tick-loop quantization, so the *visible* red zone and
+  the *actual* parry-accepting window can drift apart. Worth checking
+  that known tick-quantization gap against this fresh report before
+  assuming it's purely a UI-clarity ask.
+- **Combo-priming's timing bonus (the "green section") can show before
+  it does anything, raised 2026-08-28.** Timothy: "If we don't get a
+  bonus for the level 2 ability when you hit space and it's in the green
+  section then don't show the green section until you get the next
+  ability which actual benefits from that timing." At level 2 the player
+  only has Stab; Stab's timing-hit green zone exists to prime Chop's
+  combo bonus, but Chop doesn't unlock until level 4 — so the green zone
+  shows (and can be hit) for two levels before it does anything. Wants
+  the timing minigame's bonus zone hidden until the payoff ability it
+  primes is actually unlocked. (Also raised in the same note: a general
+  in-game tutorial/popup ask for explaining mechanics — see "In-game
+  tutorials / mechanic explainers" above.)
+- **Chop should be usable immediately after a timing-hit Stab primes it,
+  not gated on its own cooldown, raised 2026-08-28.** Timothy: "Chop
+  should reset cooldown after successful #1 timing hit so that you can
+  always do it right away." Checked against the shipped combo system
+  (`canUseAbility`, `js/systems/abilities.js:48-51`): a primed payoff
+  (`comboSkipsReady`) only bypasses the swing-timer/`ready` gate, not
+  Chop's own real-time `onCooldown` gate — so if Chop is still cooling
+  down when Stab primes it, the combo can't actually be used right away
+  despite being primed. This looks like a real, unaddressed gap in the
+  shipped combo behavior, not just a request for something new.
 - ~~**Parry mechanic, raised 2026-08-18.**~~ **Shipped 2026-08-19.**
   Monster attacks now telegraph via a ~1.2s wind-up bar before landing,
   with a parry-able zone in the final 20% (`s` or click the bar). A
