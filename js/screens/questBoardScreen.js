@@ -42,6 +42,15 @@ function render() {
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
 }
 
+// Single-key shortcut alongside Tab-based focus navigation, raised
+// 2026-08-28: "what else could help like 'l' for leave or something?"
+function handleKeydown(event) {
+  if (event.key === 'l' || event.key === 'L') {
+    event.preventDefault();
+    callbacks.onLeave();
+  }
+}
+
 function turnIn(monsterId) {
   if (!canTurnInQuest(state, monsterId)) return;
   Object.assign(state, turnInQuest(state, monsterId));
@@ -64,6 +73,22 @@ export function mount(root, props) {
   state = props.state;
   callbacks = props.callbacks;
   render();
+  window.addEventListener('keydown', handleKeydown);
 }
 
-export function unmount() {}
+export function unmount() {
+  window.removeEventListener('keydown', handleKeydown);
+}
+
+// An overlay (inventory, stats, etc.) can open on top of this screen via the
+// HUD without unmounting it - pause/resume (called by screenManager's
+// mountOverlay/unmountOverlay) keep the 'l' shortcut from also firing while
+// the player is actually interacting with something on top, same pattern
+// mapScreen.js already uses for its own keybindings.
+export function pause() {
+  window.removeEventListener('keydown', handleKeydown);
+}
+
+export function resume() {
+  window.addEventListener('keydown', handleKeydown);
+}

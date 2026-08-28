@@ -112,6 +112,26 @@ body { margin: 0; background: #222; color: #eee; }
   margin: 0 auto;
 }
 
+/* Explicit top-corner close affordance for shop/smith, alongside (not
+   replacing) the existing text Leave button - raised 2026-08-28: "I keep
+   looking for an X and not just the leave button." */
+.shop-screen, .smith-screen {
+  position: relative;
+}
+.screen-close-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  line-height: 26px;
+  text-align: center;
+  font-size: 0.95rem;
+  border-radius: 50%;
+}
+
 .overlay-panel.battle-screen {
   max-width: min(92vw, 860px);
   margin: 0 auto;

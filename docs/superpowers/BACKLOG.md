@@ -902,26 +902,36 @@ button per tier from 0 through the next uncleared tier, each labeled
 with its HP multiplier and a ⭐ if already cleared, instead of a single
 button that always auto-escalated. See CHANGELOG.
 
-### Fade out (don't just disable) the smith Upgrade button when you can't afford it, raised 2026-08-28
+### ~~Fade out (don't just disable) the smith Upgrade button when you can't afford it~~ Shipped 2026-08-28
 Timothy: "Fade out upgrade buttons if you can't afford/don't have
 materials. Well if you don't have materials already works like that so
 just do that for can't afford." The missing-materials case already
-dims/disables correctly; only the can't-afford-gold case needs the same
-treatment in `js/screens/smithScreen.js`.
+dimmed/disabled correctly; `js/screens/smithScreen.js` now also disables
+the button when `state.player.gold < cost`, reusing the existing generic
+`button:disabled` fade styling. See CHANGELOG.
 
-### An explicit "X" / close control on store and upgrade screens, raised 2026-08-28
+### ~~An explicit "X" / close control on store and upgrade screens~~ Shipped 2026-08-28
 Timothy: "Also include an X to leave stores/upgrade area because I keep
-looking for an X and not just the leave button." A close affordance in
-the conventional top-corner spot, alongside (not necessarily replacing)
-the existing Leave button, for `js/screens/shopScreen.js` and
-`js/screens/smithScreen.js`.
+looking for an X and not just the leave button." Added a "✕" button in
+the top-right corner, alongside (not replacing) the existing Leave
+button, for `js/screens/shopScreen.js` and `js/screens/smithScreen.js`
+(`css/styles.css`'s new `.screen-close-x`). See CHANGELOG.
 
-### More single-key shortcuts beyond Tab navigation, raised 2026-08-28
+### ~~More single-key shortcuts beyond Tab navigation~~ Shipped 2026-08-28
 Timothy: "Full keyboard navigation I guess we already have it with tab
-but what else could help like 'l' for leave or something?" Tab-based
-focus navigation already works; wants a few more direct single-key
-shortcuts on top (e.g. `l` to leave a screen) rather than only tabbing
-through buttons.
+but what else could help like 'l' for leave or something?" Added a
+single-key `l`/`L` shortcut to leave the screen on Shop, Smith, and the
+Quest Board — the three screens with an existing Leave action. Skipped
+while a `<select>` has focus (Smith's material picker) to avoid
+hijacking the browser's own type-ahead select behavior. Each screen
+gained real `pause`/`resume` lifecycle methods (matching
+`js/screens/mapScreen.js`'s own pattern) so the shortcut doesn't also
+fire while an unrelated HUD overlay (inventory, stats, etc.) is open on
+top of it — caught by tracing `screenManager.js`'s `mountOverlay`, which
+calls `pause()` (not `unmount()`) on the screen underneath. The Close-
+labeled overlays (inventory/stats/message-log/loot-reference) weren't
+touched — a different action semantically, not part of what was asked.
+See CHANGELOG.
 
 ### Chopping/mining a gated tile should leave a visible stump/rubble; canoeing across water shouldn't change the tile at all, raised 2026-08-28
 Timothy: "Also when using axe, pick and walking into those blocks they

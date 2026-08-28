@@ -49,6 +49,7 @@ function render() {
 
   rootEl.innerHTML = `
     <div class="shop-screen">
+      <button class="screen-close-x" id="btn-close-x" aria-label="Leave shop">✕</button>
       <h2>Shop (Gold: ${state.player.gold})</h2>
       ${renderEquipPrompt()}
       ${rows}
@@ -75,6 +76,7 @@ function render() {
     };
   }
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
+  document.getElementById('btn-close-x').onclick = () => callbacks.onLeave();
 }
 
 function buyItem(itemId, quantity = 1) {
@@ -88,6 +90,18 @@ function buyItem(itemId, quantity = 1) {
   pendingEquip = (item.slot && state.equipment[item.slot] !== itemId) ? itemId : null;
   callbacks.onPurchase();
   render();
+}
+
+// Single-key shortcut alongside Tab-based focus navigation, raised
+// 2026-08-28: "what else could help like 'l' for leave or something?"
+// Skipped while a <select> has focus so it doesn't hijack the browser's own
+// type-ahead-to-select-an-option behavior there.
+function handleKeydown(event) {
+  if (document.activeElement?.tagName === 'SELECT') return;
+  if (event.key === 'l' || event.key === 'L') {
+    event.preventDefault();
+    callbacks.onLeave();
+  }
 }
 
 function sellItem(itemId) {
@@ -108,6 +122,22 @@ export function mount(root, props) {
   callbacks = props.callbacks;
   pendingEquip = null;
   render();
+  window.addEventListener('keydown', handleKeydown);
 }
 
-export function unmount() {}
+export function unmount() {
+  window.removeEventListener('keydown', handleKeydown);
+}
+
+// An overlay (inventory, stats, etc.) can open on top of this screen via the
+// HUD without unmounting it - pause/resume (called by screenManager's
+// mountOverlay/unmountOverlay) keep the 'l' shortcut from also firing while
+// the player is actually interacting with something on top, same pattern
+// mapScreen.js already uses for its own keybindings.
+export function pause() {
+  window.removeEventListener('keydown', handleKeydown);
+}
+
+export function resume() {
+  window.addEventListener('keydown', handleKeydown);
+}

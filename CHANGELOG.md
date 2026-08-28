@@ -759,6 +759,31 @@ public API, no formal release process — commits land straight on
   payoff; the ability button no longer shows a stale cooldown countdown
   in that state either (`js/screens/battleScreen.js`).
 
+### Added
+- Shop and Smith now show an explicit "✕" close button in the top-right
+  corner, alongside (not replacing) the existing Leave button
+  (`js/screens/shopScreen.js`, `js/screens/smithScreen.js`,
+  `css/styles.css`'s new `.screen-close-x`) — raised 2026-08-28: "I keep
+  looking for an X and not just the leave button."
+- Shop, Smith, and the Quest Board now support a single-key `l` (or `L`)
+  shortcut to leave the screen, alongside the existing Tab-based focus
+  navigation — raised 2026-08-28: "what else could help like 'l' for
+  leave or something?" Skipped while a `<select>` has focus (Smith's
+  material picker) so it doesn't hijack the browser's own
+  type-ahead-to-select-an-option behavior. Each screen gained real
+  `pause`/`resume` lifecycle methods (matching `js/screens/mapScreen.js`'s
+  own pattern) so the shortcut doesn't also fire while an unrelated HUD
+  overlay (inventory, stats, etc.) is open on top of it.
+
+### Fixed
+- The Smith's Upgrade button only dimmed/disabled for missing materials,
+  never for insufficient gold — raised 2026-08-28: "Fade out upgrade
+  buttons if you can't afford/don't have materials. Well if you don't
+  have materials already works like that so just do that for can't
+  afford." `js/screens/smithScreen.js` now also disables the button when
+  `state.player.gold < cost`, reusing the existing generic
+  `button:disabled` fade styling.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed
