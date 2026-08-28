@@ -1,6 +1,7 @@
 import { ITEMS } from '../data/items.js';
 import { xpForLevel } from '../systems/leveling.js';
 import { getEquipmentBonuses } from '../systems/inventory.js';
+import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
 
@@ -17,8 +18,15 @@ function render() {
     if (!itemId) return `<div class="stats-slot">${slot}: (empty)</div>`;
     const item = ITEMS[itemId];
     const level = state.upgrades?.[itemId] || 0;
-    return `<div class="stats-slot">${slot}: ${item.emoji} ${item.name} +${level}</div>`;
+    const tier = state.equipmentTiers?.[slot];
+    return `<div class="stats-slot">${slot}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</div>`;
   }).join('');
+
+  const effectRows = [
+    bonuses.lifestealPercent > 0 ? `<div>Lifesteal: ${bonuses.lifestealPercent}%</div>` : '',
+    bonuses.extraSwingChance > 0 ? `<div>Extra Swing Chance: ${bonuses.extraSwingChance}%</div>` : '',
+    bonuses.elementalProcChance > 0 ? `<div>Elemental Proc: ${bonuses.elementalProcChance}% chance, +${bonuses.elementalProcDamage} dmg</div>` : '',
+  ].join('');
 
   const ngPlusBadge = state.ngPlusCycle > 0 ? `<div class="ngplus-badge">New Game+${state.ngPlusCycle}</div>` : '';
 
@@ -32,6 +40,7 @@ function render() {
       <div>Defense: ${state.player.defense + bonuses.defense}</div>
       <div>Speed: ${state.player.speed + bonuses.speed}</div>
       <div>Gold: ${state.player.gold}</div>
+      ${effectRows}
       <h3>Equipment</h3>
       ${equipRows}
       <button id="btn-close-stats">Close</button>

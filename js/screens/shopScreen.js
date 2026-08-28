@@ -31,7 +31,9 @@ function render() {
     const item = ITEMS[itemId];
     const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId && !entry.tier);
     const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
-    const isEquipped = item.slot && state.equipment[item.slot] === itemId;
+    // Tier-aware: only the Plain copy is "this row, equipped" - a worn Fine/
+    // Superior copy is a different (better) item than what the shop sells.
+    const isEquipped = item.slot && state.equipment[item.slot] === itemId && !state.equipmentTiers?.[item.slot];
     const buyButtons = BUY_QUANTITIES.map((qty) => {
       const affordable = maxAffordableQuantity(state.player.gold, item.price, qty) === qty;
       return `<button data-item="${itemId}" data-qty="${qty}" ${affordable ? '' : 'disabled'}>Buy ${qty}x</button>`;

@@ -14,7 +14,9 @@ let callbacks = null;
 
 function ownedQuantity(itemId) {
   const item = ITEMS[itemId];
-  const inventoryQty = state.inventory.find((entry) => entry.itemId === itemId)?.quantity || 0;
+  const inventoryQty = state.inventory
+    .filter((entry) => entry.itemId === itemId)
+    .reduce((sum, entry) => sum + entry.quantity, 0);
   const equippedQty = item.slot && state.equipment[item.slot] === itemId ? 1 : 0;
   return inventoryQty + equippedQty;
 }

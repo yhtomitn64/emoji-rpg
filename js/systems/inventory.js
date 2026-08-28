@@ -84,11 +84,14 @@ export function maxAffordableQuantity(gold, price, requested) {
   return Math.min(requested, Math.floor(gold / price));
 }
 
-export function describeItem(itemId) {
+export function describeItem(itemId, tier) {
   const item = ITEMS[itemId];
   if (item.description) return `${item.name}: ${item.description}`;
   if (item.stats) {
-    const statsText = Object.entries(item.stats).map(([stat, value]) => `${stat} +${value}`).join(', ');
+    const tierMultiplier = tier ? QUALITY_TIER_MULTIPLIERS[tier] : 1;
+    const statsText = Object.entries(item.stats)
+      .map(([stat, value]) => `${stat} +${Math.round(value * tierMultiplier)}`)
+      .join(', ');
     if (statsText) return `${item.name}: ${statsText}`;
   }
   if (item.heal) return `${item.name}: heals ${item.heal} HP`;

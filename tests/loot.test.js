@@ -58,10 +58,23 @@ test('getItemSources flags mini-dungeon treasure pool items', () => {
   assert.ok(getItemSources('powerRing').includes('Mini-dungeon treasure'));
 });
 
+test('getItemSources flags Unique-effect items as a rare monster-kill drop, not "Found on monster kills"', () => {
+  for (const id of UNIQUE_EFFECT_ITEM_IDS) {
+    const sources = getItemSources(id);
+    assert.ok(sources.includes('Rare monster-kill drop'), `${id} should be flagged as a rare monster-kill drop`);
+    assert.ok(!sources.includes('Found on monster kills'), `${id} should not also say "Found on monster kills"`);
+  }
+});
+
+test('getItemSources flags ordinary equipment-drop-pool items as findable on monster kills', () => {
+  assert.ok(getItemSources('ironSword').includes('Found on monster kills'));
+});
+
 test('rollDrop applies a quality tier to an existing named equipment drop (e.g. goblinClub-shaped entries)', () => {
   const goblinLike = { goldRange: [5, 13], xp: 22, dropTable: [{ itemId: 'goblinClub', chance: 1 }] };
-  // sequence: [gold, dropTable roll (hits goblinClub), quality roll -> superior at this toughness]
-  const drop = rollDrop(goblinLike, sequence(0, 0, 0.01));
+  // sequence: [gold, unique-effect pre-roll miss, ordinary-gear pre-roll miss,
+  //            dropTable roll (hits goblinClub), quality roll -> superior at this toughness]
+  const drop = rollDrop(goblinLike, sequence(0, 0.5, 0.5, 0, 0.01));
   assert.equal(drop.item, 'goblinClub');
   assert.equal(drop.tier, 'superior');
 });
@@ -98,13 +111,28 @@ test('rollDrop grants no bonus item when both the Unique-effect check and the or
   assert.equal(drop.tier, undefined);
 });
 
-test('rollDrop never rolls the generic equipment path when the dropTable already produced an item', () => {
+test('rollDrop\'s Unique-effect/ordinary-gear pre-roll takes priority over the dropTable\'s own item when both would hit', () => {
   const goblinLike = { goldRange: [5, 13], xp: 22, dropTable: [{ itemId: 'goblinClub', chance: 1 }] };
-  // Even with a very low rng that would trivially hit every later check,
-  // only the dropTable item (goblinClub) and its own quality roll should
-  // ever be consulted - the item must never be overwritten by a pool pick.
-  const drop = rollDrop(goblinLike, sequence(0, 0, 0.001, 0.001, 0.001));
-  assert.equal(drop.item, 'goblinClub');
+  // sequence: [gold, unique-effect pre-roll hits at this toughness, pool pick]
+  // goblinLike's dropTable would also hit (chance 1) if it were ever
+  // consulted - confirm the pre-roll wins and the dropTable is never reached.
+  const drop = rollDrop(goblinLike, sequence(0, 0.001, 0));
+  assert.ok(UNIQUE_EFFECT_ITEM_IDS.includes(drop.item));
+  assert.notEqual(drop.item, 'goblinClub');
+});
+
+test('the pre-roll still gets a fair chance even when NG+ rescaling saturates the dropTable to 100%', () => {
+  // Regression test for a bug found in final review: NG+'s scaleDropTable
+  // boosts and re-normalizes drop-table chances, up to a full 1.0 at high
+  // cycles. Before the pre-roll/dropTable reordering above, a saturated
+  // dropTable meant the toughness-weighted pre-roll below could never fire
+  // at all, starving Unique-effect/tiered drops to 0% for exactly the
+  // toughest monsters at high NG+ cycles - the opposite of the feature's
+  // goal. Simulates that saturation directly rather than importing
+  // scaleDropTable, since this module doesn't otherwise depend on NG+.
+  const saturatedWraith = { goldRange: [18, 30], xp: 63, dropTable: [{ itemId: 'wraithEssence', chance: 1 }] };
+  const drop = rollDrop(saturatedWraith, sequence(0, 0.001, 0));
+  assert.ok(UNIQUE_EFFECT_ITEM_IDS.includes(drop.item));
 });
 
 test('boss, elite, and forceFullBattle monsters never get the Unique-effect or ordinary-gear roll, regardless of rng', () => {

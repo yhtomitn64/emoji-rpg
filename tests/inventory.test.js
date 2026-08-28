@@ -209,6 +209,12 @@ test('describeItem prefers an explicit description field over inferred text', ()
   assert.equal(describeItem('miningPick'), 'Mining Pick: Clears mountain gates blocking the way');
 });
 
+test('describeItem applies the tier multiplier to displayed stats, and treats undefined as Plain', () => {
+  // ironSword base attack 6. Superior (1.20): round(6 * 1.20) = 7.
+  assert.equal(describeItem('ironSword', 'superior'), 'Iron Sword: attack +7');
+  assert.equal(describeItem('ironSword', undefined), 'Iron Sword: attack +6');
+});
+
 test('addItem keeps a Plain and a Fine copy of the same base item as two separate stacks', () => {
   let state = createNewGame();
   state = addItem(state, 'ironSword', 1); // Plain

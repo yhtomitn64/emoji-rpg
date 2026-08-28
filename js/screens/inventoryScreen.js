@@ -23,7 +23,7 @@ function renderEquippedRows() {
     const level = state.upgrades?.[itemId] || 0;
     const tier = state.equipmentTiers?.[slot];
     return `<div class="inventory-row">
-      <span title="${describeItem(itemId)}">${slot}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span title="${describeItem(itemId, tier)}">${slot}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <button data-unequip="${slot}">Unequip</button>
     </div>`;
   }).join('');
@@ -38,7 +38,7 @@ function renderGearRows() {
     const deltaText = formatDelta(delta);
     const qtyText = entry.quantity > 1 ? ` x${entry.quantity}` : '';
     return `<div class="inventory-row">
-      <span title="${describeItem(entry.itemId)}">${item.emoji} ${tierLabel(entry.tier)}${item.name}${qtyText}${deltaText ? ` (${deltaText})` : ''}</span>
+      <span title="${describeItem(entry.itemId, entry.tier)}">${item.emoji} ${tierLabel(entry.tier)}${item.name}${qtyText}${deltaText ? ` (${deltaText})` : ''}</span>
       <button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}">Equip</button>
     </div>`;
   }).join('');

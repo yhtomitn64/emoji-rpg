@@ -26,7 +26,7 @@ function render() {
 
     if (level >= MAX_UPGRADE_LEVEL) {
       return `<div class="smith-row">
-      <span title="${describeItem(itemId)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
+      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
     </div>`;
     }
 
@@ -37,7 +37,7 @@ function render() {
       .join('');
 
     return `<div class="smith-row">
-      <span title="${describeItem(itemId)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
       <button data-slot="${slot}" ${materials.length === 0 ? 'disabled' : ''}>Upgrade (${cost}g)</button>
     </div>`;
