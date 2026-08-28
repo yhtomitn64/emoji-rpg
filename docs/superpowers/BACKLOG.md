@@ -448,6 +448,29 @@ one screen at a time and the whole map just move as you move around."
   roaming-enemies dependency above since they'd share the same
   rendering rewrite.
 
+## Fog-of-war reveal map, brought up with a keypress, raised 2026-08-26
+
+Timothy's own words: "a map that is slowly revealed as you walk over the
+ground. you can bring up map with m when you want."
+
+Two pieces: (1) a full-map overview screen, toggled on/off with a keypress
+(`m`), showing the wilderness/dungeon layout; (2) that overview stays
+fogged/blank except for ground the player has actually walked over,
+revealed progressively as new tiles get explored - a classic fog-of-war
+minimap.
+
+Real prior art already exists to build this on: `state.visited`
+(`js/systems/exploration.js`) already tracks per-tile walk history per
+screen (walk count + which edges have been crossed, added for the
+worn-path trail effect) - a fog-of-war reveal map could read this signal
+directly for "which tiles has the player actually explored" rather than
+needing a whole new tracked-exploration data structure. Not designed -
+still open: what the overview actually renders (all 25 wilderness screens
+zoomed out at once, or one screen at a time?), whether dungeon interiors
+get their own separate fog-of-war map or are excluded entirely, and
+whether landmarks (town, dungeon entrance) are always visible on the map
+even before being walked past. Raw idea only, not scoped.
+
 ## New terrain types: sand and tarpit, each with their own monsters
 
 Raised 2026-08-24, while drawing zone 1 terrain in the painter tool.
@@ -756,6 +779,23 @@ through in a dedicated future combat pass rather than one-off adds:
   Floated as possibly its own special encounter type rather than a
   change to normal combat. Not designed at all — raw idea only, capture
   only per his explicit "maybe backlog for the future."
+- **Hold-to-block shield, a damage-reduction alternative to parry,
+  raised 2026-08-26.** Timothy's own words, explicitly unsure of the
+  exact motivation ("not sure why you would want that over parry"):
+  hold down a key (floated `d`, distinct from parry's `s`) to raise a
+  shield, reducing incoming damage while held rather than negating it
+  outright like a successful parry does. His own best guess at why it'd
+  be worth having alongside parry: some enemies or attacks might be
+  flagged un-parryable but still blockable, giving block a reason to
+  exist as its own mechanic rather than a strictly-worse parry. Also
+  floated: a visual (a shield icon/graphic) appearing in front of the
+  character while blocking is held. Not designed — open questions
+  include the actual damage-reduction percentage, whether it costs
+  anything to hold (stamina-like resource, or free), how it interacts
+  with the existing wind-up/parry-window system in `js/systems/parry.js`
+  (does a blockable attack still show a wind-up bar, just without a
+  parry-timing payoff?), and which specific attacks/enemies (if any)
+  would actually be marked un-parryable-but-blockable. Raw idea only.
 - **Potions currently cost a full turn like an attack.**
   `playerUseItem()` (js/screens/battleScreen.js:189) resets
   `playerCombatant.atb = 0`, same as `playerAttack()`. Wants potions
@@ -1324,6 +1364,23 @@ first: `buildMonsterCombatant` silently dropping `attackStyle`/
 **Timothy's call:** don't add jsdom (or similar) now — live verification is
 an acceptable trade-off for a project this size today. Revisit if
 DOM-timing regressions in this file keep showing up.
+
+**New data point, 2026-08-26:** during the item-quality-tiers subagent-
+driven implementation, live-browser verification of `battleScreen.js`/
+`inventoryScreen.js` changes (spinning up a real Chrome instance per task
+via MCP automation) turned out to be the single biggest token/time cost
+of the whole effort — one task alone burned ~367k tokens and 358 tool
+calls, mostly from a subagent repeatedly trying to reach a real battle-won
+outcome that's actually impossible at level 1 by design. Not a DOM-timing
+regression (the original reason for deferring), but a different, real cost
+axis worth weighing next time this comes up: jsdom wouldn't replace all
+live verification (rendering/CSS/event-timing quirks still want an
+occasional real-browser eyeball), but it would make the mechanical
+"does clicking this button call the right function with the right args"
+class of check a normal fast/cheap automated test instead of a live-browser
+round trip — exactly the kind of check that was expensive here. Still not
+built, still Timothy's call to make, just flagging the cost side of the
+tradeoff has new evidence now.
 
 ### Pixel-level visual regression test for the worn-path trail (and similar rendering bugs) — raised 2026-08-26
 Timothy, after several rounds of "there's a seam" reports that turned out
