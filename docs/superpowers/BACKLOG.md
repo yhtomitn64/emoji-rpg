@@ -1152,9 +1152,15 @@ through in a dedicated future combat pass rather than one-off adds:
   as of fresh playtesting still showing fights too easy — the cooldown
   between attacks itself now grows uncapped with the streak instead of
   staying flat. See CHANGELOG.
-- **Swing-timer knockback on hit.** Landing a hit knocks the enemy's ATB
-  gauge back slightly; getting hit knocks the player's back slightly —
-  small and non-stacking so neither side gets fully locked out.
+- ~~**Swing-timer knockback on hit.**~~ **Already shipped, backlog just
+  never updated — caught 2026-08-28 alongside the potions/animations
+  items above.** `applyKnockback` (`js/systems/combat.js`) is called both
+  directions: landing a player hit knocks the monster's ATB back
+  (`resolvePlayerAttack`/`resolveAbilityUse`), and a monster's own attack
+  knocks the player's ATB back in turn (`resolveMonsterAttack`) - the
+  earlier "unlosable exploit" bug/fix thread further below in this file
+  already confirmed this mechanic is real and live, just never struck
+  through here.
 - **Timer-speed items.** Droppable gear that speeds up your own gauge or
   slows the enemy's, capped so speed can't stack infinitely — a build
   choice between "faster me," "slower them," or other effects.
