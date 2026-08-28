@@ -682,8 +682,8 @@ public API, no formal release process — commits land straight on
 ### Added
 - Monster kills can now drop tiered (Fine/Superior) equipment or one of
   three wholly new Unique-effect items, both weighted by how tough the
-  monster is relative to the rest of the roster (`js/systems/
-  itemQuality.js`'s `monsterToughness`, 0-1 by relative xp). Superior
+  monster is relative to the rest of the roster
+  (`js/systems/itemQuality.js`'s `monsterToughness`, 0-1 by relative xp). Superior
   chance scales 2%→10% and Fine 10%→25% by toughness for an ordinary
   equipment drop (`rollQualityTier`); a separate, independent
   Unique-effect check scales 1%→5% (`rollUniqueEffectChance`), tried

@@ -223,6 +223,25 @@ one-off task.
     mechanic to unlock yet, and adding the item alone would just be
     inert inventory clutter until that exists. Revisit once zone 2's
     own design pass produces an actual gate to key it to.
+  - **How should NG+ strength carry into a new zone, raised 2026-08-28?**
+    Timothy: "I am wondering if we can save a state when someone does
+    NG+ so they can go back to pre NG+ so that when they go to zone 2
+    they go back to pre NG+ character so they are not too strong. Or
+    maybe when going to a new zone you just revert or something. Not
+    sure how to handle it. Or we scale all future zones to NG+ state.
+    Not sure. But let's put this in backlog to figure out." Three
+    distinct directions floated, none decided: (a) snapshot/restore a
+    pre-NG+ character state so entering zone 2 reverts the player to it
+    (so zone 2 isn't trivialized by NG+-boosted stats/gear), (b) some
+    other automatic revert-on-new-zone mechanic, or (c) don't revert
+    anything — instead tune zone 2+ difficulty to assume an NG+-strength
+    character from the start. Directly entangled with the still-open
+    "each new zone is allowed to be a partial gear-check reset" bullet
+    above and the "spatial difficulty gradient" idea below — worth
+    deciding together with those once zone 2's own design pass happens,
+    not in isolation. No mechanism exists today for snapshotting
+    pre-NG+ state at all (`js/systems/ngPlus.js`'s `resetWorldForNgPlus`
+    only ever resets forward, never stores what it overwrote).
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
@@ -937,6 +956,17 @@ sinks gold or materials fast enough to make this a real gap yet, just a
 few extra tidy-up rows in the inventory. Revisit if that changes (e.g.
 materials pile up faster, or a future economy pass tightens gold flow).
 
+### Tiered gear can never be sold or discarded, flagged by final review 2026-08-28
+The shop deliberately only ever sells/buys the Plain stack of an item
+(Task 7 of the item-quality-tiers plan) — correct, but as a side effect
+there is now no path at all to convert or remove a Fine/Superior copy
+once found. Bounded (at most 3 stacks of the same base item — Plain,
+Fine, Superior), but permanently unremovable inventory clutter over a
+long game. The design spec's claim that "the inventory-bloat problem
+this could have caused never materializes" holds for the total item
+count, just not for tiered stacks specifically. Worth a manual-sell
+path for tiered gear once/if this becomes a real annoyance in play.
+
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
 through in a dedicated future combat pass rather than one-off adds:
@@ -956,6 +986,46 @@ through in a dedicated future combat pass rather than one-off adds:
     reflected damage than the current fixed 50% (`js/systems/parry.js`).
     Not designed — which direction (or both, as two separate items) is
     undecided.
+  - **Known follow-ups from the item-quality-tiers final review,
+    2026-08-28** (each a real, deliberately-accepted consequence of the
+    v1 shipped design, not a bug — recorded rather than silently
+    accepted):
+    - **`describeItem` (`js/systems/inventory.js`) was never made
+      tier-aware.** It's the `title=` tooltip on every gear row and
+      still prints raw base stats, so a Superior Iron Sword's tooltip
+      reads "attack +6" while the item actually grants 7 (it already
+      ignored smith-upgrade level before tiers existed; this adds a
+      second axis of the same drift).
+    - **AOE abilities multiply lifesteal/elemental-proc per target
+      hit**, not per player action — `applyOnHitEffects` is called once
+      per monster hit, so Sweep against 3 monsters yields 3 lifesteal
+      heals (45% of total damage healed back) and 3 independent 20%
+      proc rolls. Plan-mandated and commented as deliberate; flagging
+      as a balance data point now that Sweep and Vampiric Fang/Ember
+      Ring coexist.
+    - **`formatDelta` (duplicated identically in `inventoryScreen.js`
+      and `shopScreen.js`) leaks raw camelCase stat keys into the UI**
+      once an effect stat is nonzero — e.g. "attack +7, lifestealPercent
+      +15", or Ember Ring's "elementalProcChance +20,
+      elementalProcDamage +6". Pre-existing style
+      (`enemySlowPercent` already did this), the four new effect keys
+      just make it a lot more visible. A shared stat-label map would fix
+      the display and the duplication in one move.
+    - **`getItemStatDelta`'s displayed delta can be off by ±1** from
+      what `getEquipmentBonuses` actually applies, whenever another
+      equipped slot's fractional upgrade/tier contribution rounds
+      differently once totaled — brute-forced across a large sample of
+      equipped/candidate/tier/upgrade combinations: roughly a quarter
+      mismatch (pre-existing from upgrade-level fractions alone; tiers
+      barely move the rate). Never a sign error, only ever ±1. Not
+      worth blocking anything on, but the delta shown before equipping
+      something isn't always exactly what you get.
+    - **`getEquipmentBonuses(state)` is called three separate times on
+      the battle-mount path** (`js/screens/battleScreen.js`, once each
+      for the player combatant build, the enemy-slow stat, and
+      `playerEffectBonuses`) — cheap and correct, just worth
+      consolidating into one call reused for all three next time this
+      file gets touched.
 - **Rhythm-style multi-hit parry / synchronized multi-mob parry bar,
   raised 2026-08-26.** Timothy's own words, explicitly tentative
   ("seems a little funky," "not sure"): enemies that land multiple
