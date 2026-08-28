@@ -72,6 +72,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
       direWolf: 0, spider: 0, orc: 0, wraith: 0,
     },
     gateRewards: {},
+    clearedGates: {},
     lossStreak: 0,
     dungeonEntrancePosition,
   };

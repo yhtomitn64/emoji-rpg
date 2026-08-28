@@ -171,6 +171,9 @@ function startGame(loadedState, slotId) {
   if (!state.toolGateHintsShown) {
     state.toolGateHintsShown = {};
   }
+  if (!state.clearedGates) {
+    state.clearedGates = {};
+  }
   if (!state.lossStreak) {
     state.lossStreak = 0;
   }

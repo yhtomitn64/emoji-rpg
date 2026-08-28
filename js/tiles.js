@@ -32,6 +32,14 @@ export const TILES = {
   mountainCache: { emoji: '⛰️', walkable: false, encounter: false, requiresTool: 'miningPick', hasReward: true, description: 'Mountain — needs a mining pick to clear' },
   thicket: { emoji: '🌳', walkable: false, encounter: false, requiresTool: 'axe', description: 'Thicket — needs an axe to clear' },
   thicketCache: { emoji: '🌳', walkable: false, encounter: false, requiresTool: 'axe', hasReward: true, description: 'Thicket — needs an axe to clear' },
+  // What a thicket/mountain permanently becomes the first time it's crossed
+  // with the right tool - ordinary walkable ground (same encounter odds as
+  // grass) with a visible "you cleared this" marker, rather than silently
+  // reverting to plain grass or staying the original blocking tile forever.
+  // Water is deliberately excluded from this conversion - canoeing across it
+  // shouldn't change the tile at all (raised 2026-08-28).
+  stump: { emoji: '🪵', walkable: true, encounter: true, description: 'Stump — the thicket here has been cleared' },
+  rubble: { emoji: '🪨', walkable: true, encounter: true, description: 'Rubble — the mountain here has been cleared' },
   axeDungeonEntrance: { emoji: '🪓', walkable: true, encounter: false, action: 'enterAxeDungeon', description: 'A guarded passage — the axe lies beyond' },
   pickDungeonEntrance: { emoji: '⛏️', walkable: true, encounter: false, action: 'enterPickDungeon', description: 'A guarded passage — the mining pick lies beyond' },
   canoeDungeonEntrance: { emoji: '🛶', walkable: true, encounter: false, action: 'enterCanoeDungeon', description: 'A guarded passage — the boat lies beyond' },

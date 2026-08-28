@@ -46,6 +46,16 @@ export function markGateHintShown(toolGateHintsShown, screenId, x, y) {
   return { ...toolGateHintsShown, [screenId]: screenHints };
 }
 
+export function isGateCleared(clearedGates, screenId, x, y) {
+  return Boolean(clearedGates[screenId] && clearedGates[screenId][`${x},${y}`]);
+}
+
+export function markGateCleared(clearedGates, screenId, x, y) {
+  const key = `${x},${y}`;
+  const screenCleared = { ...(clearedGates[screenId] || {}), [key]: true };
+  return { ...clearedGates, [screenId]: screenCleared };
+}
+
 export function isGateRewardCollected(gateRewards, screenId, x, y) {
   return Boolean(gateRewards[screenId] && gateRewards[screenId][`${x},${y}`]);
 }

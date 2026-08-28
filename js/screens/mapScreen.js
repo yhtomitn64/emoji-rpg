@@ -6,7 +6,7 @@ import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
 import { resolveStepDiscovery } from '../systems/discovery.js';
-import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGateProximityMessage, hasShownGateHint, markGateHintShown, isGateRewardCollected, markGateRewardCollected, rollGateReward } from '../systems/toolGates.js';
+import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGateProximityMessage, hasShownGateHint, markGateHintShown, isGateRewardCollected, markGateRewardCollected, rollGateReward, isGateCleared, markGateCleared } from '../systems/toolGates.js';
 import { rollEncounterGroup } from '../systems/groupEncounters.js';
 import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.js';
 import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
@@ -89,6 +89,28 @@ const GRASS_CONTEXT_MARKERS = new Set([
   TILES.exit,
 ]);
 
+// A cleared thicket/mountain (see CLEARED_GATE_REPLACEMENT below) reads as
+// ordinary ground with a small always-visible marker, the same treatment as
+// grass's own occasional clover/flower - not a tall obstacle (unlike the
+// thicket/mountain it replaces) and not a big single landmark either, so it
+// shares grass's own decoration/background code path rather than either of
+// those. Deliberately unconditional (same map-context-agnostic treatment
+// RANDOM_SIZE_OBSTACLES already gives thicket/mountain themselves, e.g. the
+// axe-gated thicket inside the dragon dungeon) rather than trying to match
+// whichever floor tile (grass vs. cave) happens to sit underneath.
+const STUMP_AND_RUBBLE = new Set([TILES.stump, TILES.rubble]);
+
+// What a thicket/mountain permanently becomes the first time it's crossed
+// with the right tool - see js/systems/toolGates.js's isGateCleared/
+// markGateCleared and this file's tileAt(). Water is deliberately absent:
+// canoeing across it shouldn't change the tile at all (raised 2026-08-28).
+const CLEARED_GATE_REPLACEMENT = new Map([
+  [TILES.thicket, TILES.stump],
+  [TILES.thicketCache, TILES.stump],
+  [TILES.mountain, TILES.rubble],
+  [TILES.mountainCache, TILES.rubble],
+]);
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Every trail fragment's SVG uses this fixed 0..100 coordinate space
 // (independent of the tile's actual rendered pixel size) - trail.js's
@@ -168,7 +190,12 @@ function tileAt(x, y) {
   if (!row) return null;
   const char = row[x];
   if (!char) return null;
-  return TILES[mapConfig.legend[char]];
+  const rawTile = TILES[mapConfig.legend[char]];
+  const clearedReplacement = CLEARED_GATE_REPLACEMENT.get(rawTile);
+  if (clearedReplacement && isGateCleared(state.clearedGates, mapConfig.id, x, y)) {
+    return clearedReplacement;
+  }
+  return rawTile;
 }
 
 function isOutOfBounds(x, y) {
@@ -349,9 +376,11 @@ function render() {
       // RANDOM_SIZE_OBSTACLES above. Grass-context landmarks (town/
       // wilderness/dungeon action tiles) are their own distinct tile type
       // but conceptually sit on that same grass, so they get it too - see
-      // GRASS_CONTEXT_MARKERS above.
+      // GRASS_CONTEXT_MARKERS above. Stump/rubble (what those obstacles
+      // become once cleared - see STUMP_AND_RUBBLE above) get the same
+      // treatment as grass itself, not just the obstacle set.
       cell.className = 'map-tile'
-        + (tile === TILES.grass || RANDOM_SIZE_OBSTACLES.has(tile) || GRASS_CONTEXT_MARKERS.has(tile) ? ' map-tile-grass' : '')
+        + (tile === TILES.grass || STUMP_AND_RUBBLE.has(tile) || RANDOM_SIZE_OBSTACLES.has(tile) || GRASS_CONTEXT_MARKERS.has(tile) ? ' map-tile-grass' : '')
         + (tile === TILES.water ? ' map-tile-water' : '')
         + (isPlayer ? ' map-tile-player' : '');
       // A tile's own worn-path trail: dirt strokes reaching toward whichever
@@ -387,7 +416,7 @@ function render() {
         ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
       const isRandomSizeObstacle = !hasMiniDungeon && !hasTileCache && RANDOM_SIZE_OBSTACLES.has(tile);
       const isFullSquareMarker = hasMiniDungeon || hasTileCache || FULL_SQUARE_MARKERS.has(tile);
-      const isDecoratedGrass = !isFullSquareMarker && tile === TILES.grass && emoji !== '';
+      const isDecoratedGrass = !isFullSquareMarker && (tile === TILES.grass || STUMP_AND_RUBBLE.has(tile)) && emoji !== '';
       // Appended before the hero/marker span below (when both apply to the
       // same tile) so the decoration sits underneath it in paint order,
       // peeking out from around the edges instead of hiding whatever's
@@ -478,6 +507,13 @@ function tryMove(dx, dy) {
       return;
     }
     callbacks.onToolGateCleared(getToolClearedMessage(tile.requiresTool));
+    // Permanently convert thicket/mountain to a stump/rubble marker the
+    // first time it's crossed - water is absent from CLEARED_GATE_REPLACEMENT
+    // on purpose, so canoeing across it never changes the tile (raised
+    // 2026-08-28).
+    if (CLEARED_GATE_REPLACEMENT.has(tile)) {
+      Object.assign(state, { clearedGates: markGateCleared(state.clearedGates, mapConfig.id, nx, ny) });
+    }
   }
 
   // Record which edge this step actually crossed on both sides of it: the

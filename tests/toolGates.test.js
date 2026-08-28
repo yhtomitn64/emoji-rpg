@@ -12,6 +12,8 @@ import {
   isGateRewardCollected,
   markGateRewardCollected,
   rollGateReward,
+  isGateCleared,
+  markGateCleared,
 } from '../js/systems/toolGates.js';
 
 test('hasRequiredTool is true for a tile with no requiresTool field, regardless of inventory', () => {
@@ -93,6 +95,26 @@ test('markGateRewardCollected preserves previously recorded rewards on the same 
   gateRewards = markGateRewardCollected(gateRewards, 'north', 9, 9);
   assert.equal(isGateRewardCollected(gateRewards, 'north', 3, 15), true);
   assert.equal(isGateRewardCollected(gateRewards, 'north', 9, 9), true);
+});
+
+test('isGateCleared/markGateCleared round-trip, immutably', () => {
+  const clearedGates = {};
+  const next = markGateCleared(clearedGates, 'northwest', 14, 4);
+  assert.equal(isGateCleared(next, 'northwest', 14, 4), true);
+  assert.deepEqual(clearedGates, {});
+});
+
+test('isGateCleared returns false for uncleared tiles and unknown screens', () => {
+  const clearedGates = { northwest: { '14,4': true } };
+  assert.equal(isGateCleared(clearedGates, 'northwest', 1, 1), false);
+  assert.equal(isGateCleared(clearedGates, 'unknown', 14, 4), false);
+});
+
+test('markGateCleared preserves previously recorded clears on the same screen', () => {
+  let clearedGates = markGateCleared({}, 'north', 3, 15);
+  clearedGates = markGateCleared(clearedGates, 'north', 9, 9);
+  assert.equal(isGateCleared(clearedGates, 'north', 3, 15), true);
+  assert.equal(isGateCleared(clearedGates, 'north', 9, 9), true);
 });
 
 test('rollGateReward rolls gold in the 15-25 range and always grants a potion', () => {

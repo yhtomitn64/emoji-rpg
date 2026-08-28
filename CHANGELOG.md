@@ -801,6 +801,19 @@ public API, no formal release process — commits land straight on
   grass-matched background as every other obstacle in one move, since the
   existing `map-tile-grass` class already keys off the same Set.
 
+### Added
+- Clearing a thicket/mountain with the right tool now permanently leaves a
+  visible stump 🪵 or rubble 🪨 marker instead of the tile staying visually
+  unchanged forever — raised 2026-08-28: "when using axe, pick and walking
+  into those blocks they should get cut down and leave a stump or rubble
+  or something. water should not do anything from canoe." New
+  `state.clearedGates` tracks which specific tiles have been crossed;
+  `js/systems/toolGates.js` gained `isGateCleared`/`markGateCleared`, and
+  `js/screens/mapScreen.js`'s `tileAt()` swaps in the replacement tile via
+  a `CLEARED_GATE_REPLACEMENT` map (thicket/thicketCache → stump,
+  mountain/mountainCache → rubble) once cleared. Water is deliberately
+  absent from that map, so canoeing across it never changes the tile.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed

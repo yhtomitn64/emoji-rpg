@@ -958,15 +958,28 @@ labeled overlays (inventory/stats/message-log/loot-reference) weren't
 touched — a different action semantically, not part of what was asked.
 See CHANGELOG.
 
-### Chopping/mining a gated tile should leave a visible stump/rubble; canoeing across water shouldn't change the tile at all, raised 2026-08-28
+### ~~Chopping/mining a gated tile should leave a visible stump/rubble; canoeing across water shouldn't change the tile at all~~ Shipped 2026-08-28
 Timothy: "Also when using axe, pick and walking into those blocks they
 should get cut down and leave a stump or rubble or something. water
 should not do anything from canoe. That just let's you canoe over."
-Today, clearing a tool-gated tile (`js/systems/toolGates.js`,
-`js/tiles.js`'s `requiresTool`) presumably just removes the obstacle
-outright — wants a visible after-state (stump for trees, rubble for
-rock) distinct from water, which should stay visually unchanged since
-the canoe only lets you cross it, not alter it.
+Confirmed: clearing a tool-gated tile never mutated the map data at all
+— `tileAt()` (`js/screens/mapScreen.js`) always re-derived the tile fresh
+from the map's own `LEGEND`/`ROWS` every render, so thicket/mountain
+stayed visually unchanged forever regardless of how many times crossed;
+only a live `isPassableTile` check made it walkable. Two new walkable
+tiles (`js/tiles.js`): `stump` 🪵 and `rubble` 🪨, same encounter odds as
+grass. New `state.clearedGates` (`{screenId: {"x,y": true}}`, same shape
+as the existing `gateRewards`/`toolGateHintsShown`) records which
+specific tiles have been crossed; `isGateCleared`/`markGateCleared`
+(`js/systems/toolGates.js`) read/write it, marked the moment
+`onToolGateCleared` fires. `tileAt()` now swaps in the stump/rubble
+replacement once a tile's been cleared, via a `CLEARED_GATE_REPLACEMENT`
+map keyed by the *specific* tile object (thicket/thicketCache → stump,
+mountain/mountainCache → rubble) — water is deliberately absent from
+that map, so canoeing across it is untouched, exactly as asked. Cleared
+tiles get the same grass background + always-visible-marker treatment as
+grass's own decorative clover/flower, not the full obstacle-sizing
+treatment (they're flat ground now, not a tall blocking obstacle).
 
 ### A proud, visible "you can do this now" moment when a tool is first picked up, raised 2026-08-28
 Timothy: "Also after getting axe, pick, canoe the character should hold
