@@ -719,44 +719,63 @@ underlying "the game should explain itself more" theme.
 
 ## Bugs
 
-### Tool-dungeon guardian drops undermine the "no chance, find it" design intent, raised 2026-08-28
+### ~~Tool-dungeon guardian drops undermine the "no chance, find it" design intent~~ Shipped 2026-08-28
 Timothy: "I just got the axe dropped by a slippery breakstick and I want
 the axe/pick/canoe to only come from the special place I put on the map
 behind a special boss. It shouldn't be chance. the gamer has to figure
 out where to go!" Confirmed in code: alongside the guaranteed
 `axeGuardian` drop (`js/data/monsters.js:77`, `chance: 1`, behind its own
 gated dungeon), the regular wraith encounter (Ghost Apple Supreme) also
-carries a stray `{ itemId: 'axe', chance: 0.25 }` in its own dropTable
-(`js/data/monsters.js:132`) — a leftover chance-based path that directly
-contradicts the tool-gating design's whole point (see
+carried a stray `{ itemId: 'axe', chance: 0.25 }` in its own dropTable —
+a leftover chance-based path that directly contradicted the tool-gating
+design's whole point (see
 `docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-design.md`).
-No stray `pick`/`boat` chance-drops found elsewhere in
-`js/data/monsters.js` — this looks isolated to the one wraith entry.
-Likely fix: delete that dropTable entry so axe is only ever obtainable
-from `axeGuardian`.
+Both removed. The original investigation's claim that "no stray
+`pick`/`boat` chance-drops [existed] elsewhere" turned out to be a false
+negative — it grepped for the literal string `'pick'`, which doesn't
+match `'miningPick'`, so it missed an identical stray
+`{ itemId: 'miningPick', chance: 0.25 }` on the orc (Super Mean
+Meatloaf). Fixed alongside the wraith one; a new test
+(`tests/data.test.js`) now asserts no non-guardian monster carries any
+tool-type drop at all, so this class of regression can't come back
+silently. See CHANGELOG.
 
-### Re-entering a mini-dungeon that blocks the only path forward is clunky, raised 2026-08-28
+### ~~Re-entering a mini-dungeon that blocks the only path forward is clunky~~ Shipped 2026-08-28
 Timothy: "a mini dungeon appears in a path where I could not go around
 it which feels clunky because when you go over it you have to go back
 in and then when you come back you have to go in again and right back
-out." A mini-dungeon placed with no way around it on the wilderness grid
-forces walking through its interior twice just to pass through the same
-tile of the outer map. Not investigated yet — needs a look at whether
-mini-dungeon placement (`js/systems/miniDungeons.js`) currently avoids
-gating the *only* path across a screen, or whether that's unconstrained
-today.
+out." Confirmed: mini-dungeon placement (`js/systems/miniDungeons.js`)
+had no constraint at all against gating the *only* path across a screen —
+any encounter-eligible tile could get one, chokepoint or not, and every
+step onto it force-enters the interior with no way to just walk over it.
+Fixed at the placement step rather than changing that force-enter
+behavior (which is otherwise fine for a one-off find): a new pure,
+DOM-free articulation-point check, `isChokepointTile`
+(`js/systems/world.js`, unit tested directly in `tests/world.test.js`),
+flood-fills the screen's currently-passable tiles with the candidate tile
+blocked and reports whether that would disconnect anything — reusing the
+same "live tool ownership counts as passable" notion the rest of movement
+already uses. Wired through `js/screens/mapScreen.js`'s
+`isScreenChokepoint` → `resolveStepDiscovery` →
+`shouldRevealMiniDungeon`; a roll that would have placed an entrance on a
+chokepoint now just falls through to a cache roll or nothing instead. See
+CHANGELOG.
 
-### After clearing a tool-dungeon guardian, the player lands back outside the whole zone instead of at the entrance/shortcut, raised 2026-08-28
+### ~~After clearing a tool-dungeon guardian, the player lands back outside the whole zone instead of at the entrance/shortcut~~ Shipped 2026-08-28
 Timothy: "after I kill axe guardian and walked back out of that mini
 forest zone the game placed me outside of the forst I was just in and I
 didn't even get to use the new axe to get out of there. so it should
 have placed me right back on the axe guardian entrance so I could use
-the shortcut my new axe ability gave me." Reads as a real placement bug
-in the post-guardian-kill exit logic — the player should land back at
-the tool-dungeon's own entrance point (letting them immediately use the
-new tool's shortcut), not wherever the current exit logic actually puts
-them. Not investigated yet — needs a look at whatever handles exiting
-`js/maps/toolDungeons/` interiors back to the wilderness map.
+the shortcut my new axe ability gave me." Confirmed: `enterMap`
+(`js/main.js`) unconditionally set `state.position` to the destination
+screen's generic `startPosition`, and the `exitMap` action handler
+relied on that default for *both* the main dungeon and every
+tool-dungeon exit — never the actual entrance coordinates the player
+walked in through. `enterMap` now accepts an optional target position,
+and `exitMap` passes `state.dungeonEntrancePosition`'s or
+`TOOL_DUNGEON_ENTRANCES`'s own `{x, y}` instead of omitting it. Fixed
+for the main dungeon exit too, since it shared the identical bug shape
+even though only the tool-dungeon case was reported. See CHANGELOG.
 
 ## Feature requests
 
@@ -1104,28 +1123,34 @@ through in a dedicated future combat pass rather than one-off adds:
   the *actual* parry-accepting window can drift apart. Worth checking
   that known tick-quantization gap against this fresh report before
   assuming it's purely a UI-clarity ask.
-- **Combo-priming's timing bonus (the "green section") can show before
-  it does anything, raised 2026-08-28.** Timothy: "If we don't get a
-  bonus for the level 2 ability when you hit space and it's in the green
-  section then don't show the green section until you get the next
-  ability which actual benefits from that timing." At level 2 the player
-  only has Stab; Stab's timing-hit green zone exists to prime Chop's
-  combo bonus, but Chop doesn't unlock until level 4 — so the green zone
-  shows (and can be hit) for two levels before it does anything. Wants
-  the timing minigame's bonus zone hidden until the payoff ability it
-  primes is actually unlocked. (Also raised in the same note: a general
-  in-game tutorial/popup ask for explaining mechanics — see "In-game
-  tutorials / mechanic explainers" above.)
-- **Chop should be usable immediately after a timing-hit Stab primes it,
-  not gated on its own cooldown, raised 2026-08-28.** Timothy: "Chop
-  should reset cooldown after successful #1 timing hit so that you can
-  always do it right away." Checked against the shipped combo system
-  (`canUseAbility`, `js/systems/abilities.js:48-51`): a primed payoff
-  (`comboSkipsReady`) only bypasses the swing-timer/`ready` gate, not
-  Chop's own real-time `onCooldown` gate — so if Chop is still cooling
-  down when Stab primes it, the combo can't actually be used right away
-  despite being primed. This looks like a real, unaddressed gap in the
-  shipped combo behavior, not just a request for something new.
+- ~~**Combo-priming's timing bonus (the "green section") can show before
+  it does anything, raised 2026-08-28.**~~ **Shipped 2026-08-28.**
+  Timothy: "If we don't get a bonus for the level 2 ability when you hit
+  space and it's in the green section then don't show the green section
+  until you get the next ability which actual benefits from that
+  timing." At level 2 the player only has Stab; Stab's timing-hit green
+  zone exists to prime Chop's combo bonus, but Chop doesn't unlock until
+  level 4 — so the green zone showed (and could be hit) for two levels
+  before it did anything. New `comboTimingHintUnlocked`
+  (`js/systems/abilities.js`) hides the timing meter's bonus-zone visual
+  until the payoff ability a setup ability primes is actually unlocked;
+  the timing hit is still scored underneath, so priming works instantly
+  the moment the payoff unlocks — only the misleading visual was hidden.
+  See CHANGELOG. (Also raised in the same note: a general in-game
+  tutorial/popup ask for explaining mechanics — see "In-game tutorials /
+  mechanic explainers" above — still open.)
+- ~~**Chop should be usable immediately after a timing-hit Stab primes it,
+  not gated on its own cooldown, raised 2026-08-28.**~~ **Shipped
+  2026-08-28.** Timothy: "Chop should reset cooldown after successful #1
+  timing hit so that you can always do it right away." Confirmed against
+  the shipped combo system (`canUseAbility`, `js/systems/abilities.js`):
+  a primed payoff only bypassed the swing-timer/`ready` gate, not Chop's
+  own real-time `onCooldown` gate — so if Chop was still cooling down
+  when Stab primed it, the combo couldn't actually be used right away
+  despite being primed. `canUseAbility` now bypasses both gates for a
+  primed payoff; the ability button also no longer shows a stale
+  cooldown countdown in that state (`js/screens/battleScreen.js`). See
+  CHANGELOG.
 - ~~**Parry mechanic, raised 2026-08-18.**~~ **Shipped 2026-08-19.**
   Monster attacks now telegraph via a ~1.2s wind-up bar before landing,
   with a parry-able zone in the final 20% (`s` or click the bar). A

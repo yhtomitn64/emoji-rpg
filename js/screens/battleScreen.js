@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 
@@ -215,7 +215,12 @@ function buildDom() {
   };
 }
 
-function runTimingMeter() {
+function runTimingMeter(ability) {
+  // The timing bonus zone only means anything once the ability it primes is
+  // unlocked - see comboTimingHintUnlocked. The timing hit is still scored
+  // underneath so priming "just works" the moment the payoff unlocks, this
+  // only hides the visual.
+  const showHint = !ability || comboTimingHintUnlocked(ability, state.player.level);
   return new Promise((resolve) => {
     // Defensive: the meter track only renders once the player has an
     // unlocked ability (see timingMeterHtml()), and an ability can't be
@@ -254,7 +259,7 @@ function runTimingMeter() {
       const elapsed = now - startedAt;
       const percent = Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100);
       elements.timingFill.style.width = `${percent}%`;
-      elements.timingHint.classList.toggle('battle-timing-hint-visible', percent >= TIMING_SWEET_SPOT_START);
+      elements.timingHint.classList.toggle('battle-timing-hint-visible', showHint && percent >= TIMING_SWEET_SPOT_START);
       if (percent >= 100) {
         finish(-1); // ran out with no input: always a miss, ability still resolves at base value
         return;
@@ -341,7 +346,10 @@ function abilityButtonsHtml() {
     const comboPrimed = !!comboState[ability.id];
     const alwaysReady = ability.type === 'buff';
     const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole, alwaysReady });
-    const cooldownSuffix = cooldownRemaining > 0 ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
+    // A primed payoff bypasses its own cooldown (see canUseAbility) - don't
+    // show a stale countdown on a button that's actually already pressable.
+    const comboSkipsCooldown = comboPrimed && ability.comboRole === 'payoff';
+    const cooldownSuffix = cooldownRemaining > 0 && !comboSkipsCooldown ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
     const comboSuffix = comboPrimed
       ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
       : '';
@@ -680,7 +688,7 @@ async function playerUseAbility(abilityId) {
       // timing window is what primes the payoff in the first place; the
       // payoff's own "bonus" is the combo multiplier, not a stacked timing
       // bonus on top of it.
-      const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter();
+      const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter(ability);
       // Same battle-can-end-mid-await hazard as the single-target path below.
       if (battleOver) return;
       targetIndices.forEach((monsterIndex, n) => {
@@ -726,7 +734,7 @@ async function playerUseAbility(abilityId) {
     const defenseDebuffAtPress = target.defenseDebuff;
     // Payoff abilities (Chop) never get the timing minigame - see the AOE
     // branch above for why.
-    const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter();
+    const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter(ability);
     // The battle can end while this await is outstanding - e.g. the monster's
     // own ATB-driven attack (tick() -> monsterAttack(), which is intentionally
     // NOT gated by abilityActionInFlight) can kill the player mid-swing. If it

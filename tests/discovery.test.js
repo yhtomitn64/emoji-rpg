@@ -54,3 +54,24 @@ test('resolveStepDiscovery returns none when both rolls miss', () => {
   const result = resolveStepDiscovery(state, mapConfig, 5, 5, tile, () => 0.99);
   assert.deepEqual(result, { outcome: 'none' });
 });
+
+test('resolveStepDiscovery never places a mini-dungeon on a screen chokepoint, even when the roll hits - raised 2026-08-28', () => {
+  // A mini-dungeon entrance placed on the only crossing of a narrow pass
+  // forces the player through its interior on every single crossing. A
+  // hit roll should fall through to a cache/miss instead of placing there.
+  const state = { miniDungeons: {}, caches: {} };
+  const mapConfig = { id: 'north', miniDungeonChance: 1, cacheChance: 0 };
+  const tile = { encounter: true };
+  const isChokepoint = (x, y) => x === 5 && y === 5;
+  const result = resolveStepDiscovery(state, mapConfig, 5, 5, tile, () => 0, isChokepoint);
+  assert.deepEqual(result, { outcome: 'none' });
+});
+
+test('resolveStepDiscovery still places a mini-dungeon on a non-chokepoint tile when the roll hits', () => {
+  const state = { miniDungeons: {}, caches: {} };
+  const mapConfig = { id: 'north', miniDungeonChance: 1, cacheChance: 0 };
+  const tile = { encounter: true };
+  const isChokepoint = (x, y) => x === 9 && y === 9;
+  const result = resolveStepDiscovery(state, mapConfig, 5, 5, tile, () => 0, isChokepoint);
+  assert.equal(result.outcome, 'enterMiniDungeon');
+});

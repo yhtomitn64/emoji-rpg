@@ -45,9 +45,30 @@ export function getUnlockedAbilities(level) {
   return ABILITIES.filter((ability) => ability.unlockLevel <= level);
 }
 
+// Whether the timing-meter's bonus zone means anything yet for this ability.
+// A setup ability's (Stab/Slash) timing window only exists to prime its
+// combo partner (Chop/Sweep) - if that partner isn't unlocked yet (e.g.
+// Stab unlocks at level 2, Chop not until level 4), showing the green zone
+// for two levels before it can do anything is misleading (raised
+// 2026-08-28: "don't show the green section until you get the next ability
+// which actually benefits from that timing"). An ability with no combo
+// partner at all (nothing to prime) always shows its hint normally.
+export function comboTimingHintUnlocked(ability, playerLevel) {
+  if (!ability.comboPartnerId) return true;
+  const partner = ABILITIES.find((a) => a.id === ability.comboPartnerId);
+  return !partner || partner.unlockLevel <= playerLevel;
+}
+
 export function canUseAbility({ locked, onCooldown, ready, comboPrimed, comboRole, alwaysReady }) {
-  const comboSkipsReady = comboPrimed && comboRole === 'payoff';
-  return !locked && !onCooldown && !!(ready || comboSkipsReady || alwaysReady);
+  if (locked) return false;
+  // A primed payoff (e.g. Chop right after a timing-hit Stab) fires
+  // instantly - bypassing both the swing-timer/ready gate AND its own
+  // real-time cooldown, not just the former, so priming it always means
+  // "usable right away" rather than "usable once its cooldown happens to
+  // also be up."
+  const comboSkipsGates = comboPrimed && comboRole === 'payoff';
+  if (comboSkipsGates) return true;
+  return !onCooldown && !!(ready || alwaysReady);
 }
 
 export function tickCooldowns(cooldowns, dt) {

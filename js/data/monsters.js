@@ -116,7 +116,7 @@ export const MONSTERS = {
     id: 'orc', name: 'Super Mean Meatloaf', emoji: '👹',
     hp: 180, attack: 32, defense: 8, speed: 8,
     xp: 60, goldRange: [18, 28],
-    dropTable: [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'miningPick', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
+    dropTable: [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',
     // Optional field: dungeon-tier only. ~35% chance to replace generic "A wild X appears!" (see pickAppearLine in js/systems/combat.js).
     flavorLines: [
@@ -129,7 +129,7 @@ export const MONSTERS = {
     id: 'wraith', name: 'Ghost Apple Supreme', emoji: '👻',
     hp: 170, attack: 32, defense: 4, speed: 11,
     xp: 63, goldRange: [18, 30],
-    dropTable: [{ itemId: 'wraithEssence', chance: 0.3 }, { itemId: 'axe', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
+    dropTable: [{ itemId: 'wraithEssence', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'ranged', projectileEmoji: '🍎',
     flavorLines: [
       'A chill rolls in. Ghost Apple Supreme has come for seconds.',

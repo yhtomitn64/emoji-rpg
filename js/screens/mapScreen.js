@@ -1,5 +1,5 @@
 import { TILES } from '../tiles.js';
-import { directionFromDelta, pickTileVariant, hash01 } from '../systems/world.js';
+import { directionFromDelta, pickTileVariant, hash01, isChokepointTile } from '../systems/world.js';
 import { markVisited, markDirection, isVisited, getVisitCount, getVisitDirs } from '../systems/exploration.js';
 import { trailWearFraction, trailStrokeWidthBetween, trailBorderFraction, trailDotRadius, trailHubRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor, trailColorForFraction } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
@@ -188,6 +188,20 @@ function checkGateProximity(x, y) {
 
 function isPassableTile(t) {
   return Boolean(t) && (t.walkable || (t.requiresTool && hasRequiredTool(t, state.inventory)));
+}
+
+// Whether blocking (x, y) would cut this screen's walkable area into pieces
+// with no way around - i.e. this tile is the only crossing at a narrow pass
+// between obstacles. A mini-dungeon entrance placed here would force the
+// player through its interior on every single crossing, both directions,
+// forever (raised 2026-08-28: "a mini dungeon appears in a path where I
+// could not go around it"). The actual graph check is pure/DOM-free - see
+// isChokepointTile in js/systems/world.js - this just supplies live
+// map/inventory state as the passability check.
+function isScreenChokepoint(x, y) {
+  const width = mapConfig.rows[0].length;
+  const height = mapConfig.rows.length;
+  return isChokepointTile(width, height, x, y, (px, py) => isPassableTile(tileAt(px, py)));
 }
 
 // How worn a connected neighbor itself is, for tapering a connector stroke's
@@ -475,7 +489,7 @@ function tryMove(dx, dy) {
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny, exitDir ? TRAIL_OPPOSITE_DIR[exitDir] : undefined) });
 
-  const discovery = resolveStepDiscovery(state, mapConfig, nx, ny, tile);
+  const discovery = resolveStepDiscovery(state, mapConfig, nx, ny, tile, Math.random, isScreenChokepoint);
   if (discovery.miniDungeons) {
     Object.assign(state, { miniDungeons: discovery.miniDungeons });
   }

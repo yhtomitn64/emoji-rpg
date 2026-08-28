@@ -170,16 +170,19 @@ test('every quest-eligible monster still has at least one material drop', () => 
   }
 });
 
-test('orc drops a mining pick and wraith drops an axe, alongside their existing material drop', () => {
-  const orcTools = MONSTERS.orc.dropTable.filter((entry) => ITEMS[entry.itemId].type === 'tool');
-  assert.equal(orcTools.length, 1);
-  assert.equal(orcTools[0].itemId, 'miningPick');
-  assert.equal(orcTools[0].chance, 0.25);
-
-  const wraithTools = MONSTERS.wraith.dropTable.filter((entry) => ITEMS[entry.itemId].type === 'tool');
-  assert.equal(wraithTools.length, 1);
-  assert.equal(wraithTools[0].itemId, 'axe');
-  assert.equal(wraithTools[0].chance, 0.25);
+test('tools are only ever a guaranteed guardian drop, never a stray chance-drop on a regular monster - raised 2026-08-28', () => {
+  // axe/miningPick/boat must each come only from their own gated guardian
+  // fight (axeGuardian/pickGuardian/boatGuardian, each chance: 1) - a regular
+  // monster carrying the same item as a chance<1 drop would let the player
+  // "grind for it" instead of "find it", contradicting the tool-gating
+  // design's whole point. orc/wraith both had exactly this leftover stray
+  // drop at one point; assert it never comes back on any non-guardian monster.
+  const guardianIds = new Set(['axeGuardian', 'pickGuardian', 'boatGuardian']);
+  for (const [monsterId, monster] of Object.entries(MONSTERS)) {
+    if (guardianIds.has(monsterId)) continue;
+    const strayToolDrops = (monster.dropTable || []).filter((entry) => ITEMS[entry.itemId].type === 'tool');
+    assert.deepEqual(strayToolDrops, [], `${monsterId} has a stray tool drop: ${JSON.stringify(strayToolDrops)}`);
+  }
 
   assert.equal(ITEMS.miningPick.type, 'tool');
   assert.equal(ITEMS.miningPick.price, 0);

@@ -80,6 +80,14 @@ test('shouldRevealMiniDungeon returns true for a fresh tile under the cap when t
   assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0), true);
 });
 
+test('shouldRevealMiniDungeon returns false on a screen chokepoint even when everything else says yes - raised 2026-08-28', () => {
+  assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0, () => true), false);
+});
+
+test('shouldRevealMiniDungeon defaults to never treating a tile as a chokepoint when isChokepoint is omitted', () => {
+  assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0), true);
+});
+
 test('pickMiniDungeonVariant picks by index across the full range', () => {
   assert.equal(pickMiniDungeonVariant(() => 0), 'miniDungeonA');
   assert.equal(pickMiniDungeonVariant(() => 0.3), 'miniDungeonB');

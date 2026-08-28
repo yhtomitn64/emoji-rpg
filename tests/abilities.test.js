@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER, COMBO_PAYOFF_BONUS_MULTIPLIER, COMBO_RETURN_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked, ROTATION_BONUS_MULTIPLIER, TIMING_BONUS_MULTIPLIER, COMBO_PAYOFF_BONUS_MULTIPLIER, COMBO_RETURN_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order', () => {
@@ -215,9 +215,17 @@ test('canUseAbility requires ready unless a primed payoff bypasses it', () => {
   assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, comboPrimed: true, comboRole: 'setup' }), false);
 });
 
-test('canUseAbility is false when locked or on cooldown regardless of combo state', () => {
+test('canUseAbility is false when locked, regardless of combo state', () => {
   assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: true, comboPrimed: true, comboRole: 'payoff' }), false);
-  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: true, comboPrimed: true, comboRole: 'payoff' }), false);
+});
+
+test('canUseAbility is false when on cooldown unless it is a primed payoff', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: true, comboPrimed: false, comboRole: 'payoff' }), false);
+  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: true, comboPrimed: true, comboRole: 'setup' }), false);
+});
+
+test('canUseAbility bypasses its own cooldown, not just the ready gate, for a primed payoff - Chop should fire instantly after a timing-hit Stab even if still cooling down', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, comboPrimed: true, comboRole: 'payoff' }), true);
 });
 
 test('canUseAbility bypasses the ready gate when alwaysReady is set, e.g. Super Scream', () => {
@@ -228,6 +236,19 @@ test('canUseAbility bypasses the ready gate when alwaysReady is set, e.g. Super 
 test('canUseAbility still respects locked/onCooldown even when alwaysReady is set', () => {
   assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: false, alwaysReady: true }), false);
   assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, alwaysReady: true }), false);
+});
+
+test('comboTimingHintUnlocked hides the timing bonus zone for a setup ability until its payoff is unlocked - raised 2026-08-28', () => {
+  const stab = ABILITIES.find((a) => a.id === 'stab'); // unlocks 2, primes chop (unlocks 4)
+  assert.equal(comboTimingHintUnlocked(stab, 2), false);
+  assert.equal(comboTimingHintUnlocked(stab, 3), false);
+  assert.equal(comboTimingHintUnlocked(stab, 4), true);
+  assert.equal(comboTimingHintUnlocked(stab, 10), true);
+});
+
+test('comboTimingHintUnlocked is always true for an ability with no combo partner', () => {
+  const superScream = ABILITIES.find((a) => a.id === 'superScream');
+  assert.equal(comboTimingHintUnlocked(superScream, 1), true);
 });
 
 test('every ability has a distinct icon', () => {

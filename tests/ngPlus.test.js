@@ -64,12 +64,19 @@ test('scaleDropTable scales up a table with headroom (sum under 1) without needi
   assertClose(scaled[1].chance, 0.3);
 });
 
+// Tools only ever appear as their own guardian's guaranteed (chance: 1)
+// drop now (see js/data/monsters.js - the 2026-08-28 fix removed the stray
+// chance<1 tool drops that used to sit on orc/wraith), so no real monster's
+// dropTable mixes a tool entry with other chance-based entries any more.
+// scaleDropTable's tool-exclusion behavior still needs covering - a
+// synthetic table exercises it directly instead of relying on production
+// data happening to have this shape.
 test('scaleDropTable leaves a tool entry untouched and excludes it from the normalization sum', () => {
-  // Orc's real dropTable: [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'miningPick', chance: 0.25 }]
   // At cycle 2 (1.5^2 = 2.25), naive scaling would total 0.55 * 2.25 = 1.2375 and trigger
   // normalization, cutting orcTusk's chance. With the tool entry excluded from scaling and
   // from the normalization sum, orcTusk alone (0.3 * 2.25 = 0.675) never exceeds 1.
-  const scaled = scaleDropTable(MONSTERS.orc.dropTable, 2);
+  const table = [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'miningPick', chance: 0.25 }];
+  const scaled = scaleDropTable(table, 2);
   const tuskEntry = scaled.find((e) => e.itemId === 'orcTusk');
   const pickEntry = scaled.find((e) => e.itemId === 'miningPick');
   assert.equal(pickEntry.chance, 0.25);
@@ -77,10 +84,11 @@ test('scaleDropTable leaves a tool entry untouched and excludes it from the norm
 });
 
 test('scaleDropTable preserves entry order and does not mutate the original table', () => {
-  const original = MONSTERS.orc.dropTable.map((e) => ({ ...e }));
-  const scaled = scaleDropTable(MONSTERS.orc.dropTable, 2);
+  const original = [{ itemId: 'orcTusk', chance: 0.3 }, { itemId: 'miningPick', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }];
+  const table = original.map((e) => ({ ...e }));
+  const scaled = scaleDropTable(table, 2);
   assert.deepEqual(scaled.map((e) => e.itemId), ['orcTusk', 'miningPick', 'potion']);
-  assert.deepEqual(MONSTERS.orc.dropTable, original);
+  assert.deepEqual(table, original);
 });
 
 test('canStartNgPlus requires the boss defeated at least once and below the cap', () => {

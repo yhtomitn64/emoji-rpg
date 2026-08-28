@@ -1,14 +1,14 @@
 import { hasMiniDungeonEntrance, shouldRevealMiniDungeon, pickMiniDungeonVariant, recordMiniDungeonEntrance } from './miniDungeons.js';
 import { shouldRevealCache, recordCache, rollCacheLoot } from './caches.js';
 
-export function resolveStepDiscovery(state, mapConfig, x, y, tile, rng = Math.random) {
+export function resolveStepDiscovery(state, mapConfig, x, y, tile, rng = Math.random, isChokepoint = () => false) {
   if (!tile.encounter) {
     return { outcome: 'none' };
   }
   if (hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y)) {
     return { outcome: 'enterMiniDungeon' };
   }
-  if (shouldRevealMiniDungeon(state.miniDungeons, mapConfig.id, x, y, mapConfig.miniDungeonChance, rng)) {
+  if (shouldRevealMiniDungeon(state.miniDungeons, mapConfig.id, x, y, mapConfig.miniDungeonChance, rng, isChokepoint)) {
     const variantId = pickMiniDungeonVariant(rng);
     return {
       outcome: 'enterMiniDungeon',

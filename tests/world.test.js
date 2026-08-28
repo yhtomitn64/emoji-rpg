@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { directionFromDelta, computeEdgeLandingPosition, isWalkableAt, isValidSavedPosition, pickTileVariant } from '../js/systems/world.js';
+import { directionFromDelta, computeEdgeLandingPosition, isWalkableAt, isValidSavedPosition, pickTileVariant, isChokepointTile } from '../js/systems/world.js';
 
 test('directionFromDelta maps movement deltas to compass directions', () => {
   assert.equal(directionFromDelta(1, 0), 'east');
@@ -59,4 +59,38 @@ test('pickTileVariant picks different variants for different coordinates', () =>
     }
   }
   assert.equal(results.size, 3);
+});
+
+function gridIsPassable(rows) {
+  return (x, y) => rows[y]?.[x] === '.';
+}
+
+test('isChokepointTile is true for a one-tile-wide pass between two obstacle-filled regions', () => {
+  const rows = [
+    '.....',
+    '##.##',
+    '.....',
+  ];
+  assert.equal(isChokepointTile(5, 3, 2, 1, gridIsPassable(rows)), true);
+});
+
+test('isChokepointTile is true for a single tile in a narrow corridor with passable tiles on both sides', () => {
+  assert.equal(isChokepointTile(3, 1, 1, 0, gridIsPassable(['...'])), true);
+});
+
+test('isChokepointTile is false when every walkable tile stays connected via another route (an open ring)', () => {
+  const rows = [
+    '...',
+    '...',
+    '...',
+  ];
+  assert.equal(isChokepointTile(3, 3, 1, 1, gridIsPassable(rows)), false);
+});
+
+test('isChokepointTile is false for a dead end - fewer than two passable neighbors means nothing to disconnect', () => {
+  const rows = [
+    '.#',
+    '..',
+  ];
+  assert.equal(isChokepointTile(2, 2, 1, 1, gridIsPassable(rows)), false);
 });

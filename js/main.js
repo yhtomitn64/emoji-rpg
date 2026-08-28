@@ -385,9 +385,19 @@ function handleTileAction(action) {
   if (action === 'enterCanoeDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.canoe.mapId);
   if (action === 'exitMap') {
     if (state.map === 'town') return enterMap('center');
-    if (state.map === 'dungeon') return enterMap(state.dungeonEntrancePosition.screenId);
+    // Land back on the exact entrance tile, not the destination screen's
+    // generic startPosition - otherwise leaving a dungeon drops the player
+    // somewhere else on the screen entirely, with no immediate way back to
+    // use whatever the dungeon just gave them (e.g. a tool-dungeon's own
+    // shortcut, raised 2026-08-28).
+    if (state.map === 'dungeon') {
+      const { screenId, x, y } = state.dungeonEntrancePosition;
+      return enterMap(screenId, { x, y });
+    }
     for (const toolEntrance of Object.values(TOOL_DUNGEON_ENTRANCES)) {
-      if (state.map === toolEntrance.mapId) return enterMap(toolEntrance.screenId);
+      if (state.map === toolEntrance.mapId) {
+        return enterMap(toolEntrance.screenId, { x: toolEntrance.x, y: toolEntrance.y });
+      }
     }
     return;
   }
@@ -419,8 +429,8 @@ function handleUseWell() {
   showFlavorBanner('You rest at the well and feel fully restored.');
 }
 
-function enterMap(mapId) {
-  state.position = { ...MAPS[mapId].startPosition };
+function enterMap(mapId, position) {
+  state.position = position ? { ...position } : { ...MAPS[mapId].startPosition };
   state.map = mapId;
   persist();
   goToMap(mapId);

@@ -714,6 +714,51 @@ public API, no formal release process — commits land straight on
   `docs/superpowers/specs/2026-08-26-item-quality-and-effects-design.md`.
   Plan: `docs/superpowers/plans/2026-08-26-item-quality-and-effects.md`.
 
+### Fixed
+- Two stray chance-based tool drops undermined the "no chance, find it"
+  tool-gating design: the wraith (Ghost Apple Supreme) carried a leftover
+  `{ itemId: 'axe', chance: 0.25 }` and the orc (Super Mean Meatloaf) a
+  leftover `{ itemId: 'miningPick', chance: 0.25 }` in their own
+  `dropTable`s (`js/data/monsters.js`), alongside the real guaranteed
+  (`chance: 1`) drops from `axeGuardian`/`pickGuardian`. The orc one had
+  been missed by an earlier pass that searched for the literal string
+  `'pick'`, not `'miningPick'`. Both removed — axe/pick/boat are now only
+  ever obtainable from their own gated guardian fight. A new data test
+  (`tests/data.test.js`) asserts no non-guardian monster carries a
+  tool-type drop, so this can't silently regress.
+- A mini-dungeon entrance could be revealed on a screen's only crossing
+  at a narrow pass between obstacles, forcing the player through its
+  interior on every single crossing, both directions, forever. Placement
+  now runs a chokepoint check first (`isChokepointTile`,
+  `js/systems/world.js` — a pure, DOM-free articulation-point test over
+  the screen's live-passable tiles, reusable/testable on its own) via
+  `js/screens/mapScreen.js`'s `isScreenChokepoint`, threaded through
+  `resolveStepDiscovery`/`shouldRevealMiniDungeon`
+  (`js/systems/discovery.js`, `js/systems/miniDungeons.js`); a roll that
+  would have placed one there now just falls through instead.
+- Leaving a tool-dungeon's interior (or the main dragon dungeon) dropped
+  the player at the destination screen's generic `startPosition` instead
+  of the exact entrance tile they came in through, so clearing e.g. the
+  axe guardian and walking back out landed the player elsewhere on the
+  screen with no immediate way to use the new tool's own shortcut.
+  `enterMap` (`js/main.js`) now accepts an optional target position, and
+  the `exitMap` action handler passes the real dungeon/tool-dungeon
+  entrance coordinates instead of relying on the default.
+- Combo-priming's timing-bonus "green zone" showed (and could be hit) on
+  Stab two full levels before Chop — the ability it primes — actually
+  unlocks, since Stab unlocks at level 2 and Chop at level 4. New
+  `comboTimingHintUnlocked` (`js/systems/abilities.js`) hides the zone
+  until the payoff ability it primes is unlocked; the timing hit is
+  still scored underneath so priming works immediately once the payoff
+  unlocks, only the visual was misleading.
+- A primed payoff ability (e.g. Chop right after a timing-hit Stab) only
+  bypassed the swing-timer/ready gate, not its own real-time cooldown —
+  so if Chop was still cooling down when Stab primed it, the combo
+  couldn't actually fire "right away" as designed. `canUseAbility`
+  (`js/systems/abilities.js`) now bypasses both gates for a primed
+  payoff; the ability button no longer shows a stale cooldown countdown
+  in that state either (`js/screens/battleScreen.js`).
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed

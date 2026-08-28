@@ -34,10 +34,18 @@ export function markTreasureTaken(miniDungeons, screenId, x, y) {
   return { ...miniDungeons, [screenId]: screenEntrances };
 }
 
-export function shouldRevealMiniDungeon(miniDungeons, screenId, x, y, chance, rng = Math.random) {
+// isChokepoint(x, y), when supplied, should report whether blocking this
+// tile would cut off some other part of the screen with no way around -
+// placing a mini-dungeon entrance there would force walking through its
+// interior on every single crossing (see js/screens/mapScreen.js's
+// screenChokepointCheck for the real implementation). Defaults to "never a
+// chokepoint" so callers that don't care about this (e.g. existing tests)
+// are unaffected.
+export function shouldRevealMiniDungeon(miniDungeons, screenId, x, y, chance, rng = Math.random, isChokepoint = () => false) {
   return !hasMiniDungeonEntrance(miniDungeons, screenId, x, y)
     && countMiniDungeonEntrances(miniDungeons, screenId) < MINI_DUNGEON_CAP_PER_SCREEN
-    && rng() < chance;
+    && rng() < chance
+    && !isChokepoint(x, y);
 }
 
 export function pickMiniDungeonVariant(rng = Math.random) {

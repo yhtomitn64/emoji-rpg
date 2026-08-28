@@ -52,6 +52,42 @@ export function directionFromDelta(dx, dy) {
   return null;
 }
 
+const CARDINAL_DELTAS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+// Whether blocking (x, y) would cut the screen's passable area into pieces
+// with no way around - the standard articulation-point test, restricted to
+// this one candidate tile. isPassable(x, y) reflects live game state (e.g.
+// a tool-gated tile counts as passable once the player owns that tool), not
+// just raw tile data, so "is there a way around it" always means "can the
+// player currently go around it." Pure and DOM-free so it's directly unit
+// testable - see js/screens/mapScreen.js's isScreenChokepoint for the real
+// caller, which supplies isPassable from live map/inventory state.
+export function isChokepointTile(width, height, x, y, isPassable) {
+  const inBounds = (px, py) => px >= 0 && px < width && py >= 0 && py < height;
+  const neighbors = CARDINAL_DELTAS
+    .map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
+    .filter((p) => inBounds(p.x, p.y) && isPassable(p.x, p.y));
+  if (neighbors.length < 2) return false;
+  const [start, ...rest] = neighbors;
+  const reached = new Set([`${start.x},${start.y}`]);
+  const queue = [start];
+  while (queue.length) {
+    const current = queue.shift();
+    for (const [dx, dy] of CARDINAL_DELTAS) {
+      const nx = current.x + dx;
+      const ny = current.y + dy;
+      if (nx === x && ny === y) continue; // the candidate tile stays blocked
+      if (!inBounds(nx, ny)) continue;
+      const key = `${nx},${ny}`;
+      if (reached.has(key)) continue;
+      if (!isPassable(nx, ny)) continue;
+      reached.add(key);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+  return rest.some((p) => !reached.has(`${p.x},${p.y}`));
+}
+
 export function computeEdgeLandingPosition(direction, currentPosition, neighborMap) {
   if (direction === 'east') return { x: 0, y: currentPosition.y };
   if (direction === 'west') return { x: neighborMap.rows[0].length - 1, y: currentPosition.y };
