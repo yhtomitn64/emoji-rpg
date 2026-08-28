@@ -23,9 +23,16 @@ const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
 // Non-moving obstacles render full-square and up (100-150% of a tile's own
 // height, deterministic per position via hash01), tall enough to overlap
 // into the row above - see .map-tile-obstacle in css/styles.css.
-// mountainWall is deliberately excluded: it's the auto-sealed world-edge
-// marker, not painted terrain, and should stay a plain, unmistakable wall.
-const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountainCache, TILES.thicket, TILES.thicketCache]);
+// mountainWall was originally excluded on the assumption it's only the
+// auto-sealed world-edge marker, not painted terrain - that assumption was
+// wrong (10 wilderness screens paint it directly as real interior terrain
+// via their own LEGEND, e.g. js/maps/wilderness/south.js's 'W'), and it's
+// exactly the "the ones you can never pass" mountain Timothy meant (raised
+// 2026-08-28: "Mountains look small... no background under them"), unlike
+// mountain/mountainCache below which do clear with a pick. Included here so
+// it gets the same natural sizing as every other obstacle, both painted
+// and at the auto-sealed edge.
+const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountainCache, TILES.mountainWall, TILES.thicket, TILES.thicketCache]);
 // Shared "fills the tile" reference size (cqb = % of the tile's own
 // rendered height) - used both as the obstacles' 100% baseline (see
 // OBSTACLE_MAX_EXTRA below) and, unscaled, for landmarks that should always

@@ -789,6 +789,17 @@ public API, no formal release process — commits land straight on
   `state.player.hp` and fires a new `onHpChange` callback the HUD wires to
   `renderHud` (`js/main.js`) every time it runs, i.e. after every
   player-HP-changing event in battle.
+- Impassable mountains (`mountainWall`) rendered undersized with no
+  grounding background, unlike `mountain`/`mountainCache` which already
+  had that treatment — raised 2026-08-28: "Mountains look small... no
+  background under them." `RANDOM_SIZE_OBSTACLES`
+  (`js/screens/mapScreen.js`) had excluded `mountainWall` on a stale
+  assumption that it was only the auto-sealed world-edge marker, not real
+  painted terrain — 10 wilderness screens actually paint it directly via
+  their own map `LEGEND` (e.g. `js/maps/wilderness/south.js`'s `'W'`).
+  Adding it to that Set gives it both the same obstacle sizing and the
+  grass-matched background as every other obstacle in one move, since the
+  existing `map-tile-grass` class already keys off the same Set.
 
 ## [0.5.1] - 2026-08-17
 

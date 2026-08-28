@@ -689,19 +689,26 @@ canopies bleeding past the map's own border at the top row/outer
 columns (no neighboring row to absorb the overlap into there) - fixed
 alongside this with `overflow: hidden` on `.map-grid`.
 
-## Terrain visuals: mountains feel small and don't sit in the world, raised 2026-08-28
+## ~~Terrain visuals: mountains feel small and don't sit in the world~~ Shipped 2026-08-28
 
 Timothy: "Mountains look small. The ones you can never pass and no
 background under them. Maybe they just sit on the green so they match."
-Impassable mountain tiles render undersized relative to their footprint
-and float with no grounding color beneath them, unlike (per his own
-suggested fix) simply matching the surrounding grass tile so they read
-as sitting *in* the terrain rather than pasted on top of it. Not
-investigated yet — raw idea only, needs a look at the mountain tile's
-actual emoji/sizing/background treatment in the map rendering
-(`js/screens/mapScreen.js`, same area that already handles the
-`GRASS_CONTEXT_MARKERS` background-matching for landmark tiles above)
-before scoping a fix.
+Confirmed: "the ones you can never pass" is `mountainWall` specifically
+(no tool ever clears it, unlike `mountain`/`mountainCache` which already
+had the sizing/background treatment from earlier work) - and it turned
+out `RANDOM_SIZE_OBSTACLES` (`js/screens/mapScreen.js`) excluded it on a
+now-wrong assumption ("it's the auto-sealed world-edge marker, not
+painted terrain"): 10 wilderness screens actually paint it directly as
+real interior terrain via their own map `LEGEND`
+(e.g. `js/maps/wilderness/south.js`'s `'W'`). Added `TILES.mountainWall`
+to `RANDOM_SIZE_OBSTACLES`, which gets it both fixes in one move - full
+obstacle sizing (100-150% of a tile, same as trees/mountain/thicket) and
+the grass-matched background, since that same Set already gates both via
+the existing `map-tile-grass` OR-condition (no separate background-only
+list needed, unlike the landmark case `GRASS_CONTEXT_MARKERS` handled).
+Applies uniformly to both painted-interior mountainWall and the
+auto-sealed true-world-edge cells, since both render the same tile
+object.
 
 ## In-game tutorials / mechanic explainers, raised 2026-08-28
 
