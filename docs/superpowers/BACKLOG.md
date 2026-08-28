@@ -1122,27 +1122,29 @@ through in a dedicated future combat pass rather than one-off adds:
   (does a blockable attack still show a wind-up bar, just without a
   parry-timing payoff?), and which specific attacks/enemies (if any)
   would actually be marked un-parryable-but-blockable. Raw idea only.
-- **Potions currently cost a full turn like an attack.**
-  `playerUseItem()` (js/screens/battleScreen.js:189) resets
-  `playerCombatant.atb = 0`, same as `playerAttack()`. Wants potions
-  taken off the shared turn-cooldown so you can drink one anytime
-  without losing your turn.
-- **Potions should be able to crit-heal occasionally.** Currently a
-  potion always heals a flat amount with zero variance
-  (`ITEMS.potion.heal = 15`, js/data/items.js:26, applied directly with
-  no roll at js/screens/battleScreen.js:187-189) — no crit chance, no
-  damage-style variance like attacks already have
-  (`rollCrit`/`applyCritMultiplier`, `CRIT_CHANCE`/`CRIT_MULTIPLIER` in
-  js/systems/combat.js). Wants an occasional bonus-heal roll reusing
-  that same crit system rather than a bespoke mechanic.
-- **Themed attack animations per monster — projectile vs. melee.**
-  Eight-Leg Eggroll (spider) should animate throwing eggrolls at the
-  player; Mean Meatball (goblin) throwing meatballs; etc. — matching
-  each monster's silly name/flavor rather than the generic hit-flash
-  every monster currently shares (`playHitEffect`,
-  js/screens/battleScreen.js). Longer-term: some monsters throw things
-  (ranged), others should visibly move in to melee, rather than every
-  attack playing out identically regardless of monster type.
+- ~~**Potions currently cost a full turn like an attack.**~~ **Already
+  shipped, backlog just never updated — caught 2026-08-28 while triaging
+  small combat-pass items.** `resolvePotionUse` (`js/systems/combat.js`)
+  returns no `playerAtb` field at all, and `playerUseItem()`
+  (`js/screens/battleScreen.js`) never touches `playerCombatant.atb` -
+  the Item button/`i` key are gated only on owning a potion
+  (`hasPotion`), not on `isReady()`. A potion has been off the shared
+  turn-cooldown for a while now; this note's own cited line numbers no
+  longer match the current file.
+- ~~**Potions should be able to crit-heal occasionally.**~~ **Already
+  shipped, backlog just never updated — caught 2026-08-28 alongside the
+  item above.** `resolvePotionUse` (`js/systems/combat.js`) rolls
+  `rollCrit`/`applyCritMultiplier`, the exact same crit system attacks
+  use, and `playerUseItem()` logs "Critical! You drink a potion..." on a
+  crit-heal. Covered by `tests/combat.test.js`'s "resolvePotionUse can
+  crit-heal, reusing the same crit system as attacks".
+- ~~**Themed attack animations per monster — projectile vs. melee.**~~
+  **Already shipped (commit `bb13e9d`, 2026-08-23), backlog just never
+  updated — caught 2026-08-28.** Every ranged monster has its own
+  food-themed `projectileEmoji` in `js/data/monsters.js` (Eight-Leg
+  Eggroll's 🥟, etc.) driving a distinct thrown-projectile windup
+  animation in `js/screens/battleScreen.js`, versus a melee lunge for
+  `attackStyle: 'melee'` monsters - not a shared generic hit-flash.
 - ~~**Attack-mash fatigue.**~~ **Shipped in pieces, 2026-08-22 and
   2026-08-22.** Repeatedly mashing the attack button now costs
   progressively more: damage decays to a 40% floor, knockback decays to
