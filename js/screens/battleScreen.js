@@ -50,6 +50,7 @@ let attackCooldownMs = 0;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
+let playerEffectBonuses = null;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -79,6 +80,22 @@ function buildMonsterCombatant(monsterId, overrides) {
     defenseDebuff: null,
     pendingDelayedHit: null,
   };
+}
+
+// Lifesteal and elemental proc are each their own small, discrete hook -
+// deliberately not a generic "on-hit effect" pipeline, matching how
+// crit/knockback/combo bonuses are each their own named mechanic in this
+// file already. Called once per monster actually hit by a player action
+// (once for a single-target hit, once per monster for an AOE ability).
+function applyOnHitEffects(target, damage) {
+  if (playerEffectBonuses.lifestealPercent > 0) {
+    const healAmount = Math.round(damage * playerEffectBonuses.lifestealPercent / 100);
+    playerCombatant.hp = Math.min(playerCombatant.maxHp, playerCombatant.hp + healAmount);
+  }
+  if (playerEffectBonuses.elementalProcChance > 0 && Math.random() * 100 < playerEffectBonuses.elementalProcChance) {
+    target.hp = Math.max(0, target.hp - playerEffectBonuses.elementalProcDamage);
+    log.push(`🔥 Bonus fire damage to ${target.name}: ${playerEffectBonuses.elementalProcDamage}!`);
+  }
 }
 
 function percent(value, max) {
@@ -571,6 +588,7 @@ function playerAttack() {
   // (display: none), so a killing blow's damage number/flash/shake is
   // actually visible instead of rendering onto an already-hidden element.
   playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
+  applyOnHitEffects(target, result.damage);
   updateHpBars();
   updateAtbBars();
   updateLog();
@@ -644,6 +662,7 @@ async function playerUseAbility(abilityId) {
           ? `Critical! You use ${ability.name} on ${mc.name} for ${result.damage}!`
           : `You use ${ability.name} on ${mc.name} for ${result.damage}.`) + timingSuffix);
         playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
+        applyOnHitEffects(mc, result.damage);
       });
       abilityCooldowns[abilityId] = ability.cooldownMs;
       attackStreak = 0;
@@ -705,6 +724,7 @@ async function playerUseAbility(abilityId) {
     // (display: none), so a killing blow's damage number/flash/shake is
     // actually visible instead of rendering onto an already-hidden element.
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
+    applyOnHitEffects(target, result.damage);
     updateHpBars();
     updateAtbBars();
     updateLog();
@@ -896,6 +916,7 @@ export function mount(root, props) {
   callbacks = props.callbacks;
   battleOver = false;
   playerCombatant = buildPlayerCombatant();
+  playerEffectBonuses = getEquipmentBonuses(state);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
   comboState = {};
