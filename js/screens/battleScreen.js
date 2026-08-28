@@ -307,6 +307,15 @@ function updateHpBars() {
   if (monsterCombatants[selectedMonsterIndex] && monsterCombatants[selectedMonsterIndex].hp <= 0) {
     cycleTarget(1);
   }
+  // Keep the persistent HUD's HP readout live during the fight too, not just
+  // at endBattle() - raised 2026-08-28: "my HP in the main game window with
+  // the map doesn't update while in battle... I look up there sometimes."
+  // No persist() here deliberately: a hit lands far more often than the game
+  // otherwise writes to localStorage (attack-spam can be sub-second), and
+  // mid-battle HP was never guaranteed durable across a reload anyway - only
+  // the visible readout needed to stop lying.
+  state.player.hp = playerCombatant.hp;
+  callbacks.onHpChange?.();
 }
 
 function updateAtbBars() {

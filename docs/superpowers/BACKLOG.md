@@ -719,6 +719,24 @@ underlying "the game should explain itself more" theme.
 
 ## Bugs
 
+### ~~HUD's HP readout doesn't update during battle~~ Shipped 2026-08-28
+Timothy: "my HP in the main game window with the map doesn't update while
+in battle and I think it should becaause I look up there sometimes." The
+persistent top HUD (`#hud`, a sibling of `#app`/`#overlay` - still fully
+visible, just with its buttons disabled, while a battle overlay is open on
+top) reads `state.player.hp` directly, but that only ever got synced from
+the battle's own live `playerCombatant.hp` once at `endBattle()` - for the
+whole fight before that, the HUD showed whatever HP the player had at the
+moment the battle started. Fixed at `updateHpBars()`
+(`js/screens/battleScreen.js`), the single function already called after
+every player-HP-changing event in battle (hits taken, lifesteal, delayed
+Slash damage, potions): it now also syncs `state.player.hp` and fires a new
+`callbacks.onHpChange` the HUD wires to `renderHud` (`js/main.js`).
+Deliberately no `persist()` call added here - a hit lands far more often
+than the game otherwise writes to localStorage (attack-spam can be
+sub-second), and mid-battle HP was never guaranteed durable across a reload
+anyway; only the visible readout needed to stop lying.
+
 ### ~~Tool-dungeon guardian drops undermine the "no chance, find it" design intent~~ Shipped 2026-08-28
 Timothy: "I just got the axe dropped by a slippery breakstick and I want
 the axe/pick/canoe to only come from the special place I put on the map

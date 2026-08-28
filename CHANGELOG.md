@@ -783,6 +783,12 @@ public API, no formal release process — commits land straight on
   afford." `js/screens/smithScreen.js` now also disables the button when
   `state.player.gold < cost`, reusing the existing generic
   `button:disabled` fade styling.
+- The persistent HUD's HP readout stayed frozen at its pre-battle value for
+  the whole fight — it only synced from the battle's own live HP once, at
+  `endBattle()`. `updateHpBars()` (`js/screens/battleScreen.js`) now syncs
+  `state.player.hp` and fires a new `onHpChange` callback the HUD wires to
+  `renderHud` (`js/main.js`) every time it runs, i.e. after every
+  player-HP-changing event in battle.
 
 ## [0.5.1] - 2026-08-17
 

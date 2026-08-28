@@ -655,7 +655,7 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
     state,
     monsterIds,
     monsterOverrides: ngPlusOverridesList,
-    callbacks: { onBattleEnd: handleBattleEnd },
+    callbacks: { onBattleEnd: handleBattleEnd, onHpChange: renderHud },
   });
 }
 
