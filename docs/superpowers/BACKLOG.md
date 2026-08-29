@@ -632,49 +632,12 @@ the rest of this section.
 
 ## Feature requests
 
-*(Everything that was originally in this section shipped 2026-08-17;
-see CHANGELOG. One thing was dropped rather than shipped: swapping
+*(Everything originally in this section shipped 2026-08-17, and every item
+raised into it since then has since shipped too — see CHANGELOG and
+BACKLOG_SHIPPED.md. One thing was dropped rather than shipped: swapping
 monster emoji to match their silly food names — Timothy likes them as
-they are, e.g. "Slippery Breadstick" for the snake. Not tracked
-anywhere; revisit only if it comes up again for a future zone. Shipped
-items raised mid-combat-pass since then have moved to
-BACKLOG_SHIPPED.md.)*
-
-### Random mini-dungeon marker reuses the mining pick's own emoji — confusing
-Raised 2026-08-28. Timothy's own words: "using the pick for our random
-dungeons and for the actual pick you get is confusing. we should change
-the random dungeon emoji." `⛏️` is currently overloaded: it's
-`MINI_DUNGEON_MARKER_EMOJI` (the marker for a random mini-dungeon
-entrance on the map — `js/screens/mapScreen.js`), the `miningPick` tool
-item's own icon (`js/data/items.js`), the `pickDungeonEntrance` tile
-(`js/tiles.js`), and the `pickGuardian` monster (`js/data/monsters.js`).
-The fix in scope is just the mini-dungeon map marker — swap
-`MINI_DUNGEON_MARKER_EMOJI` to something that doesn't read as "you get a
-pick here." Not designed yet: what emoji to swap to.
-
-### Sticky header, raised 2026-08-29
-Timothy's own words: "can we make the header on the top sticky so it
-always shows?" `#hud` (`js/main.js`'s `renderHud`, styled in
-`css/styles.css`) is a plain in-flow block at the top of the page today
-— scrolling the page (or a tall map viewport, see the continuous-world-
-camera work) scrolls it out of view. `position: sticky; top: 0;` on
-`#hud` is the standard fix; not yet investigated whether anything
-(z-index stacking with `#overlay`/celebration elements) would need
-adjusting alongside it.
-
-### Inventory needs tabs + sorting, raised 2026-08-29
-Timothy's own words: "our inventory screen should have tabs for the
-different stuff instead of endless list and maybe some sorting" and
-(separately, same session) "items sorted alphabetically by default."
-`js/screens/inventoryScreen.js` already filters into type groups
-(material/consumable/tool sections via `entry.type === '...'`) rather
-than one flat list, but renders them as stacked sections on one
-scrolling page, not actual switchable tabs, and doesn't sort entries
-within a section at all (insertion order). Two distinct asks to design
-together: a real tabbed UI (only one type-section visible at a time)
-and a default sort order (alphabetical, per Timothy's second note) —
-not designed yet, including whether sorting should be alphabetical only
-or also offer other orders (rarity/tier, quantity).
+they are, e.g. "Slippery Breadstick" for the snake. Not tracked anywhere;
+revisit only if it comes up again for a future zone.)*
 
 ## Input / accessibility
 
@@ -722,10 +685,6 @@ add more/higher-tier gold sinks (more expensive gear, potion buffs, the
 tiered-gear manual-sell idea above could also feed gold back out), or
 reduce gold income at higher levels. Not investigated yet.
 
-### ~~Quest board should glow/indicate when you have turn-ins ready~~ Shipped 2026-08-28
-Raised 2026-08-28, shipped same day. See CHANGELOG - new
-`hasAnyQuestReady(state)` helper, `map-tile-quest-ready` glow class.
-
 ### Tiered gear can never be sold or discarded, flagged by final review 2026-08-28
 The shop deliberately only ever sells/buys the Plain stack of an item
 (Task 7 of the item-quality-tiers plan) — correct, but as a side effect
@@ -736,6 +695,11 @@ long game. The design spec's claim that "the inventory-bloat problem
 this could have caused never materializes" holds for the total item
 count, just not for tiered stacks specifically. Worth a manual-sell
 path for tiered gear once/if this becomes a real annoyance in play.
+
+**Partially addressed 2026-08-29:** the shop's new "Sell Duplicate Gear"
+button (see BACKLOG_SHIPPED.md) sells extra *same-tier* duplicate copies,
+but a single Fine or Superior copy still has no sell path at all — this
+item's actual ask (cross-tier stacks) is still open.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
@@ -763,6 +727,22 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   background illustration behind the fight. Not designed — raw idea
   only, likely warrants splitting into separate specs given the number
   of independent pieces.
+
+  **Two escalation triggers added, raised 2026-08-29:** Timothy: "in NG+
+  monsters should appear in packs more and the longer you stay in zone 1
+  no matter what monsters appear in larger and larger packs maybe even
+  up to 6 of them!" Reinforces the group-size-cap-of-6 number already
+  captured above, and adds two distinct drivers for when a bigger pack
+  should roll, neither designed: (a) NG+ cycle should raise pack
+  frequency/size (today `rollEncounterGroup`/`GROUP_SPAWN_CHANCE`/
+  `GROUP_SIZE_MAX` in `js/systems/groupEncounters.js` don't read
+  `state.ngPlusCycle` at all); (b) time spent in zone 1 (not tied to any
+  specific monster's own kill count, unlike the existing
+  `GROUP_SPAWN_KILL_THRESHOLD` mechanic, which only escalates a species
+  you've personally farmed 10+ times) should independently push pack
+  size up the longer a playthrough lingers in zone 1 — what "the longer
+  you stay" measures (real playtime? steps taken? screens visited?) is
+  undecided.
 
 - **Remove the crit/parry dialog-shake, keep/expand other crit effects
   — raised 2026-08-28.** Timothy's own words: "remove the crit/parry or
@@ -811,9 +791,6 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   elemental proc) shipped 2026-08-28** — Vampiric Fang, Swift Strike
   Charm, Ember Ring; see CHANGELOG. Still open, not scoped for any
   version yet:
-  - ~~**Crit chance increase**~~ **Shipped 2026-08-28.** New Keen Eye
-    drop (`critChancePercent: 8`), same rare-drop pool as the v1 three -
-    see CHANGELOG.
   - **Parry window trade-offs, two directions floated:** (a) a wider
     parry window but the successful parry deals less reflected damage,
     or (b) a narrower window that rewards good timing with more
@@ -896,28 +873,6 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   scales high enough, grant a small damage bonus too, so speed stays
   worth investing in past a soft cap. Raised more tentatively than the
   others ("more for our combat pass to think through").
-- ~~**Parry timing may feel earlier than the visible red zone, raised
-  2026-08-28.**~~ **Fixed 2026-08-28.** Timothy: "How does the parry
-  work? Do I hit s in the red section of the bar or before the red
-  section? I feel like I hit beofore the red section and it parrys."
-  Investigated further: the *check* itself (`resolveParryAttempt` at
-  keypress) was already reading real wall-clock elapsed time, fixed back
-  on 2026-08-25 — that part wasn't the gap. The actual remaining bug was
-  purely visual: the windup fill's on-screen width was still painted
-  from a 300ms-tick JS snapshot smoothed by a `transition: width 0.3s
-  linear`, so the *drawn* bar could trail the real, already-correct
-  check value by up to ~600ms — a press that correctly landed in the
-  real 80-100% zone could still look like it happened before the visible
-  red zone. Fixed by switching the windup fill to a CSS `@keyframes`
-  animation (`battle-windup-fill`) with duration `PARRY_WINDUP_DURATION_MS`,
-  started at the same instant the windup begins and painted continuously
-  by the browser rather than polled — see CHANGELOG.
-- ~~**Pulse/glow on timing bars right as they enter their actionable
-  window**~~ **Shipped 2026-08-28.** Both parry's red zone and the
-  ability timing meter's green sweet spot now flash
-  (`battle-zone-pulse`) the real-time instant the moving fill crosses
-  into them, timed via `animation-delay` rather than polled - see
-  CHANGELOG.
 - **Research: how do other games avoid pure exponential stat inflation?**
   Timothy, 2026-08-17, raised alongside the pacing-curve discussion —
   rather than only fighting "numbers get big and trivialize old content"
@@ -1103,57 +1058,6 @@ reimplementation instead of the real renderer.
 **Not started.** Raised as a good idea, not yet scoped or estimated -
 would need its own small design pass (which approach, how many scenarios,
 where the images/expected-pixel data live) before implementation.
-
-### ~~Version display in the UI~~ Shipped 2026-08-28
-Raised 2026-08-28: "put game version and a log of changes into the
-interface somewhere so I know what version I'm playing when I refresh
-the page." Shipped same day — a footer at the bottom of the page shows
-the current version and opens a "What's New" overlay
-(`js/screens/changelogScreen.js`). Deliberately backed by a separate,
-hand-curated `js/data/playerChangelog.js` rather than fetching/parsing
-the real `CHANGELOG.md` at runtime — Timothy's call, once he saw the
-first design lean toward a live fetch: the real file is written in
-developer prose (file/function names, internal mechanics) and isn't fit
-to show players directly, so the in-game view is a separate, manually
-maintained translation covering only what a player would actually
-notice. See CHANGELOG.md's `[0.6.0]` entry.
-
-## ~~Responsive layout: browser window resize gets "stuck" at the old size~~ Shipped 2026-08-28
-Raised 2026-08-28: Timothy: "when I resize the game browser window it
-seems get stuck on a larger size of the play screen or something? then I
-hit refresh in browser and click into my character and game is nice and
-small and fits." Raised in the same breath as a related question: "is
-there a way to fix the viewport so no matter what browser size/window
-you are at the whole game area always shows?" - the fix below covers
-this half; the separate "always shows the whole game area regardless of
-size" framing is really the still-open "hero-centered camera / viewport
-responsive to actual screen size" idea (Roaming visible enemies section
-above), not this bug.
-
-Code inspection first ruled out: there is no window-resize JS at all
-before this fix (no `resize`/`ResizeObserver` listener anywhere in
-`js/`), and the map grid's sizing is otherwise relative throughout -
-`.map-grid` uses `grid-template-columns: repeat(N, 1fr)`
-(`js/screens/mapScreen.js`), tiles use `aspect-ratio: 1`, and overlay
-panels (shop/smith/battle/etc.) use `min(90vw, 720px)`-style caps - none
-of that should need a page reload to reflow on its own. The first
-working theory (a `container-type: size`/`cqb` container-query
-resolution lag on the tile's own emoji sizing) turned out to be wrong.
-
-**Root-caused via screenshots Timothy provided (Safari, grown-then-
-shrunk window) rather than live Chrome automation, per the standing
-[[feedback_avoid_chrome_automation_cost]] guidance:** Safari-only bug,
-confirmed absent in Chrome. Safari doesn't reliably re-run CSS Grid's
-track-sizing algorithm when a grid whose tracks size `aspect-ratio`
-children (exactly `.map-grid` + `.map-tile`) has its own container
-shrink on a live window resize - the grid visibly stayed at its old,
-larger size (overflowing the window) after growing the window and
-shrinking it back down, while Chrome always reflowed correctly. Fixed
-with a `resize` listener (`js/screens/mapScreen.js`) that forces a
-synchronous reflow of `.map-grid` (toggle `display: none` → `''` before
-the next paint, so nothing visibly flashes) - this makes Safari redo the
-track-sizing pass against the grid's corrected container size. See
-CHANGELOG.
 
 ## Discoverability / monetization
 

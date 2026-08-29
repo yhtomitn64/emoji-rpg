@@ -338,6 +338,23 @@ e.g. "Slippery Breadstick" for the snake. Not tracked anywhere; revisit
 only if it comes up again for a future zone. Items below were raised
 mid-combat-pass, later than that original batch.)*
 
+### ~~Random mini-dungeon marker reuses the mining pick's own emoji~~ Shipped 2026-08-29 (as part of 0.7.1)
+Raised 2026-08-28: "using the pick for our random dungeons and for the
+actual pick you get is confusing." `MINI_DUNGEON_MARKER_EMOJI`
+(`js/screens/mapScreen.js`) swapped from `⛏️` to `🥾`, no longer
+overloaded with the mining pick's own icon/tile/guardian. See CHANGELOG.
+
+### ~~Sticky header~~ Shipped 2026-08-29 (as part of 0.7.1)
+Raised 2026-08-29: "can we make the header on the top sticky so it
+always shows?" `#hud` is now `position: sticky; top: 0` (`css/styles.css`).
+See CHANGELOG.
+
+### ~~Inventory needs tabs + sorting~~ Shipped 2026-08-29 (as part of 0.7.1)
+Raised 2026-08-29. Inventory screen now has switchable tabs
+(Gear/Materials/Potions/Tools) instead of one long scrolling list, plus a
+per-tab sort control (Alphabetical/Quantity, with Rarity added on Gear).
+See CHANGELOG.
+
 ### ~~Log out / back to title screen, to switch characters~~ Shipped 2026-08-22
 A new HUD button unmounts back to `mountStartScreen()` behind a
 confirmation overlay (`js/screens/logoutConfirmScreen.js`). See
@@ -504,7 +521,43 @@ Each monster now has its own `questLevel` (starts at 1, uncapped);
 requirement grows by 1 kill/level, reward quantity grows as
 `1 + floor(log2(level))`. See CHANGELOG.
 
+### ~~Quest board should glow/indicate when you have turn-ins ready~~ Shipped 2026-08-28
+Raised 2026-08-28, shipped same day. See CHANGELOG - new
+`hasAnyQuestReady(state)` helper, `map-tile-quest-ready` glow class.
+
+### ~~Sell Duplicate Gear button~~ Shipped 2026-08-29 (partial fix for "Tiered gear can never be sold or discarded," see BACKLOG.md)
+Raised 2026-08-29: "add a sell duplicates button... auto sells all your
+dupes to clean up INV." Landed in the Shop screen (originally built into
+Inventory, then moved per Timothy's own correction). Sells every
+unequipped duplicate copy of the same gear item (keeping one) at the usual
+half-price rate. New `sellDuplicateGear` in `js/systems/inventory.js`.
+Gear-only, same-tier only - a single Fine/Superior copy still has no sell
+path, see the still-open item in BACKLOG.md. See CHANGELOG.
+
 ## Combat pass ideas
+
+### ~~Crit chance increase (Rung-3 gear effect)~~ Shipped 2026-08-28
+New Keen Eye drop (`critChancePercent: 8`), same rare-drop pool as the v1
+three (Vampiric Fang, Swift Strike Charm, Ember Ring). See CHANGELOG.
+
+### ~~Parry timing may feel earlier than the visible red zone~~ Fixed 2026-08-28
+Raised 2026-08-28: "How does the parry work? Do I hit s in the red section
+of the bar or before the red section? I feel like I hit beofore the red
+section and it parrys." The *check* itself (`resolveParryAttempt` at
+keypress) already read real wall-clock elapsed time (fixed back on
+2026-08-25) - the actual remaining bug was purely visual: the windup
+fill's on-screen width was painted from a 300ms-tick JS snapshot smoothed
+by a `transition: width 0.3s linear`, so the *drawn* bar could trail the
+real, already-correct check value by up to ~600ms. Fixed by switching the
+windup fill to a CSS `@keyframes` animation (`battle-windup-fill`) with
+duration `PARRY_WINDUP_DURATION_MS`, started at the same instant the
+windup begins and painted continuously by the browser rather than polled.
+See CHANGELOG.
+
+### ~~Pulse/glow on timing bars right as they enter their actionable window~~ Shipped 2026-08-28
+Both parry's red zone and the ability timing meter's green sweet spot now
+flash (`battle-zone-pulse`) the real-time instant the moving fill crosses
+into them, timed via `animation-delay` rather than polled. See CHANGELOG.
 
 ### ~~Potions currently cost a full turn like an attack.~~ Already shipped, backlog just never updated — caught 2026-08-28 while triaging small combat-pass items
 `resolvePotionUse` (`js/systems/combat.js`)
@@ -962,6 +1015,41 @@ killing blow now. See CHANGELOG. (Surfaced by the final whole-branch
 review of the comeback-mechanic plan, 2026-08-17.)
 
 ## Infrastructure / deployment
+
+### ~~Version display in the UI~~ Shipped 2026-08-28
+Raised 2026-08-28: "put game version and a log of changes into the
+interface somewhere so I know what version I'm playing when I refresh
+the page." A footer at the bottom of the page shows the current version
+and opens a "What's New" overlay (`js/screens/changelogScreen.js`).
+Deliberately backed by a separate, hand-curated
+`js/data/playerChangelog.js` rather than fetching/parsing the real
+`CHANGELOG.md` at runtime - the real file is developer prose (file/
+function names, internal mechanics) and isn't fit to show players
+directly. See CHANGELOG.md's `[0.6.0]` entry.
+
+**Note, 2026-08-29:** this footer/playerChangelog pair drifted out of
+sync with the real CHANGELOG.md once (footer stuck on `v0.7.0` after
+`0.7.1` shipped) - see CHANGELOG's `0.7.2` entry and `CLAUDE.md`'s
+versioning checklist for the fix and the process now in place to keep
+this from recurring.
+
+### ~~Responsive layout: browser window resize gets "stuck" at the old size~~ Shipped 2026-08-28
+Raised 2026-08-28: Timothy: "when I resize the game browser window it
+seems get stuck on a larger size of the play screen or something? then I
+hit refresh in browser and click into my character and game is nice and
+small and fits." Root-caused via screenshots Timothy provided (Safari,
+grown-then-shrunk window) rather than live Chrome automation: Safari-only
+bug, confirmed absent in Chrome - Safari doesn't reliably re-run CSS
+Grid's track-sizing algorithm when a grid whose tracks size `aspect-ratio`
+children (`.map-grid` + `.map-tile`) has its own container shrink on a
+live window resize. Fixed with a `resize` listener
+(`js/screens/mapScreen.js`) that forces a synchronous reflow of
+`.map-grid` (toggle `display: none` → `''` before the next paint, so
+nothing visibly flashes). See CHANGELOG. (The separate "always shows the
+whole game area regardless of size" framing raised in the same note is
+the still-open "hero-centered camera / viewport responsive to actual
+screen size" idea, not this bug - see BACKLOG.md's Roaming visible
+enemies section.)
 
 ### ~~Testing infra: jsdom (or similar) for battleScreen.js's DOM/timing logic~~ Shipped 2026-08-28
 Deferred twice before this (2026-08-23, then flagged again with new cost
