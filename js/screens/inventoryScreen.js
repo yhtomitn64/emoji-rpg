@@ -4,9 +4,43 @@ import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
 
+// Raised 2026-08-29: "our inventory screen should have tabs for the
+// different stuff instead of endless list and maybe some sorting" - split
+// the growable lists (Gear/Materials/Potions/Tools) into switchable tabs.
+// Equipment stays outside the tab set entirely - it's a fixed 5-slot status
+// view, not a list that grows long. Rarity/tier sort is only offered on
+// Gear since it's the only tab whose entries ever carry a tier.
+const TABS = [
+  { id: 'gear', label: 'Gear', predicate: (entry) => Boolean(ITEMS[entry.itemId].slot), sortOptions: ['alpha', 'quantity', 'tier'], render: renderGearRows, emptyText: 'No unequipped gear.' },
+  { id: 'material', label: 'Materials', predicate: (entry) => ITEMS[entry.itemId].type === 'material', sortOptions: ['alpha', 'quantity'], render: renderMaterialRows, emptyText: 'No materials.' },
+  { id: 'consumable', label: 'Potions', predicate: (entry) => ITEMS[entry.itemId].type === 'consumable', sortOptions: ['alpha', 'quantity'], render: renderConsumableRows, emptyText: 'No potions.' },
+  { id: 'tool', label: 'Tools', predicate: (entry) => ITEMS[entry.itemId].type === 'tool', sortOptions: ['alpha', 'quantity'], render: renderToolRows, emptyText: 'No tools.' },
+];
+const SORT_LABELS = { alpha: 'A-Z', quantity: 'Qty', tier: 'Rarity' };
+const TIER_RANK = { superior: 2, fine: 1 };
+
 let rootEl = null;
 let state = null;
 let callbacks = null;
+let activeTabId = 'gear';
+let sortOrderByTab = null;
+
+function defaultSortOrderByTab() {
+  return Object.fromEntries(TABS.map((tab) => [tab.id, 'alpha']));
+}
+
+function sortEntries(entries, sortOrder) {
+  const byName = (a, b) => ITEMS[a.itemId].name.localeCompare(ITEMS[b.itemId].name);
+  const sorted = [...entries];
+  if (sortOrder === 'quantity') {
+    sorted.sort((a, b) => b.quantity - a.quantity || byName(a, b));
+  } else if (sortOrder === 'tier') {
+    sorted.sort((a, b) => (TIER_RANK[b.tier] || 0) - (TIER_RANK[a.tier] || 0) || byName(a, b));
+  } else {
+    sorted.sort(byName);
+  }
+  return sorted;
+}
 
 function formatDelta(delta) {
   return Object.entries(delta)
@@ -29,10 +63,9 @@ function renderEquippedRows() {
   }).join('');
 }
 
-function renderGearRows() {
-  const gearEntries = state.inventory.filter((entry) => ITEMS[entry.itemId].slot);
-  if (gearEntries.length === 0) return '<div class="inventory-empty">No unequipped gear.</div>';
-  return gearEntries.map((entry) => {
+function renderGearRows(entries) {
+  if (entries.length === 0) return '<div class="inventory-empty">No unequipped gear.</div>';
+  return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
     const delta = getItemStatDelta(state, entry.itemId, entry.tier);
     const deltaText = formatDelta(delta);
@@ -44,21 +77,19 @@ function renderGearRows() {
   }).join('');
 }
 
-function renderMaterialRows() {
-  const materialEntries = state.inventory.filter((entry) => ITEMS[entry.itemId].type === 'material');
-  if (materialEntries.length === 0) return '<div class="inventory-empty">No materials.</div>';
-  return materialEntries.map((entry) => {
+function renderMaterialRows(entries) {
+  if (entries.length === 0) return '<div class="inventory-empty">No materials.</div>';
+  return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
     return `<div class="inventory-row" title="${describeItem(entry.itemId)}">${item.emoji} ${item.name} x${entry.quantity}</div>`;
   }).join('');
 }
 
-function renderConsumableRows() {
-  const consumableEntries = state.inventory.filter((entry) => ITEMS[entry.itemId].type === 'consumable');
-  if (consumableEntries.length === 0) return '<div class="inventory-empty">No potions.</div>';
+function renderConsumableRows(entries) {
+  if (entries.length === 0) return '<div class="inventory-empty">No potions.</div>';
   const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
   const atFullHp = state.player.hp >= effectiveMaxHp;
-  return consumableEntries.map((entry) => {
+  return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
     return `<div class="inventory-row">
       <span title="${describeItem(entry.itemId)}">${item.emoji} ${item.name} x${entry.quantity}</span>
@@ -67,35 +98,60 @@ function renderConsumableRows() {
   }).join('');
 }
 
-function renderToolRows() {
-  const toolEntries = state.inventory.filter((entry) => ITEMS[entry.itemId].type === 'tool');
-  if (toolEntries.length === 0) return '<div class="inventory-empty">No tools.</div>';
-  return toolEntries.map((entry) => {
+function renderToolRows(entries) {
+  if (entries.length === 0) return '<div class="inventory-empty">No tools.</div>';
+  return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
     return `<div class="inventory-row" title="${describeItem(entry.itemId)}">${item.emoji} ${item.name}</div>`;
   }).join('');
 }
 
+function renderTabButtons() {
+  return TABS.map((tab) => `<button class="inventory-tab-btn${tab.id === activeTabId ? ' active' : ''}" data-tab="${tab.id}">${tab.label}</button>`).join('');
+}
+
+function renderSortControl(tab) {
+  if (tab.sortOptions.length <= 1) return '';
+  const options = tab.sortOptions.map((opt) => `<option value="${opt}"${sortOrderByTab[tab.id] === opt ? ' selected' : ''}>${SORT_LABELS[opt]}</option>`).join('');
+  return `<div class="inventory-sort-control">
+    <label for="inventory-sort-select">Sort:</label>
+    <select id="inventory-sort-select">${options}</select>
+  </div>`;
+}
+
 function render() {
+  const activeTab = TABS.find((tab) => tab.id === activeTabId);
+  const entries = sortEntries(state.inventory.filter(activeTab.predicate), sortOrderByTab[activeTabId]);
+
   rootEl.innerHTML = `
     <div class="overlay-panel inventory-panel">
       <h2>Inventory</h2>
       <div class="inventory-scroll-area">
         <h3>Equipment</h3>
         ${renderEquippedRows()}
-        <h3>Gear</h3>
-        ${renderGearRows()}
-        <h3>Materials</h3>
-        ${renderMaterialRows()}
-        <h3>Potions</h3>
-        ${renderConsumableRows()}
-        <h3>Tools</h3>
-        ${renderToolRows()}
+        <div class="inventory-tab-buttons">${renderTabButtons()}</div>
+        <div class="inventory-tab-content">
+          ${renderSortControl(activeTab)}
+          ${activeTab.render(entries)}
+        </div>
       </div>
       <button id="btn-close-inventory">Close</button>
     </div>
   `;
 
+  rootEl.querySelectorAll('button[data-tab]').forEach((btn) => {
+    btn.onclick = () => {
+      activeTabId = btn.dataset.tab;
+      render();
+    };
+  });
+  const sortSelect = rootEl.querySelector('#inventory-sort-select');
+  if (sortSelect) {
+    sortSelect.onchange = () => {
+      sortOrderByTab[activeTabId] = sortSelect.value;
+      render();
+    };
+  }
   rootEl.querySelectorAll('button[data-equip]').forEach((btn) => {
     btn.onclick = () => {
       const itemId = btn.dataset.equip;
@@ -130,6 +186,8 @@ export function mount(root, props) {
   rootEl = root;
   state = props.state;
   callbacks = props.callbacks;
+  activeTabId = 'gear';
+  sortOrderByTab = defaultSortOrderByTab();
   render();
 }
 

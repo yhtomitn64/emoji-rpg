@@ -613,6 +613,33 @@ button:focus-visible {
   padding: 6px 0; border-bottom: 1px solid #444;
 }
 .inventory-empty { color: #888; padding: 6px 0; font-size: 0.85rem; }
+.inventory-tab-buttons {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 8px;
+}
+.inventory-tab-btn {
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.inventory-tab-btn.active {
+  background: #444;
+  color: #fff;
+  border-color: #888;
+}
+.inventory-sort-control {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+.inventory-sort-control select {
+  margin-left: 4px;
+}
 .loot-source { color: #888; font-size: 0.8rem; text-align: right; }
 
 .quest-row {
@@ -728,6 +755,8 @@ button:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
 }
 
 #version-footer {
@@ -919,7 +948,7 @@ button:focus-visible {
    own centering translate(-50%, -50%) - not a true circle (8 points, not a
    smooth arc), close enough at this size to read as "orbiting". */
 #celebration-burst.celebration-burst-tool-play {
-  animation: celebration-burst-tool-sequence 1.4s ease-in-out;
+  animation: celebration-burst-tool-sequence 2.8s ease-in-out;
 }
 @keyframes celebration-burst-tool-sequence {
   0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }

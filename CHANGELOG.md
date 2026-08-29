@@ -24,6 +24,13 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- Inventory screen now has switchable tabs (Gear/Materials/Potions/Tools)
+  instead of one long scrolling list, plus a per-tab sort control
+  (Alphabetical/Quantity, with Rarity added on the Gear tab). Equipment
+  stays always-visible above the tabs since it's a fixed 5-slot status view,
+  not a growing list. Defaults to the Gear tab, alphabetically sorted.
+
 ### Fixed
 - The map viewport was capped at a fixed 1020x700px regardless of the actual
   browser window size, wasting most of a large desktop window. `#app` now
@@ -32,6 +39,14 @@ public API, no formal release process — commits land straight on
   `computeViewportTileCount` (`js/screens/mapScreen.js`), which already
   measured the viewport's real rendered size, now shows meaningfully more of
   the world on a large window instead of stopping at 21x13 tiles.
+- `#hud` is now `position: sticky; top: 0`, so it stays visible instead of
+  scrolling out of view.
+- The random mini-dungeon map marker no longer reuses the mining pick's own
+  `⛏️` emoji (confusable with actually receiving a pick) — swapped to `🥾`.
+- The tool-pickup celebration's orbiting emoji now anchors to the player's
+  actual on-map tile instead of always popping up at viewport-center
+  (mirrors `mapScreen.js`'s existing `playMonsterFleeEffect` pattern), and
+  the orbit animation is twice as slow as before for more effect.
 
 ## [0.7.0] - 2026-08-29
 

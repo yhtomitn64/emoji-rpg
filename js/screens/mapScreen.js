@@ -14,7 +14,7 @@ import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
 import { hasAnyQuestReady } from '../systems/quests.js';
 
 const CACHE_MARKER_EMOJI = '💰';
-const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
+const MINI_DUNGEON_MARKER_EMOJI = '🥾';
 const CACHE_MARKER_DESCRIPTION = 'A stash of gold (maybe an item too) — step here to collect it';
 const MINI_DUNGEON_MARKER_DESCRIPTION = 'A mysterious opening — explore it';
 // Tool-gated tiles the player can currently cross render a "mount" emoji
