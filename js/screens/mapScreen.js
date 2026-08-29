@@ -165,35 +165,35 @@ const KEY_TO_DELTA = {
 // too, so a sealed edge never depends on remembering to paint it - every
 // true boundary cell always renders as mountainWall, overriding whatever
 // terrain is actually in the file there.
-function isSealedWorldEdge(x, y) {
-  if (!mapConfig.neighbors) return false;
-  const width = mapConfig.rows[0].length;
-  const height = mapConfig.rows.length;
-  if (y === 0 && !mapConfig.neighbors.north) return true;
-  if (y === height - 1 && !mapConfig.neighbors.south) return true;
-  if (x === 0 && !mapConfig.neighbors.west) return true;
-  if (x === width - 1 && !mapConfig.neighbors.east) return true;
+function isSealedWorldEdge(screenConfig, x, y) {
+  if (!screenConfig.neighbors) return false;
+  const width = screenConfig.rows[0].length;
+  const height = screenConfig.rows.length;
+  if (y === 0 && !screenConfig.neighbors.north) return true;
+  if (y === height - 1 && !screenConfig.neighbors.south) return true;
+  if (x === 0 && !screenConfig.neighbors.west) return true;
+  if (x === width - 1 && !screenConfig.neighbors.east) return true;
   return false;
 }
 
-function tileAt(x, y) {
+function tileAt(screenConfig, x, y) {
   const entrance = state.dungeonEntrancePosition;
-  if (entrance && mapConfig.id === entrance.screenId && x === entrance.x && y === entrance.y) {
+  if (entrance && screenConfig.id === entrance.screenId && x === entrance.x && y === entrance.y) {
     return TILES.dungeonEntrance;
   }
   for (const toolEntrance of Object.values(TOOL_DUNGEON_ENTRANCES)) {
-    if (mapConfig.id === toolEntrance.screenId && x === toolEntrance.x && y === toolEntrance.y) {
+    if (screenConfig.id === toolEntrance.screenId && x === toolEntrance.x && y === toolEntrance.y) {
       return TILES[toolEntrance.tileKind];
     }
   }
-  if (isSealedWorldEdge(x, y)) return TILES.mountainWall;
-  const row = mapConfig.rows[y];
+  if (isSealedWorldEdge(screenConfig, x, y)) return TILES.mountainWall;
+  const row = screenConfig.rows[y];
   if (!row) return null;
   const char = row[x];
   if (!char) return null;
-  const rawTile = TILES[mapConfig.legend[char]];
+  const rawTile = TILES[screenConfig.legend[char]];
   const clearedReplacement = CLEARED_GATE_REPLACEMENT.get(rawTile);
-  if (clearedReplacement && isGateCleared(state.clearedGates, mapConfig.id, x, y)) {
+  if (clearedReplacement && isGateCleared(state.clearedGates, screenConfig.id, x, y)) {
     return clearedReplacement;
   }
   return rawTile;
@@ -210,7 +210,7 @@ function checkGateProximity(x, y) {
     const nx = x + dx;
     const ny = y + dy;
     if (isOutOfBounds(nx, ny)) continue;
-    const neighborTile = tileAt(nx, ny);
+    const neighborTile = tileAt(mapConfig, nx, ny);
     if (!neighborTile || !neighborTile.requiresTool) continue;
     if (hasShownGateHint(state.toolGateHintsShown, mapConfig.id, nx, ny)) continue;
 
@@ -236,7 +236,7 @@ function isPassableTile(t) {
 function isScreenChokepoint(x, y) {
   const width = mapConfig.rows[0].length;
   const height = mapConfig.rows.length;
-  return isChokepointTile(width, height, x, y, (px, py) => isPassableTile(tileAt(px, py)));
+  return isChokepointTile(width, height, x, y, (px, py) => isPassableTile(tileAt(mapConfig, px, py)));
 }
 
 // How worn a connected neighbor itself is, for tapering a connector stroke's
@@ -362,7 +362,7 @@ function render() {
   for (let y = 0; y < mapConfig.rows.length; y++) {
     for (let x = 0; x < cols; x++) {
       const cell = document.createElement('div');
-      const tile = tileAt(x, y);
+      const tile = tileAt(mapConfig, x, y);
       const isPlayer = state.position.x === x && state.position.y === y;
       const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
       const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
@@ -503,7 +503,7 @@ function tryMove(dx, dy) {
     return;
   }
 
-  const tile = tileAt(nx, ny);
+  const tile = tileAt(mapConfig, nx, ny);
   if (!tile) return;
   if (!tile.walkable) {
     if (!tile.requiresTool) return;
