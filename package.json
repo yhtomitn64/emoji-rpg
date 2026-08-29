@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.js"
+    "test": "node --test tests/*.js",
+    "relock": "rm -rf node_modules package-lock.json && npm install --registry https://registry.npmjs.org/"
   },
   "devDependencies": {
     "jsdom": "^29.1.1"
