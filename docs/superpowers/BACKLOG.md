@@ -219,6 +219,51 @@ one-off task.
     tool-gated obstacles in the way. Not designed yet: whether to strip
     tools from inventory, reset `clearedGates` (reverting cleared
     mountains/thickets back to their gated form), or both.
+
+    **Investigated further, 2026-08-29 (not yet implemented):**
+    - **Re-fighting a tool guardian already works today, with zero code
+      needed.** Timothy separately asked "we have to make sure you can
+      fight the tool boss again." Checked: the `guardian` tile
+      (`js/tiles.js`) has `encounter: false, action: 'guardianBattle'` -
+      stepping on it always fires `handleEncounter` unconditionally
+      (`js/main.js`'s `action === 'guardianBattle'` branch) with no
+      "already defeated" flag anywhere. Entering a tool dungeon
+      (`enterAxeDungeon`/etc.) is the same - just an unconditional
+      `enterMap` call, no one-time gate. So once tools are actually
+      stripped from inventory on NG+, the existing guardian-refight loop
+      needs nothing extra - this part of the ask is already solved by
+      fixing the inventory-strip half.
+    - **Still the open design call: does `clearedGates` reset too?**
+      If it stays untouched (today's behavior), the paths to every tool
+      dungeon entrance stay pre-cleared, so losing the tools only costs a
+      walk back to refight each guardian - quick. If it resets alongside
+      tools, the player replays the actual tool-gated terrain, closer to
+      Timothy's "go through the game flow" phrasing - and this is
+      provably safe to do: the tool dungeon entrances are, by definition,
+      reachable with zero tools (that's how a first-time player gets their
+      first tool at all), so a full `clearedGates` reset can't strand
+      anyone.
+    - **Retroactive cleanup for saves already mid-NG+-cycle, requested by
+      Timothy: "remove them from any current NG+ that did not acquire
+      them again if you can tell. If you can't tell that's fine, next
+      time they do NG+ they will lose the again."** This turns out to be
+      fully tellable, not ambiguous: since `resetWorldForNgPlus` has
+      *never* stripped tools until this fix lands, any save currently at
+      `ngPlusCycle >= 1` holding tools got every one of them via
+      carryover, with no legitimate "re-earned it this cycle" case to
+      protect against false-positive stripping - a one-time migration
+      (same `startGame`-time pattern `migrateUpgradesToPerTier` just
+      established in `js/main.js`) can safely strip tool-type inventory
+      entries from any save at `ngPlusCycle >= 1`, once, unconditionally.
+      Scoped to inventory only, not a retroactive `clearedGates` revert -
+      re-gating terrain out from under a save already mid-playthrough
+      felt like a bigger, more disruptive surprise than the ask called
+      for; a `clearedGates` reset (if adopted per the bullet above) should
+      only apply prospectively, at each *future* NG+ transition.
+    - Not implemented yet - this session ran out of runway after the
+      investigation. Next step is just wiring it into
+      `resetWorldForNgPlus` (strip `inventory` tool entries, decide on
+      `clearedGates`) plus the one-time migration described above.
   - **Should the dragon drop better items in NG+? Raised 2026-08-29.**
     Timothy: "can we make the dragon drop better items in NG+?"
     `scaleDropTable` (`js/systems/ngPlus.js`) already scales
