@@ -3,6 +3,9 @@
 # OS junk
 .DS_Store
 
+# Node dependencies
+node_modules/
+
 # Secrets and local env - never commit these
 .env
 .env.*

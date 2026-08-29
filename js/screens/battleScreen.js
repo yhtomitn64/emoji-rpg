@@ -975,6 +975,15 @@ export function mount(root, props) {
   attackStreak = 0;
   attackStreakIdleMs = 0;
   attackTauntShown = false;
+  // Found via the new jsdom test harness (tests/battleScreenDom.test.js):
+  // every other per-battle Attack counter above is reset here, but this one
+  // was missed. A battle ending while Attack was mid-cooldown (e.g. the
+  // winning blow was itself an Attack) left a stale positive
+  // attackCooldownMs in place, silently disabling Attack for a moment at
+  // the start of the player's *next* battle until tick() decayed it back to
+  // 0 - self-healing within a second or two, so easy to miss live, but a
+  // real bug.
+  attackCooldownMs = 0;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   // The elite gets an adaptive appear line based on estimated win chance
   // instead of a random pick from a fixed pool - needs the built combatant

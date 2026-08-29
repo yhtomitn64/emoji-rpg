@@ -730,13 +730,30 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
 - **Parry timing may feel earlier than the visible red zone, raised
   2026-08-28.** Timothy: "How does the parry work? Do I hit s in the red
   section of the bar or before the red section? I feel like I hit
-  beofore the red section and it parrys." This may be the same known gap
-  flagged when parry shipped: the wind-up's real timing runs ~1200ms but
-  only a single ~300ms tick actually lands inside the true parry zone
-  due to tick-loop quantization, so the *visible* red zone and the
-  *actual* parry-accepting window can drift apart. Worth checking that
-  known tick-quantization gap against this fresh report before assuming
-  it's purely a UI-clarity ask.
+  beofore the red section and it parrys." Confirmed (via a side-channel
+  Q&A, same day) as the same known gap flagged when parry shipped, not a
+  UI-clarity misunderstanding: the wind-up's real timing runs ~1200ms but
+  parry is only ever checked on the battle's own ~300ms tick loop, not
+  continuously, so the *actual* accepting window can land measurably
+  earlier than the *visible* red zone due to that quantization -
+  confirmed real, not yet fixed. **Timothy's own proposed direction,
+  same day:** "we are going to have to separate parry from gameloop or
+  something so we get better timing accuracy" - i.e. check parry input
+  against real elapsed time (or on every keydown/click event directly,
+  the way the ability timing meter's own `runTimingMeter` already does
+  via `performance.now()` in `js/screens/battleScreen.js`) instead of
+  only sampling on the shared 300ms `tick()` interval in
+  `js/systems/parry.js`/`js/screens/battleScreen.js`. Not designed/scoped
+  yet - captured as the concrete next-step idea, not implemented.
+- **Pulse/glow on timing bars right as they enter their actionable
+  window, raised 2026-08-28 alongside the parry-timing question above.**
+  A fast pulse or glow the instant a bar crosses into its "now's the
+  moment" zone - parry's red zone, and the ability timing meter's own
+  sweet spot (`TIMING_SWEET_SPOT_START`/`END` in
+  `js/screens/battleScreen.js`) - rather than the current static color
+  change, to make the actionable instant more readable at a glance. Not
+  designed - raw idea only, no visual treatment or implementation
+  decided.
 - **Research: how do other games avoid pure exponential stat inflation?**
   Timothy, 2026-08-17, raised alongside the pacing-curve discussion —
   rather than only fighting "numbers get big and trivialize old content"
@@ -868,40 +885,6 @@ backtracked fights, is still Timothy's call — leaving this open, just
 better-informed.
 
 ## Infrastructure / deployment
-
-### Testing infra: jsdom (or similar) for battleScreen.js's DOM/timing logic — deferred 2026-08-23
-Raised while root-causing a real bug: ranged-monster attacks (this
-session's earlier themed-attack-animation work) added a delay that let a
-parry press land during a window where the wind-up bar had already reset,
-silently swallowing the parry — "I noticed even when I parry sometimes
-enemies still hit me." No unit test could have caught this: `battleScreen.js`
-exports nothing but `mount`/`unmount`, and this repo has no DOM-testing
-setup at all, so its timing/sequencing logic (wind-up bars, `setTimeout`
-chains, keypress-vs-animation races) is only ever verified live in-browser.
-This is the second such bug found via live testing this session alone (the
-first: `buildMonsterCombatant` silently dropping `attackStyle`/
-`projectileEmoji`, same file).
-
-**Timothy's call:** don't add jsdom (or similar) now — live verification is
-an acceptable trade-off for a project this size today. Revisit if
-DOM-timing regressions in this file keep showing up.
-
-**New data point, 2026-08-26:** during the item-quality-tiers subagent-
-driven implementation, live-browser verification of `battleScreen.js`/
-`inventoryScreen.js` changes (spinning up a real Chrome instance per task
-via MCP automation) turned out to be the single biggest token/time cost
-of the whole effort — one task alone burned ~367k tokens and 358 tool
-calls, mostly from a subagent repeatedly trying to reach a real battle-won
-outcome that's actually impossible at level 1 by design. Not a DOM-timing
-regression (the original reason for deferring), but a different, real cost
-axis worth weighing next time this comes up: jsdom wouldn't replace all
-live verification (rendering/CSS/event-timing quirks still want an
-occasional real-browser eyeball), but it would make the mechanical
-"does clicking this button call the right function with the right args"
-class of check a normal fast/cheap automated test instead of a live-browser
-round trip — exactly the kind of check that was expensive here. Still not
-built, still Timothy's call to make, just flagging the cost side of the
-tradeoff has new evidence now.
 
 ### Pixel-level visual regression test for the worn-path trail (and similar rendering bugs) — raised 2026-08-26
 Timothy, after several rounds of "there's a seam" reports that turned out

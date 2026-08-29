@@ -16,6 +16,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+
+      # The project had zero dependencies until jsdom was added for DOM
+      # testing (2026-08-28) - npm run test now needs node_modules to exist,
+      # which nothing installed before. npm ci (not install) so CI fails
+      # loudly if package-lock.json and package.json ever drift apart.
+      - run: npm ci
 
       - run: npm run test
 

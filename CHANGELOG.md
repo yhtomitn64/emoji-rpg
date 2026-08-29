@@ -814,6 +814,25 @@ public API, no formal release process — commits land straight on
   mountain/mountainCache → rubble) once cleared. Water is deliberately
   absent from that map, so canoeing across it never changes the tile.
 
+### Added
+- DOM/timing test infrastructure for screen modules, starting with
+  `battleScreen.js`: `jsdom` added as the project's first-ever npm
+  dependency, a shared `tests/helpers/dom.js` setup/teardown helper, and
+  `tests/battleScreenDom.test.js` (9 tests) proving real button
+  clicks/keyboard shortcuts/timing-minigame interactions can now be
+  covered by fast automated tests instead of a live-browser round trip —
+  deferred twice before (see BACKLOG_SHIPPED.md's "Testing infra" entry
+  for the full history/cost tradeoff). `.github/workflows/deploy.yml`
+  gained an `npm ci` step it previously lacked (the project had zero
+  dependencies before this, so `npm run test` never needed one).
+
+### Fixed
+- `attackCooldownMs` (`js/screens/battleScreen.js`) was never reset in
+  `mount()`, unlike every other per-battle Attack counter next to it — a
+  battle ending while Attack was mid-cooldown silently disabled Attack for
+  a moment at the start of the *next* battle. Found while writing the new
+  jsdom test suite above.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed

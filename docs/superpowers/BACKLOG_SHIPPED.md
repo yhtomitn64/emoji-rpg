@@ -921,6 +921,65 @@ review of the comeback-mechanic plan, 2026-08-17.)
 
 ## Infrastructure / deployment
 
+### ~~Testing infra: jsdom (or similar) for battleScreen.js's DOM/timing logic~~ Shipped 2026-08-28
+Deferred twice before this (2026-08-23, then flagged again with new cost
+evidence 2026-08-26 - a single live-browser verification task burned
+~367k tokens/358 tool calls) - Timothy asked to finally build it 2026-08-28
+("let's tackle jest test setup stuff next so we don't have to rely on
+[the] chrome plugin and hopefully it uses less context"; clarified he meant
+jsdom + the existing `node:test` runner, not an actual Jest migration - no
+reason to convert the 459 existing lightweight tests).
+
+- **`jsdom` added as the first-ever dependency** (`package.json`,
+  `package-lock.json`) - this repo previously had zero npm packages at
+  all. Added `node_modules/` to `.gitignore` (was missing).
+- **`tests/helpers/dom.js`**: shared `setupDom`/`teardownDom`/`createRoot`/
+  `click`/`keydown` helpers. Lives outside `tests/` proper so `node --test
+  tests/*.js` never tries to run it as its own test file. Two real jsdom
+  gotchas found and worked around: (1) Node's own built-in `navigator`
+  global is a getter-only accessor property - naive `global.navigator = x`
+  throws, needs `Object.defineProperty`; (2) swapping in jsdom's own
+  `Performance` object as the global `performance` triggers an infinite
+  recursion (`Performance.now -> PerformanceImpl.now -> ...`, a jsdom
+  cross-realm quirk) the moment it's called as a bare global rather than
+  via `window.performance` - fixed by simply not touching `performance` at
+  all, since Node already provides its own perfectly good monotonic clock
+  globally.
+- **`tests/battleScreenDom.test.js`**: the reference implementation proving
+  the pattern works end-to-end against the single most complex/highest-
+  value screen (the one the original deferred backlog note was about) -
+  9 tests covering mount() DOM structure, ability unlock gating, a real
+  dispatched click resolving an Attack (HP bar text updates), the `a`
+  keyboard shortcut, Item/potion use, a locked ability's key press being a
+  no-op, a full timing-hit Stab→Chop combo-priming interaction (one real
+  ~900ms wait to land inside the timing sweet spot - proves the harness
+  can drive the same minigame a real player interacts with, not just
+  instant synchronous clicks), and unmount() actually detaching its
+  keydown listener.
+- **Real bug found while writing these tests, fixed same session:**
+  `attackCooldownMs` (`js/screens/battleScreen.js`) was never reset in
+  `mount()`, unlike every other per-battle Attack counter next to it
+  (`attackStreak`, `attackStreakIdleMs`, `attackTauntShown`, etc.) - a
+  battle ending while Attack was mid-cooldown (e.g. the winning blow was
+  itself an Attack) silently disabled Attack for a moment at the start of
+  the *next* battle, self-healing within a second or two via `tick()`'s
+  own decay so easy to miss live. Exactly the "does clicking this button
+  do the right thing" class of bug this infra was built to catch cheaply.
+- **`.github/workflows/deploy.yml` fixed alongside this**: it ran
+  `npm run test` directly with no install step at all, which only "worked"
+  because the project had zero dependencies before jsdom. Added `npm ci`
+  (with `actions/setup-node@v4`'s `cache: npm`) before the test step, or
+  every future push to master would have failed CI the moment this landed.
+- **Scope, matching the original backlog note's own boundary**: this
+  covers DOM structure and event wiring, not pixel-level
+  rendering/CSS/animation-timing - jsdom's layout engine is a no-op, so an
+  occasional live-browser look is still the right tool for that class of
+  check (see the separate, still-open "Pixel-level visual regression
+  test" item in BACKLOG.md). Only `battleScreen.js` has real coverage so
+  far - `mapScreen.js`, `shopScreen.js`, `smithScreen.js`, etc. can gain it
+  incrementally using the same `tests/helpers/dom.js` pattern, not
+  something this pass tried to backfill for every screen at once.
+
 ### ~~Host on Cloudflare (free tier) with GitHub Actions auto-publish, raised 2026-08-20~~ Shipped 2026-08-22
 Timothy: "I want to host this on cloudflare free tier and push to my
 personal github and then have a github action that lets me easily
