@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-08-29
+
+### Fixed
+- NG+ never reset the player's tools (axe/mining pick/boat) or
+  `clearedGates`, so a player who'd already earned every tool and cleared
+  every tool gate could walk straight to the dungeon entrance on a fresh
+  NG+ cycle, skipping zone 1's tool-gated obstacles entirely.
+  `resetWorldForNgPlus` (`js/systems/ngPlus.js`) now strips tool items from
+  inventory and resets `clearedGates` on every future NG+ transition,
+  reproducing the exact same reachability graph a brand-new save starts
+  with - re-fighting each tool guardian already worked with zero extra
+  code (the guardian tile has no "already defeated" flag). A one-time
+  `migrateNgPlusToolCarryover` migration also retroactively strips
+  carried-over tools from any save already sitting at `ngPlusCycle >= 1`
+  from before this fix (inventory only, not a retroactive `clearedGates`
+  revert - re-gating already-cleared terrain out from under a save
+  mid-playthrough would be a bigger surprise than this migration is
+  meant to cause).
+
 ## [0.7.7] - 2026-08-29
 
 ### Changed

@@ -65,7 +65,7 @@ import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDun
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
-import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus } from './systems/ngPlus.js';
+import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
 import { pickMonsterVariant } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
@@ -120,6 +120,7 @@ let activeSlotId = null;
 
 function startGame(loadedState, slotId) {
   state = migrateUpgradesToPerTier(loadedState);
+  state = migrateNgPlusToolCarryover(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';

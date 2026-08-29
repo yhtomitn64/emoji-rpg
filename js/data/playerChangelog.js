@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.8',
+    date: '2026-08-29',
+    highlights: [
+      'Fixed New Game+ not taking back your axe/mining pick/boat or re-gating the terrain you\'d already cleared with them — you\'ll need to earn your way through zone 1 again each NG+ cycle, same as a fresh save.',
+    ],
+  },
+  {
     version: '0.7.7',
     date: '2026-08-29',
     highlights: [

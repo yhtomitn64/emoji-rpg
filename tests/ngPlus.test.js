@@ -7,6 +7,7 @@ import {
   getNgPlusRewardMultiplier,
   scaleDropTable,
   resetWorldForNgPlus,
+  migrateNgPlusToolCarryover,
 } from '../js/systems/ngPlus.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { createNewGame } from '../js/state.js';
@@ -117,6 +118,7 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   state.position = { x: 5, y: 5 };
   state.ngPlusCycle = 0;
   state.lossStreak = 5;
+  state.clearedGates = { center: { '1,1': true } };
 
   const reset = resetWorldForNgPlus(state);
 
@@ -139,6 +141,70 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   assert.equal(reset.position, null);
   assert.equal(reset.ngPlusCycle, 1);
   assert.equal(reset.lossStreak, 0);
+  assert.deepEqual(reset.clearedGates, {});
+});
+
+// Raised 2026-08-29: "NG+ should reset the tools you have otherwise you can
+// go straight to dragon." resetWorldForNgPlus never touched state.inventory
+// or state.clearedGates before this fix, so a player who already owned
+// every tool and had already cleared every tool gate kept both across an
+// NG+ reset.
+test('resetWorldForNgPlus strips tool items from inventory but keeps everything else', () => {
+  const state = createNewGame();
+  state.flags.dungeonBossDefeated = true;
+  state.inventory = [
+    { itemId: 'axe', quantity: 1 },
+    { itemId: 'miningPick', quantity: 1 },
+    { itemId: 'boat', quantity: 1 },
+    { itemId: 'potion', quantity: 3 },
+    { itemId: 'ironSword', quantity: 1 },
+  ];
+  const reset = resetWorldForNgPlus(state);
+  assert.deepEqual(reset.inventory, [
+    { itemId: 'potion', quantity: 3 },
+    { itemId: 'ironSword', quantity: 1 },
+  ]);
+});
+
+test('resetWorldForNgPlus resets clearedGates to reproduce a brand-new save\'s reachability graph', () => {
+  const state = createNewGame();
+  state.flags.dungeonBossDefeated = true;
+  state.clearedGates = { center: { '1,1': true }, north: { '2,2': true } };
+  const reset = resetWorldForNgPlus(state);
+  assert.deepEqual(reset.clearedGates, {});
+});
+
+test('migrateNgPlusToolCarryover strips carried-over tools once for a save already mid-NG+-cycle', () => {
+  const state = createNewGame();
+  state.ngPlusCycle = 1;
+  state.inventory = [{ itemId: 'axe', quantity: 1 }, { itemId: 'potion', quantity: 2 }];
+
+  const migrated = migrateNgPlusToolCarryover(state);
+  assert.deepEqual(migrated.inventory, [{ itemId: 'potion', quantity: 2 }]);
+  assert.equal(migrated.ngPlusToolsMigrated, true);
+});
+
+test('migrateNgPlusToolCarryover is a no-op for a save that has never done NG+', () => {
+  const state = createNewGame();
+  state.ngPlusCycle = 0;
+  state.inventory = [{ itemId: 'axe', quantity: 1 }];
+  const migrated = migrateNgPlusToolCarryover(state);
+  assert.deepEqual(migrated.inventory, [{ itemId: 'axe', quantity: 1 }]);
+  assert.equal(migrated.ngPlusToolsMigrated, true);
+});
+
+test('migrateNgPlusToolCarryover only strips tools once - a legitimately re-earned tool survives a later load', () => {
+  const state = createNewGame();
+  state.ngPlusCycle = 1;
+  state.inventory = [{ itemId: 'axe', quantity: 1 }];
+
+  const firstLoad = migrateNgPlusToolCarryover(state);
+  assert.deepEqual(firstLoad.inventory, []);
+
+  // Player re-earns the axe post-migration, then the game reloads again.
+  firstLoad.inventory = [{ itemId: 'axe', quantity: 1 }];
+  const secondLoad = migrateNgPlusToolCarryover(firstLoad);
+  assert.deepEqual(secondLoad.inventory, [{ itemId: 'axe', quantity: 1 }]);
 });
 
 test('resetWorldForNgPlus keeps worn-path trail data across cycles, unlike other world-progress fields', () => {
