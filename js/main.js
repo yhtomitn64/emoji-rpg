@@ -59,7 +59,7 @@ import { ABILITIES } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses } from './systems/inventory.js';
-import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
+import { isValidSavedPosition } from './systems/world.js';
 import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
@@ -398,7 +398,6 @@ function goToMap(mapId) {
       onMove: () => persist(),
       onAction: handleTileAction,
       onEncounter: handleEncounter,
-      onEdgeTransition: handleEdgeTransition,
       onFirstVisit: handleFirstVisit,
       onCacheFound: handleCacheFound,
       onEnterMiniDungeon: handleEnterMiniDungeon,
@@ -467,14 +466,6 @@ function enterMap(mapId, position) {
   state.map = mapId;
   persist();
   goToMap(mapId);
-}
-
-function handleEdgeTransition(neighborId, direction, currentPosition) {
-  const neighborMap = MAPS[neighborId];
-  state.position = computeEdgeLandingPosition(direction, currentPosition, neighborMap);
-  state.map = neighborId;
-  persist();
-  goToMap(neighborId);
 }
 
 function handleFirstVisit(screenId) {
