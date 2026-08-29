@@ -1023,3 +1023,21 @@ equally-prominent reject option as a compliance risk.
   docs, 2026-08-22: "Available on all plans", confirmed free. Timothy
   is retrieving the setup token/snippet from his Cloudflare dashboard
   to hand over for wiring in — not done yet, no code changes made.
+
+### Gameplay analytics (Google Analytics), opt-in with an explicit consent setting, raised 2026-08-28
+Distinct from the Cloudflare traffic-analytics item above - that one's
+about site traffic/SEO/ad effectiveness (aggregate, no consent needed).
+This one is about actual *gameplay* telemetry: Timothy wants to know how
+people are actually playing and doing - are they playing at all, what
+level they reach, whether they get the axe/pick/canoe, whether they fight
+(and beat) the dragon, how fights are going for them generally. His own
+words: "Maybe we have a 'allow analytics' setting somewhere and explain
+what we collect and why" - explicitly wants this opt-in with disclosure,
+not silently on by default. Not designed yet - open questions: which
+specific events to track (level-up, first tool pickup ×3, dragon
+fight/outcome, and "how they are doing on fights" is vague - win/loss
+rate? HP left? something from the existing balance-simulator's own
+signals?), where the opt-in toggle lives in the UI (no settings screen
+exists today - closest precedent is the logout/switch-character flow),
+and how consent state persists (per-save? per-browser via localStorage,
+alongside `state`?). Needs its own design pass before implementation.
