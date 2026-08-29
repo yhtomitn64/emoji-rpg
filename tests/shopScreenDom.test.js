@@ -71,6 +71,64 @@ test('shopScreen DOM - Sell Duplicate Gear', async (t) => {
   });
 });
 
+// Raised 2026-08-28 (final review), fixed 2026-08-29: a single Fine/Superior
+// copy of a gear item used to have no sell path at all - the shop only ever
+// sold/bought the Plain stack.
+test('shopScreen DOM - selling Fine/Superior tiered gear', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/shopScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('a single owned Fine copy renders its own sell row, separate from the (disabled) Plain row', async () => {
+    const root = await mountShop(buildState({ inventory: [{ itemId: 'ironSword', quantity: 1, tier: 'fine' }] }));
+    const sellButtons = [...root.querySelectorAll('button[data-sell="ironSword"]')];
+    assert.equal(sellButtons.length, 2, 'the always-present Plain sell button, plus one for the owned Fine copy');
+    const plainSellBtn = sellButtons.find((btn) => !btn.dataset.tier);
+    assert.equal(plainSellBtn.disabled, true, 'no Plain copy is owned');
+    const fineSellBtn = sellButtons.find((btn) => btn.dataset.tier === 'fine');
+    assert.ok(fineSellBtn, 'expected a sell button for the owned Fine copy');
+    const row = fineSellBtn.closest('.shop-row');
+    assert.match(row.textContent, /Fine Iron Sword \(own 1\)/);
+  });
+
+  await t.test('owning Plain, Fine, and Superior copies renders three separate sell rows', async () => {
+    const root = await mountShop(buildState({
+      inventory: [
+        { itemId: 'ironSword', quantity: 1 },
+        { itemId: 'ironSword', quantity: 1, tier: 'fine' },
+        { itemId: 'ironSword', quantity: 1, tier: 'superior' },
+      ],
+    }));
+    const sellButtons = [...root.querySelectorAll('button[data-sell="ironSword"]')];
+    assert.equal(sellButtons.length, 3);
+    assert.deepEqual(sellButtons.map((btn) => btn.dataset.tier), [undefined, 'fine', 'superior']);
+  });
+
+  await t.test('clicking a tiered sell button sells one copy of that tier at half price and leaves the other tiers alone', async () => {
+    const state = buildState({
+      inventory: [
+        { itemId: 'ironSword', quantity: 1, tier: 'fine' },
+        { itemId: 'ironSword', quantity: 1, tier: 'superior' },
+      ],
+    });
+    const root = await mountShop(state);
+    const fineSellBtn = root.querySelector('button[data-sell="ironSword"][data-tier="fine"]');
+    click(fineSellBtn);
+
+    assert.equal(state.inventory.find((e) => e.itemId === 'ironSword' && e.tier === 'fine'), undefined);
+    assert.ok(state.inventory.find((e) => e.itemId === 'ironSword' && e.tier === 'superior'), 'the Superior copy should be untouched');
+    assert.equal(state.player.gold, 100 + sellPrice(ITEMS.ironSword.price));
+  });
+
+  await t.test('a non-gear item (e.g. a potion) never renders tiered sell rows', async () => {
+    const root = await mountShop(buildState({ inventory: [{ itemId: 'potion', quantity: 2, tier: 'fine' }] }));
+    assert.equal(root.querySelectorAll('button[data-sell="potion"][data-tier]').length, 0);
+  });
+});
+
 // Raised 2026-08-29: "you never really need to buy more than 1 equipment
 // item, the only thing that really needs multiples is the potions."
 test('shopScreen DOM - buy quantity buttons', async (t) => {

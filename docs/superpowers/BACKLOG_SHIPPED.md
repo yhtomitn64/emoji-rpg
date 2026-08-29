@@ -525,16 +525,55 @@ requirement grows by 1 kill/level, reward quantity grows as
 Raised 2026-08-28, shipped same day. See CHANGELOG - new
 `hasAnyQuestReady(state)` helper, `map-tile-quest-ready` glow class.
 
-### ~~Sell Duplicate Gear button~~ Shipped 2026-08-29 (partial fix for "Tiered gear can never be sold or discarded," see BACKLOG.md)
+### ~~Sell Duplicate Gear button~~ Shipped 2026-08-29 (partial fix for "Tiered gear can never be sold or discarded")
 Raised 2026-08-29: "add a sell duplicates button... auto sells all your
 dupes to clean up INV." Landed in the Shop screen (originally built into
 Inventory, then moved per Timothy's own correction). Sells every
 unequipped duplicate copy of the same gear item (keeping one) at the usual
 half-price rate. New `sellDuplicateGear` in `js/systems/inventory.js`.
-Gear-only, same-tier only - a single Fine/Superior copy still has no sell
-path, see the still-open item in BACKLOG.md. See CHANGELOG.
+Gear-only, same-tier only - a single Fine/Superior copy still had no sell
+path at all until the item directly below closed that gap. See CHANGELOG.
+
+### ~~Tiered gear can never be sold or discarded~~ Shipped 2026-08-29
+Flagged by final review 2026-08-28: the shop only ever sold/bought the
+Plain stack of an item, leaving a single Fine/Superior copy permanently
+stuck in inventory with no sell path at all (the Sell Duplicate Gear
+button above only handles *same-tier* duplicates past the first). Fixed
+by giving each owned tier its own sell row in the shop
+(`tieredSellRowsHtml` in `js/screens/shopScreen.js`), priced the same as
+Plain via the existing `sellPrice()` - no tier price premium, matching
+the Sell Duplicate Gear precedent above. `sellItem()` now takes a `tier`
+param threaded through to `removeItem`. See CHANGELOG.
 
 ## Combat pass ideas
+
+### ~~Remove the crit/parry dialog-shake, give parry its own clear visual~~ Shipped 2026-08-29
+Raised 2026-08-28: "remove the crit/parry or whatever else animation that
+is on the battle window. Too much animation now... just keep character
+animation and maybe spice up crit or parry or something with more effects
+we can try out." `.battle-dialog-shake-crit` (the whole battle dialog
+shaking on every crit and landed parry) removed entirely, along with the
+two CSS-specificity-workaround comments that referenced it
+(`css/styles.css`, `js/screens/battleScreen.js`'s `buildDom()`) - the
+character-level sway (`.battle-decoration-sway-crit`) and damage-number
+pop are unaffected. Follow-up the same day, raised while reviewing this
+fix: "make sure we have some good animation or something for a parry...
+right now I don't think we have a good visual so the user knows" - a
+landed parry used to only show the same generic "PERFECT!" badge an
+ability timing-hit shows on a *monster*, now easy to miss with the shake
+gone. New `playParryEffect` in `js/screens/battleScreen.js` shows a
+distinctly-colored gold "PARRY!" badge (`.battle-perfect-timing-badge-parry`)
+plus a brief flash on the hero's own emoji (`.battle-parry-flash`). See
+CHANGELOG.
+
+### ~~Status log could snapshot effective stats/gear per entry~~ Shipped 2026-08-29
+Turned out the effective Lv/ATK/DEF/HP half of this ask already shipped
+earlier as part of the status log itself (`formatBattleOutcomeMessage` in
+`js/systems/messageLog.js`) - this closed the remaining gear half. Every
+battle-outcome log entry now also lists all 5 equipped slots (tier-prefixed
+name, or "-" for empty) as they stood the moment combat ended, built in
+`js/main.js`'s `handleBattleEnd` alongside the existing stat snapshot. See
+CHANGELOG.
 
 ### ~~Crit chance increase (Rung-3 gear effect)~~ Shipped 2026-08-28
 New Keen Eye drop (`critChancePercent: 8`), same rare-drop pool as the v1

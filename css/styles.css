@@ -194,16 +194,12 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   position: relative;
   overflow: hidden;
 }
-/* Own class, not folded into .overlay-panel.battle-screen above - that
-   two-class selector would out-specificity .battle-dialog-shake-crit below
-   and permanently steal its `animation` shorthand (same collision the
-   playReviveEffect comment in battleScreen.js calls out). Declared before
-   .battle-dialog-shake-crit in source order so a crit landing in the rare
-   window a battle starts and immediately crits wins the tie on equal
-   (0,1,0) specificity - the shake matters more than the entrance finishing
-   cleanly. Plays once: js/screens/battleScreen.js's buildDom() rebuilds the
-   dialog fresh every mount() and bakes this class into the template, so
-   there's no JS toggling - a brand-new element just animates on insertion. */
+/* Own class, not folded into .overlay-panel.battle-screen above, so this
+   `animation` shorthand can't collide with any other single-class rule
+   later added to the same dialog element. Plays once:
+   js/screens/battleScreen.js's buildDom() rebuilds the dialog fresh every
+   mount() and bakes this class into the template, so there's no JS
+   toggling - a brand-new element just animates on insertion. */
 .battle-screen-swirl-in {
   animation: battle-screen-swirl-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -896,18 +892,16 @@ button:focus-visible {
   40% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
 }
+/* Gold, not the ability-timing-hit badge's cyan, so a landed parry reads as
+   its own distinct event rather than a reskinned "PERFECT!". */
+.battle-perfect-timing-badge-parry {
+  color: #ffd35c;
+  text-shadow: 0 0 8px rgba(255, 211, 92, 0.9), 0 0 18px rgba(255, 171, 0, 0.6);
+}
+.battle-parry-flash {
+  filter: brightness(1.5) saturate(2) hue-rotate(150deg);
+}
 
-.battle-dialog-shake-crit {
-  animation: battle-dialog-shake-crit 0.34s ease-in-out;
-}
-@keyframes battle-dialog-shake-crit {
-  0% { transform: translateX(0); }
-  15% { transform: translateX(-10px) rotate(-0.5deg); }
-  35% { transform: translateX(9px) rotate(0.5deg); }
-  55% { transform: translateX(-7px); }
-  75% { transform: translateX(5px); }
-  100% { transform: translateX(0); }
-}
 .battle-decoration-sway-crit {
   animation: battle-decoration-sway-crit 0.34s ease-in-out;
 }

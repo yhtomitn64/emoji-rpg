@@ -681,25 +681,10 @@ is like 3k!" This is exactly the "future economy pass tightens gold
 flow" trigger named above, now real — 3k gold with shop gear topping
 out around 45g and upgrades at ~120g total means there's nothing left
 to spend on well past the early game. Two directions, neither decided:
-add more/higher-tier gold sinks (more expensive gear, potion buffs, the
-tiered-gear manual-sell idea above could also feed gold back out), or
-reduce gold income at higher levels. Not investigated yet.
-
-### Tiered gear can never be sold or discarded, flagged by final review 2026-08-28
-The shop deliberately only ever sells/buys the Plain stack of an item
-(Task 7 of the item-quality-tiers plan) — correct, but as a side effect
-there is now no path at all to convert or remove a Fine/Superior copy
-once found. Bounded (at most 3 stacks of the same base item — Plain,
-Fine, Superior), but permanently unremovable inventory clutter over a
-long game. The design spec's claim that "the inventory-bloat problem
-this could have caused never materializes" holds for the total item
-count, just not for tiered stacks specifically. Worth a manual-sell
-path for tiered gear once/if this becomes a real annoyance in play.
-
-**Partially addressed 2026-08-29:** the shop's new "Sell Duplicate Gear"
-button (see BACKLOG_SHIPPED.md) sells extra *same-tier* duplicate copies,
-but a single Fine or Superior copy still has no sell path at all — this
-item's actual ask (cross-tier stacks) is still open.
+add more/higher-tier gold sinks (more expensive gear, potion buffs — the
+tiered-gear sell path shipped 2026-08-29, see BACKLOG_SHIPPED.md, already
+feeds some gold back out), or reduce gold income at higher levels. Not
+investigated yet.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
@@ -744,23 +729,6 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   you stay" measures (real playtime? steps taken? screens visited?) is
   undecided.
 
-- **Remove the crit/parry dialog-shake, keep/expand other crit effects
-  — raised 2026-08-28.** Timothy's own words: "remove the crit/parry or
-  whatever else animation that is on the battle window. Too much
-  animation now. I love the battle load/unload animation but that
-  dialog moving for in battle stuff is too much. just keep character
-  animation and maybe spice up crit or parry or something with more
-  effects we can try out." Specifically targets
-  `.battle-dialog-shake-crit` (`css/styles.css:814`, triggered by
-  `playCritReaction` in `js/screens/battleScreen.js:481`) — the whole
-  battle dialog box shakes on every crit and every landed parry. The
-  battle entrance/exit transition (shipped, mentioned by name as liked)
-  is unaffected — this is only about the dialog-shake tied to
-  individual crit/parry hits mid-fight. Two parts: (1) remove the
-  dialog-level shake, (2) keep/expand the character-level reaction
-  (`.battle-decoration-sway-crit`, same file, plus the damage-number
-  pop) and try out other per-hit effects instead — not designed yet
-  what those new effects should be.
 - **Weapon-swing attack animations per ability, raised 2026-08-28.**
   Timothy: "for our attacking I'd like to see our weapon swing at the
   enemy and I guess match the chop/slice/sweep and so on. so different
@@ -886,12 +854,6 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   abilities build — this research is unblocked, though still explicitly
   rough/unrefined, a research question to explore before any design doc,
   not a spec'd idea yet.
-- **Status log could snapshot effective stats/gear per entry.** A
-  refinement of the now-shipped status log — right now an entry like
-  "fought a boar, lost" can't help diagnose whether combat numbers are
-  behaving as designed without knowing effective attack/defense/HP and
-  equipped gear at that moment.
-
 ### Backburner / uncertain value
 - **Mob leveling.** The other half of the original "roaming rare
   monster" idea — heavily-farmed regular mobs could slowly level up

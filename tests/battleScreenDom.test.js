@@ -149,6 +149,33 @@ test('battleScreen DOM', async (t) => {
     assert.equal(fill.style.animation, '');
   });
 
+  // Raised 2026-08-28: "that dialog moving for in battle stuff is too much" -
+  // a landed parry used to shake the whole dialog box via
+  // .battle-dialog-shake-crit; only the character-level sway remains now.
+  // Raised again 2026-08-29: with the shake gone, the player needs its own
+  // clear "that worked" signal distinct from a monster's own timing-hit
+  // "PERFECT!" badge - a gold "PARRY!" badge plus a flash on the hero's own
+  // emoji (see playParryEffect in battleScreen.js).
+  await t.test('a landed parry shows a distinct PARRY! badge and hero-emoji flash, with no dialog shake', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    keydown('s');
+    assert.match(root.querySelector('#battle-log').textContent, /You parry/);
+
+    const dialog = root.querySelector('.overlay-panel.battle-screen');
+    assert.equal(dialog.classList.contains('battle-dialog-shake-crit'), false);
+
+    // playPerfectTimingEffect/playParryEffect append to <body>, same as the
+    // ability-timing-hit badge (see the level-4 combo test above).
+    const badge = document.querySelector('.battle-perfect-timing-badge-parry');
+    assert.ok(badge, 'a landed parry should show its own distinctly-styled badge');
+    assert.equal(badge.textContent, 'PARRY!');
+
+    const heroEmoji = root.querySelector('#battle-hero-emoji');
+    assert.equal(heroEmoji.classList.contains('battle-parry-flash'), true);
+  });
+
   await t.test('parry zone marker is scheduled to pulse via a real-time-delayed CSS animation', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     await new Promise((resolve) => setTimeout(resolve, 350));

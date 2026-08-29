@@ -183,12 +183,11 @@ function monsterSlotHtml(mc, index) {
 function buildDom() {
   const envClass = isCaveBattle() ? 'battle-screen-cave' : 'battle-screen-forest';
   // A dedicated class rather than baking the animation into the base
-  // .overlay-panel.battle-screen rule - that two-class selector would
-  // out-specificity the single-class .battle-dialog-shake-crit rule below
-  // and permanently steal its `animation` shorthand (see playReviveEffect's
-  // comment on the same collision hazard). Fresh element every mount() (see
-  // buildDom's own rootEl.innerHTML= above this function's start), so this
-  // just plays once on creation - no JS toggling needed.
+  // .overlay-panel.battle-screen rule, so this `animation` shorthand can't
+  // collide with any other single-class rule on the same element. Fresh
+  // element every mount() (see buildDom's own rootEl.innerHTML= above this
+  // function's start), so this just plays once on creation - no JS
+  // toggling needed.
   rootEl.innerHTML = `
     <div class="overlay-panel battle-screen ${envClass} battle-screen-swirl-in">
       <div class="battle-main">
@@ -468,16 +467,19 @@ function showDamageNumber(zoneEl, amount, isCrit) {
 
 const PERFECT_TIMING_BADGE_MS = 900;
 
-// Distinct from both the plain hit-flash and the crit shake - a reward for
+// Distinct from both the plain hit-flash and the crit sway - a reward for
 // a skill-based read (ability timing-hit or a landed parry), not a damage
 // roll. Same fixed-on-<body> pattern as showDamageNumber, for the same
 // reason: escapes the dialog's `overflow: hidden` so it can rise clear of it.
-function playPerfectTimingEffect(zoneEl) {
+// `text`/`variantClass` let a landed parry reuse the same pop animation with
+// its own wording and color (see playParryEffect) instead of the generic
+// ability-timing-hit "PERFECT!" look.
+function playPerfectTimingEffect(zoneEl, text = 'PERFECT!', variantClass = null) {
   if (!zoneEl) return;
   const rect = zoneEl.getBoundingClientRect();
   const badgeEl = document.createElement('div');
-  badgeEl.textContent = 'PERFECT!';
-  badgeEl.className = 'battle-perfect-timing-badge';
+  badgeEl.textContent = text;
+  badgeEl.className = variantClass ? `battle-perfect-timing-badge ${variantClass}` : 'battle-perfect-timing-badge';
   badgeEl.style.left = `${rect.left + rect.width / 2}px`;
   badgeEl.style.top = `${rect.top + rect.height / 2}px`;
   document.body.appendChild(badgeEl);
@@ -488,14 +490,28 @@ function playPerfectTimingEffect(zoneEl) {
   livePerfectBadges.push({ el: badgeEl, timeoutId });
 }
 
-function playCritReaction(dialogEl, decorationEl) {
-  if (dialogEl) {
-    dialogEl.classList.add('battle-dialog-shake-crit');
-    setTimeout(() => dialogEl.classList.remove('battle-dialog-shake-crit'), CRIT_SHAKE_DURATION_MS);
-  }
+// Raised 2026-08-28: "that dialog moving for in battle stuff is too much" -
+// the dialog-level shake this used to also trigger (.battle-dialog-shake-crit)
+// is gone; only the character-level sway remains.
+function playCritReaction(decorationEl) {
   if (decorationEl) {
     decorationEl.classList.add('battle-decoration-sway-crit');
     setTimeout(() => decorationEl.classList.remove('battle-decoration-sway-crit'), CRIT_SHAKE_DURATION_MS);
+  }
+}
+
+const PARRY_FLASH_MS = 220;
+
+// Raised 2026-08-29: a landed parry had no clear visual telling the player it
+// worked, beyond the same generic "PERFECT!" badge an ability timing-hit
+// shows on the *monster*. Distinct wording/color (gold, not the timing-hit's
+// cyan) plus a flash on the hero's own emoji - the same "the thing that
+// reacted lights up" pattern playHitEffect already uses for a hit landing.
+function playParryEffect(zoneEl, emojiEl) {
+  playPerfectTimingEffect(zoneEl, 'PARRY!', 'battle-perfect-timing-badge-parry');
+  if (emojiEl) {
+    emojiEl.classList.add('battle-parry-flash');
+    setTimeout(() => emojiEl.classList.remove('battle-parry-flash'), PARRY_FLASH_MS);
   }
 }
 
@@ -504,7 +520,7 @@ function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
   zoneEl.classList.add('battle-hit-shake');
   showDamageNumber(zoneEl, amount, isCrit);
   if (isCrit) {
-    playCritReaction(elements.dialog, elements.decoration);
+    playCritReaction(elements.decoration);
   }
   setTimeout(() => {
     emojiEl.classList.remove('battle-hit-flash');
@@ -937,7 +953,7 @@ function resolveMonsterWindup(monster, parried) {
     // here (not a rolled crit) so a landed parry gets the same shake/flash
     // punch as one - "perfect timing" is exactly what a parry read is.
     playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], result.reflectedDamage, true);
-    playPerfectTimingEffect(elements.heroZone);
+    playParryEffect(elements.heroZone, elements.heroEmoji);
     updateHpBars();
     updateLog();
     checkOutcome();

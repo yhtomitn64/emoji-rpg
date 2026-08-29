@@ -24,6 +24,27 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-08-29
+
+### Fixed
+- Shop could never sell a single Fine/Superior copy of a gear item - only
+  the Plain stack had a sell button. Each owned tier now gets its own sell
+  row in the shop (`js/screens/shopScreen.js`), priced the same as Plain
+  (no tier premium, matching the existing Sell Duplicate Gear precedent).
+
+### Changed
+- Removed the crit/parry battle-dialog shake (`.battle-dialog-shake-crit`)
+  - too much motion mid-fight. The character-level sway reaction is
+    unchanged. A landed parry now gets its own distinct gold "PARRY!"
+    badge plus a brief flash on the hero's own emoji
+    (`js/screens/battleScreen.js`'s `playParryEffect`), replacing the
+    reused ability-timing-hit "PERFECT!" badge as the "that worked" signal
+    now that the shake is gone.
+- Status log battle-outcome entries now also record the equipped gear (all
+  5 slots) at the moment combat ended, alongside the effective stats
+  already snapshotted there - useful for diagnosing whether combat balance
+  is behaving as designed without a separate lookup.
+
 ## [0.7.8] - 2026-08-29
 
 ### Fixed

@@ -1,5 +1,6 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
 import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear } from '../systems/inventory.js';
+import { tierLabel } from '../systems/itemQuality.js';
 
 // Raised 2026-08-29: "you never really need to buy more than 1 equipment
 // item, the only thing that really needs multiples is the potions." Bulk
@@ -49,6 +50,25 @@ function renderSellDuplicatesControl() {
   </div>`;
 }
 
+// Raised 2026-08-28 (final review), fixed 2026-08-29: the shop used to only
+// ever sell/buy the Plain stack of a gear item, leaving a single Fine/
+// Superior copy with no sell path at all once found. Sells at the same
+// sellPrice() as Plain - no tier price premium, same precedent already set
+// by sellDuplicateGear below.
+function tieredSellRowsHtml(itemId) {
+  const item = ITEMS[itemId];
+  return ['fine', 'superior'].map((tier) => {
+    const entry = state.inventory.find((e) => e.itemId === itemId && e.tier === tier);
+    if (!entry || entry.quantity === 0) return '';
+    return `<div class="shop-row">
+      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} (own ${entry.quantity})</span>
+      <span class="shop-row-buttons">
+        <button data-sell="${itemId}" data-tier="${tier}">Sell (${sellPrice(item.price)}g)</button>
+      </span>
+    </div>`;
+  }).join('');
+}
+
 function render() {
   const rows = SHOP_CATALOG.map((itemId) => {
     const item = ITEMS[itemId];
@@ -69,7 +89,7 @@ function render() {
         ${buyButtons}
         <button data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
       </span>
-    </div>`;
+    </div>${item.slot ? tieredSellRowsHtml(itemId) : ''}`;
   }).join('');
 
   rootEl.innerHTML = `
@@ -87,7 +107,7 @@ function render() {
     btn.onclick = () => buyItem(btn.dataset.item, Number(btn.dataset.qty));
   });
   rootEl.querySelectorAll('button[data-sell]').forEach((btn) => {
-    btn.onclick = () => sellItem(btn.dataset.sell);
+    btn.onclick = () => sellItem(btn.dataset.sell, btn.dataset.tier);
   });
   const sellDuplicatesBtn = document.getElementById('btn-sell-duplicates');
   if (sellDuplicatesBtn) {
@@ -144,11 +164,11 @@ function handleKeydown(event) {
   }
 }
 
-function sellItem(itemId) {
-  const owned = state.inventory.some((entry) => entry.itemId === itemId && !entry.tier && entry.quantity > 0);
+function sellItem(itemId, tier) {
+  const owned = state.inventory.some((entry) => entry.itemId === itemId && entry.tier === tier && entry.quantity > 0);
   if (!owned) return;
 
-  let next = removeItem(state, itemId, 1); // tier defaults to undefined - only ever sells the Plain stack
+  let next = removeItem(state, itemId, 1, tier); // tier undefined for the Plain row's button, 'fine'/'superior' for a tiered row's
   next = addGold(next, sellPrice(ITEMS[itemId].price));
   Object.assign(state, next);
   pendingEquip = null;

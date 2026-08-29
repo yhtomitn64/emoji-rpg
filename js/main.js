@@ -695,17 +695,23 @@ function handleBattleEnd(outcome, killedMonsterIds) {
   const encounterMonsterIds = activeEncounterMonsterIds;
   activeEncounterMonsterIds = null;
 
-  // Snapshot effective stats as they stood at the moment combat ended (state.player.hp
-  // already reflects the battle's outcome here - battleScreen.js's endBattle() synced it
-  // before this callback fires), before any post-battle reward/heal mutations below change
-  // them, so the log entry reflects what actually fought this battle, not what you have now.
+  // Snapshot effective stats and equipped gear as they stood at the moment combat ended
+  // (state.player.hp already reflects the battle's outcome here - battleScreen.js's
+  // endBattle() synced it before this callback fires), before any post-battle reward/heal
+  // mutations below change them, so the log entry reflects what actually fought this
+  // battle, not what you have now.
   const bonuses = getEquipmentBonuses(state);
+  const gearSlots = ['weapon', 'head', 'body', 'legs', 'accessory'];
   const playerSnapshot = {
     level: state.player.level,
     attack: state.player.attack + bonuses.attack,
     defense: state.player.defense + bonuses.defense,
     hp: state.player.hp,
     maxHp: state.player.maxHp + bonuses.maxHp,
+    gear: gearSlots.map((slot) => {
+      const itemId = state.equipment[slot];
+      return itemId ? `${tierLabel(state.equipmentTiers?.[slot])}${ITEMS[itemId].name}` : null;
+    }),
   };
   const groupName = describeMonsterGroup(encounterMonsterIds, (id) => MONSTERS[id].name);
   showFlavorBanner(formatBattleOutcomeMessage(outcome, groupName, playerSnapshot));

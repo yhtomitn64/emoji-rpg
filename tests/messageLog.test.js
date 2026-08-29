@@ -33,37 +33,37 @@ test('appendMessage keeps growing up to exactly the cap without dropping', () =>
   assert.equal(next[next.length - 1], 'last-room');
 });
 
-test('formatBattleOutcomeMessage includes the effective stat snapshot for a win', () => {
-  const snapshot = { level: 3, attack: 12, defense: 5, hp: 18, maxHp: 24 };
+test('formatBattleOutcomeMessage includes the effective stat and gear snapshot for a win', () => {
+  const snapshot = { level: 3, attack: 12, defense: 5, hp: 18, maxHp: 24, gear: ['Iron Sword', null, 'Fine Cloth Tunic', null, null] };
   const msg = formatBattleOutcomeMessage('won', 'Mean Meatball', snapshot);
-  assert.equal(msg, 'Defeated Mean Meatball! (Lv.3 ATK 12 DEF 5 HP 18/24)');
+  assert.equal(msg, 'Defeated Mean Meatball! (Lv.3 ATK 12 DEF 5 HP 18/24; Gear: Iron Sword, -, Fine Cloth Tunic, -, -)');
 });
 
-test('formatBattleOutcomeMessage phrases a loss and a flee differently, same stat snapshot format', () => {
-  const snapshot = { level: 3, attack: 12, defense: 5, hp: 0, maxHp: 24 };
+test('formatBattleOutcomeMessage phrases a loss and a flee differently, same stat/gear snapshot format', () => {
+  const snapshot = { level: 3, attack: 12, defense: 5, hp: 0, maxHp: 24, gear: [null, null, null, null, null] };
   assert.equal(
     formatBattleOutcomeMessage('lost', 'Mean Meatball', snapshot),
-    'Mean Meatball defeated you. (Lv.3 ATK 12 DEF 5 HP 0/24)'
+    'Mean Meatball defeated you. (Lv.3 ATK 12 DEF 5 HP 0/24; Gear: -, -, -, -, -)'
   );
   assert.equal(
     formatBattleOutcomeMessage('fled', 'Mean Meatball', { ...snapshot, hp: 10 }),
-    'Fled from Mean Meatball. (Lv.3 ATK 12 DEF 5 HP 10/24)'
+    'Fled from Mean Meatball. (Lv.3 ATK 12 DEF 5 HP 10/24; Gear: -, -, -, -, -)'
   );
 });
 
-test('formatBattleOutcomeMessage phrases the three weak-mob-surrender outcomes distinctly, same stat snapshot format', () => {
-  const snapshot = { level: 3, attack: 12, defense: 5, hp: 24, maxHp: 24 };
+test('formatBattleOutcomeMessage phrases the three weak-mob-surrender outcomes distinctly, same stat/gear snapshot format', () => {
+  const snapshot = { level: 3, attack: 12, defense: 5, hp: 24, maxHp: 24, gear: [null, null, null, null, null] };
   assert.equal(
     formatBattleOutcomeMessage('surrender', 'Mean Meatball', snapshot),
-    'Mean Meatball surrenders! (Lv.3 ATK 12 DEF 5 HP 24/24)'
+    'Mean Meatball surrenders! (Lv.3 ATK 12 DEF 5 HP 24/24; Gear: -, -, -, -, -)'
   );
   assert.equal(
     formatBattleOutcomeMessage('fled-with-loot', 'Mean Meatball', snapshot),
-    'Mean Meatball flees, dropping loot! (Lv.3 ATK 12 DEF 5 HP 24/24)'
+    'Mean Meatball flees, dropping loot! (Lv.3 ATK 12 DEF 5 HP 24/24; Gear: -, -, -, -, -)'
   );
   assert.equal(
     formatBattleOutcomeMessage('fled-empty', 'Mean Meatball', snapshot),
-    'Mean Meatball flees! (Lv.3 ATK 12 DEF 5 HP 24/24)'
+    'Mean Meatball flees! (Lv.3 ATK 12 DEF 5 HP 24/24; Gear: -, -, -, -, -)'
   );
 });
 

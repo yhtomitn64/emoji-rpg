@@ -20,7 +20,8 @@ const OUTCOME_VERBS = {
 export function formatBattleOutcomeMessage(outcome, monsterName, player) {
   const headline = OUTCOME_VERBS[outcome](monsterName);
   const stats = `Lv.${player.level} ATK ${player.attack} DEF ${player.defense} HP ${player.hp}/${player.maxHp}`;
-  return `${headline} (${stats})`;
+  const gear = player.gear.map((name) => name || '-').join(', ');
+  return `${headline} (${stats}; Gear: ${gear})`;
 }
 
 export function describeMonsterGroup(monsterIds, monsterNameById) {

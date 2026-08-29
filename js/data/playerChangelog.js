@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.9',
+    date: '2026-08-29',
+    highlights: [
+      'Landing a parry now flashes a clear gold "PARRY!" over your character instead of shaking the whole battle window.',
+      'The shop can now buy back a single Fine or Superior piece of gear, not just plain copies.',
+      'Status Log entries after a fight now also list your equipped gear, not just your stats.',
+    ],
+  },
+  {
     version: '0.7.8',
     date: '2026-08-29',
     highlights: [
