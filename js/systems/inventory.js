@@ -7,6 +7,7 @@ export const MAX_UPGRADE_LEVEL = 3;
 const STAT_KEYS = [
   'attack', 'defense', 'maxHp', 'speed', 'enemySlowPercent',
   'lifestealPercent', 'extraSwingChance', 'elementalProcChance', 'elementalProcDamage',
+  'critChancePercent',
 ];
 
 function zeroStats() {

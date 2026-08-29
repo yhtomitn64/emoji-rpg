@@ -105,6 +105,16 @@ test('resolveAbilityUse stacks buff and timing bonuses together', () => {
   assert.equal(result.damage, 14);
 });
 
+test('resolveAbilityUse applies an optional crit chance bonus, defaulting to none', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 100, defense: 2, atb: 50 };
+  const stab = ABILITIES.find((a) => a.id === 'stab');
+  const noBonus = resolveAbilityUse(player, monster, stab, false, false, false, () => 0.15, 0);
+  assert.equal(noBonus.isCrit, false);
+  const withBonus = resolveAbilityUse(player, monster, stab, false, false, false, () => 0.15, 0.08);
+  assert.equal(withBonus.isCrit, true);
+});
+
 test('resolveAbilityUse knocks the monster\'s ATB back and never drops HP below 0', () => {
   const player = { attack: 500, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 10, defense: 0, atb: 50 };

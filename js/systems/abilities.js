@@ -97,8 +97,8 @@ export function resolveTimingHit(actedAtPercent, sweetSpotStartPercent, sweetSpo
   return actedAtPercent >= sweetSpotStartPercent && actedAtPercent <= sweetSpotEndPercent;
 }
 
-export function resolveAbilityUse(player, monster, ability, buffActive, timingHit, comboBonusActive, rng = Math.random) {
-  const isCrit = rollCrit(rng);
+export function resolveAbilityUse(player, monster, ability, buffActive, timingHit, comboBonusActive, rng = Math.random, critChanceBonus = 0) {
+  const isCrit = rollCrit(rng, critChanceBonus);
   let damage = calculateDamage(player, monster, rng);
   damage = Math.round(damage * ability.damageMultiplier);
   if (buffActive) damage = Math.round(damage * ROTATION_BONUS_MULTIPLIER);

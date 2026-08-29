@@ -555,20 +555,9 @@ sinks gold or materials fast enough to make this a real gap yet, just a
 few extra tidy-up rows in the inventory. Revisit if that changes (e.g.
 materials pile up faster, or a future economy pass tightens gold flow).
 
-### Quest board should glow/indicate when you have turn-ins ready, raised 2026-08-28
-Timothy wants the quest giver (in this game, that's the town's
-`questBoard` map tile — `js/tiles.js`, 📋 — there's no separate NPC
-sprite) to visibly glow when the player has one or more completed
-quests ready to turn in, so it's noticeable from a distance on the town
-map instead of only discoverable by walking in and checking. The signal
-already exists and is cheap to check: `canTurnInQuest(state, monsterId)`
-(`js/systems/quests.js`) is exactly the same per-monster check
-`questBoardScreen.js` already uses to enable each "Turn In" button and
-the "Turn In All" button - `mapScreen.js`'s own tile rendering would
-just need to check `Object.keys(QUEST_REQUIREMENTS).some((id) =>
-canTurnInQuest(state, id))` while painting the town screen's tiles and
-apply a glow class when true. Not scoped/implemented yet - just capturing
-the idea.
+### ~~Quest board should glow/indicate when you have turn-ins ready~~ Shipped 2026-08-28
+Raised 2026-08-28, shipped same day. See CHANGELOG - new
+`hasAnyQuestReady(state)` helper, `map-tile-quest-ready` glow class.
 
 ### Tiered gear can never be sold or discarded, flagged by final review 2026-08-28
 The shop deliberately only ever sells/buys the Plain stack of an item
@@ -594,8 +583,9 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   elemental proc) shipped 2026-08-28** — Vampiric Fang, Swift Strike
   Charm, Ember Ring; see CHANGELOG. Still open, not scoped for any
   version yet:
-  - **Crit chance increase** — a flat bonus to `CRIT_CHANCE`
-    (`js/systems/combat.js`) from an equipped item.
+  - ~~**Crit chance increase**~~ **Shipped 2026-08-28.** New Keen Eye
+    drop (`critChancePercent: 8`), same rare-drop pool as the v1 three -
+    see CHANGELOG.
   - **Parry window trade-offs, two directions floated:** (a) a wider
     parry window but the successful parry deals less reflected damage,
     or (b) a narrower window that rewards good timing with more
@@ -678,33 +668,28 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   scales high enough, grant a small damage bonus too, so speed stays
   worth investing in past a soft cap. Raised more tentatively than the
   others ("more for our combat pass to think through").
-- **Parry timing may feel earlier than the visible red zone, raised
-  2026-08-28.** Timothy: "How does the parry work? Do I hit s in the red
-  section of the bar or before the red section? I feel like I hit
-  beofore the red section and it parrys." Confirmed (via a side-channel
-  Q&A, same day) as the same known gap flagged when parry shipped, not a
-  UI-clarity misunderstanding: the wind-up's real timing runs ~1200ms but
-  parry is only ever checked on the battle's own ~300ms tick loop, not
-  continuously, so the *actual* accepting window can land measurably
-  earlier than the *visible* red zone due to that quantization -
-  confirmed real, not yet fixed. **Timothy's own proposed direction,
-  same day:** "we are going to have to separate parry from gameloop or
-  something so we get better timing accuracy" - i.e. check parry input
-  against real elapsed time (or on every keydown/click event directly,
-  the way the ability timing meter's own `runTimingMeter` already does
-  via `performance.now()` in `js/screens/battleScreen.js`) instead of
-  only sampling on the shared 300ms `tick()` interval in
-  `js/systems/parry.js`/`js/screens/battleScreen.js`. Not designed/scoped
-  yet - captured as the concrete next-step idea, not implemented.
-- **Pulse/glow on timing bars right as they enter their actionable
-  window, raised 2026-08-28 alongside the parry-timing question above.**
-  A fast pulse or glow the instant a bar crosses into its "now's the
-  moment" zone - parry's red zone, and the ability timing meter's own
-  sweet spot (`TIMING_SWEET_SPOT_START`/`END` in
-  `js/screens/battleScreen.js`) - rather than the current static color
-  change, to make the actionable instant more readable at a glance. Not
-  designed - raw idea only, no visual treatment or implementation
-  decided.
+- ~~**Parry timing may feel earlier than the visible red zone, raised
+  2026-08-28.**~~ **Fixed 2026-08-28.** Timothy: "How does the parry
+  work? Do I hit s in the red section of the bar or before the red
+  section? I feel like I hit beofore the red section and it parrys."
+  Investigated further: the *check* itself (`resolveParryAttempt` at
+  keypress) was already reading real wall-clock elapsed time, fixed back
+  on 2026-08-25 — that part wasn't the gap. The actual remaining bug was
+  purely visual: the windup fill's on-screen width was still painted
+  from a 300ms-tick JS snapshot smoothed by a `transition: width 0.3s
+  linear`, so the *drawn* bar could trail the real, already-correct
+  check value by up to ~600ms — a press that correctly landed in the
+  real 80-100% zone could still look like it happened before the visible
+  red zone. Fixed by switching the windup fill to a CSS `@keyframes`
+  animation (`battle-windup-fill`) with duration `PARRY_WINDUP_DURATION_MS`,
+  started at the same instant the windup begins and painted continuously
+  by the browser rather than polled — see CHANGELOG.
+- ~~**Pulse/glow on timing bars right as they enter their actionable
+  window**~~ **Shipped 2026-08-28.** Both parry's red zone and the
+  ability timing meter's green sweet spot now flash
+  (`battle-zone-pulse`) the real-time instant the moving fill crosses
+  into them, timed via `animation-delay` rather than polled - see
+  CHANGELOG.
 - **Research: how do other games avoid pure exponential stat inflation?**
   Timothy, 2026-08-17, raised alongside the pacing-curve discussion —
   rather than only fighting "numbers get big and trivialize old content"
@@ -866,6 +851,63 @@ reimplementation instead of the real renderer.
 **Not started.** Raised as a good idea, not yet scoped or estimated -
 would need its own small design pass (which approach, how many scenarios,
 where the images/expected-pixel data live) before implementation.
+
+### ~~Version display in the UI~~ Shipped 2026-08-28
+Raised 2026-08-28: "put game version and a log of changes into the
+interface somewhere so I know what version I'm playing when I refresh
+the page." Shipped same day — a footer at the bottom of the page shows
+the current version and opens a "What's New" overlay
+(`js/screens/changelogScreen.js`). Deliberately backed by a separate,
+hand-curated `js/data/playerChangelog.js` rather than fetching/parsing
+the real `CHANGELOG.md` at runtime — Timothy's call, once he saw the
+first design lean toward a live fetch: the real file is written in
+developer prose (file/function names, internal mechanics) and isn't fit
+to show players directly, so the in-game view is a separate, manually
+maintained translation covering only what a player would actually
+notice. See CHANGELOG.md's `[0.6.0]` entry.
+
+## Responsive layout: browser window resize gets "stuck" at the old size, raised 2026-08-28
+Timothy: "when I resize the game browser window it seems get stuck on a
+larger size of the play screen or something? then I hit refresh in
+browser and click into my character and game is nice and small and
+fits." Raised in the same breath as a related question: "is there a way
+to fix the viewport so no matter what browser size/window you are at the
+whole game area always shows?" - likely the same underlying gap, not two
+separate asks.
+
+Not root-caused yet - no live-browser reproduction done (per the standing
+[[feedback_avoid_chrome_automation_cost]] guidance, didn't drive Chrome
+automation to chase this blind). What code inspection did rule out: there
+is no window-resize JS at all today (no `resize`/`ResizeObserver`
+listener anywhere in `js/`), and the map grid's sizing is otherwise
+relative throughout - `.map-grid` uses `grid-template-columns: repeat(N,
+1fr)` (`js/screens/mapScreen.js`), tiles use `aspect-ratio: 1`, and
+overlay panels (shop/smith/battle/etc.) use `min(90vw, 720px)`-style
+caps - none of that should need a page reload to reflow on its own.
+
+**Working theory, unconfirmed:** each `.map-tile` sets `container-type:
+size` (`css/styles.css`) so the emoji glyphs inside it can scale via
+`cqb` units off the tile's own rendered size. There's a known class of
+browser quirk where a `container-type: size` container's resolved
+container-query values (here, the `cqb` font-sizes) don't always
+re-resolve promptly when an *ancestor* resizes, even though the
+container's own box (the grid track) did shrink correctly underneath -
+which would look exactly like "the play area is stuck at the old size"
+even though the underlying grid already reflowed, and would explain why
+a fresh mount (reload + re-enter) fixes it (forces a clean layout/paint
+from scratch) while a live resize doesn't. Not confirmed - needs an
+actual live-browser resize test (devtools responsive mode, watch computed
+styles before/after) to verify this is really what's happening rather
+than something else entirely (e.g. a stale inline style left by a modal/
+dimmed-overlay transition, or a grid min-content floor from unshrinkable
+tile content).
+
+Tied to the open "hero-centered camera / viewport responsive to actual
+screen size" idea in the Roaming visible enemies section above - that's
+a bigger rendering-architecture ask for a different reason (screen-size-
+aware viewport), while this item is specifically about the *existing*
+layout failing to live-reflow on resize. Worth deciding whether they get
+fixed together or separately once this one's actually root-caused.
 
 ## Discoverability / monetization
 

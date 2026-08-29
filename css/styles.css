@@ -37,6 +37,19 @@ body { margin: 0; background: #222; color: #eee; }
 .map-tile-water {
   background: #2b6cb0;
 }
+/* Loops for as long as at least one quest is turn-in ready (toggled per-
+   render in mapScreen.js off hasAnyQuestReady) - visible from a distance
+   on the town map instead of only discoverable by walking up to the
+   board and checking. box-shadow rather than background/filter so it
+   doesn't fight the tile's own grass background or the questBoard emoji
+   underneath. */
+.map-tile-quest-ready {
+  animation: map-tile-quest-glow 1.6s ease-in-out infinite;
+}
+@keyframes map-tile-quest-glow {
+  0%, 100% { box-shadow: inset 0 0 6px 2px rgba(255, 215, 0, 0.3); }
+  50% { box-shadow: inset 0 0 14px 6px rgba(255, 215, 0, 0.85); }
+}
 .map-tile-mount {
   position: absolute;
   inset: 0;
@@ -272,6 +285,47 @@ body { margin: 0; background: #222; color: #eee; }
 }
 .battle-atb-bar-windup .battle-atb-fill {
   background: #e74c3c;
+  /* Driven by an explicit `animation` (set inline in battleScreen.js,
+     duration = PARRY_WINDUP_DURATION_MS) instead of the periodic
+     style.width + `transition: width 0.3s linear` used for the regular
+     ATB charge-up above. That combo only ever painted the true elapsed
+     time in up-to-300ms-stale, 0.3s-smoothed snapshots (one per tick()),
+     so the visible fill could trail the real value resolveParryAttempt
+     checks at keypress by up to ~600ms - a keypress that lands correctly
+     in the real (unseen) 80-100% zone could still look like it happened
+     "before the red section" on screen. An `animation` keyed to the same
+     windup start instant runs on the browser's own compositor, painting
+     every frame in real time with no tick/transition lag, so what's
+     drawn matches what's checked. Found from Timothy's 2026-08-28 report
+     ("I feel like I hit before the red section and it parries") - see
+     docs/superpowers/BACKLOG.md's "Parry timing may feel earlier..." item.
+     `transition` still applies to the non-windup width changes above;
+     CSS animations take priority over transitions on the same property,
+     so no extra override is needed here. The `animation` shorthand itself
+     (name/duration/timing-function/fill-mode) is set inline in JS, not
+     here, since the duration must match PARRY_WINDUP_DURATION_MS. */
+}
+@keyframes battle-windup-fill {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+/* A quick one-shot flash the instant a timing bar's moving fill crosses
+   into its actionable zone (parry's red zone, the ability timing meter's
+   green sweet spot) - applied to the zone's own static marker element via
+   an `animation` set inline in battleScreen.js with a delay computed from
+   that zone's start percent, so it fires in real time without any extra
+   JS polling. Makes the actionable instant more readable at a glance
+   instead of only a static color change. Raised 2026-08-28 - see
+   docs/superpowers/BACKLOG.md's "Pulse/glow on timing bars..." item.
+   filter: brightness() rather than box-shadow - both zone markers live
+   inside an `overflow: hidden` track (.battle-atb-bar, .battle-timing-
+   track), which would clip a box-shadow's glow at the track's own edge;
+   brightness() only affects pixels already inside the element's own box,
+   so it isn't clipped. */
+@keyframes battle-zone-pulse {
+  0% { filter: brightness(1); }
+  30% { filter: brightness(2.8); }
+  100% { filter: brightness(1); }
 }
 .battle-parry-hint {
   font-size: 0.75rem;
@@ -639,6 +693,29 @@ button:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+#version-footer {
+  padding: 4px 8px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #888;
+}
+#version-footer button {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.changelog-panel h3 {
+  margin-bottom: 4px;
+}
+.changelog-panel ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
 }
 
 .battle-hit-flash {

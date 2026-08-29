@@ -8,6 +8,7 @@ import {
   incrementQuestProgress,
   canTurnInQuest,
   turnInQuest,
+  hasAnyQuestReady,
 } from '../js/systems/quests.js';
 import { createNewGame } from '../js/state.js';
 
@@ -82,6 +83,25 @@ test('turnInQuest resets the counter, grants exactly one reward material at leve
 test('turnInQuest throws if the requirement is not yet met', () => {
   const state = freshQuestState();
   assert.throws(() => turnInQuest(state, 'boar'));
+});
+
+test('hasAnyQuestReady is false when no quest has met its requirement', () => {
+  const state = freshQuestState();
+  assert.equal(hasAnyQuestReady(state), false);
+});
+
+test('hasAnyQuestReady is true when exactly one quest has met its requirement', () => {
+  const state = freshQuestState();
+  state.questProgress.direWolf = 2;
+  assert.equal(hasAnyQuestReady(state), true);
+});
+
+test('hasAnyQuestReady goes false again once the ready quest is turned in', () => {
+  let state = freshQuestState();
+  state.questProgress.boar = 3;
+  assert.equal(hasAnyQuestReady(state), true);
+  state = turnInQuest(state, 'boar');
+  assert.equal(hasAnyQuestReady(state), false);
 });
 
 test('getQuestRequirement adds one kill per level above the base requirement', () => {

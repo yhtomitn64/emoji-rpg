@@ -7,7 +7,7 @@ export const EQUIPMENT_DROP_CHANCE = 0.10; // flat - toughness already drives
   // *quality* within this roll; scaling the gate too would double-compound
   // the reward for fighting tougher monsters.
 export const EQUIPMENT_DROP_POOL = SHOP_CATALOG.filter((id) => ITEMS[id].slot);
-export const UNIQUE_EFFECT_ITEM_IDS = ['vampiricFang', 'swiftStrikeCharm', 'emberRing'];
+export const UNIQUE_EFFECT_ITEM_IDS = ['vampiricFang', 'swiftStrikeCharm', 'emberRing', 'keenEye'];
 
 function pickRandom(pool, rng) {
   return pool[Math.floor(rng() * pool.length)];

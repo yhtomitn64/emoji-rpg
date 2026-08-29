@@ -33,6 +33,14 @@ test('rollCrit returns true below the crit chance threshold, false above it', ()
   assert.equal(rollCrit(() => 0.5), false);
 });
 
+test('rollCrit adds an optional bonus chance on top of the base threshold, defaulting to none', () => {
+  // Base CRIT_CHANCE is 0.1 - a roll of 0.15 misses with no bonus...
+  assert.equal(rollCrit(() => 0.15), false);
+  // ...but hits once a +0.08 item bonus (e.g. Keen Eye's critChancePercent: 8) raises the threshold past it.
+  assert.equal(rollCrit(() => 0.15, 0.08), true);
+  assert.equal(rollCrit(() => 0.5, 0.08), false);
+});
+
 test('applyCritMultiplier scales damage on a crit and leaves it unchanged otherwise', () => {
   assert.equal(applyCritMultiplier(10, false), 10);
   assert.equal(applyCritMultiplier(10, true), 15);
@@ -92,6 +100,17 @@ test('resolvePlayerAttack applies an optional streak multiplier to damage before
   // base 10-2=8, variance 1.0 -> 8, streak multiplier 0.7 -> round(5.6)=6, no crit, speed below threshold
   assert.equal(result.damage, 6);
   assert.equal(result.monsterHp, 24);
+});
+
+test('resolvePlayerAttack applies an optional crit chance bonus, defaulting to none', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 30, defense: 2, atb: 50 };
+  // rng of 0.15 misses the base 0.1 crit chance with no bonus...
+  const noBonus = resolvePlayerAttack(player, monster, () => 0.15, 1, 1, 0);
+  assert.equal(noBonus.isCrit, false);
+  // ...but hits with a +0.08 bonus (Keen Eye's critChancePercent: 8, converted to a fraction).
+  const withBonus = resolvePlayerAttack(player, monster, () => 0.15, 1, 1, 0.08);
+  assert.equal(withBonus.isCrit, true);
 });
 
 test('attackStreakMultiplier decays damage per consecutive attack, flooring at ATTACK_STREAK_FLOOR', () => {
@@ -164,6 +183,14 @@ test('resolvePotionUse can crit-heal, reusing the same crit system as attacks', 
   assert.equal(result.isCrit, true);
   assert.equal(result.heal, Math.round(15 * 1.5));
   assert.equal(result.playerHp, 10 + Math.round(15 * 1.5));
+});
+
+test('resolvePotionUse applies an optional crit chance bonus the same way resolvePlayerAttack does', () => {
+  const player = { hp: 10, maxHp: 100 };
+  const noBonus = resolvePotionUse(player, 15, () => 0.15, 0);
+  assert.equal(noBonus.isCrit, false);
+  const withBonus = resolvePotionUse(player, 15, () => 0.15, 0.08);
+  assert.equal(withBonus.isCrit, true);
 });
 
 test('isMonsterOutclassed is true when hits-to-kill is at or below the threshold', () => {

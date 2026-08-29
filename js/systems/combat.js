@@ -39,8 +39,11 @@ export function applyEnemySlow(speed, slowPercent) {
 export const CRIT_CHANCE = 0.1;
 export const CRIT_MULTIPLIER = 1.5;
 
-export function rollCrit(rng = Math.random) {
-  return rng() < CRIT_CHANCE;
+// bonusChance is a fraction (0.08 = +8 percentage points), same scale as
+// CRIT_CHANCE itself - callers convert an item's critChancePercent stat
+// (e.g. 8) by dividing by 100 before passing it in.
+export function rollCrit(rng = Math.random, bonusChance = 0) {
+  return rng() < CRIT_CHANCE + bonusChance;
 }
 
 export function applyCritMultiplier(damage, isCrit) {
@@ -119,8 +122,8 @@ export function attackCooldownMsForStreak(streak) {
   return ATTACK_COOLDOWN_BASE_MS + streak * ATTACK_COOLDOWN_GROWTH_MS;
 }
 
-export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1, knockbackMultiplier = 1) {
-  const isCrit = rollCrit(rng);
+export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1, knockbackMultiplier = 1, critChanceBonus = 0) {
+  const isCrit = rollCrit(rng, critChanceBonus);
   let damage = calculateDamage(player, monster, rng);
   damage = Math.round(damage * streakMultiplier);
   damage = applyCritMultiplier(damage, isCrit);
@@ -147,8 +150,8 @@ export function resolveMonsterAttack(monster, player, rng = Math.random) {
   };
 }
 
-export function resolvePotionUse(player, healAmount, rng = Math.random) {
-  const isCrit = rollCrit(rng);
+export function resolvePotionUse(player, healAmount, rng = Math.random, critChanceBonus = 0) {
+  const isCrit = rollCrit(rng, critChanceBonus);
   const heal = applyCritMultiplier(healAmount, isCrit);
   return {
     heal,

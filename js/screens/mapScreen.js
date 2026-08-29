@@ -10,6 +10,7 @@ import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGatePr
 import { rollEncounterGroup } from '../systems/groupEncounters.js';
 import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.js';
 import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
+import { hasAnyQuestReady } from '../systems/quests.js';
 
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '⛏️';
@@ -382,7 +383,11 @@ function render() {
       cell.className = 'map-tile'
         + (tile === TILES.grass || STUMP_AND_RUBBLE.has(tile) || RANDOM_SIZE_OBSTACLES.has(tile) || GRASS_CONTEXT_MARKERS.has(tile) ? ' map-tile-grass' : '')
         + (tile === TILES.water ? ' map-tile-water' : '')
-        + (isPlayer ? ' map-tile-player' : '');
+        + (isPlayer ? ' map-tile-player' : '')
+        // Visible from a distance so a completed quest doesn't only turn up
+        // by walking in and checking - see docs/superpowers/BACKLOG.md's
+        // "Quest board should glow..." item.
+        + (tile === TILES.questBoard && hasAnyQuestReady(state) ? ' map-tile-quest-ready' : '');
       // A tile's own worn-path trail: dirt strokes reaching toward whichever
       // directions the player has actually walked across at this exact tile
       // (getVisitDirs - never inferred from a neighbor's own state, see

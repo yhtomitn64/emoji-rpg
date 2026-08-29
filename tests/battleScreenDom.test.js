@@ -12,6 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 import { createNewGame } from '../js/state.js';
+import { PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../js/systems/parry.js';
 
 function baseState(overrides = {}) {
   return { ...createNewGame(), ...overrides };
@@ -120,6 +121,49 @@ test('battleScreen DOM', async (t) => {
     // overflow-hidden pattern as showDamageNumber's damage numbers), not
     // inside root - see battleScreen.js.
     assert.ok(document.querySelector('.battle-perfect-timing-badge'), 'a Perfect timing! hit should show the perfect-timing badge');
+  });
+
+  await t.test('parry windup fill drives from a real-time CSS animation, not a stale JS width snapshot', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    // speed: 1000 saturates the monster's ATB gauge on the very first
+    // 300ms tick (tickGauge clamps to 100), so windup starts right away
+    // instead of waiting out boar's real speed (4, ~7.5s to fill from 0).
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    assert.equal(fill.style.animation, `battle-windup-fill ${PARRY_WINDUP_DURATION_MS}ms linear forwards`);
+    // A couple more 300ms ticks fire while still winding (updateAtbBars
+    // runs each time) - confirm they don't stomp the animation with a
+    // stale width snapshot, which is exactly the bug this fix closes.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    assert.equal(
+      fill.style.animation,
+      `battle-windup-fill ${PARRY_WINDUP_DURATION_MS}ms linear forwards`,
+      'animation should survive intervening ticks while still winding',
+    );
+    // Press inside the real 80-100% zone (~800-1000ms after windup started,
+    // which began on the first tick ~300ms after mount) and confirm the
+    // parry lands, then that resolution clears the animation.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    keydown('s');
+    assert.match(root.querySelector('#battle-log').textContent, /You parry/);
+    assert.equal(fill.style.animation, '');
+  });
+
+  await t.test('parry zone marker is scheduled to pulse via a real-time-delayed CSS animation', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const zone = root.querySelector('#battle-monster-parry-zone-0');
+    const expectedDelayMs = (PARRY_ZONE_START_PERCENT / 100) * PARRY_WINDUP_DURATION_MS;
+    assert.equal(zone.style.animation, `battle-zone-pulse 0.35s ease-out ${expectedDelayMs}ms`);
+  });
+
+  await t.test('ability timing meter sweet spot is scheduled to pulse via a real-time-delayed CSS animation', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
+    click(root.querySelector('#btn-ability-stab'));
+    const sweetSpot = root.querySelector('#battle-timing-sweet-spot');
+    // TIMING_SWEET_SPOT_START (80) / TIMING_METER_DURATION_MS (1000) in
+    // battleScreen.js - not exported, so asserted by value here.
+    assert.equal(sweetSpot.style.animation, 'battle-zone-pulse 0.35s ease-out 800ms');
   });
 
   await t.test('unmount removes the keydown listener - a keypress after unmount is inert', async () => {

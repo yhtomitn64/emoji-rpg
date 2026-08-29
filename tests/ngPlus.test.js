@@ -127,7 +127,8 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   assert.deepEqual(reset.inventory, [{ itemId: 'potion', quantity: 5 }]);
 
   assert.equal(reset.flags.dungeonBossDefeated, false);
-  assert.deepEqual(reset.visited, {});
+  // Trails are deliberately kept across NG+ cycles - see resetWorldForNgPlus.
+  assert.deepEqual(reset.visited, { center: { '1,1': true } });
   assert.deepEqual(reset.seenScreens, {});
   assert.deepEqual(reset.caches, {});
   assert.deepEqual(reset.gateRewards, {});
@@ -138,6 +139,14 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   assert.equal(reset.position, null);
   assert.equal(reset.ngPlusCycle, 1);
   assert.equal(reset.lossStreak, 0);
+});
+
+test('resetWorldForNgPlus keeps worn-path trail data across cycles, unlike other world-progress fields', () => {
+  const state = createNewGame();
+  state.flags.dungeonBossDefeated = true;
+  state.visited = { center: { '1,1': true }, north: { '3,3': true } };
+  const reset = resetWorldForNgPlus(state);
+  assert.deepEqual(reset.visited, state.visited);
 });
 
 test('resetWorldForNgPlus caps ngPlusCycle at MAX_NG_PLUS_CYCLE', () => {

@@ -40,6 +40,10 @@ export function canTurnInQuest(state, monsterId) {
   return (state.questProgress[monsterId] || 0) >= getQuestRequirement(monsterId, level);
 }
 
+export function hasAnyQuestReady(state) {
+  return Object.keys(QUEST_REQUIREMENTS).some((monsterId) => canTurnInQuest(state, monsterId));
+}
+
 export function turnInQuest(state, monsterId) {
   if (!canTurnInQuest(state, monsterId)) throw new Error(`Quest for ${monsterId} is not complete`);
   const level = state.questLevel[monsterId] || 1;

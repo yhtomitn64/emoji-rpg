@@ -71,6 +71,8 @@ import { incrementQuestProgress } from './systems/quests.js';
 import { rollEncounterGroup, incrementKillCount } from './systems/groupEncounters.js';
 import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWarpCost } from './systems/comeback.js';
 import * as questBoardScreen from './screens/questBoardScreen.js';
+import * as changelogScreen from './screens/changelogScreen.js';
+import { PLAYER_CHANGELOG } from './data/playerChangelog.js';
 
 const MAPS = {
   town: townMap,
@@ -256,6 +258,10 @@ function setHudButtonsEnabled(enabled) {
   if (logoutButton) {
     logoutButton.disabled = !enabled;
   }
+  const changelogButton = document.getElementById('btn-open-changelog');
+  if (changelogButton) {
+    changelogButton.disabled = !enabled;
+  }
 }
 
 function renderHud() {
@@ -340,6 +346,25 @@ function openLootReference() {
   if (battleActive) return;
   mountOverlay(lootReferenceScreen, {
     state,
+    callbacks: { onClose: () => unmountOverlay() },
+  });
+}
+
+function renderVersionFooter() {
+  const footer = document.getElementById('version-footer');
+  const latest = PLAYER_CHANGELOG[0];
+  if (!latest) {
+    footer.innerHTML = '';
+    return;
+  }
+  footer.innerHTML = `<button id="btn-open-changelog">v${latest.version} · What's New</button>`;
+  document.getElementById('btn-open-changelog').onclick = openChangelog;
+}
+
+function openChangelog() {
+  if (battleActive) return;
+  mountOverlay(changelogScreen, {
+    entries: PLAYER_CHANGELOG,
     callbacks: { onClose: () => unmountOverlay() },
   });
 }
@@ -832,3 +857,4 @@ function promptPostDeathTravel() {
 
 migrateLegacySave();
 mountStartScreen();
+renderVersionFooter();

@@ -113,6 +113,7 @@ test('getItemEffectiveStats returns unrounded base stats at upgrade level 0', ()
   assert.deepEqual(stats, {
     attack: 3, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0,
     lifestealPercent: 0, extraSwingChance: 0, elementalProcChance: 0, elementalProcDamage: 0,
+    critChancePercent: 0,
   });
 });
 
@@ -300,6 +301,14 @@ test('getEquipmentBonuses includes the new effect stat keys, summed like any oth
   const bonuses = getEquipmentBonuses(state);
   assert.equal(bonuses.extraSwingChance, 10);
   assert.equal(bonuses.lifestealPercent, 0);
+});
+
+test('getEquipmentBonuses includes critChancePercent from an equipped Keen Eye', () => {
+  let state = createNewGame();
+  state = addItem(state, 'keenEye', 1);
+  state = equipItem(state, 'keenEye', 'accessory', undefined);
+  const bonuses = getEquipmentBonuses(state);
+  assert.equal(bonuses.critChancePercent, 8);
 });
 
 test('getItemStatDelta compares a tiered candidate against the currently-equipped tier', () => {

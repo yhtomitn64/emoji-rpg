@@ -46,7 +46,12 @@ export function resetWorldForNgPlus(state) {
   return {
     ...state,
     flags: { ...state.flags, dungeonBossDefeated: false },
-    visited: {},
+    // Deliberately NOT reset, unlike every other world-progress field
+    // below - Timothy wants the worn-path trails kept across NG+ cycles
+    // rather than every screen starting blank again. Purely cosmetic
+    // (per-tile walk history for trail rendering, js/systems/exploration.js),
+    // nothing else reads it as a per-cycle completion signal, so carrying
+    // it forward has no other gameplay effect.
     seenScreens: {},
     caches: {},
     gateRewards: {},

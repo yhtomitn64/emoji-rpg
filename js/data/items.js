@@ -39,6 +39,8 @@ export const ITEMS = {
     stats: { extraSwingChance: 10 } },
   emberRing: { id: 'emberRing', name: 'Ember Ring', emoji: '🔥', slot: 'accessory', price: 0,
     stats: { elementalProcChance: 20, elementalProcDamage: 6 } },
+  keenEye: { id: 'keenEye', name: 'Keen Eye', emoji: '👁️', slot: 'accessory', price: 0,
+    stats: { critChancePercent: 8 } },
 
   // Consumables
   potion: { id: 'potion', name: 'Potion', emoji: '🧪', type: 'consumable', price: 10, heal: 15 },

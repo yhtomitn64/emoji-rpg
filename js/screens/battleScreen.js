@@ -3,7 +3,7 @@ import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked } from '../systems/abilities.js';
-import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess } from '../systems/parry.js';
+import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -148,7 +148,7 @@ function timingMeterHtml() {
   return `
         <div class="battle-timing-meter" id="battle-timing-meter">
           <div class="battle-timing-track">
-            <div class="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
+            <div class="battle-timing-sweet-spot" id="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
             <div class="battle-timing-fill" id="battle-timing-fill"></div>
           </div>
           <div class="battle-timing-hint" id="battle-timing-hint">Press Space!</div>
@@ -163,7 +163,7 @@ function monsterSlotHtml(mc, index) {
             <div class="battle-hp-bar"><div class="battle-hp-fill" id="battle-monster-hp-fill-${index}"></div></div>
             <div class="battle-hp-text" id="battle-monster-hp-text-${index}"></div>
             <div class="battle-atb-bar" id="battle-monster-atb-bar-${index}">
-              <div class="battle-parry-zone"></div>
+              <div class="battle-parry-zone" id="battle-monster-parry-zone-${index}"></div>
               <div class="battle-atb-fill" id="battle-monster-atb-fill-${index}"></div>
             </div>
             <div class="battle-parry-hint" id="battle-parry-hint-${index}"></div>
@@ -217,6 +217,7 @@ function buildDom() {
     monsterHpTexts: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-hp-text-${i}`)),
     monsterAtbFills: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-atb-fill-${i}`)),
     monsterAtbBars: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-atb-bar-${i}`)),
+    monsterParryZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-parry-zone-${i}`)),
     parryHints: monsterCombatants.map((_, i) => document.getElementById(`battle-parry-hint-${i}`)),
     heroZone: document.getElementById('battle-hero-zone'),
     heroEmoji: document.getElementById('battle-hero-emoji'),
@@ -229,6 +230,7 @@ function buildDom() {
     timingMeter: document.getElementById('battle-timing-meter'),
     timingFill: document.getElementById('battle-timing-fill'),
     timingHint: document.getElementById('battle-timing-hint'),
+    timingSweetSpot: document.getElementById('battle-timing-sweet-spot'),
   };
 }
 
@@ -249,6 +251,15 @@ function runTimingMeter(ability) {
     }
 
     elements.timingMeter.classList.add('battle-timing-meter-active');
+    // Same real-time-delayed pulse approach as the parry zone above,
+    // timed off TIMING_SWEET_SPOT_START/TIMING_METER_DURATION_MS instead
+    // of PARRY_ZONE_START_PERCENT/PARRY_WINDUP_DURATION_MS.
+    if (elements.timingSweetSpot) {
+      const pulseDelayMs = (TIMING_SWEET_SPOT_START / 100) * TIMING_METER_DURATION_MS;
+      elements.timingSweetSpot.style.animation = 'none';
+      void elements.timingSweetSpot.offsetWidth; // force reflow so re-triggering restarts the animation
+      elements.timingSweetSpot.style.animation = `battle-zone-pulse 0.35s ease-out ${pulseDelayMs}ms`;
+    }
     const startedAt = performance.now();
     let resolved = false;
     let rafId = null;
@@ -338,10 +349,17 @@ function updateHpBars() {
 function updateAtbBars() {
   monsterCombatants.forEach((mc, i) => {
     const winding = mc.windup.active && mc.hp > 0;
-    const monsterAtbPercent = winding
-      ? windupElapsedPercent(mc.windup)
-      : percent(mc.atb, ATB_MAX);
-    elements.monsterAtbFills[i].style.width = `${monsterAtbPercent}%`;
+    // While winding, the fill's width comes from the battle-windup-fill CSS
+    // animation started in tick() (real-time, matches what resolveParryAttempt
+    // checks at keypress) - setting style.width here on every 300ms poll is
+    // exactly the stale-snapshot problem that animation replaces, so leave it
+    // alone. Once winding ends, clear the animation and fall back to the
+    // regular transition-smoothed width for the plain ATB charge-up display.
+    if (!winding) {
+      elements.monsterAtbFills[i].style.animation = '';
+      elements.monsterAtbFills[i].style.width = `${percent(mc.atb, ATB_MAX)}%`;
+      elements.monsterParryZones[i].style.animation = '';
+    }
     elements.monsterAtbBars[i].classList.toggle('battle-atb-bar-windup', winding);
     elements.parryHints[i].textContent = winding ? 'Parry! (s)' : '';
   });
@@ -622,7 +640,7 @@ function resolveOneAttack(countsTowardStreak) {
   // the streak/cooldown state.
   const streakMultiplier = countsTowardStreak ? attackStreakMultiplier(attackStreak, unlockedAbilityCount) : 1;
   const knockbackMultiplier = countsTowardStreak ? attackKnockbackMultiplier(attackStreak) : 1;
-  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, knockbackMultiplier);
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, knockbackMultiplier, playerEffectBonuses.critChancePercent / 100);
   if (countsTowardStreak) {
     attackStreak += 1;
     attackStreakIdleMs = 0;
@@ -742,7 +760,7 @@ async function playerUseAbility(abilityId) {
       targetIndices.forEach((monsterIndex, n) => {
         const mc = monsterCombatants[monsterIndex];
         if (mc.hp <= 0) return; // died during the meter (bleed tick / parry counter)
-        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive);
+        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, playerEffectBonuses.critChancePercent / 100);
         mc.hp = result.monsterHp;
         mc.atb = result.monsterAtb;
         playerCombatant.atb = result.playerAtb;
@@ -790,7 +808,7 @@ async function playerUseAbility(abilityId) {
     // did, don't resolve this ability's damage or call checkOutcome()/endBattle()
     // a second time.
     if (battleOver) return;
-    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit, comboBonusActive);
+    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, playerEffectBonuses.critChancePercent / 100);
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
@@ -835,7 +853,7 @@ function playerUseItem() {
     return;
   }
   Object.assign(state, removeItem(state, 'potion', 1));
-  const result = resolvePotionUse(playerCombatant, ITEMS.potion.heal);
+  const result = resolvePotionUse(playerCombatant, ITEMS.potion.heal, Math.random, playerEffectBonuses.critChancePercent / 100);
   playerCombatant.hp = result.playerHp;
   log.push(result.isCrit
     ? `Critical! You drink a potion and heal ${result.heal}!`
@@ -955,6 +973,22 @@ function tick() {
     mc.atb = tickGauge(mc.atb, mc.speed, 1);
     if (isReady(mc.atb) && !mc.windup.active) {
       mc.windup = startWindup();
+      // Kick off the real-time fill animation at the exact instant the
+      // windup starts, rather than waiting for the next updateAtbBars()
+      // poll - see the battle-windup-fill comment in css/styles.css.
+      const index = monsterCombatants.indexOf(mc);
+      elements.monsterAtbFills[index].style.animation = `battle-windup-fill ${PARRY_WINDUP_DURATION_MS}ms linear forwards`;
+      // A one-shot pulse on the static red zone marker, timed via
+      // animation-delay to fire at the exact real-time instant the moving
+      // fill actually crosses into it - same real-time-not-polled approach
+      // as the fill animation above, so the pulse can't lag behind like a
+      // tick-polled trigger would. See docs/superpowers/BACKLOG.md's
+      // "Pulse/glow on timing bars..." item.
+      const zoneEl = elements.monsterParryZones[index];
+      const pulseDelayMs = (PARRY_ZONE_START_PERCENT / 100) * PARRY_WINDUP_DURATION_MS;
+      zoneEl.style.animation = 'none';
+      void zoneEl.offsetWidth; // force reflow so re-triggering restarts the animation
+      zoneEl.style.animation = `battle-zone-pulse 0.35s ease-out ${pulseDelayMs}ms`;
     } else if (mc.windup.active && isWindupComplete(mc.windup)) {
       // isWindupComplete/windupElapsedPercent read real elapsed wall-clock
       // time now, not a value this tick advances - this is just a poll to

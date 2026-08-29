@@ -24,7 +24,22 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-28
+
 ### Added
+- In-game version number and changelog: a footer at the bottom of the page
+  shows the current version and opens a new "What's New" overlay
+  (`js/screens/changelogScreen.js`) listing player-facing highlights per
+  version. Deliberately backed by a new hand-curated data file
+  (`js/data/playerChangelog.js`), not a runtime fetch/parse of this file —
+  Timothy's call: this file's own entries are written in developer prose
+  (file/function names, internal mechanics) and aren't fit to show
+  players directly, so the in-game view stays a separate, manually
+  maintained translation instead. Closes the backlog's "Version display in
+  the UI" entry. Everything below this line that had been sitting under
+  `Unreleased` is folded into this same `0.6.0` release, cut now as part of
+  shipping this feature (a MINOR bump — it bundles several completed
+  systems, per this file's own versioning rule above).
 - Battle screen transitions and a perfect-timing payoff, closing out the
   "spike up animations" initiative: the battle dialog now swirls in on
   mount (`battle-screen-swirl-in`, `js/screens/battleScreen.js`/
@@ -137,8 +152,54 @@ public API, no formal release process — commits land straight on
   instead of diagonal to it, so a first step toward town connects to it
   in one move; the landing tile itself still starts as an isolated dot
   until that first real step, same as any other fresh tile.
+- The town quest board tile (📋) now glows (`map-tile-quest-ready`,
+  a looping gold `box-shadow` pulse) whenever at least one quest is
+  turn-in ready, so it's noticeable from a distance on the town map
+  instead of only discoverable by walking up and checking. New
+  `hasAnyQuestReady(state)` helper in `js/systems/quests.js` reuses
+  `canTurnInQuest` across every `QUEST_REQUIREMENTS` entry; wired into
+  `js/screens/mapScreen.js`'s per-tile render.
+- Worn-path trails (`state.visited`) now carry over across NG+ cycles
+  instead of resetting to blank like every other world-progress field
+  (`js/systems/ngPlus.js`'s `resetWorldForNgPlus`) - Timothy wants the
+  trails he's walked kept between playthroughs. Purely cosmetic data
+  (per-tile walk history for trail rendering), nothing else reads it as
+  a per-cycle completion signal, so nothing else changes.
+- A new rung-3 unique-item effect: crit chance. `rollCrit` now accepts an
+  optional bonus fraction on top of the base 10% `CRIT_CHANCE`, threaded
+  through `resolvePlayerAttack`/`resolveAbilityUse`/`resolvePotionUse`
+  (`js/systems/combat.js`/`abilities.js`) from a new `critChancePercent`
+  equipment stat (`js/systems/inventory.js`'s `STAT_KEYS`). New drop:
+  Keen Eye (👁️, accessory, `critChancePercent: 8`), added to
+  `UNIQUE_EFFECT_ITEM_IDS` (`js/systems/loot.js`) alongside Vampiric
+  Fang/Swift Strike Charm/Ember Ring — same rare monster-kill-drop pool,
+  same "found only, never sold" rule. Deliberately scoped to the player's
+  own crit rolls only, not `resolveMonsterAttack` — a monster's crit
+  chance is its own, unaffected by the player's gear. Not modeled in
+  `scripts/simulate-balance.js`, matching the same scope gap already
+  accepted for lifesteal/extra-swing/elemental-proc.
+- Parry's red zone and the ability timing meter's green sweet spot now
+  flash (`battle-zone-pulse`, a `filter: brightness()` pulse) the exact
+  real-time instant their moving fill crosses into the actionable zone,
+  instead of only ever showing a static color change. Timed via
+  `animation-delay` set at windup/meter start (delay = zone-start-percent
+  × duration) rather than polled each tick/frame, so it can't lag behind
+  like a polled trigger would — same real-time-not-polled approach as the
+  parry fill fix below. `js/screens/battleScreen.js`/`css/styles.css`.
 
 ### Fixed
+- Parry's visible red zone could lag noticeably behind the real accept
+  window ("I feel like I hit before the red section and it parries").
+  The keypress check itself already used real elapsed wall-clock time
+  (fixed 2026-08-25), but the *visible* fill was still painted from a
+  300ms-tick JS snapshot smoothed by a `transition: width 0.3s linear`,
+  so what was drawn could trail the real value by up to ~600ms. The
+  windup fill now animates via a CSS `@keyframes` animation
+  (`battle-windup-fill`, duration = `PARRY_WINDUP_DURATION_MS`) started
+  at the same instant the windup begins, painted continuously by the
+  browser instead of polled — matching what `resolveParryAttempt`
+  actually checks at keypress. `js/screens/battleScreen.js`/
+  `css/styles.css`.
 - Terrain painter: trackpad two-finger scroll (a `wheel` event on desktop
   Chrome/Firefox, not a touch event, so `touch-action` alone didn't stop
   it) scrolled the page mid-paint-stroke, shifting the canvas under the
