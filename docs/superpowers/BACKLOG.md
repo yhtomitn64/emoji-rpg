@@ -207,82 +207,20 @@ one-off task.
     not in isolation. No mechanism exists today for snapshotting
     pre-NG+ state at all (`js/systems/ngPlus.js`'s `resetWorldForNgPlus`
     only ever resets forward, never stores what it overwrote).
-  - **NG+ doesn't reset the player's tools, raised 2026-08-29.**
-    Timothy: "NG+ should reset the tools you have otherwise you can go
-    straight to dragon." Confirmed via code inspection:
-    `resetWorldForNgPlus` (`js/systems/ngPlus.js`) resets
-    `seenScreens`/`caches`/`gateRewards`/`miniDungeons`/`bossTier`/etc.
-    but never touches `state.inventory` or `state.clearedGates` — so a
-    player who already owns the axe/pick/canoe and has already cleared
-    wilderness tool-gates keeps both across an NG+ reset, letting them
-    walk straight to the dungeon entrance with none of zone 1's
-    tool-gated obstacles in the way. Not designed yet: whether to strip
-    tools from inventory, reset `clearedGates` (reverting cleared
-    mountains/thickets back to their gated form), or both.
-
-    **Investigated further, 2026-08-29 (not yet implemented):**
-    - **Re-fighting a tool guardian already works today, with zero code
-      needed.** Timothy separately asked "we have to make sure you can
-      fight the tool boss again." Checked: the `guardian` tile
-      (`js/tiles.js`) has `encounter: false, action: 'guardianBattle'` -
-      stepping on it always fires `handleEncounter` unconditionally
-      (`js/main.js`'s `action === 'guardianBattle'` branch) with no
-      "already defeated" flag anywhere. Entering a tool dungeon
-      (`enterAxeDungeon`/etc.) is the same - just an unconditional
-      `enterMap` call, no one-time gate. So once tools are actually
-      stripped from inventory on NG+, the existing guardian-refight loop
-      needs nothing extra - this part of the ask is already solved by
-      fixing the inventory-strip half.
-    - **Still the open design call: does `clearedGates` reset too?**
-      If it stays untouched (today's behavior), the paths to every tool
-      dungeon entrance stay pre-cleared, so losing the tools only costs a
-      walk back to refight each guardian - quick. If it resets alongside
-      tools, the player replays the actual tool-gated terrain, closer to
-      Timothy's "go through the game flow" phrasing.
-
-      **Correction, 2026-08-29 (Timothy):** my first pass at this claimed
-      every tool dungeon entrance is independently reachable with zero
-      tools - wrong. Only the axe dungeon is: by design, the tools form a
-      strict earn-in-order chain (axe first, which opens the way to the
-      pick area; pick, and sometimes axe again, opens the way to canoe;
-      canoe opens the way to the dragon). A full `clearedGates` reset is
-      still safe, but for a different, correct reason: it's not "every
-      entrance is toolless-reachable," it's "resetting inventory +
-      clearedGates together reproduces the exact same reachability graph
-      a brand-new save starts with," and that graph is already solvable
-      in order (that's how every first-time player does it) - not
-      independent per-entrance toolless access. Caught myself overstating
-      this twice in the same note - the "staged/tool-sequence-aware
-      reachability checker" item further below in this doc (under
-      Multi-zone progression) that would actually *validate* this chain
-      mechanically doesn't exist yet either ("Check Map" today only
-      checks the main dungeon's own reachability, not each tool
-      dungeon's in sequence). So: safety here rests on the map's known,
-      hand-placed design (axe → pick → canoe → dragon, per Timothy
-      directly), not on any automated check - worth having Timothy
-      confirm the exact chain (does canoe need axe too, or pick alone?)
-      before this ships, rather than re-deriving it from the code again.
-    - **Retroactive cleanup for saves already mid-NG+-cycle, requested by
-      Timothy: "remove them from any current NG+ that did not acquire
-      them again if you can tell. If you can't tell that's fine, next
-      time they do NG+ they will lose the again."** This turns out to be
-      fully tellable, not ambiguous: since `resetWorldForNgPlus` has
-      *never* stripped tools until this fix lands, any save currently at
-      `ngPlusCycle >= 1` holding tools got every one of them via
-      carryover, with no legitimate "re-earned it this cycle" case to
-      protect against false-positive stripping - a one-time migration
-      (same `startGame`-time pattern `migrateUpgradesToPerTier` just
-      established in `js/main.js`) can safely strip tool-type inventory
-      entries from any save at `ngPlusCycle >= 1`, once, unconditionally.
-      Scoped to inventory only, not a retroactive `clearedGates` revert -
-      re-gating terrain out from under a save already mid-playthrough
-      felt like a bigger, more disruptive surprise than the ask called
-      for; a `clearedGates` reset (if adopted per the bullet above) should
-      only apply prospectively, at each *future* NG+ transition.
-    - Not implemented yet - this session ran out of runway after the
-      investigation. Next step is just wiring it into
-      `resetWorldForNgPlus` (strip `inventory` tool entries, decide on
-      `clearedGates`) plus the one-time migration described above.
+  - ~~**NG+ doesn't reset the player's tools.**~~ **Shipped 2026-08-29 —
+    see BACKLOG_SHIPPED.md.** `resetWorldForNgPlus` now strips tool items
+    and resets `clearedGates` each cycle, plus a one-time migration for
+    saves already mid-cycle.
+  - **NG+ loot feels stale without new/better items — reiterated
+    2026-08-29.** Same underlying gap as "Should the dragon drop better
+    items in NG+?" just below, restated more bluntly: Timothy, after
+    being reminded how NG+ loot scaling actually works today (chance-only,
+    via `NG_PLUS_DROP_CHANCE_MULTIPLIER` — no new items, no higher tiers):
+    "I think we need to make the loot better in NG+... right now NG+ feels
+    pretty stale w/o new loot." Explicitly deferred to backlog rather than
+    tackled immediately — this is real item-design work (what the new
+    items are, their stats, which tier they'd sit at), not a quick
+    mechanical change, so it wasn't done in the same session as the ask.
   - **Should the dragon drop better items in NG+? Raised 2026-08-29.**
     Timothy: "can we make the dragon drop better items in NG+?"
     `scaleDropTable` (`js/systems/ngPlus.js`) already scales
@@ -292,6 +230,19 @@ one-off task.
     higher-tier loot table entries gated to NG+ cycles, or some other
     tier-boosting mechanism, neither of which exists today. Not
     designed.
+  - **NG+ monsters could appear "out of place," raised 2026-08-29.**
+    Timothy's own words: "maybe in NG+ monsters start appearing from the
+    wrong places. Like dragon out of nowhere in a random fight or
+    something like that." A wilderness/dungeon random encounter today
+    always rolls from that screen's own fixed `monsterTable`
+    (`js/screens/mapScreen.js`'s `tryMove`) — there's no path for a
+    boss-tier monster (or any monster from a different tier/zone) to show
+    up in a regular encounter roll at all, in NG+ or otherwise. Explicitly
+    floated as a backlog idea, not for now. Raw idea only — not designed:
+    which monsters could appear where, how rare it'd be, whether it scales
+    with NG+ cycle, and how a felt-appropriately-terrifying "the dragon
+    just showed up in a random field encounter" moment would even resolve
+    (a real fight? an instant flee prompt? guaranteed-loss with an escape?).
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —

@@ -81,6 +81,20 @@ Entrance" mode with a reward dropdown. Verified end-to-end in the
 running game. (The staged/tool-sequence-aware reachability checker this
 depends on is still open — see BACKLOG.md.)
 
+### ~~NG+ doesn't reset the player's tools~~ Shipped 2026-08-29
+Timothy: "NG+ should reset the tools you have otherwise you can go
+straight to dragon." `resetWorldForNgPlus` (`js/systems/ngPlus.js`) now
+strips tool items (axe/mining pick/boat) from inventory and resets
+`clearedGates` on every future NG+ transition, reproducing the exact same
+reachability graph a brand-new save starts with — refighting each tool
+guardian already worked with zero extra code (the guardian tile has no
+"already defeated" flag). A one-time `migrateNgPlusToolCarryover`
+migration also retroactively stripped carried-over tools from any save
+already sitting at `ngPlusCycle >= 1` from before this fix, without
+touching `clearedGates` retroactively (re-gating already-cleared terrain
+out from under a mid-playthrough save would be a bigger surprise than
+that migration was meant to cause). See CHANGELOG's `0.7.8` entry.
+
 ### ~~Randomize the dungeon entrance's location per new character. Shipped 2026-08-18.~~
 New saves now roll `state.dungeonEntrancePosition` once
 at creation among the 4 corner screens' grass tiles
