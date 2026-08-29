@@ -102,6 +102,21 @@ where Timothy happened to notice it — worth checking against
 `docs/superpowers/specs/2026-08-16-player-growth-curve-design.md`'s
 levels-1-9 numbers directly.
 
+**Update (2026-08-28), fresh dragon data point:** Timothy: "I beat the
+dragon at level 12 which actually seems okay level wise but even the
+3-star dragon was too easy. I think I got the mining pick at level 10
+or so and canoe at 11 if that helps with anything. It's really the gear
+which makes you super strong I think." So: level-12 dragon kill reads
+as roughly the right pacing target, but even the escalated 3-star boss
+tier (`js/systems/bossTiers.js`) wasn't a real threat at that point —
+and Timothy's own read is that equipment/gear power, not character
+level itself, is the likely driver. Ties directly into the still-open
+"defense scaling needs work... might tie into our other scaling work"
+note in the Combat pass ideas section below — worth investigating
+gear's contribution to effective power (via the balance simulator,
+same tool used earlier in this thread) rather than treating this as a
+level-curve problem specifically.
+
 ## Multi-zone progression (big idea — needs its own design pass)
 
 Several related ideas raised together about giving zones 2/3/4 distinct
@@ -192,6 +207,27 @@ one-off task.
     not in isolation. No mechanism exists today for snapshotting
     pre-NG+ state at all (`js/systems/ngPlus.js`'s `resetWorldForNgPlus`
     only ever resets forward, never stores what it overwrote).
+  - **NG+ doesn't reset the player's tools, raised 2026-08-29.**
+    Timothy: "NG+ should reset the tools you have otherwise you can go
+    straight to dragon." Confirmed via code inspection:
+    `resetWorldForNgPlus` (`js/systems/ngPlus.js`) resets
+    `seenScreens`/`caches`/`gateRewards`/`miniDungeons`/`bossTier`/etc.
+    but never touches `state.inventory` or `state.clearedGates` — so a
+    player who already owns the axe/pick/canoe and has already cleared
+    wilderness tool-gates keeps both across an NG+ reset, letting them
+    walk straight to the dungeon entrance with none of zone 1's
+    tool-gated obstacles in the way. Not designed yet: whether to strip
+    tools from inventory, reset `clearedGates` (reverting cleared
+    mountains/thickets back to their gated form), or both.
+  - **Should the dragon drop better items in NG+? Raised 2026-08-29.**
+    Timothy: "can we make the dragon drop better items in NG+?"
+    `scaleDropTable` (`js/systems/ngPlus.js`) already scales
+    non-tool drop *chances* up per NG+ cycle
+    (`NG_PLUS_DROP_CHANCE_MULTIPLIER`), but doesn't change *which*
+    tiers/items are in the table at all — so this would need either new,
+    higher-tier loot table entries gated to NG+ cycles, or some other
+    tier-boosting mechanism, neither of which exists today. Not
+    designed.
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
@@ -454,6 +490,37 @@ whatever palette/brush addition mechanism the tool ends up with for
 future terrain types (see the "map editor should support new zones and
 assets" thread the same day) should cover these too.
 
+**Same gap, raised again 2026-08-28 for water specifically:** Timothy's
+own words: "when on water need water theme enemies." Water (`TILES.water`)
+already exists and is already walkable-with-a-canoe, so unlike sand/
+tarpit this doesn't need a new tile kind — it needs exactly the same
+missing piece called out above (per-tile-kind `monsterTable`, since
+today's roster is screen-level and doesn't distinguish grass from water
+on the same screen). Not designed, just confirms this is the same
+underlying gap rather than a separate one.
+
+## Tool-pickup celebration animation isn't anchored to the player, raised 2026-08-28
+Timothy's own words (getting the boat/canoe): "my character was in the
+corner of the screen but the boat went in the middle of the screen and
+circle around. Either character needs to warp to middle of boat zone or
+boat needs to do it's animatin down by character and i'm not sure what
+the speed is of the animation now but let's do it twice as slow for more
+effect!" `playToolCelebration` (`js/screens/celebrationEffect.js`)
+animates the `#celebration-burst` element, which is `position: fixed`
+at the viewport's dead-center (`css/styles.css:858`) — unrelated to
+where the player actually stands on the map grid, so the orbiting tool
+emoji can land far from the character if they're anywhere but
+center-screen. Two fix directions floated, neither chosen yet: anchor
+the burst to the player's own map tile instead of viewport-center, or
+warp/scroll the view so the player is centered first. Separately, also
+wants the orbit animation (`celebration-burst-tool-sequence`, currently
+1.4s via `TOOL_SEQUENCE_MS` in celebrationEffect.js and its matching
+keyframe timing in styles.css) slowed to roughly 2x its current
+duration. Worth revisiting once the map-camera/centered-viewport
+backlog item (this doc's "Roaming visible enemies..." section) lands,
+since a hero-centered camera would make "anchor to player" and "player
+is always centered" the same fix.
+
 ## Hand-placed zone 1 loot, rebalanced around it (big idea — needs its own design pass)
 
 Raised 2026-08-24, while placing tool dungeons and reviewing the check-map
@@ -520,6 +587,19 @@ BACKLOG_SHIPPED.md) and the town signpost/labeling idea (Multi-zone
 progression, above) are both instances of the same underlying "the game
 should explain itself more" theme.
 
+**Sharper version, raised 2026-08-29, specifically about combat:**
+Timothy: "need the game to explain or tutorial the fight system
+especially as you level. maybe after getting a new ability it tells you
+how it works and the synergy works and how attack gets worse if you do
+it too often and so on. not sure how to do this but let's talk through
+it when the time comes." A concrete instance of the same general ask
+above, scoped to battle mechanics specifically: new-ability unlocks,
+ability synergies, and the repeated-attack falloff mechanic all lack
+any in-game explanation today. Timothy explicitly wants to talk through
+the design when this gets picked up rather than have it speced now —
+flagged as a real "when the time comes" item, not raw-idea-only like
+the general version above.
+
 ## Feature requests
 
 *(Everything that was originally in this section shipped 2026-08-17;
@@ -529,6 +609,52 @@ they are, e.g. "Slippery Breadstick" for the snake. Not tracked
 anywhere; revisit only if it comes up again for a future zone. Shipped
 items raised mid-combat-pass since then have moved to
 BACKLOG_SHIPPED.md.)*
+
+### Random mini-dungeon marker reuses the mining pick's own emoji — confusing
+Raised 2026-08-28. Timothy's own words: "using the pick for our random
+dungeons and for the actual pick you get is confusing. we should change
+the random dungeon emoji." `⛏️` is currently overloaded: it's
+`MINI_DUNGEON_MARKER_EMOJI` (the marker for a random mini-dungeon
+entrance on the map — `js/screens/mapScreen.js`), the `miningPick` tool
+item's own icon (`js/data/items.js`), the `pickDungeonEntrance` tile
+(`js/tiles.js`), and the `pickGuardian` monster (`js/data/monsters.js`).
+The fix in scope is just the mini-dungeon map marker — swap
+`MINI_DUNGEON_MARKER_EMOJI` to something that doesn't read as "you get a
+pick here." Not designed yet: what emoji to swap to.
+
+### Sticky header, raised 2026-08-29
+Timothy's own words: "can we make the header on the top sticky so it
+always shows?" `#hud` (`js/main.js`'s `renderHud`, styled in
+`css/styles.css`) is a plain in-flow block at the top of the page today
+— scrolling the page (or a tall map viewport, see the continuous-world-
+camera work) scrolls it out of view. `position: sticky; top: 0;` on
+`#hud` is the standard fix; not yet investigated whether anything
+(z-index stacking with `#overlay`/celebration elements) would need
+adjusting alongside it.
+
+### Inventory needs tabs + sorting, raised 2026-08-29
+Timothy's own words: "our inventory screen should have tabs for the
+different stuff instead of endless list and maybe some sorting" and
+(separately, same session) "items sorted alphabetically by default."
+`js/screens/inventoryScreen.js` already filters into type groups
+(material/consumable/tool sections via `entry.type === '...'`) rather
+than one flat list, but renders them as stacked sections on one
+scrolling page, not actual switchable tabs, and doesn't sort entries
+within a section at all (insertion order). Two distinct asks to design
+together: a real tabbed UI (only one type-section visible at a time)
+and a default sort order (alphabetical, per Timothy's second note) —
+not designed yet, including whether sorting should be alphabetical only
+or also offer other orders (rarity/tier, quantity).
+
+## Input / accessibility
+
+### Controller support, raised 2026-08-28
+Timothy's own words: "Add controller support." Today input is
+keyboard-only (`KEY_TO_DELTA` in `js/screens/mapScreen.js` for movement,
+plus per-screen keydown handlers in battle/shop/etc.). Raw idea only —
+not investigated: which input(s) to target (Gamepad API is the standard
+browser mechanism), how deep support should go (movement only, or every
+screen's keyboard shortcuts), or button-mapping/prompts.
 
 ## Quests / economy
 
@@ -555,6 +681,17 @@ sinks gold or materials fast enough to make this a real gap yet, just a
 few extra tidy-up rows in the inventory. Revisit if that changes (e.g.
 materials pile up faster, or a future economy pass tightens gold flow).
 
+**Revisit condition hit, 2026-08-28:** Timothy: "I'm getting tons of
+gold and way more than I need so gotta figure that out too. not sure if
+more things to buy or potion buffs to buy or something else but my gold
+is like 3k!" This is exactly the "future economy pass tightens gold
+flow" trigger named above, now real — 3k gold with shop gear topping
+out around 45g and upgrades at ~120g total means there's nothing left
+to spend on well past the early game. Two directions, neither decided:
+add more/higher-tier gold sinks (more expensive gear, potion buffs, the
+tiered-gear manual-sell idea above could also feed gold back out), or
+reduce gold income at higher levels. Not investigated yet.
+
 ### ~~Quest board should glow/indicate when you have turn-ins ready~~ Shipped 2026-08-28
 Raised 2026-08-28, shipped same day. See CHANGELOG - new
 `hasAnyQuestReady(state)` helper, `map-tile-quest-ready` glow class.
@@ -576,6 +713,44 @@ through in a dedicated future combat pass rather than one-off adds.
 (A number of items originally captured here have since shipped — see
 BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
 
+- **Bigger, mixed, synergistic monster groups + battle-screen visual
+  overhaul, raised 2026-08-29.** Timothy's own words: "when multiple
+  enemies show up it can be a mix of enemies and maybe some can buff
+  other ones with interesting buffs/synergies to each other and let's
+  boost it up to like 6 enemies can show up and then can be slightly on
+  top of each other and different sizes and let's increase the battle
+  screen size and how could we draw a cool background behind the whole
+  fight scene?" Several distinct asks bundled together, needing their
+  own design pass: (1) raise the group-size cap — today's
+  `GROUP_SIZE_MAX` is 3 (`js/systems/groupEncounters.js`, see
+  `docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md`),
+  he wants up to 6; (2) mixed monster types within one group (today a
+  group is always the same `monsterId` rolled multiple times — see
+  `rollEncounterGroup`); (3) inter-monster buffs/synergies, a wholly new
+  mechanic with no groundwork today; (4) overlapping/varied-size monster
+  rendering in the battle screen (today's monster zones are presumably
+  uniform, not investigated); (5) a larger battle screen; (6) a
+  background illustration behind the fight. Not designed — raw idea
+  only, likely warrants splitting into separate specs given the number
+  of independent pieces.
+
+- **Remove the crit/parry dialog-shake, keep/expand other crit effects
+  — raised 2026-08-28.** Timothy's own words: "remove the crit/parry or
+  whatever else animation that is on the battle window. Too much
+  animation now. I love the battle load/unload animation but that
+  dialog moving for in battle stuff is too much. just keep character
+  animation and maybe spice up crit or parry or something with more
+  effects we can try out." Specifically targets
+  `.battle-dialog-shake-crit` (`css/styles.css:814`, triggered by
+  `playCritReaction` in `js/screens/battleScreen.js:481`) — the whole
+  battle dialog box shakes on every crit and every landed parry. The
+  battle entrance/exit transition (shipped, mentioned by name as liked)
+  is unaffected — this is only about the dialog-shake tied to
+  individual crit/parry hits mid-fight. Two parts: (1) remove the
+  dialog-level shake, (2) keep/expand the character-level reaction
+  (`.battle-decoration-sway-crit`, same file, plus the damage-number
+  pop) and try out other per-hit effects instead — not designed yet
+  what those new effects should be.
 - **Weapon-swing attack animations per ability, raised 2026-08-28.**
   Timothy: "for our attacking I'd like to see our weapon swing at the
   enemy and I guess match the chop/slice/sweep and so on. so different
@@ -788,6 +963,18 @@ threshold that aren't quite trivial either) is what the "faster battle
 timer" open question below would address instead of monster-stat
 scaling. Not fully decided — flagged here so the next session picks up
 the thread instead of re-deriving it.
+
+**Raised again 2026-08-28, player-defense side specifically:** Timothy's
+own words: "the defense scaling needs work too nothing feels dangerous
+that might tie into our other scaling work we have to do." Framed by
+him as likely the same underlying thread as the above (monster stats
+static vs. player growing) rather than a separate ask — captured here
+rather than as its own section. Not investigated yet: whether this
+means the player's own defense stat grows too fast relative to incoming
+damage (making the player too safe) or that monster attack numbers
+themselves need their own look independent of the "don't scale zone 1
+to the player" steer above. Needs the balance-simulator treatment the
+rest of this thread already got before any design decision.
 
 ### Mobile/touch-only combat should be turn-based, raised 2026-08-23
 Timothy: for mobile/phone/touch input specifically (not desktop/keyboard),
