@@ -24,6 +24,20 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-08-29
+
+### Fixed
+- Random wilderness/dungeon encounters had no memory of the last one, so
+  two fights on consecutive steps was always possible - rare per single
+  pair of steps (e.g. 15% * 15% = 2.25%), but noticeable over a real play
+  session and felt bad whenever it landed. `mapScreen.js`'s `tryMove` now
+  tracks a new `state.encounterCooldown` counter: any random encounter
+  (including the rare elite roll) sets it to `ENCOUNTER_COOLDOWN_STEPS`
+  (2), and it ticks down once per real step regardless of tile type,
+  suppressing the encounter roll entirely until it reaches 0 - guaranteeing
+  at least 2 encounter-free steps after every fight. Doesn't apply to
+  tile-triggered fights (guardians, the boss), which aren't random rolls.
+
 ## [0.7.2] - 2026-08-29
 
 ### Changed

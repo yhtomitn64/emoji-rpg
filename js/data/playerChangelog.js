@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.3',
+    date: '2026-08-29',
+    highlights: [
+      'Fixed getting thrown into back-to-back fights with barely a step in between — you\'re now guaranteed at least a couple of free steps after any random encounter before the next one can trigger.',
+    ],
+  },
+  {
     version: '0.7.2',
     date: '2026-08-29',
     highlights: [

@@ -175,3 +175,71 @@ test('mapScreen DOM - crossing a screen boundary onto a tool-gated tile', async 
     );
   });
 });
+
+// Raised 2026-08-29: two random encounters back to back (fight, move one
+// square, fight again) felt bad even though it's rare per-pair - nothing
+// guaranteed a break after a fight ended. encounterChance: 1 below makes
+// every eligible step fire if the cooldown isn't blocking it, isolating the
+// cooldown's own on/off behavior from the underlying random roll.
+test('mapScreen DOM - encounter cooldown blocks the next few steps after a random encounter', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('no repeat encounter for ENCOUNTER_COOLDOWN_STEPS steps, then rolls again', async () => {
+    // 3 rows tall so the walked middle row (y=1) isn't itself a sealed
+    // north/south world edge (isSealedWorldEdge treats a screen with no
+    // neighbors as sealed on every side of its own bounding box); starting
+    // at x=1 (not the sealed west edge) leaves x=2..5 as four movable,
+    // non-edge interior steps for the four ArrowRight presses below.
+    const plains = {
+      id: 'plains',
+      legend: { '.': 'grass' },
+      rows: ['.......', '.......', '.......'],
+      neighbors: {},
+      monsterTable: ['boar'],
+      encounterChance: 1,
+      cacheChance: 0,
+    };
+    const maps = { plains };
+    const worldGrid = buildWorldGrid(maps);
+    const state = baseState({ position: { x: 1, y: 1 } });
+
+    let encounterCount = 0;
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    mount(root, {
+      state,
+      mapConfig: plains,
+      maps,
+      worldGrid,
+      callbacks: {
+        onFirstVisit: () => {},
+        onMove: () => {},
+        onToolGateCleared: () => {},
+        onLockedGate: () => {},
+        onToolGateNearby: () => {},
+        onAction: () => {},
+        onEnterMiniDungeon: () => {},
+        onCacheFound: () => {},
+        onGateReward: () => {},
+        onEncounter: () => { encounterCount += 1; },
+      },
+    });
+
+    keydown('ArrowRight'); // move 1: fires, cooldown set to 2
+    assert.equal(encounterCount, 1, 'expected the first step onto an always-fire tile to trigger an encounter');
+
+    keydown('ArrowRight'); // move 2: cooldown 2 -> 1, blocked
+    assert.equal(encounterCount, 1, 'expected the step right after an encounter to be blocked by the cooldown');
+
+    keydown('ArrowRight'); // move 3: cooldown 1 -> 0, blocked
+    assert.equal(encounterCount, 1, 'expected the second step after an encounter to still be blocked by the cooldown');
+
+    keydown('ArrowRight'); // move 4: cooldown at 0, rolls again
+    assert.equal(encounterCount, 2, 'expected the encounter roll to resume once the cooldown has fully counted down');
+  });
+});

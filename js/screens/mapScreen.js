@@ -13,6 +13,14 @@ import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.
 import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
 import { hasAnyQuestReady } from '../systems/quests.js';
 
+// Raised 2026-08-29: random encounters had no memory of the last one, so
+// two fights on consecutive steps was always possible (just rare per-pair -
+// e.g. 15% * 15% = 2.25%) and felt bad when it landed. Guarantees this many
+// encounter-free steps immediately after any random encounter fires -
+// doesn't apply to tile-triggered fights (guardians, the boss) since those
+// are deterministic, not random rolls.
+const ENCOUNTER_COOLDOWN_STEPS = 2;
+
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '🥾';
 const CACHE_MARKER_DESCRIPTION = 'A stash of gold (maybe an item too) — step here to collect it';
@@ -613,6 +621,13 @@ function tryMove(dx, dy) {
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, screenConfig.id, nx, ny, exitDir ? TRAIL_OPPOSITE_DIR[exitDir] : undefined) });
 
+  // Ticks down once per real step taken, regardless of tile type or any
+  // early return below - see ENCOUNTER_COOLDOWN_STEPS above.
+  const onEncounterCooldown = (state.encounterCooldown || 0) > 0;
+  if (onEncounterCooldown) {
+    Object.assign(state, { encounterCooldown: state.encounterCooldown - 1 });
+  }
+
   // Swap which screen is "current" inline - no remount, no teleport, no
   // separate onEdgeTransition callback. state.map is set directly (mirrors
   // every other state.* field this function already writes for
@@ -668,18 +683,20 @@ function tryMove(dx, dy) {
     return;
   }
 
-  if (tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
+  if (!onEncounterCooldown && tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
     // A flat 5% chance for any encounter (wilderness or dungeon) to be the
     // rare elite instead of the normal roll - always solo, bypassing the
     // multi-mob grouping below entirely. The empty-override array (matching
     // the boss-fight pattern) tells handleEncounter this monster's stats are
     // already final, skipping the random stat-variant roll.
     if (rollEliteEncounter()) {
+      Object.assign(state, { encounterCooldown: ENCOUNTER_COOLDOWN_STEPS });
       callbacks.onEncounter([ELITE_MONSTER_ID], [{}]);
       return;
     }
     const monsterId = mapConfig.monsterTable[Math.floor(Math.random() * mapConfig.monsterTable.length)];
     const monsterIds = rollEncounterGroup(monsterId, state.monsterKillCounts);
+    Object.assign(state, { encounterCooldown: ENCOUNTER_COOLDOWN_STEPS });
     callbacks.onEncounter(monsterIds);
   }
 }
