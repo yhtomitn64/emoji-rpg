@@ -149,6 +149,7 @@ function floodFillWholeWorld(wilderness, start, isPassable) {
         if (!neighborId) continue;
         const { gx, gy } = screenToGlobal(grid, id, x, y);
         const landing = globalToScreen(grid, id, gx + dx, gy + dy);
+        assert.ok(landing, 'expected a valid landing screen when crossing a real neighbor link');
         const k = tileKey(landing.screenId, landing.localX, landing.localY);
         if (visited.has(k)) continue;
         visited.add(k);
@@ -225,12 +226,14 @@ function assertRealEntranceChainReachable(wilderness, toolDungeonEntrances, dung
   }
 }
 
-// Not "every column along the shared border is open": js/main.js's
-// handleEdgeTransition places the player on the neighbor's mirrored edge
-// tile unconditionally (no walkability check, same as enterMap), and
-// tryMove only ever validates the tile being moved *onto* next, never the
-// one currently stood on - so landing on a single non-passable border tile
-// isn't a softlock, it's cosmetic for one frame. A screen's border can
+// Not "every column along the shared border is open": crossing a screen
+// boundary now resolves through js/systems/worldGrid.js's globalToScreen
+// (mapScreen.js's tryMove steps the player's GLOBAL position by one tile and
+// resolves whichever screen/local-tile that lands on, unconditionally - no
+// separate teleport function, no walkability check on the landing tile
+// itself), and tryMove only ever validates the tile being moved *onto* next,
+// never the one currently stood on - so landing on a single non-passable
+// border tile isn't a softlock, it's cosmetic for one frame. A screen's border can
 // legitimately funnel crossings through a narrow gap in trees/mountains
 // (organic terrain, not a bug). What actually has to hold: for every pair
 // of neighboring screens, at least one column/row exists where BOTH sides'

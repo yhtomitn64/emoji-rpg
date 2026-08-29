@@ -1,13 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { directionFromDelta, isWalkableAt, isValidSavedPosition, pickTileVariant, isChokepointTile, computeViewportOrigin } from '../js/systems/world.js';
-
-test('directionFromDelta maps movement deltas to compass directions', () => {
-  assert.equal(directionFromDelta(1, 0), 'east');
-  assert.equal(directionFromDelta(-1, 0), 'west');
-  assert.equal(directionFromDelta(0, 1), 'south');
-  assert.equal(directionFromDelta(0, -1), 'north');
-});
+import { isWalkableAt, isValidSavedPosition, pickTileVariant, isChokepointTile, computeViewportOrigin } from '../js/systems/world.js';
 
 test('isValidSavedPosition accepts a tool-gated tile even though it is not unconditionally walkable', () => {
   const map = {

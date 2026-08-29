@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.0',
+    date: '2026-08-29',
+    highlights: [
+      'Exploring the wilderness is now one smooth, continuously-scrolling world instead of separate screens — no more getting stuck invisible inside a mountain or tree right after crossing into a new area, and clearing a tree/mountain with the right tool now works correctly even when you cross into it from the screen next door.',
+    ],
+  },
+  {
     version: '0.6.1',
     date: '2026-08-28',
     highlights: [

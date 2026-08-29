@@ -261,13 +261,19 @@ function isScreenChokepoint(x, y) {
 }
 
 // How worn a connected neighbor itself is, for tapering a connector stroke's
-// color toward it (see buildTrailFragment). No landmark special-casing
-// needed: a direction only ever appears in a tile's own recorded dirs (see
-// getVisitDirs) because the player actually crossed that edge, which by
-// construction (see tryMove) means the neighbor on the other side already
-// has a real walk count of its own by the time this is called.
-function getNeighborWearFraction(nx, ny) {
-  return trailWearFraction(getVisitCount(state.visited, mapConfig.id, nx, ny));
+// color toward it (see buildTrailFragment). Takes GLOBAL coordinates and
+// resolves them to whichever screen actually owns that tile - which may be
+// a different screen than the one currently being walked on, now that the
+// viewport can show a neighboring screen's tiles at once. No landmark
+// special-casing needed: a direction only ever appears in a tile's own
+// recorded dirs (see getVisitDirs) because the player actually crossed that
+// edge, which by construction (see tryMove) means the neighbor on the
+// other side already has a real walk count of its own by the time this is
+// called - the `!resolved` branch below is defensive, not expected to fire.
+function getNeighborWearFraction(ngx, ngy) {
+  const resolved = globalToScreen(worldGrid, mapConfig.id, ngx, ngy);
+  if (!resolved) return 0;
+  return trailWearFraction(getVisitCount(state.visited, resolved.screenId, resolved.localX, resolved.localY));
 }
 
 // One tile's own trail fragment: a wavy stroke reaching toward each
@@ -297,7 +303,7 @@ function getNeighborWearFraction(nx, ny) {
 // opacity, even though the gradient's color values already matched).
 // Every stroke here is fully opaque - overlapping ones at a center simply
 // paint over each other, no compositing artifact possible.
-function buildTrailFragment(x, y, dirs, fraction, color, groundColor) {
+function buildTrailFragment(x, y, gx, gy, dirs, fraction, color, groundColor) {
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('class', 'map-tile-trail');
   svg.setAttribute('viewBox', `0 0 ${TRAIL_VIEWBOX_SIZE} ${TRAIL_VIEWBOX_SIZE}`);
@@ -318,15 +324,17 @@ function buildTrailFragment(x, y, dirs, fraction, color, groundColor) {
   }
   const widths = [];
   for (const dir of dirs) {
-    const owner = edgeOwner(x, y, dir);
+    const owner = edgeOwner(gx, gy, dir);
     const jitter = edgeJitter(owner.x, owner.y, owner.axis);
     const [dx, dy] = TRAIL_DIR_DELTA[dir];
-    const neighborFraction = getNeighborWearFraction(x + dx, y + dy);
+    const neighborFraction = getNeighborWearFraction(gx + dx, gy + dy);
     // A gradient per stroke (not a flat color) so it visually tapers toward
     // however worn the neighbor it's reaching for actually is - unique id
-    // per (x, y, dir) since SVG gradient ids share the whole document's
-    // namespace, not just their own <svg>.
-    const gradientId = `trail-grad-${x}-${y}-${dir}`;
+    // per (gx, gy, dir) (GLOBAL coords, not local) since SVG gradient ids
+    // share the whole document's namespace, not just their own <svg>, and
+    // two different screens' tiles can be visible in the same render pass
+    // and could coincidentally share local coordinates.
+    const gradientId = `trail-grad-${gx}-${gy}-${dir}`;
     const gradient = document.createElementNS(SVG_NS, 'linearGradient');
     gradient.setAttribute('id', gradientId);
     gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
@@ -475,7 +483,7 @@ function render() {
         const color = getTrailColor(tile);
         const groundColor = getGroundColor(tile);
         const dirs = getVisitDirs(state.visited, screenId, x, y);
-        cell.appendChild(buildTrailFragment(x, y, dirs, fraction, color, groundColor));
+        cell.appendChild(buildTrailFragment(x, y, gx, gy, dirs, fraction, color, groundColor));
       }
       // Depth-sort by viewport row instead of a fixed always-on-top/always-
       // behind z-index: a row's cells sit above every cell in the row above

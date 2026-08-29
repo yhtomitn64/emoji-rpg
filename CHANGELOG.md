@@ -24,6 +24,32 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-29
+
+### Added
+- Continuous camera-following viewport replaces discrete per-screen map
+  rendering: the wilderness's 25 linked screens (and town/dungeon interiors,
+  through the same mechanism) now stitch into one global tile-coordinate
+  space (`js/systems/worldGrid.js`) that the camera pans across, rather than
+  swapping to a fresh full-screen render at each screen boundary.
+  `js/screens/mapScreen.js`'s `render()`/`tryMove()` were rewired onto this
+  grid (`screenToGlobal`/`globalToScreen`) in place of the old teleport-based
+  edge-transition path.
+
+### Fixed
+- Crossing a screen boundary directly onto a tool-gated tile (mountain/
+  thicket) with the right tool now correctly converts it to a stump/rubble
+  marker — previously this conversion only fired when the gate was cleared
+  mid-screen, not when the very first tile stepped onto after a screen
+  transition was itself the gated tile, since the old teleport path
+  (`handleEdgeTransition`) never ran the gate-clearing check at all.
+- A tile's worn-path trail no longer leaks per-screen local coordinates
+  across a screen boundary: `edgeOwner`, the trail gradient id, and the
+  neighbor-wear lookup in `js/screens/mapScreen.js` now resolve against
+  GLOBAL coordinates instead of the current screen's local ones, so two
+  screens' tiles visible in the same viewport can no longer disagree on a
+  shared edge (a visible seam/kink) or collide on gradient ids.
+
 ## [0.6.1] - 2026-08-28
 
 ### Fixed

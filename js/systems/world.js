@@ -44,14 +44,6 @@ export function isValidSavedPosition(map, x, y) {
   return Boolean(tile && (tile.walkable || tile.requiresTool));
 }
 
-export function directionFromDelta(dx, dy) {
-  if (dx === 1) return 'east';
-  if (dx === -1) return 'west';
-  if (dy === 1) return 'south';
-  if (dy === -1) return 'north';
-  return null;
-}
-
 const CARDINAL_DELTAS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 // Whether blocking (x, y) would cut the screen's passable area into pieces
@@ -109,4 +101,3 @@ export function computeViewportOrigin(centerGx, centerGy, tilesWide, tilesTall, 
 
   return { originGx, originGy };
 }
-
