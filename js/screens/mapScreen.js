@@ -1,5 +1,6 @@
 import { TILES } from '../tiles.js';
-import { directionFromDelta, pickTileVariant, hash01, isChokepointTile } from '../systems/world.js';
+import { directionFromDelta, pickTileVariant, hash01, isChokepointTile, computeViewportOrigin } from '../systems/world.js';
+import { screenToGlobal, globalToScreen, clusterBounds } from '../systems/worldGrid.js';
 import { markVisited, markDirection, isVisited, getVisitCount, getVisitDirs } from '../systems/exploration.js';
 import { trailWearFraction, trailStrokeWidthBetween, trailBorderFraction, trailDotRadius, trailHubRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor, trailColorForFraction } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
@@ -43,6 +44,18 @@ const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountai
 const FULL_SQUARE_CQB = 85;
 const HERO_AND_LOOT_CQB = 75;
 const OBSTACLE_MAX_EXTRA = 0.5; // up to +50% (150% total, i.e. 50% overlap)
+
+// Fixed real pixel size for every tile - the viewport's own CSS size
+// (.map-viewport in css/styles.css) then determines how many whole tiles
+// fit, which is what makes a smaller window/screen naturally show less of
+// the stitched world. Tunable; not load-bearing for correctness.
+const TILE_SIZE_PX = 48;
+// jsdom has no real layout engine (tests/helpers/dom.js), so
+// .clientWidth/.clientHeight always read 0 there - this is the fallback
+// viewport size used whenever a real measurement isn't available, keeping
+// DOM tests deterministic without needing to stub layout.
+const DEFAULT_VIEWPORT_TILES_WIDE = 15;
+const DEFAULT_VIEWPORT_TILES_TALL = 11;
 
 // Important landmarks the player needs to spot at a glance - always full
 // size, never randomized/overlapping (unlike RANDOM_SIZE_OBSTACLES, these
@@ -355,19 +368,51 @@ function buildTrailFragment(x, y, dirs, fraction, color, groundColor) {
   return svg;
 }
 
+function computeViewportTileCount(viewportEl) {
+  const width = viewportEl.clientWidth;
+  const height = viewportEl.clientHeight;
+  if (!width || !height) {
+    return { tilesWide: DEFAULT_VIEWPORT_TILES_WIDE, tilesTall: DEFAULT_VIEWPORT_TILES_TALL };
+  }
+  return {
+    tilesWide: Math.max(1, Math.floor(width / TILE_SIZE_PX)),
+    tilesTall: Math.max(1, Math.floor(height / TILE_SIZE_PX)),
+  };
+}
+
 function render() {
-  const cols = mapConfig.rows[0].length;
+  const viewport = document.createElement('div');
+  viewport.className = 'map-viewport';
+  rootEl.innerHTML = '';
+  rootEl.appendChild(viewport);
+
+  const { tilesWide, tilesTall } = computeViewportTileCount(viewport);
+  const centerGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
+  const bounds = clusterBounds(worldGrid, mapConfig.id);
+  const { originGx, originGy } = computeViewportOrigin(centerGlobal.gx, centerGlobal.gy, tilesWide, tilesTall, bounds);
+
   const grid = document.createElement('div');
   grid.className = 'map-grid';
-  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.style.gridTemplateColumns = `repeat(${tilesWide}, ${TILE_SIZE_PX}px)`;
+  grid.style.gridTemplateRows = `repeat(${tilesTall}, ${TILE_SIZE_PX}px)`;
 
-  for (let y = 0; y < mapConfig.rows.length; y++) {
-    for (let x = 0; x < cols; x++) {
+  for (let row = 0; row < tilesTall; row++) {
+    for (let col = 0; col < tilesWide; col++) {
+      const gx = originGx + col;
+      const gy = originGy + row;
+      const resolved = globalToScreen(worldGrid, mapConfig.id, gx, gy);
+      // Unreachable in practice: computeViewportOrigin always clamps the
+      // window fully inside clusterBounds, so every visible cell resolves.
+      // Kept as a defensive skip rather than assuming that invariant blindly.
+      if (!resolved) continue;
+      const { screenId, localX: x, localY: y } = resolved;
+      const screenConfig = maps[screenId];
+
       const cell = document.createElement('div');
-      const tile = tileAt(mapConfig, x, y);
-      const isPlayer = state.position.x === x && state.position.y === y;
-      const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, mapConfig.id, x, y);
-      const hasTileCache = hasCache(state.caches, mapConfig.id, x, y);
+      const tile = tileAt(screenConfig, x, y);
+      const isPlayer = screenId === mapConfig.id && state.position.x === x && state.position.y === y;
+      const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, screenId, x, y);
+      const hasTileCache = hasCache(state.caches, screenId, x, y);
       // A tile currently blocking the way is never shown as visited, even if
       // state.visited has a stale record from before the map was repainted
       // (the player really did stand on grass there once, but that record
@@ -403,21 +448,21 @@ function render() {
       // positioned descendants regardless of DOM order - so on a tile that
       // falls through to that branch, the trail SVG actually paints ON TOP
       // of the emoji, not underneath it.
-      if (isCurrentlyPassable && isVisited(state.visited, mapConfig.id, x, y)) {
-        const fraction = trailWearFraction(getVisitCount(state.visited, mapConfig.id, x, y));
+      if (isCurrentlyPassable && isVisited(state.visited, screenId, x, y)) {
+        const fraction = trailWearFraction(getVisitCount(state.visited, screenId, x, y));
         const color = getTrailColor(tile);
         const groundColor = getGroundColor(tile);
-        const dirs = getVisitDirs(state.visited, mapConfig.id, x, y);
+        const dirs = getVisitDirs(state.visited, screenId, x, y);
         cell.appendChild(buildTrailFragment(x, y, dirs, fraction, color, groundColor));
       }
-      // Depth-sort by row instead of a fixed always-on-top/always-behind
-      // z-index: a row's cells sit above every cell in the row above it, so
-      // a tall obstacle's canopy (which overflows upward into the row
+      // Depth-sort by viewport row instead of a fixed always-on-top/always-
+      // behind z-index: a row's cells sit above every cell in the row above
+      // it, so a tall obstacle's canopy (which overflows upward into the row
       // above, see .map-tile-obstacle) correctly paints over whatever's
       // there - including the player - while a player standing in a row
       // below an obstacle still renders in front of it, same as any other
       // ground content would.
-      cell.style.zIndex = String(y);
+      cell.style.zIndex = String(row);
       const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
       const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
         ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
@@ -488,8 +533,7 @@ function render() {
     }
   }
 
-  rootEl.innerHTML = '';
-  rootEl.appendChild(grid);
+  viewport.appendChild(grid);
 }
 
 function tryMove(dx, dy) {
@@ -604,23 +648,14 @@ function handleKeydown(event) {
   tryMove(delta[0], delta[1]);
 }
 
-// Works around a Safari-specific bug: a CSS Grid whose tracks size
-// aspect-ratio children (.map-grid's `repeat(N, 1fr)` tracks / .map-tile's
-// `aspect-ratio: 1`) doesn't reliably re-run its track-sizing algorithm when
-// the grid's own container shrinks on a live window resize, leaving the map
-// visually stuck at its old, larger size until a full page reload forces a
-// fresh layout - confirmed live via screenshots (Safari stays big after a
-// grow-then-shrink resize; Chrome/Firefox don't have this bug at all).
-// Forcing a synchronous reflow on resize (toggling display off and back on,
-// both before the next paint, so nothing actually flashes) makes Safari
-// redo the track-sizing pass against the grid's new, correct size.
+// Window resize can change how many tiles fit in the viewport (see
+// computeViewportTileCount) - re-render from scratch to pick that up,
+// which also sidesteps the old Safari-specific grid-track-sizing bug this
+// function used to work around (that bug was specific to 1fr-stretched
+// tracks, which the fixed-pixel-size grid above no longer uses).
 function handleResize() {
-  if (!rootEl) return;
-  const grid = rootEl.querySelector('.map-grid');
-  if (!grid) return;
-  grid.style.display = 'none';
-  void grid.offsetHeight;
-  grid.style.display = '';
+  if (!rootEl || !mapConfig) return;
+  render();
 }
 
 export function mount(root, props) {

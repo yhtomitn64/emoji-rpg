@@ -3,20 +3,25 @@ body { margin: 0; background: #222; color: #eee; }
 #hud { padding: 8px; background: #111; font-size: 1.1rem; }
 #app { padding: 8px; transition: filter 0.3s ease; }
 
+/* The camera's visible window - a fixed real-world size (not stretched to
+   fill the browser window, unlike the old whole-screen grid), so how much
+   of the stitched world is visible depends on the player's actual screen
+   size (mobile sees less land) rather than on the game itself. See
+   docs/superpowers/specs/2026-08-28-continuous-world-camera-design.md. */
+.map-viewport {
+  width: min(100%, 900px);
+  height: min(70vh, 660px);
+  margin: 0 auto;
+  /* A tall obstacle overlaps upward into the row above it (see
+     .map-tile-obstacle below) - clipping here cuts that overflow at the
+     viewport's own edge while leaving every interior overlap untouched. */
+  overflow: hidden;
+}
 .map-grid {
   display: grid;
   gap: 0;
-  /* A tall obstacle overlaps upward into the row above it (see
-     .map-tile-obstacle below) - fine for an interior tile, since the row
-     above absorbs it, but the top row and outer columns have no
-     neighbor to absorb into, so the canopy used to bleed straight past
-     the game's own border into the page/HUD behind it. Clipping here
-     cuts that overflow at the map's own edge while leaving every
-     interior overlap untouched. */
-  overflow: hidden;
 }
 .map-tile {
-  aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,7 +29,8 @@ body { margin: 0; background: #222; color: #eee; }
   background: #333;
   position: relative;
   /* Lets .map-tile-obstacle size itself off this tile's own rendered
-     height (cqb units), regardless of viewport/column count. */
+     height (cqb units) - a fixed pixel size now, not a 1fr-stretched
+     column. */
   container-type: size;
 }
 /* Solid green so adjacent grass tiles blend into one contiguous field

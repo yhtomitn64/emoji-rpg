@@ -45,14 +45,13 @@ test('mapScreen DOM - quest board glow', async (t) => {
   });
 });
 
-// Safari has a known bug where a CSS Grid whose tracks size aspect-ratio
-// children (.map-grid / .map-tile) doesn't re-run its track-sizing pass on
-// a live window resize, leaving the map visually stuck at its old, larger
-// size until a full reload. jsdom has no real layout engine, so this can't
-// prove the visual bug is fixed - it proves the workaround mechanism (a
-// forced reflow on resize) actually fires, which is the class of thing this
-// suite already scopes itself to (see the file header above).
-test('mapScreen DOM - resize reflow workaround', async (t) => {
+// Old Safari-specific bug: a CSS Grid whose tracks size aspect-ratio
+// children (.map-grid / .map-tile) didn't reliably re-run its track-sizing
+// pass on a live window resize. The grid is fixed-pixel-sized now (not
+// 1fr-stretched), and render() rebuilds the whole viewport/grid from
+// scratch, so this now just confirms a resize triggers a fresh render
+// rather than leaving the old grid element in place.
+test('mapScreen DOM - resize triggers a fresh render', async (t) => {
   t.beforeEach(() => setupDom());
   t.afterEach(async () => {
     const { unmount } = await import('../js/screens/mapScreen.js');
@@ -60,18 +59,13 @@ test('mapScreen DOM - resize reflow workaround', async (t) => {
     teardownDom();
   });
 
-  await t.test('window resize forces the map grid through a display toggle', async () => {
+  await t.test('window resize replaces the mounted map grid element', async () => {
     const root = await mountTown(baseState());
-    const grid = root.querySelector('.map-grid');
-    const displayValues = [];
-    Object.defineProperty(grid.style, 'display', {
-      configurable: true,
-      get() { return this._display || ''; },
-      set(v) { this._display = v; displayValues.push(v); },
-    });
+    const gridBefore = root.querySelector('.map-grid');
 
     window.dispatchEvent(new Event('resize'));
 
-    assert.deepEqual(displayValues, ['none', '']);
+    const gridAfter = root.querySelector('.map-grid');
+    assert.notEqual(gridBefore, gridAfter, 'expected resize to rebuild the map grid element');
   });
 });
