@@ -238,11 +238,30 @@ one-off task.
       dungeon entrance stay pre-cleared, so losing the tools only costs a
       walk back to refight each guardian - quick. If it resets alongside
       tools, the player replays the actual tool-gated terrain, closer to
-      Timothy's "go through the game flow" phrasing - and this is
-      provably safe to do: the tool dungeon entrances are, by definition,
-      reachable with zero tools (that's how a first-time player gets their
-      first tool at all), so a full `clearedGates` reset can't strand
-      anyone.
+      Timothy's "go through the game flow" phrasing.
+
+      **Correction, 2026-08-29 (Timothy):** my first pass at this claimed
+      every tool dungeon entrance is independently reachable with zero
+      tools - wrong. Only the axe dungeon is: by design, the tools form a
+      strict earn-in-order chain (axe first, which opens the way to the
+      pick area; pick, and sometimes axe again, opens the way to canoe;
+      canoe opens the way to the dragon). A full `clearedGates` reset is
+      still safe, but for a different, correct reason: it's not "every
+      entrance is toolless-reachable," it's "resetting inventory +
+      clearedGates together reproduces the exact same reachability graph
+      a brand-new save starts with," and that graph is already solvable
+      in order (that's how every first-time player does it) - not
+      independent per-entrance toolless access. Caught myself overstating
+      this twice in the same note - the "staged/tool-sequence-aware
+      reachability checker" item further below in this doc (under
+      Multi-zone progression) that would actually *validate* this chain
+      mechanically doesn't exist yet either ("Check Map" today only
+      checks the main dungeon's own reachability, not each tool
+      dungeon's in sequence). So: safety here rests on the map's known,
+      hand-placed design (axe → pick → canoe → dragon, per Timothy
+      directly), not on any automated check - worth having Timothy
+      confirm the exact chain (does canoe need axe too, or pick alone?)
+      before this ships, rather than re-deriving it from the code again.
     - **Retroactive cleanup for saves already mid-NG+-cycle, requested by
       Timothy: "remove them from any current NG+ that did not acquire
       them again if you can tell. If you can't tell that's fine, next
