@@ -6,6 +6,27 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.2',
+    date: '2026-08-29',
+    highlights: [
+      'Dragon Fang Blade, Fossil Fang, and Dragon Scale Mail (the dragon\'s own boss-drop gear) got a stat buff.',
+      'Fixed upgrading a Fine or Superior copy of gear at the smith sharing its upgrade level with the Plain copy — each quality tier now upgrades independently.',
+      'Fixed the inventory list sometimes showing the same stat change for a Plain and a Fine copy of the same item, even though the Fine copy is genuinely stronger.',
+      'Fixed the Shop/Smith screen\'s close button overlapping a long title.',
+    ],
+  },
+  {
+    version: '0.7.1',
+    date: '2026-08-29',
+    highlights: [
+      'Inventory screen now has switchable tabs (Gear/Materials/Potions/Tools) instead of one long scrolling list, plus a sort control.',
+      'The map now fills the actual size of your browser window instead of stopping at a fixed size.',
+      'The header now stays visible at the top of the screen instead of scrolling out of view.',
+      'The random mini-dungeon map marker no longer uses the same icon as the mining pick, so it\'s no longer confusable with actually receiving one.',
+      'Fixed the tool-pickup celebration animation popping up in the middle of the screen instead of around your character, and slowed it down for more effect.',
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-08-29',
     highlights: [

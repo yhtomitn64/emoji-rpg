@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-29
+
 ### Changed
 - Dragon Fang Blade (attack 14→16), Fossil Fang (attack 12→14), and Dragon
   Scale Mail (defense 10→12, maxHp 15→18) all buffed - these named boss/elite
@@ -53,6 +55,15 @@ public API, no formal release process — commits land straight on
 - CI now fails a deploy if non-doc files changed in a push but
   `CHANGELOG.md` wasn't touched in that same push, so a code change can't
   ship without at least an `## [Unreleased]` entry.
+- The in-game footer/"What's New" screen (`js/data/playerChangelog.js`,
+  read by `PLAYER_CHANGELOG[0]` in `js/main.js`) was stuck showing `v0.7.0`
+  even after `0.7.1` shipped - the dev-facing `CHANGELOG.md` got its version
+  bump, but the separate player-facing changelog never got a matching entry,
+  so there was no way to tell which version was actually live. Backfilled
+  the missing `0.7.1` entry and added `tests/versionSync.test.js`, which
+  fails `npm run test` (and therefore CI) whenever `CHANGELOG.md`'s newest
+  dated version and `PLAYER_CHANGELOG[0].version` drift apart, so a future
+  version bump can't ship without updating both together.
 
 ## [0.7.1] - 2026-08-29
 
