@@ -24,6 +24,20 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-08-29
+
+### Changed
+- Town's own tile grid grown from 8x6 to 16x12 - it was never actually
+  resized before, but the viewport around it grew a lot in 0.7.1 (fills
+  the real browser window instead of a fixed 1020x700px cap), so the same
+  small town started reading as a tiny cluster in a much bigger empty
+  viewport. `startPosition` moved to match the regrown layout.
+- Shop buy buttons: gear rows (weapons/armor/accessories) now offer a
+  single "Buy" button instead of the full 1x/5x/10x/100x set - equipping
+  only ever uses one copy at a time, so bulk-buying gear was never
+  actually useful. The Potion row (the only `type: 'consumable'` in the
+  shop) keeps the full bulk-quantity set.
+
 ## [0.7.6] - 2026-08-29
 
 ### Changed

@@ -1,7 +1,15 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
 import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear } from '../systems/inventory.js';
 
-const BUY_QUANTITIES = [1, 5, 10, 100];
+// Raised 2026-08-29: "you never really need to buy more than 1 equipment
+// item, the only thing that really needs multiples is the potions." Bulk
+// quantities only make sense for stackable consumables - equipping is a
+// one-copy-at-a-time slot, so a Buy 5x/10x/100x on a sword just clutters
+// the row with buttons that are never useful (worst case, buying extras
+// unequipped, which Sell Duplicate Gear above now exists specifically to
+// clean back up).
+const CONSUMABLE_BUY_QUANTITIES = [1, 5, 10, 100];
+const GEAR_BUY_QUANTITIES = [1];
 
 let rootEl = null;
 let state = null;
@@ -49,9 +57,11 @@ function render() {
     // Tier-aware: only the Plain copy is "this row, equipped" - a worn Fine/
     // Superior copy is a different (better) item than what the shop sells.
     const isEquipped = item.slot && state.equipment[item.slot] === itemId && !state.equipmentTiers?.[item.slot];
-    const buyButtons = BUY_QUANTITIES.map((qty) => {
+    const buyQuantities = item.type === 'consumable' ? CONSUMABLE_BUY_QUANTITIES : GEAR_BUY_QUANTITIES;
+    const buyButtons = buyQuantities.map((qty) => {
       const affordable = maxAffordableQuantity(state.player.gold, item.price, qty) === qty;
-      return `<button data-item="${itemId}" data-qty="${qty}" ${affordable ? '' : 'disabled'}>Buy ${qty}x</button>`;
+      const label = qty === 1 ? 'Buy' : `Buy ${qty}x`;
+      return `<button data-item="${itemId}" data-qty="${qty}" ${affordable ? '' : 'disabled'}>${label}</button>`;
     }).join('');
     return `<div class="shop-row">
       <span title="${describeItem(itemId)}">${item.emoji} ${item.name} — ${item.price}g${ownedQty > 0 ? ` (own ${ownedQty})` : ''}${isEquipped ? ' ✓ Equipped' : ''}</span>

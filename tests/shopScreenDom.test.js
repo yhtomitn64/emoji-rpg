@@ -70,3 +70,30 @@ test('shopScreen DOM - Sell Duplicate Gear', async (t) => {
     assert.equal(state.inventory.find((e) => e.itemId === 'leatherScrap').quantity, 5);
   });
 });
+
+// Raised 2026-08-29: "you never really need to buy more than 1 equipment
+// item, the only thing that really needs multiples is the potions."
+test('shopScreen DOM - buy quantity buttons', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/shopScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('a gear row (e.g. Iron Sword) only offers a single Buy button', async () => {
+    const root = await mountShop(buildState());
+    const swordRow = [...root.querySelectorAll('.shop-row')].find((row) => row.textContent.includes('Iron Sword'));
+    const buyButtons = swordRow.querySelectorAll('button[data-item="ironSword"]');
+    assert.equal(buyButtons.length, 1);
+    assert.equal(buyButtons[0].dataset.qty, '1');
+    assert.equal(buyButtons[0].textContent, 'Buy');
+  });
+
+  await t.test('the Potion row offers the full bulk-quantity set', async () => {
+    const root = await mountShop(buildState({ player: { gold: 100000 } }));
+    const potionRow = [...root.querySelectorAll('.shop-row')].find((row) => row.textContent.includes('Potion'));
+    const quantities = [...potionRow.querySelectorAll('button[data-item="potion"]')].map((btn) => btn.dataset.qty);
+    assert.deepEqual(quantities, ['1', '5', '10', '100']);
+  });
+});

@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.7',
+    date: '2026-08-29',
+    highlights: [
+      'Town is noticeably bigger again, so it doesn\'t look so small in the middle of the wider map view.',
+      'The shop now only shows one "Buy" button for weapons/armor/accessories instead of the 1x/5x/10x/100x set — potions still let you buy in bulk.',
+    ],
+  },
+  {
     version: '0.7.6',
     date: '2026-08-29',
     highlights: [
