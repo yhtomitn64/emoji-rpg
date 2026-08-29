@@ -1,5 +1,5 @@
 import { TILES } from '../tiles.js';
-import { directionFromDelta, pickTileVariant, hash01, isChokepointTile, computeViewportOrigin } from '../systems/world.js';
+import { pickTileVariant, hash01, isChokepointTile, computeViewportOrigin } from '../systems/world.js';
 import { screenToGlobal, globalToScreen, clusterBounds } from '../systems/worldGrid.js';
 import { markVisited, markDirection, isVisited, getVisitCount, getVisitDirs } from '../systems/exploration.js';
 import { trailWearFraction, trailStrokeWidthBetween, trailBorderFraction, trailDotRadius, trailHubRadius, edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor, trailColorForFraction } from '../systems/trail.js';
@@ -556,19 +556,18 @@ function render() {
 }
 
 function tryMove(dx, dy) {
-  const nx = state.position.x + dx;
-  const ny = state.position.y + dy;
+  const currentGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
+  const resolved = globalToScreen(worldGrid, mapConfig.id, currentGlobal.gx + dx, currentGlobal.gy + dy);
+  // Past this cluster's outer edge - e.g. a one-screen map's (town,
+  // dungeon) own array bounds, or (in principle) the wilderness cluster's
+  // outermost rectangle, though that's unreachable in practice since
+  // isSealedWorldEdge already makes every true boundary ring impassable
+  // before a step could ever resolve past it.
+  if (!resolved) return;
+  const { screenId: nextScreenId, localX: nx, localY: ny } = resolved;
+  const screenConfig = maps[nextScreenId];
 
-  if (isOutOfBounds(nx, ny)) {
-    const direction = directionFromDelta(dx, dy);
-    const neighborId = mapConfig.neighbors && mapConfig.neighbors[direction];
-    if (neighborId) {
-      callbacks.onEdgeTransition(neighborId, direction, { ...state.position });
-    }
-    return;
-  }
-
-  const tile = tileAt(mapConfig, nx, ny);
+  const tile = tileAt(screenConfig, nx, ny);
   if (!tile) return;
   if (!tile.walkable) {
     if (!tile.requiresTool) return;
@@ -580,27 +579,39 @@ function tryMove(dx, dy) {
     // Permanently convert thicket/mountain to a stump/rubble marker the
     // first time it's crossed - water is absent from CLEARED_GATE_REPLACEMENT
     // on purpose, so canoeing across it never changes the tile (raised
-    // 2026-08-28).
+    // 2026-08-28). This now also fires correctly when the gate sits on the
+    // very first tile of a screen crossed into from another screen -
+    // previously handled by a separate teleport path (handleEdgeTransition)
+    // that never ran this check at all (bug raised 2026-08-28).
     if (CLEARED_GATE_REPLACEMENT.has(tile)) {
-      Object.assign(state, { clearedGates: markGateCleared(state.clearedGates, mapConfig.id, nx, ny) });
+      Object.assign(state, { clearedGates: markGateCleared(state.clearedGates, screenConfig.id, nx, ny) });
     }
   }
 
-  // Record which edge this step actually crossed on both sides of it: the
-  // tile being left gets the direction moved (its own exit edge), the tile
-  // being entered gets the opposite (the edge it was entered through) - see
-  // exploration.js's markDirection/markVisited. This is what replaces
-  // inferring a trail's connected directions from "is the neighbor also
-  // visited," which produced false connections (a "ladder" of rungs
-  // between two separately-walked parallel corridors) whenever two tiles
-  // happened to both be visited without the player ever actually stepping
-  // directly between them.
+  // Record which edge this step actually crossed on both sides of it - see
+  // exploration.js's markDirection/markVisited. Recorded against
+  // mapConfig.id (the screen being LEFT) before the current-screen swap
+  // below, and against screenConfig.id (the screen being ENTERED) after -
+  // these are usually the same screen, and are deliberately different ids
+  // exactly when this step crosses a screen boundary.
   const exitDir = trailDirFromDelta(dx, dy);
   if (exitDir) {
     Object.assign(state, { visited: markDirection(state.visited, mapConfig.id, state.position.x, state.position.y, exitDir) });
   }
   state.position = { x: nx, y: ny };
-  Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, nx, ny, exitDir ? TRAIL_OPPOSITE_DIR[exitDir] : undefined) });
+  Object.assign(state, { visited: markVisited(state.visited, screenConfig.id, nx, ny, exitDir ? TRAIL_OPPOSITE_DIR[exitDir] : undefined) });
+
+  // Swap which screen is "current" inline - no remount, no teleport, no
+  // separate onEdgeTransition callback. state.map is set directly (mirrors
+  // every other state.* field this function already writes for
+  // persistence's benefit, e.g. state.visited/state.clearedGates above) so
+  // main.js's own persist()/exitMap logic sees the right screen without a
+  // dedicated callback round-trip.
+  if (screenConfig.id !== mapConfig.id) {
+    mapConfig = screenConfig;
+    state.map = screenConfig.id;
+    announceScreenIfNew(screenConfig);
+  }
 
   const discovery = resolveStepDiscovery(state, mapConfig, nx, ny, tile, Math.random, isScreenChokepoint);
   if (discovery.miniDungeons) {
@@ -677,6 +688,17 @@ function handleResize() {
   render();
 }
 
+// Fires callbacks.onFirstVisit the first time the player ever sets foot on
+// `screenConfig` - called once from mount() for the screen the game
+// actually starts/resumes on, and again from tryMove() whenever a step
+// crosses into a screen that isn't the one just left (see tryMove below).
+function announceScreenIfNew(screenConfig) {
+  if (!hasSeenScreen(state.seenScreens, screenConfig.id)) {
+    Object.assign(state, { seenScreens: markScreenSeen(state.seenScreens, screenConfig.id) });
+    callbacks.onFirstVisit(screenConfig.id);
+  }
+}
+
 export function mount(root, props) {
   rootEl = root;
   state = props.state;
@@ -686,10 +708,7 @@ export function mount(root, props) {
   callbacks = props.callbacks;
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
   render();
-  if (!hasSeenScreen(state.seenScreens, mapConfig.id)) {
-    Object.assign(state, { seenScreens: markScreenSeen(state.seenScreens, mapConfig.id) });
-    callbacks.onFirstVisit(mapConfig.id);
-  }
+  announceScreenIfNew(mapConfig);
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('resize', handleResize);
 }
