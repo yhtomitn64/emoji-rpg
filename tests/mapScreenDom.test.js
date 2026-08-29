@@ -4,10 +4,11 @@
 // pattern exists.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, keydown } from './helpers/dom.js';
 import { createNewGame } from '../js/state.js';
 import { townMap } from '../js/maps/townMap.js';
 import { buildWorldGrid } from '../js/systems/worldGrid.js';
+import { isGateCleared } from '../js/systems/toolGates.js';
 
 function baseState(overrides = {}) {
   return { ...createNewGame(), position: { ...townMap.startPosition }, ...overrides };
@@ -83,5 +84,94 @@ test('mapScreen DOM - resize triggers a fresh render', async (t) => {
     const gridAfter = root.querySelector('.map-grid');
     assert.ok(gridAfter, 'expected a .map-grid element to still exist after resize');
     assert.notEqual(gridBefore, gridAfter, 'expected resize to rebuild the map grid element');
+  });
+});
+
+// Two tiny synthetic screens (same fakeScreen-style minimalism as
+// worldGrid.test.js), linked west/east, with a tool-gated mountain sitting
+// right on the shared boundary's far side. This exercises tryMove's real
+// keyboard path end to end across a screen crossing - not just a hand-trace
+// of the code - since nothing else in this file drives tryMove at all.
+// Regresses the bug this task fixed: crossing a screen boundary onto a
+// tool-gated tile used to teleport past tryMove's own passability check
+// entirely (the old onEdgeTransition path), so a pick-in-hand player
+// landing on a mountain never converted it to rubble.
+test('mapScreen DOM - crossing a screen boundary onto a tool-gated tile', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('a single step across the boundary clears the mountain, same as any mid-screen step', async () => {
+    const westScreen = {
+      id: 'west',
+      legend: { '.': 'grass' },
+      rows: ['...', '...', '...'],
+      neighbors: { east: 'east' },
+      monsterTable: [],
+      encounterChance: 0,
+      cacheChance: 0,
+    };
+    // Left column is a mountain wall of 'M' tiles - x=0 is the tile
+    // immediately across the shared boundary with `west`. Top/bottom rows
+    // (y=0, y=2) are unused by this test but would render as mountainWall
+    // regardless of legend content (isSealedWorldEdge - east has no
+    // north/south neighbor), which is fine since the crossing happens on
+    // the middle row (y=1).
+    const eastScreen = {
+      id: 'east',
+      legend: { '.': 'grass', M: 'mountain' },
+      rows: ['M..', 'M..', 'M..'],
+      neighbors: { west: 'west' },
+      monsterTable: [],
+      encounterChance: 0,
+      cacheChance: 0,
+    };
+    const maps = { west: westScreen, east: eastScreen };
+    const worldGrid = buildWorldGrid(maps);
+    // toolGateHintsShown is normally back-filled onto state by main.js's own
+    // migration (see main.js), not part of createNewGame()'s defaults -
+    // checkGateProximity (called at the end of every successful tryMove)
+    // needs it present or it throws reading an undefined object.
+    const state = baseState({
+      position: { x: 2, y: 1 },
+      inventory: [{ itemId: 'miningPick', quantity: 1 }],
+      toolGateHintsShown: {},
+    });
+
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    mount(root, {
+      state,
+      mapConfig: westScreen,
+      maps,
+      worldGrid,
+      callbacks: {
+        onFirstVisit: () => {},
+        onMove: () => {},
+        onToolGateCleared: () => {},
+        onLockedGate: () => {},
+        onToolGateNearby: () => {},
+        onAction: () => {},
+        onEnterMiniDungeon: () => {},
+        onCacheFound: () => {},
+        onGateReward: () => {},
+        onEncounter: () => {},
+      },
+    });
+
+    // west is 3 tiles wide (x: 0..2); starting at x=2, one step east
+    // resolves past west's own local bounds and onto east's (0, 1) - the
+    // mountain tile - via worldGrid, not a teleport.
+    keydown('ArrowRight');
+
+    assert.equal(state.map, 'east', 'expected the current screen to swap to east after crossing the boundary');
+    assert.equal(
+      isGateCleared(state.clearedGates, 'east', 0, 1),
+      true,
+      'expected the mountain tile crossed into from another screen to be marked cleared, same as a mid-screen tool-gate crossing',
+    );
   });
 });

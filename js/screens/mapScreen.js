@@ -177,12 +177,15 @@ const KEY_TO_DELTA = {
 
 // Whichever terrain a screen's true outer world-edge (a side with no
 // neighbor at all - the literal boundary of the 5x5 wilderness grid) happens
-// to have painted on it doesn't matter for actually leaving the map:
-// handleEdgeTransition already refuses to cross when neighbors[side] is
-// null, regardless of tile content. This makes the *visual* seal automatic
-// too, so a sealed edge never depends on remembering to paint it - every
-// true boundary cell always renders as mountainWall, overriding whatever
-// terrain is actually in the file there.
+// to have painted on it doesn't matter for actually leaving the map: this
+// override makes every true boundary cell render as mountainWall (not
+// walkable, no requiresTool), so tryMove's own `!tile.walkable` check is
+// what blocks a step off the edge of the world - the seal is self-enforcing
+// via the same tile-passability path as any other obstacle, not a separate
+// mechanism resting on some other function refusing the crossing. This also
+// makes the seal automatic visually, so it never depends on remembering to
+// paint it - every true boundary cell overrides whatever terrain is
+// actually in the file there.
 function isSealedWorldEdge(screenConfig, x, y) {
   if (!screenConfig.neighbors) return false;
   const width = screenConfig.rows[0].length;
