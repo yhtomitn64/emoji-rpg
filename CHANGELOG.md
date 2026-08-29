@@ -24,6 +24,20 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-08-29
+
+### Fixed
+- Spamming basic Attack decays its own damage down to a 0% floor (once
+  all 5 abilities are unlocked), but Ember Ring's `elementalProcDamage`
+  is a flat stat unrelated to the hit's own damage number, so it kept
+  dealing its full fixed proc damage even on a fully-decayed 0-damage
+  spammed swing - defeating the point of the spam throttle.
+  `applyOnHitEffects` (`js/screens/battleScreen.js`) now scales the
+  elemental proc's damage by the same streak multiplier as the attack
+  itself; ability hits (never spam-decayed) are unaffected.
+  `lifestealPercent` needed no equivalent fix - it's already a
+  percentage of the real, already-decayed hit damage.
+
 ## [0.7.4] - 2026-08-29
 
 ### Added

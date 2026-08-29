@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.5',
+    date: '2026-08-29',
+    highlights: [
+      'Fixed the Ember Ring\'s bonus fire damage still hitting at full strength even when spamming Attack had decayed your regular hit down to zero — it now falls off right along with it.',
+    ],
+  },
+  {
     version: '0.7.4',
     date: '2026-08-29',
     highlights: [

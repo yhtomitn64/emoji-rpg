@@ -97,14 +97,24 @@ function buildMonsterCombatant(monsterId, overrides) {
 // crit/knockback/combo bonuses are each their own named mechanic in this
 // file already. Called once per monster actually hit by a player action
 // (once for a single-target hit, once per monster for an AOE ability).
-function applyOnHitEffects(target, damage) {
+// damageMultiplier defaults to 1 (abilities' own on-hit effects always land
+// at full strength) - the basic Attack call site passes its real
+// streakMultiplier instead. Raised 2026-08-29: spammed Attack's own damage
+// decays down to a 0% floor (attackStreakMultiplier), but elementalProcDamage
+// is a flat stat unrelated to the hit's own damage number, so it kept
+// dealing full proc damage even on a 0-damage spammed swing - defeating the
+// point of the spam throttle. lifestealPercent needs no equivalent fix: it's
+// already a percentage of `damage`, which is already the real, already-
+// decayed hit, so it naturally scales down with it.
+function applyOnHitEffects(target, damage, damageMultiplier = 1) {
   if (playerEffectBonuses.lifestealPercent > 0) {
     const healAmount = Math.round(damage * playerEffectBonuses.lifestealPercent / 100);
     playerCombatant.hp = Math.min(playerCombatant.maxHp, playerCombatant.hp + healAmount);
   }
   if (playerEffectBonuses.elementalProcChance > 0 && Math.random() * 100 < playerEffectBonuses.elementalProcChance) {
-    target.hp = Math.max(0, target.hp - playerEffectBonuses.elementalProcDamage);
-    log.push(`🔥 Bonus fire damage to ${target.name}: ${playerEffectBonuses.elementalProcDamage}!`);
+    const procDamage = Math.round(playerEffectBonuses.elementalProcDamage * damageMultiplier);
+    target.hp = Math.max(0, target.hp - procDamage);
+    log.push(`🔥 Bonus fire damage to ${target.name}: ${procDamage}!`);
   }
 }
 
@@ -664,7 +674,7 @@ function resolveOneAttack(countsTowardStreak) {
   // (display: none), so a killing blow's damage number/flash/shake is
   // actually visible instead of rendering onto an already-hidden element.
   playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
-  applyOnHitEffects(target, result.damage);
+  applyOnHitEffects(target, result.damage, streakMultiplier);
 }
 
 function playerAttack() {
