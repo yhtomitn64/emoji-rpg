@@ -43,6 +43,21 @@ test('mapScreen DOM - quest board glow', async (t) => {
     const root = await mountTown(baseState({ questProgress: { boar: 0 } }));
     assert.equal(root.querySelector('.map-tile-quest-ready'), null);
   });
+
+  // jsdom's clientWidth/clientHeight always read 0 (no real layout engine),
+  // so mapScreen.js falls back to DEFAULT_VIEWPORT_TILES_WIDE/TALL - every
+  // one of those viewport cells must render its own .map-tile div, even the
+  // ones landing outside town's real 8x6 extent (town is far smaller than
+  // the fallback viewport, so most cells resolve to nothing and render
+  // content-less - see render()'s `if (!resolved)` branch). A regression
+  // here (e.g. skipping unresolved cells outright instead of rendering an
+  // empty placeholder) previously let CSS grid auto-flow silently pack the
+  // real cells into the wrong rows/columns without any test catching it.
+  await t.test('every viewport cell renders its own .map-tile div, including ones outside the map itself', async () => {
+    const root = await mountTown(baseState());
+    const tileCount = root.querySelectorAll('.map-tile').length;
+    assert.equal(tileCount, 21 * 13, 'expected one .map-tile per viewport cell (DEFAULT_VIEWPORT_TILES_WIDE x DEFAULT_VIEWPORT_TILES_TALL)');
+  });
 });
 
 // Old Safari-specific bug: a CSS Grid whose tracks size aspect-ratio
@@ -66,6 +81,7 @@ test('mapScreen DOM - resize triggers a fresh render', async (t) => {
     window.dispatchEvent(new Event('resize'));
 
     const gridAfter = root.querySelector('.map-grid');
+    assert.ok(gridAfter, 'expected a .map-grid element to still exist after resize');
     assert.notEqual(gridBefore, gridAfter, 'expected resize to rebuild the map grid element');
   });
 });

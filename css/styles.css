@@ -9,8 +9,13 @@ body { margin: 0; background: #222; color: #eee; }
    size (mobile sees less land) rather than on the game itself. See
    docs/superpowers/specs/2026-08-28-continuous-world-camera-design.md. */
 .map-viewport {
-  width: min(100%, 900px);
-  height: min(70vh, 660px);
+  /* 1020px / 700px at TILE_SIZE_PX=48 (js/screens/mapScreen.js) clear
+     dungeonMap's 20x11 - the widest/tallest non-wilderness map - with
+     margin, so it renders with no panning on a normal desktop window (see
+     DEFAULT_VIEWPORT_TILES_WIDE/TALL). Genuinely small windows still see
+     less via the min(100%, ...)/min(70vh, ...) caps - that's intentional. */
+  width: min(100%, 1020px);
+  height: min(70vh, 700px);
   margin: 0 auto;
   /* A tall obstacle overlaps upward into the row above it (see
      .map-tile-obstacle below) - clipping here cuts that overflow at the

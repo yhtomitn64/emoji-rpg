@@ -53,9 +53,12 @@ const TILE_SIZE_PX = 48;
 // jsdom has no real layout engine (tests/helpers/dom.js), so
 // .clientWidth/.clientHeight always read 0 there - this is the fallback
 // viewport size used whenever a real measurement isn't available, keeping
-// DOM tests deterministic without needing to stub layout.
-const DEFAULT_VIEWPORT_TILES_WIDE = 15;
-const DEFAULT_VIEWPORT_TILES_TALL = 11;
+// DOM tests deterministic without needing to stub layout. Also doubles as
+// the size floor a real .map-viewport must clear (see its CSS in
+// css/styles.css) - dungeonMap is 20x11, the widest/tallest non-wilderness
+// map, so these need enough headroom to show it with no panning.
+const DEFAULT_VIEWPORT_TILES_WIDE = 21;
+const DEFAULT_VIEWPORT_TILES_TALL = 13;
 
 // Important landmarks the player needs to spot at a glance - always full
 // size, never randomized/overlapping (unlike RANDOM_SIZE_OBSTACLES, these
@@ -401,14 +404,30 @@ function render() {
       const gx = originGx + col;
       const gy = originGy + row;
       const resolved = globalToScreen(worldGrid, mapConfig.id, gx, gy);
-      // Unreachable in practice: computeViewportOrigin always clamps the
-      // window fully inside clusterBounds, so every visible cell resolves.
-      // Kept as a defensive skip rather than assuming that invariant blindly.
-      if (!resolved) continue;
+
+      const cell = document.createElement('div');
+      // Explicit placement (not CSS auto-flow) so a gap below - a viewport
+      // cell that resolves to nothing - just renders as an empty tile in its
+      // correct spot instead of every subsequent real cell shifting left to
+      // fill the hole. Grid lines are 1-indexed.
+      cell.style.gridColumn = String(col + 1);
+      cell.style.gridRow = String(row + 1);
+
+      // Reachable whenever the viewport is bigger than the current screen's
+      // whole cluster (computeViewportOrigin then centers the cluster inside
+      // the viewport instead of panning past its edges - see
+      // js/systems/world.js) - true for every map smaller than the viewport:
+      // town, mini-dungeons, tool dungeons. The padding cells around that
+      // centered cluster resolve to nothing here and render as a bare,
+      // content-less .map-tile.
+      if (!resolved) {
+        cell.className = 'map-tile';
+        grid.appendChild(cell);
+        continue;
+      }
       const { screenId, localX: x, localY: y } = resolved;
       const screenConfig = maps[screenId];
 
-      const cell = document.createElement('div');
       const tile = tileAt(screenConfig, x, y);
       const isPlayer = screenId === mapConfig.id && state.position.x === x && state.position.y === y;
       const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, screenId, x, y);
