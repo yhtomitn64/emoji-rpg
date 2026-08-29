@@ -602,6 +602,25 @@ function handleKeydown(event) {
   tryMove(delta[0], delta[1]);
 }
 
+// Works around a Safari-specific bug: a CSS Grid whose tracks size
+// aspect-ratio children (.map-grid's `repeat(N, 1fr)` tracks / .map-tile's
+// `aspect-ratio: 1`) doesn't reliably re-run its track-sizing algorithm when
+// the grid's own container shrinks on a live window resize, leaving the map
+// visually stuck at its old, larger size until a full page reload forces a
+// fresh layout - confirmed live via screenshots (Safari stays big after a
+// grow-then-shrink resize; Chrome/Firefox don't have this bug at all).
+// Forcing a synchronous reflow on resize (toggling display off and back on,
+// both before the next paint, so nothing actually flashes) makes Safari
+// redo the track-sizing pass against the grid's new, correct size.
+function handleResize() {
+  if (!rootEl) return;
+  const grid = rootEl.querySelector('.map-grid');
+  if (!grid) return;
+  grid.style.display = 'none';
+  void grid.offsetHeight;
+  grid.style.display = '';
+}
+
 export function mount(root, props) {
   rootEl = root;
   state = props.state;
@@ -614,10 +633,12 @@ export function mount(root, props) {
     callbacks.onFirstVisit(mapConfig.id);
   }
   window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('resize', handleResize);
 }
 
 export function unmount() {
   window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('resize', handleResize);
 }
 
 export function pause() {

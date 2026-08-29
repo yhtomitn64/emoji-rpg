@@ -24,6 +24,24 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-28
+
+### Fixed
+- Resizing the browser window (grow then shrink) left the map area stuck
+  at its old, larger size until a full page reload — Safari-only; Chrome
+  and Firefox never had this bug. Root cause: Safari doesn't reliably
+  re-run CSS Grid's track-sizing algorithm when a grid whose tracks size
+  `aspect-ratio` children (`.map-grid`'s `repeat(N, 1fr)` tracks /
+  `.map-tile`'s `aspect-ratio: 1`, `css/styles.css`) has its own container
+  shrink on a live resize — confirmed via Timothy's own Safari screenshots
+  (grid stayed large after a grow-then-shrink resize; reproduced the same
+  scenario in Chrome with no issue). Fixed with a `resize` listener
+  (`js/screens/mapScreen.js`) that forces a synchronous reflow of
+  `.map-grid` (toggling `display: none` → `''` before the next paint, so
+  nothing visibly flashes), which makes Safari redo the track-sizing pass
+  against the grid's corrected size. Closes the backlog's "Responsive
+  layout: browser window resize gets stuck" entry.
+
 ## [0.6.0] - 2026-08-28
 
 ### Added

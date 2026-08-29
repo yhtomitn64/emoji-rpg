@@ -42,3 +42,34 @@ test('mapScreen DOM - quest board glow', async (t) => {
     assert.equal(root.querySelector('.map-tile-quest-ready'), null);
   });
 });
+
+// Safari has a known bug where a CSS Grid whose tracks size aspect-ratio
+// children (.map-grid / .map-tile) doesn't re-run its track-sizing pass on
+// a live window resize, leaving the map visually stuck at its old, larger
+// size until a full reload. jsdom has no real layout engine, so this can't
+// prove the visual bug is fixed - it proves the workaround mechanism (a
+// forced reflow on resize) actually fires, which is the class of thing this
+// suite already scopes itself to (see the file header above).
+test('mapScreen DOM - resize reflow workaround', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('window resize forces the map grid through a display toggle', async () => {
+    const root = await mountTown(baseState());
+    const grid = root.querySelector('.map-grid');
+    const displayValues = [];
+    Object.defineProperty(grid.style, 'display', {
+      configurable: true,
+      get() { return this._display || ''; },
+      set(v) { this._display = v; displayValues.push(v); },
+    });
+
+    window.dispatchEvent(new Event('resize'));
+
+    assert.deepEqual(displayValues, ['none', '']);
+  });
+});

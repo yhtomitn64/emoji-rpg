@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.6.1',
+    date: '2026-08-28',
+    highlights: [
+      'Fixed the map staying stuck at its old, oversized layout after resizing the browser window on Safari (Chrome was never affected).',
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-08-28',
     highlights: [

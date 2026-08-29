@@ -576,6 +576,29 @@ through in a dedicated future combat pass rather than one-off adds.
 (A number of items originally captured here have since shipped — see
 BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
 
+- **Weapon-swing attack animations per ability, raised 2026-08-28.**
+  Timothy: "for our attacking I'd like to see our weapon swing at the
+  enemy and I guess match the chop/slice/sweep and so on. so different
+  animations for each type and for multiple enemies don't have multiple
+  weapons show up just have the attacks that do multimob damage hit all
+  of them at once by going through all of them." Today's battle screen
+  has no player-side weapon sprite at all — only the monster's own
+  attack is depicted (melee lunge or ranged projectile,
+  `js/screens/battleScreen.js`'s themed-attack-animation pass); the
+  player's Attack/Stab/Chop/Slash/Sweep/Super Scream just resolve
+  numerically with a hit-flash on the target, no swing visual on the
+  player's side. The ask is a distinct weapon-swing animation per
+  ability (so Chop reads differently from Slash, etc.), and for
+  multi-target hits (Sweep, which already deals full damage to every
+  living monster per `js/systems/abilities.js`) explicitly *not* to
+  render one weapon per target simultaneously — instead one swing that
+  visits/hits each enemy in turn (sequential contact), not a fan of
+  duplicate sprites. Not designed — needs its own pass: what the weapon
+  sprite actually is (an emoji? matches the equipped weapon's own
+  emoji?), where it animates from/to, per-ability motion shape (a stab
+  thrust vs. a wide arcing sweep vs. a chop's overhead swing), and how
+  the sequential multi-target hit timing lines up with the existing
+  per-monster `playHitEffect` flash/shake calls.
 - **Rung-3 gear effects, raised 2026-08-26 during the gear/progression
   design pass (see `docs/superpowers/specs/2026-08-26-item-quality-and-
   effects-design.md`):** candidate additions to that spec's "growable
@@ -866,48 +889,42 @@ to show players directly, so the in-game view is a separate, manually
 maintained translation covering only what a player would actually
 notice. See CHANGELOG.md's `[0.6.0]` entry.
 
-## Responsive layout: browser window resize gets "stuck" at the old size, raised 2026-08-28
-Timothy: "when I resize the game browser window it seems get stuck on a
-larger size of the play screen or something? then I hit refresh in
-browser and click into my character and game is nice and small and
-fits." Raised in the same breath as a related question: "is there a way
-to fix the viewport so no matter what browser size/window you are at the
-whole game area always shows?" - likely the same underlying gap, not two
-separate asks.
+## ~~Responsive layout: browser window resize gets "stuck" at the old size~~ Shipped 2026-08-28
+Raised 2026-08-28: Timothy: "when I resize the game browser window it
+seems get stuck on a larger size of the play screen or something? then I
+hit refresh in browser and click into my character and game is nice and
+small and fits." Raised in the same breath as a related question: "is
+there a way to fix the viewport so no matter what browser size/window
+you are at the whole game area always shows?" - the fix below covers
+this half; the separate "always shows the whole game area regardless of
+size" framing is really the still-open "hero-centered camera / viewport
+responsive to actual screen size" idea (Roaming visible enemies section
+above), not this bug.
 
-Not root-caused yet - no live-browser reproduction done (per the standing
-[[feedback_avoid_chrome_automation_cost]] guidance, didn't drive Chrome
-automation to chase this blind). What code inspection did rule out: there
-is no window-resize JS at all today (no `resize`/`ResizeObserver`
-listener anywhere in `js/`), and the map grid's sizing is otherwise
-relative throughout - `.map-grid` uses `grid-template-columns: repeat(N,
-1fr)` (`js/screens/mapScreen.js`), tiles use `aspect-ratio: 1`, and
-overlay panels (shop/smith/battle/etc.) use `min(90vw, 720px)`-style
-caps - none of that should need a page reload to reflow on its own.
+Code inspection first ruled out: there is no window-resize JS at all
+before this fix (no `resize`/`ResizeObserver` listener anywhere in
+`js/`), and the map grid's sizing is otherwise relative throughout -
+`.map-grid` uses `grid-template-columns: repeat(N, 1fr)`
+(`js/screens/mapScreen.js`), tiles use `aspect-ratio: 1`, and overlay
+panels (shop/smith/battle/etc.) use `min(90vw, 720px)`-style caps - none
+of that should need a page reload to reflow on its own. The first
+working theory (a `container-type: size`/`cqb` container-query
+resolution lag on the tile's own emoji sizing) turned out to be wrong.
 
-**Working theory, unconfirmed:** each `.map-tile` sets `container-type:
-size` (`css/styles.css`) so the emoji glyphs inside it can scale via
-`cqb` units off the tile's own rendered size. There's a known class of
-browser quirk where a `container-type: size` container's resolved
-container-query values (here, the `cqb` font-sizes) don't always
-re-resolve promptly when an *ancestor* resizes, even though the
-container's own box (the grid track) did shrink correctly underneath -
-which would look exactly like "the play area is stuck at the old size"
-even though the underlying grid already reflowed, and would explain why
-a fresh mount (reload + re-enter) fixes it (forces a clean layout/paint
-from scratch) while a live resize doesn't. Not confirmed - needs an
-actual live-browser resize test (devtools responsive mode, watch computed
-styles before/after) to verify this is really what's happening rather
-than something else entirely (e.g. a stale inline style left by a modal/
-dimmed-overlay transition, or a grid min-content floor from unshrinkable
-tile content).
-
-Tied to the open "hero-centered camera / viewport responsive to actual
-screen size" idea in the Roaming visible enemies section above - that's
-a bigger rendering-architecture ask for a different reason (screen-size-
-aware viewport), while this item is specifically about the *existing*
-layout failing to live-reflow on resize. Worth deciding whether they get
-fixed together or separately once this one's actually root-caused.
+**Root-caused via screenshots Timothy provided (Safari, grown-then-
+shrunk window) rather than live Chrome automation, per the standing
+[[feedback_avoid_chrome_automation_cost]] guidance:** Safari-only bug,
+confirmed absent in Chrome. Safari doesn't reliably re-run CSS Grid's
+track-sizing algorithm when a grid whose tracks size `aspect-ratio`
+children (exactly `.map-grid` + `.map-tile`) has its own container
+shrink on a live window resize - the grid visibly stayed at its old,
+larger size (overflowing the window) after growing the window and
+shrinking it back down, while Chrome always reflowed correctly. Fixed
+with a `resize` listener (`js/screens/mapScreen.js`) that forces a
+synchronous reflow of `.map-grid` (toggle `display: none` → `''` before
+the next paint, so nothing visibly flashes) - this makes Safari redo the
+track-sizing pass against the grid's corrected container size. See
+CHANGELOG.
 
 ## Discoverability / monetization
 
