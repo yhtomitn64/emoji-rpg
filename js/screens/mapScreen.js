@@ -148,6 +148,8 @@ const DECORATION_POSITION_MAX_PCT = 72;
 let rootEl = null;
 let state = null;
 let mapConfig = null;
+let maps = null;
+let worldGrid = null;
 let callbacks = null;
 
 const KEY_TO_DELTA = {
@@ -625,6 +627,8 @@ export function mount(root, props) {
   rootEl = root;
   state = props.state;
   mapConfig = props.mapConfig;
+  maps = props.maps;
+  worldGrid = props.worldGrid;
   callbacks = props.callbacks;
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
   render();

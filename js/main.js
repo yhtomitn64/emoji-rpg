@@ -60,6 +60,7 @@ import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses } from './systems/inventory.js';
 import { computeEdgeLandingPosition, isValidSavedPosition } from './systems/world.js';
+import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
@@ -111,6 +112,8 @@ const MAPS = {
   pickDungeon: pickDungeonMap,
   canoeDungeon: canoeDungeonMap,
 };
+
+const WORLD_GRID = buildWorldGrid(MAPS);
 
 let state = null;
 let activeSlotId = null;
@@ -389,6 +392,8 @@ function goToMap(mapId) {
   mountScreen(mapScreen, {
     state,
     mapConfig: MAPS[mapId],
+    maps: MAPS,
+    worldGrid: WORLD_GRID,
     callbacks: {
       onMove: () => persist(),
       onAction: handleTileAction,

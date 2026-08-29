@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { setupDom, teardownDom, createRoot } from './helpers/dom.js';
 import { createNewGame } from '../js/state.js';
 import { townMap } from '../js/maps/townMap.js';
+import { buildWorldGrid } from '../js/systems/worldGrid.js';
 
 function baseState(overrides = {}) {
   return { ...createNewGame(), position: { ...townMap.startPosition }, ...overrides };
@@ -15,7 +16,8 @@ function baseState(overrides = {}) {
 async function mountTown(state) {
   const { mount } = await import('../js/screens/mapScreen.js');
   const root = createRoot();
-  mount(root, { state, mapConfig: townMap, callbacks: { onFirstVisit: () => {} } });
+  const maps = { town: townMap };
+  mount(root, { state, mapConfig: townMap, maps, worldGrid: buildWorldGrid(maps), callbacks: { onFirstVisit: () => {} } });
   return root;
 }
 
