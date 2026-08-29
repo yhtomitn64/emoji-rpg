@@ -30,7 +30,8 @@ import { farSouthwestMap } from '../js/maps/wilderness/farSouthwest.js';
 import { farSoutheastMap } from '../js/maps/wilderness/farSoutheast.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { FLAVOR_TEXT } from '../js/data/flavorText.js';
-import { isWalkableAt, isValidSavedPosition, computeEdgeLandingPosition } from '../js/systems/world.js';
+import { isWalkableAt, isValidSavedPosition } from '../js/systems/world.js';
+import { buildWorldGrid, screenToGlobal, globalToScreen } from '../js/systems/worldGrid.js';
 
 const WILDERNESS_WIDTH = 30;
 const WILDERNESS_HEIGHT = 22;
@@ -123,14 +124,14 @@ function isConnectivityPassable(map, x, y) {
 // locally - so checking each screen in isolation from its own generic
 // center point produces massive false positives (an earlier version of this
 // check flagged 13 of 25 screens, thousands of tiles). Any real reachability
-// check has to walk the whole stitched 5x5 world via edge transitions
-// exactly as js/main.js's handleEdgeTransition does (computeEdgeLandingPosition,
-// unconditional landing - a landing tile is always a valid graph node even
-// if it isn't itself "passable"). Shared by both the whole-world walk and
-// the staged tool-unlock-order walk below.
+// check has to walk the whole stitched 5x5 world the same way the real game
+// does (js/systems/worldGrid.js - a landing tile is always a valid graph
+// node even if it isn't itself "passable"). Shared by both the whole-world
+// walk and the staged tool-unlock-order walk below.
 const EDGE_DIRECTIONS = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 
 function floodFillWholeWorld(wilderness, start, isPassable) {
+  const grid = buildWorldGrid(wilderness);
   const tileKey = (id, x, y) => `${id}:${x},${y}`;
   const visited = new Set([tileKey(start.id, start.x, start.y)]);
   const queue = [start];
@@ -146,11 +147,12 @@ function floodFillWholeWorld(wilderness, start, isPassable) {
       if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
         const neighborId = map.neighbors[dir];
         if (!neighborId) continue;
-        const landing = computeEdgeLandingPosition(dir, { x, y }, wilderness[neighborId]);
-        const k = tileKey(neighborId, landing.x, landing.y);
+        const { gx, gy } = screenToGlobal(grid, id, x, y);
+        const landing = globalToScreen(grid, id, gx + dx, gy + dy);
+        const k = tileKey(landing.screenId, landing.localX, landing.localY);
         if (visited.has(k)) continue;
         visited.add(k);
-        queue.push({ id: neighborId, x: landing.x, y: landing.y });
+        queue.push({ id: landing.screenId, x: landing.localX, y: landing.localY });
         continue;
       }
       if (!isPassable(map, nx, ny)) continue;
