@@ -24,6 +24,15 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Fixed
+- The map viewport was capped at a fixed 1020x700px regardless of the actual
+  browser window size, wasting most of a large desktop window. `#app` now
+  fills the real remaining space below the HUD/above the footer (a flex
+  column on `body`), and `.map-viewport` fills all of `#app` — so
+  `computeViewportTileCount` (`js/screens/mapScreen.js`), which already
+  measured the viewport's real rendered size, now shows meaningfully more of
+  the world on a large window instead of stopping at 21x13 tiles.
+
 ## [0.7.0] - 2026-08-29
 
 ### Added

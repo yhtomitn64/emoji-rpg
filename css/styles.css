@@ -1,21 +1,45 @@
 * { box-sizing: border-box; font-family: sans-serif; }
-body { margin: 0; background: #222; color: #eee; }
-#hud { padding: 8px; background: #111; font-size: 1.1rem; }
-#app { padding: 8px; transition: filter 0.3s ease; }
+/* body fills the real window height and lays #hud/#app/#version-footer out
+   top-to-bottom, so #app's flex-grown height below is "whatever's left of
+   the actual browser window" rather than a guessed fixed size - raised
+   2026-08-29: the old fixed 1020x700 .map-viewport cap left most of a
+   normal desktop window unused. #flavor-banner, the #celebration-* elements,
+   #item-pickup-toast, and #overlay are all position: fixed already, so
+   becoming flex children of body doesn't affect their layout. */
+html, body { height: 100%; }
+body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: column; }
+#hud { padding: 8px; background: #111; font-size: 1.1rem; flex-shrink: 0; }
+/* flex: 1 1 auto + min-height: 0 is what lets #app actually shrink to (and
+   fill) the remaining space instead of a flex column child's default of
+   never sizing below its content's natural height. overflow-y: auto is a
+   safety net for overlay-panel screens (shop/smith/quest board) whose
+   content could in principle exceed a very short window. */
+#app {
+  padding: 8px;
+  transition: filter 0.3s ease;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+#version-footer { flex-shrink: 0; }
 
-/* The camera's visible window - a fixed real-world size (not stretched to
-   fill the browser window, unlike the old whole-screen grid), so how much
-   of the stitched world is visible depends on the player's actual screen
-   size (mobile sees less land) rather than on the game itself. See
+/* The camera's visible window - a fixed real-world tile size (not stretched
+   to fill it, unlike the old whole-screen grid), so how much of the
+   stitched world is visible depends on the player's actual available
+   window space (mobile sees less land, a big desktop window sees more)
+   rather than on a guessed constant. See
    docs/superpowers/specs/2026-08-28-continuous-world-camera-design.md. */
 .map-viewport {
-  /* 1020px / 700px at TILE_SIZE_PX=48 (js/screens/mapScreen.js) clear
-     dungeonMap's 20x11 - the widest/tallest non-wilderness map - with
-     margin, so it renders with no panning on a normal desktop window (see
-     DEFAULT_VIEWPORT_TILES_WIDE/TALL). Genuinely small windows still see
-     less via the min(100%, ...)/min(70vh, ...) caps - that's intentional. */
-  width: min(100%, 1020px);
-  height: min(70vh, 700px);
+  /* Fills whatever #app has left after the HUD/footer - computeViewportTileCount
+     (js/screens/mapScreen.js) measures this element's real rendered size and
+     fits TILE_SIZE_PX-sized tiles into it, so there's no fixed px cap here
+     the way there used to be. */
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0 auto;
   /* A tall obstacle overlaps upward into the row above it (see
      .map-tile-obstacle below) - clipping here cuts that overflow at the

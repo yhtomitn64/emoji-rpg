@@ -53,10 +53,11 @@ const TILE_SIZE_PX = 48;
 // jsdom has no real layout engine (tests/helpers/dom.js), so
 // .clientWidth/.clientHeight always read 0 there - this is the fallback
 // viewport size used whenever a real measurement isn't available, keeping
-// DOM tests deterministic without needing to stub layout. Also doubles as
-// the size floor a real .map-viewport must clear (see its CSS in
-// css/styles.css) - dungeonMap is 20x11, the widest/tallest non-wilderness
-// map, so these need enough headroom to show it with no panning.
+// DOM tests deterministic without needing to stub layout. Not a real-browser
+// floor (see css/styles.css - .map-viewport fills whatever space #app has,
+// no fixed cap) - chosen only because it clears dungeonMap's 20x11 (the
+// widest/tallest non-wilderness map) with margin, same as any normal
+// desktop window comfortably does today.
 const DEFAULT_VIEWPORT_TILES_WIDE = 21;
 const DEFAULT_VIEWPORT_TILES_TALL = 13;
 
