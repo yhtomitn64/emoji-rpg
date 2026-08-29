@@ -116,6 +116,10 @@ test('battleScreen DOM', async (t) => {
     const chopBtn = root.querySelector('#btn-ability-chop');
     assert.ok(chopBtn, 'Chop should be unlocked at level 4');
     assert.match(chopBtn.textContent, /Combo Ready/);
+    // playPerfectTimingEffect appends to <body> (same escape-the-dialog's-
+    // overflow-hidden pattern as showDamageNumber's damage numbers), not
+    // inside root - see battleScreen.js.
+    assert.ok(document.querySelector('.battle-perfect-timing-badge'), 'a Perfect timing! hit should show the perfect-timing badge');
   });
 
   await t.test('unmount removes the keydown listener - a keypress after unmount is inert', async () => {

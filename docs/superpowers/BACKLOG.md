@@ -515,10 +515,10 @@ a little tutorial or popup or something explaining the mechanics." A
 general onboarding ask — as new mechanics/abilities unlock, explain
 them via some kind of tutorial or popup rather than expecting the
 player to infer them from play. Raw idea only, no UI shape decided.
-Related: the "proud tool-pickup moment" idea (Feature requests, below)
-and the town signpost/labeling idea (Multi-zone progression, above) are
-both instances of the same underlying "the game should explain itself
-more" theme.
+Related: the "proud tool-pickup moment" idea (shipped, see
+BACKLOG_SHIPPED.md) and the town signpost/labeling idea (Multi-zone
+progression, above) are both instances of the same underlying "the game
+should explain itself more" theme.
 
 ## Feature requests
 
@@ -529,70 +529,6 @@ they are, e.g. "Slippery Breadstick" for the snake. Not tracked
 anywhere; revisit only if it comes up again for a future zone. Shipped
 items raised mid-combat-pass since then have moved to
 BACKLOG_SHIPPED.md.)*
-
-### Level-up and general animation pass, raised 2026-08-20
-Timothy: "need more than just a start for level up, character
-animation. Hero size enlarges on map temporarily, light shoots out, big
-level up words in a cool style with embossing or something. Moving
-forward lets really start to spike up animations and things." Framed as
-a forward-looking initiative, not a single fix — bundles with the
-"Fun animation for items landing in inventory" idea (shipped, see
-BACKLOG_SHIPPED.md) under the same "give more moments a real animation"
-theme. Also raised in the same note: get creative with the map's tile
-emoji (grass variety instead of one repeated green square, possibly
-zoom/placement variation) — related but separate from the level-up
-animation itself, both about the map/battle screens feeling more alive.
-
-**Level-up effect and tile variety shipped 2026-08-22** — the specific,
-concrete asks from this note. See CHANGELOG. **Still open:** the
-broader "spike up animations" forward-looking initiative beyond
-level-up specifically.
-
-**Update (2026-08-28):** two more concrete asks landed in the same
-"spike up animations" bucket. Timothy, on landing a perfectly-timed hit:
-"When doing perfect timing should get a cool effect or visual and feel
-free to start going wild with some 3d thing or implementing three js at
-some point just to start spicking it up!" — a real visual payoff for a
-perfect-timing hit (parry or an ability's timing minigame), floated
-alongside an explicitly open-ended nudge toward introducing Three.js/3D
-effects at some point, not a firm requirement. And on battle
-transitions: "Need to do a cool animation/effect/transiation when the
-battle starts like the map slightly fades out or pixelates and the
-battle area swirls in or something. Maybe when you crit or enemy crits
-you the battle window shakes. Also battle is over transition back to
-map in a cool way." Three related, separable pieces: a battle-start
-transition (map fade/pixelate, battle area "swirls in"), a
-crit-triggered screen shake (either side landing a crit), and a
-battle-end transition back to the map.
-
-**Status check 2026-08-28 (before starting implementation):** the
-crit-shake piece turned out to already be shipped, from an earlier,
-unrelated session (commit `e8c91cb`, "make crit hits pop and let damage
-numbers float above the dialog") — `playCritReaction`
-(`js/screens/battleScreen.js`) already shakes `elements.dialog` and sways
-the decoration on every crit, either side, wired through `playHitEffect`.
-Never marked here, found by code-reading before building it a second
-time. The `#app` dim/undim transition (`css/styles.css`, used by every
-overlay including battle) also gained a smooth `transition: filter 0.3s`
-as a small immediate step toward the battle-start/end fade ask. Still
-open: the battle dialog's own entrance ("swirls in") and exit animations
-specifically, and the perfect-timing visual payoff (parry success and
-ability timing-hits currently get no distinct visual beyond the normal
-hit-flash and a "Perfect timing!" log line). See
-`docs/superpowers/plans/2026-08-28-battle-animations-handoff.md` for
-implementation notes/plan on the remaining pieces.
-
-### A proud, visible "you can do this now" moment when a tool is first picked up, raised 2026-08-28
-Timothy: "Also after getting axe, pick, canoe the character should hold
-it over head, then it should fly around their body and then a message
-should prodouly exclaim what you can do and a big bubble or something on
-the screen so it's obvious to read." Extends the existing new-tool
-celebration (`playCelebration`, called from `grantDropItem`'s
-`isNewTool` branch in `js/main.js`, using the shared
-`js/screens/celebrationEffect.js`) with a specific richer sequence:
-hold-overhead pose, an orbit/fly-around flourish, then a large,
-hard-to-miss capability callout — rather than the current celebration's
-existing (simpler) treatment.
 
 ## Quests / economy
 

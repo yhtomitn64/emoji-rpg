@@ -52,7 +52,7 @@ import { ITEMS } from './data/items.js';
 import { FLAVOR_TEXT } from './data/flavorText.js';
 import { showFlavorBanner } from './screens/flavorBanner.js';
 import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/messageLog.js';
-import { playCelebration } from './screens/celebrationEffect.js';
+import { playCelebration, playToolCelebration } from './screens/celebrationEffect.js';
 import { playItemPickupToast } from './screens/itemPickupToast.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { ABILITIES } from './systems/abilities.js';
@@ -491,7 +491,7 @@ function grantDropItem(itemId, tier) {
   Object.assign(state, addItem(state, itemId, 1, tier));
   const displayName = `${tierLabel(tier)}${item.name}`;
   if (isNewTool) {
-    playCelebration(item.emoji, `You found a ${displayName}! ${item.description}.`);
+    playToolCelebration(item.emoji, `You found a ${displayName}! ${item.description}.`, `${item.description}!`);
   } else {
     playItemPickupToast(item.emoji, displayName);
   }

@@ -455,6 +455,34 @@ tiles get the same grass background + always-visible-marker treatment as
 grass's own decorative clover/flower, not the full obstacle-sizing
 treatment (they're flat ground now, not a tall blocking obstacle).
 
+### ~~Level-up and general animation pass~~ Shipped in pieces, last piece 2026-08-28
+Raised 2026-08-20 as a forward-looking "spike up animations" initiative,
+not a single fix. Level-up effect + map tile variety shipped 2026-08-22.
+Two more concrete asks landed 2026-08-28: crit-triggered screen shake
+turned out to already be shipped from an earlier, unrelated session
+(commit `e8c91cb`) and was just never marked here; a battle-start
+"swirls in" entrance and a battle-end exit transition (`js/screens/
+battleScreen.js`'s `battle-screen-swirl-in`/`-out` classes, timed via
+`EXIT_ANIM_MS` so the exit finishes right as the post-battle pause ends
+and `unmountOverlay()` clears the DOM); and a distinct "PERFECT!" badge
+for a landed ability timing-hit or successful parry
+(`playPerfectTimingEffect`), with a successful parry also picking up the
+same crit-shake treatment a rolled crit gets — a judgment call made in
+the session that shipped it, not something explicitly asked for. See
+CHANGELOG and `docs/superpowers/plans/2026-08-28-battle-animations-handoff.md`
+for the handoff notes this was built from.
+
+### ~~A proud, visible "you can do this now" moment when a tool is first picked up~~ Shipped 2026-08-28
+Raised the same day: hold-overhead pose, orbit/fly-around flourish, then
+a large capability callout on first getting the axe/pick/canoe. No
+sprite/pose system exists for a literal "hold it overhead" pose, so this
+shipped as a stylized substitute (`playToolCelebration`, `js/screens/
+celebrationEffect.js`): the tool emoji pops up and loops most of a
+circle, then a bordered speech-bubble callout (`#celebration-tool-
+callout`) states the capability just unlocked, timed to land as the
+orbit finishes. Flagged as a design judgment rather than assumed
+silently. See CHANGELOG.
+
 ## Quests / economy
 
 ### ~~Quest turn-in scaling: more kills required each level, rewards scale up but with diminishing returns~~ Shipped 2026-08-22

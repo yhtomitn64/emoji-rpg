@@ -25,6 +25,30 @@ public API, no formal release process — commits land straight on
 ## [Unreleased]
 
 ### Added
+- Battle screen transitions and a perfect-timing payoff, closing out the
+  "spike up animations" initiative: the battle dialog now swirls in on
+  mount (`battle-screen-swirl-in`, `js/screens/battleScreen.js`/
+  `css/styles.css`) and swirls out just before the post-battle pause ends
+  (`battle-screen-swirl-out`, timed via `EXIT_ANIM_MS` inside `endBattle()`
+  so it finishes right as `unmountOverlay()` clears the DOM, not before). A
+  landed ability timing-hit or successful parry now shows a distinct
+  "PERFECT!" badge (`playPerfectTimingEffect`) instead of just the ordinary
+  hit-flash and log suffix; a successful parry also now gets the same
+  crit-shake treatment a rolled crit does (`playHitEffect(..., true)` in
+  `resolveMonsterWindup`'s parried branch) — a judgment call, not something
+  explicitly asked for, on the reasoning that "perfect timing" is exactly
+  what landing a parry is.
+- A first-time tool pickup (axe/mining pick/canoe) gets a richer
+  celebration sequence instead of the plain burst+text pop other
+  celebrations use: the tool emoji pops up and loops most of a circle
+  (`playToolCelebration`, `celebration-burst-tool-play` in
+  `js/screens/celebrationEffect.js`/`css/styles.css`), then a bordered
+  speech-bubble callout (`#celebration-tool-callout`) states the
+  capability just unlocked (e.g. "Clears mountain gates blocking the
+  way!"), timed to land as the orbit finishes. No sprite/pose system
+  exists for a literal "hold it overhead" — this is a stylized
+  substitute, called out as a design judgment rather than assumed
+  silently.
 - A level-up that crosses one or more ability-unlock thresholds now
   announces the newly-unlocked ability/abilities (e.g. "New ability
   unlocked: 🗡️ Stab!") right after the existing level-up celebration

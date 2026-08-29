@@ -7,6 +7,14 @@ import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent,
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 
 const VICTORY_PAUSE_MS = 1200;
+// Timed to *finish* right as the VICTORY_PAUSE_MS pause ends, not to start
+// at the top of it - screenManager.js's unmountOverlay() clears the DOM
+// synchronously the instant the pause's own setTimeout fires, so there's no
+// window for a CSS exit animation after that point. Playing it immediately
+// at the start of the pause would finish early and leave the panel sitting
+// static/shrunk for the remainder of the pause, which reads as broken, not
+// intentional.
+const EXIT_ANIM_MS = 400;
 // A killing blow's flash/shake needs this long on screen before the slot can
 // be hidden, since hiding it and playing the effect happen in the same
 // synchronous call and the browser only paints the final DOM state -
@@ -41,6 +49,7 @@ let battleOver = false;
 let log = [];
 let elements = {};
 let endBattleTimeoutId = null;
+let exitAnimTimeoutId = null;
 let abilityCooldowns = {};
 let buffState = createBuffState();
 let comboState = {};
@@ -50,6 +59,7 @@ let attackCooldownMs = 0;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
+let livePerfectBadges = [];
 let playerEffectBonuses = null;
 
 function buildPlayerCombatant() {
@@ -162,8 +172,15 @@ function monsterSlotHtml(mc, index) {
 
 function buildDom() {
   const envClass = isCaveBattle() ? 'battle-screen-cave' : 'battle-screen-forest';
+  // A dedicated class rather than baking the animation into the base
+  // .overlay-panel.battle-screen rule - that two-class selector would
+  // out-specificity the single-class .battle-dialog-shake-crit rule below
+  // and permanently steal its `animation` shorthand (see playReviveEffect's
+  // comment on the same collision hazard). Fresh element every mount() (see
+  // buildDom's own rootEl.innerHTML= above this function's start), so this
+  // just plays once on creation - no JS toggling needed.
   rootEl.innerHTML = `
-    <div class="overlay-panel battle-screen ${envClass}">
+    <div class="overlay-panel battle-screen ${envClass} battle-screen-swirl-in">
       <div class="battle-main">
         <div class="battle-combatants-row">
           <div class="battle-decoration">${battleDecorationHtml()}</div>
@@ -419,6 +436,28 @@ function showDamageNumber(zoneEl, amount, isCrit) {
     liveDamageNumbers = liveDamageNumbers.filter((n) => n.timeoutId !== timeoutId);
   }, DAMAGE_NUMBER_DURATION_MS);
   liveDamageNumbers.push({ el: numberEl, timeoutId });
+}
+
+const PERFECT_TIMING_BADGE_MS = 900;
+
+// Distinct from both the plain hit-flash and the crit shake - a reward for
+// a skill-based read (ability timing-hit or a landed parry), not a damage
+// roll. Same fixed-on-<body> pattern as showDamageNumber, for the same
+// reason: escapes the dialog's `overflow: hidden` so it can rise clear of it.
+function playPerfectTimingEffect(zoneEl) {
+  if (!zoneEl) return;
+  const rect = zoneEl.getBoundingClientRect();
+  const badgeEl = document.createElement('div');
+  badgeEl.textContent = 'PERFECT!';
+  badgeEl.className = 'battle-perfect-timing-badge';
+  badgeEl.style.left = `${rect.left + rect.width / 2}px`;
+  badgeEl.style.top = `${rect.top + rect.height / 2}px`;
+  document.body.appendChild(badgeEl);
+  const timeoutId = setTimeout(() => {
+    badgeEl.remove();
+    livePerfectBadges = livePerfectBadges.filter((b) => b.timeoutId !== timeoutId);
+  }, PERFECT_TIMING_BADGE_MS);
+  livePerfectBadges.push({ el: badgeEl, timeoutId });
 }
 
 function playCritReaction(dialogEl, decorationEl) {
@@ -713,6 +752,7 @@ async function playerUseAbility(abilityId) {
           ? `Critical! You use ${ability.name} on ${mc.name} for ${result.damage}!`
           : `You use ${ability.name} on ${mc.name} for ${result.damage}.`) + timingSuffix);
         playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
+        if (timingHit) playPerfectTimingEffect(elements.monsterZones[monsterIndex]);
         applyOnHitEffects(mc, result.damage);
       });
       abilityCooldowns[abilityId] = ability.cooldownMs;
@@ -775,6 +815,7 @@ async function playerUseAbility(abilityId) {
     // (display: none), so a killing blow's damage number/flash/shake is
     // actually visible instead of rendering onto an already-hidden element.
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
+    if (timingHit) playPerfectTimingEffect(elements.monsterZones[targetIndex]);
     applyOnHitEffects(target, result.damage);
     updateHpBars();
     updateAtbBars();
@@ -864,8 +905,11 @@ function resolveMonsterWindup(monster, parried) {
     monster.atb = result.monsterAtb;
     log.push(`You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
     // Same ordering fix as playerAttack/playerUseAbility: play the hit effect
-    // before updateHpBars() hides a killed monster's slot.
-    playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], result.reflectedDamage, false);
+    // before updateHpBars() hides a killed monster's slot. isCrit is `true`
+    // here (not a rolled crit) so a landed parry gets the same shake/flash
+    // punch as one - "perfect timing" is exactly what a parry read is.
+    playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], result.reflectedDamage, true);
+    playPerfectTimingEffect(elements.heroZone);
     updateHpBars();
     updateLog();
     checkOutcome();
@@ -954,6 +998,9 @@ function endBattle(outcome) {
   }
   const killedMonsterIds = monsterCombatants.filter((mc) => mc.hp <= 0).map((mc) => mc.monsterId);
   updateMenu();
+  exitAnimTimeoutId = setTimeout(() => {
+    elements.dialog?.classList.add('battle-screen-swirl-out');
+  }, Math.max(0, VICTORY_PAUSE_MS - EXIT_ANIM_MS));
   endBattleTimeoutId = setTimeout(() => {
     callbacks.onBattleEnd(outcome, killedMonsterIds);
   }, VICTORY_PAUSE_MS);
@@ -1021,10 +1068,16 @@ export function mount(root, props) {
 export function unmount() {
   clearInterval(intervalId);
   clearTimeout(endBattleTimeoutId);
+  clearTimeout(exitAnimTimeoutId);
   window.removeEventListener('keydown', handleKeydown);
   liveDamageNumbers.forEach(({ el, timeoutId }) => {
     clearTimeout(timeoutId);
     el.remove();
   });
   liveDamageNumbers = [];
+  livePerfectBadges.forEach(({ el, timeoutId }) => {
+    clearTimeout(timeoutId);
+    el.remove();
+  });
+  livePerfectBadges = [];
 }
