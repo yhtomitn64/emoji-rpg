@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses, describeItem } from '../systems/inventory.js';
+import { getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses, describeItem, getUpgradeLevel } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
@@ -54,8 +54,8 @@ function renderEquippedRows() {
     const itemId = state.equipment[slot];
     if (!itemId) return `<div class="inventory-row">${slot}: (empty)</div>`;
     const item = ITEMS[itemId];
-    const level = state.upgrades?.[itemId] || 0;
     const tier = state.equipmentTiers?.[slot];
+    const level = getUpgradeLevel(state, itemId, tier);
     return `<div class="inventory-row">
       <span title="${describeItem(itemId, tier)}">${slot}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <button data-unequip="${slot}">Unequip</button>

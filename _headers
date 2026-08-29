@@ -1,0 +1,21 @@
+# Cloudflare Pages reads this file from the root of the deployed directory
+# (see .github/workflows/deploy.yml's "Stage deployable files" step, which
+# copies it into dist/) and applies these headers at the edge.
+#
+# Raised 2026-08-29: rpg.burghertime.com kept showing a stale layout after a
+# deploy that worked fine locally - confirmed via curl that the origin was
+# serving the current, correct files the whole time, so the staleness was a
+# browser holding onto its own locally-cached copy of css/js past a deploy.
+# This project has no bundler - js/main.js transitively imports dozens of
+# other files under js/, each cached at its own URL - so per-entry-point
+# cache-busting (a version query string on just index.html's own two direct
+# references) wouldn't reach most of the actual game code. `no-cache` here
+# doesn't mean "don't cache" - it means "always revalidate with the origin
+# before reusing the cached copy," which is a cheap conditional GET (a 304 if
+# nothing changed) but guarantees a real change is picked up on next load
+# instead of silently serving a copy from hours earlier.
+/js/*
+  Cache-Control: no-cache
+
+/css/*
+  Cache-Control: no-cache

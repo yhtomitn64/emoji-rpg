@@ -179,6 +179,12 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   font-size: 0.95rem;
   border-radius: 50%;
 }
+/* Raised 2026-08-29: a long title ("Smith (Gold: 6401)") ran full-width
+   under the absolutely-positioned close-x circle above and overlapped it.
+   Reserves room for the button instead of letting title text run under it. */
+.shop-screen h2, .smith-screen h2 {
+  padding-right: 32px;
+}
 
 .overlay-panel.battle-screen {
   max-width: min(92vw, 860px);

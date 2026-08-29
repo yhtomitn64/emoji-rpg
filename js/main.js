@@ -58,7 +58,7 @@ import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, has
 import { ABILITIES } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
-import { addGold, addItem, spendGold, getEquipmentBonuses } from './systems/inventory.js';
+import { addGold, addItem, spendGold, getEquipmentBonuses, migrateUpgradesToPerTier } from './systems/inventory.js';
 import { isValidSavedPosition } from './systems/world.js';
 import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
@@ -119,7 +119,7 @@ let state = null;
 let activeSlotId = null;
 
 function startGame(loadedState, slotId) {
-  state = loadedState;
+  state = migrateUpgradesToPerTier(loadedState);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';

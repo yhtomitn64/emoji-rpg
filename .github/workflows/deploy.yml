@@ -11,7 +11,36 @@ jobs:
     permissions:
       contents: read
     steps:
+      # fetch-depth: 0 (full history) rather than the default shallow clone -
+      # the changelog-touch check below needs github.event.before's commit to
+      # actually be present locally to diff against.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Raised 2026-08-29 after a few commits landed without a CHANGELOG.md
+      # entry in the same push - not "Unreleased must be non-empty" (that's
+      # wrong: Unreleased is *supposed* to go empty once a version bump moves
+      # its contents into a dated section, see CHANGELOG.md's own header),
+      # just "if you touched code, you touched the changelog too."
+      - name: Check CHANGELOG.md was updated alongside any code change
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No previous commit to diff against (new branch or force-push) - skipping."
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+          CHANGED_NON_DOCS=$(echo "$CHANGED" | grep -v '\.md$' || true)
+          if [ -z "$CHANGED_NON_DOCS" ]; then
+            echo "Only docs changed - no changelog entry required."
+            exit 0
+          fi
+          if ! echo "$CHANGED" | grep -qx 'CHANGELOG.md'; then
+            echo "::error::Non-doc files changed in this push but CHANGELOG.md wasn't touched. Add an entry under ## [Unreleased] before this can deploy."
+            exit 1
+          fi
+          echo "CHANGELOG.md was updated in this push - OK."
 
       # Catches this mechanically rather than relying on anyone remembering:
       # the maintainer's local machine routes npm through a private registry
@@ -42,7 +71,7 @@ jobs:
       - name: Stage deployable files
         run: |
           mkdir dist
-          cp index.html robots.txt sitemap.xml ads.txt dist/
+          cp index.html robots.txt sitemap.xml ads.txt _headers dist/
           cp -r css dist/
           cp -r js dist/
           if [ -d assets ]; then cp -r assets dist/; fi

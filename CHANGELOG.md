@@ -24,6 +24,36 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Changed
+- Dragon Fang Blade (attack 14→16), Fossil Fang (attack 12→14), and Dragon
+  Scale Mail (defense 10→12, maxHp 15→18) all buffed - these named boss/elite
+  drops are excluded from the Fine/Superior quality-tier system entirely, so
+  a stat bump was the only way to make them feel a bit stronger.
+
+### Fixed
+- Smith-upgrade level was keyed by bare itemId, so every tier of the same
+  base item (Plain/Fine/Superior) shared one upgrade level - equipping a
+  freshly found Fine Iron Helm could show it already maxed just because the
+  Plain copy had been upgraded. Now keyed by itemId+tier, so each tier
+  upgrades independently. Existing saves migrate automatically on load: a
+  legacy level moves to whichever tier is currently equipped in that slot,
+  or Plain if nothing matching is equipped.
+- The inventory list could show the identical stat delta for a Plain and a
+  Fine copy of the same item (e.g. both reading "attack -16") even though
+  the Fine copy is genuinely stronger - `getItemStatDelta` rounded the
+  final subtracted difference instead of rounding each side first, so two
+  raw deltas less than 1 apart could land in the same rounding bucket.
+- The Shop/Smith screen's close-x button could overlap a long title (e.g.
+  "Smith (Gold: 6401)") - the title now reserves room for it.
+- rpg.burghertime.com could keep serving a stale cached copy of `js/`/`css/`
+  files for hours after a deploy, even though the origin was already serving
+  the current files (confirmed via direct curl diff) - `_headers` now sets
+  `Cache-Control: no-cache` on both, so browsers always revalidate with the
+  server (a cheap 304 if unchanged) instead of trusting a long local cache.
+- CI now fails a deploy if non-doc files changed in a push but
+  `CHANGELOG.md` wasn't touched in that same push, so a code change can't
+  ship without at least an `## [Unreleased]` entry.
+
 ## [0.7.1] - 2026-08-29
 
 ### Added

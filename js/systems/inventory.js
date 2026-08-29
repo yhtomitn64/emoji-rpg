@@ -14,6 +14,40 @@ function zeroStats() {
   return Object.fromEntries(STAT_KEYS.map((key) => [key, 0]));
 }
 
+// Raised 2026-08-29: state.upgrades used to be keyed by bare itemId, so a
+// Fine/Superior copy of an item silently inherited whatever smith-upgrade
+// level a Plain (or any) copy had already reached - equipping a freshly
+// found Fine Iron Helm showed it already maxed. Keying on itemId+tier
+// instead gives every tier its own independent upgrade level.
+export function upgradeKey(itemId, tier) {
+  return `${itemId}:${tier || 'plain'}`;
+}
+
+export function getUpgradeLevel(state, itemId, tier) {
+  return state.upgrades?.[upgradeKey(itemId, tier)] || 0;
+}
+
+// One-time migration for saves from before the itemId+tier key split above.
+// Best-effort: if the item is currently equipped, its legacy level migrates
+// to that slot's real tier (the tier the player has actually been
+// experiencing); anything else defaults to Plain, since that was always the
+// only tier that existed before quality tiers shipped. Idempotent - an
+// already-migrated save has no bare keys left to find.
+export function migrateUpgradesToPerTier(state) {
+  const legacyKeys = Object.keys(state.upgrades || {}).filter((key) => !key.includes(':'));
+  if (legacyKeys.length === 0) return state;
+  const upgrades = { ...state.upgrades };
+  for (const itemId of legacyKeys) {
+    const level = upgrades[itemId];
+    const equippedSlot = Object.keys(state.equipment).find((slot) => state.equipment[slot] === itemId);
+    const tier = equippedSlot ? state.equipmentTiers?.[equippedSlot] : undefined;
+    const key = upgradeKey(itemId, tier);
+    if (upgrades[key] === undefined) upgrades[key] = level;
+    delete upgrades[itemId];
+  }
+  return { ...state, upgrades };
+}
+
 export function addGold(state, amount) {
   return { ...state, player: { ...state.player, gold: state.player.gold + amount } };
 }
@@ -107,8 +141,9 @@ export function upgradeCost(currentLevel) {
 export function upgradeItem(state, slot, materialId, cost) {
   const itemId = state.equipment[slot];
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
+  const tier = state.equipmentTiers?.[slot];
 
-  if ((state.upgrades?.[itemId] || 0) >= MAX_UPGRADE_LEVEL) throw new Error(`${itemId} is already at max upgrade level`);
+  if (getUpgradeLevel(state, itemId, tier) >= MAX_UPGRADE_LEVEL) throw new Error(`${itemId} is already at max upgrade level`);
 
   if (ITEMS[materialId].upgradeSlot !== slot) throw new Error(`${materialId} cannot upgrade the ${slot} slot`);
 
@@ -118,8 +153,8 @@ export function upgradeItem(state, slot, materialId, cost) {
 
   let next = spendGold(state, cost);
   next = removeItem(next, materialId, 1);
-  const upgradeLevel = (next.upgrades?.[itemId] || 0) + 1;
-  next = { ...next, upgrades: { ...next.upgrades, [itemId]: upgradeLevel } };
+  const upgradeLevel = getUpgradeLevel(next, itemId, tier) + 1;
+  next = { ...next, upgrades: { ...next.upgrades, [upgradeKey(itemId, tier)]: upgradeLevel } };
   return next;
 }
 
@@ -139,8 +174,8 @@ export function getEquipmentBonuses(state) {
   for (const slot of Object.keys(state.equipment)) {
     const itemId = state.equipment[slot];
     if (!itemId) continue;
-    const upgradeLevel = state.upgrades?.[itemId] || 0;
     const tier = state.equipmentTiers?.[slot];
+    const upgradeLevel = getUpgradeLevel(state, itemId, tier);
     const itemStats = getItemEffectiveStats(itemId, upgradeLevel, tier);
     for (const stat of STAT_KEYS) {
       bonuses[stat] += itemStats[stat];
@@ -157,16 +192,20 @@ export function getEquipmentBonuses(state) {
 export function getItemStatDelta(state, itemId, tier) {
   const item = ITEMS[itemId];
   const currentItemId = state.equipment[item.slot];
-  const currentUpgrade = currentItemId ? (state.upgrades?.[currentItemId] || 0) : 0;
   const currentTier = currentItemId ? state.equipmentTiers?.[item.slot] : undefined;
-  const newUpgrade = state.upgrades?.[itemId] || 0;
+  const currentUpgrade = currentItemId ? getUpgradeLevel(state, currentItemId, currentTier) : 0;
+  const newUpgrade = getUpgradeLevel(state, itemId, tier);
   const currentStats = currentItemId
     ? getItemEffectiveStats(currentItemId, currentUpgrade, currentTier)
     : zeroStats();
   const newStats = getItemEffectiveStats(itemId, newUpgrade, tier);
   const delta = {};
+  // Rounds each side before subtracting (not the raw difference) so two
+  // candidates whose real stats differ - e.g. a Plain and Fine copy of the
+  // same base item - can never collide onto the same displayed delta just
+  // because their unrounded gap was smaller than the rounding granularity.
   for (const stat of Object.keys(newStats)) {
-    delta[stat] = Math.round(newStats[stat] - currentStats[stat]);
+    delta[stat] = Math.round(newStats[stat]) - Math.round(currentStats[stat]);
   }
   return delta;
 }

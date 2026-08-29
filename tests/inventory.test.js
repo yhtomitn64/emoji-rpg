@@ -4,7 +4,7 @@ import { createNewGame } from '../js/state.js';
 import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
-  maxAffordableQuantity, describeItem,
+  maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier,
 } from '../js/systems/inventory.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
@@ -58,7 +58,7 @@ test('upgradeItem consumes gold and material, increasing upgrade level', () => {
   let state = createNewGame();
   state = addItem(state, 'ironScrap', 1);
   state = upgradeItem(state, 'weapon', 'ironScrap', 20);
-  assert.equal(state.upgrades.starterSword, 1);
+  assert.equal(state.upgrades[upgradeKey('starterSword', undefined)], 1);
   assert.equal(state.player.gold, 0);
   const materialEntry = state.inventory.find((e) => e.itemId === 'ironScrap');
   assert.equal(materialEntry, undefined);
@@ -69,17 +69,17 @@ test('upgradeItem rejects upgrading past MAX_UPGRADE_LEVEL', () => {
   state = addGold(state, 1000);
   state = addItem(state, 'ironScrap', MAX_UPGRADE_LEVEL);
   for (let i = 0; i < MAX_UPGRADE_LEVEL; i += 1) {
-    const cost = upgradeCost(state.upgrades?.starterSword || 0);
+    const cost = upgradeCost(getUpgradeLevel(state, 'starterSword', undefined));
     state = upgradeItem(state, 'weapon', 'ironScrap', cost);
   }
-  assert.equal(state.upgrades.starterSword, MAX_UPGRADE_LEVEL);
+  assert.equal(state.upgrades[upgradeKey('starterSword', undefined)], MAX_UPGRADE_LEVEL);
 
   state = addItem(state, 'ironScrap', 1);
   const goldBefore = state.player.gold;
   const materialBefore = state.inventory.find((e) => e.itemId === 'ironScrap').quantity;
   assert.throws(() => upgradeItem(state, 'weapon', 'ironScrap', upgradeCost(MAX_UPGRADE_LEVEL)));
   // Level, gold, and material are unchanged by the rejected attempt.
-  assert.equal(state.upgrades.starterSword, MAX_UPGRADE_LEVEL);
+  assert.equal(state.upgrades[upgradeKey('starterSword', undefined)], MAX_UPGRADE_LEVEL);
   assert.equal(state.player.gold, goldBefore);
   assert.equal(state.inventory.find((e) => e.itemId === 'ironScrap').quantity, materialBefore);
 });
@@ -99,7 +99,7 @@ test('upgradeItem succeeds with a slot-matched material', () => {
   let state = createNewGame();
   state = addItem(state, 'ironScrap', 1); // upgradeSlot: weapon
   state = upgradeItem(state, 'weapon', 'ironScrap', 20);
-  assert.equal(state.upgrades.starterSword, 1);
+  assert.equal(state.upgrades[upgradeKey('starterSword', undefined)], 1);
 });
 
 test('getEquipmentBonuses sums stats from equipped, upgraded gear', () => {
@@ -124,10 +124,10 @@ test('getItemEffectiveStats scales fractionally per upgrade level without roundi
 
 test('getEquipmentBonuses sums fractional per-item bonuses before rounding once (regression guard for the getItemEffectiveStats refactor)', () => {
   let state = createNewGame();
-  state.upgrades.starterSword = 1; // weapon, equipped by default: base attack 3 -> 3 + 3*0.25*1 = 3.75
+  state.upgrades[upgradeKey('starterSword', undefined)] = 1; // weapon, equipped by default: base attack 3 -> 3 + 3*0.25*1 = 3.75
   state = addItem(state, 'powerRing', 1);
   state = equipItem(state, 'powerRing', 'accessory');
-  state.upgrades.powerRing = 1; // accessory: base attack 2 -> 2 + 2*0.25*1 = 2.5
+  state.upgrades[upgradeKey('powerRing', undefined)] = 1; // accessory: base attack 2 -> 2 + 2*0.25*1 = 2.5
   const bonuses = getEquipmentBonuses(state);
   // Correct (sum-then-round-once): 3.75 + 2.5 = 6.25 -> 6.
   // A regression that rounds each item's contribution before summing would instead
@@ -155,7 +155,7 @@ test('getItemStatDelta reports 0, not NaN, for a stat neither item touches again
 
 test("getItemStatDelta uses the candidate item's own real upgrade level, not the equipped item's", () => {
   let state = createNewGame();
-  state.upgrades.ironSword = 2; // ironSword sitting in inventory, previously upgraded
+  state.upgrades[upgradeKey('ironSword', undefined)] = 2; // ironSword sitting in inventory, previously upgraded
   const delta = getItemStatDelta(state, 'ironSword');
   // ironSword base attack 6 at upgrade 2 -> 6 + 6*0.25*2 = 9; equipped starterSword base 3 at upgrade 0 -> 3.
   assert.equal(delta.attack, 6);
@@ -321,4 +321,75 @@ test('getItemStatDelta reports 0 for a new effect stat when neither item has it'
   const state = createNewGame();
   const delta = getItemStatDelta(state, 'ironHelm');
   assert.equal(delta.lifestealPercent, 0);
+});
+
+// Raised 2026-08-29: Timothy found a Fine Iron Helm already showing "MAX"
+// upgrade level despite never upgrading that specific copy - state.upgrades
+// was keyed by bare itemId only, so every tier of the same base item shared
+// one upgrade level. Fixed by keying on itemId+tier instead (upgradeKey).
+test('a Fine copy of an item starts at upgrade level 0 even after the Plain copy was upgraded', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironScrap', 1);
+  state = upgradeItem(state, 'weapon', 'ironScrap', 20); // upgrades Plain starterSword to level 1
+  state = addItem(state, 'ironSword', 1, 'fine');
+  assert.equal(getUpgradeLevel(state, 'ironSword', 'fine'), 0);
+  assert.equal(getUpgradeLevel(state, 'starterSword', undefined), 1);
+});
+
+test('upgradeItem only advances the currently-equipped tier, leaving other tiers of the same item untouched', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1); // Plain
+  state = addItem(state, 'ironSword', 1, 'fine');
+  state = equipItem(state, 'ironSword', 'weapon', 'fine');
+  state = addItem(state, 'ironScrap', 1);
+  state = upgradeItem(state, 'weapon', 'ironScrap', 20); // upgrades the equipped Fine copy
+  assert.equal(getUpgradeLevel(state, 'ironSword', 'fine'), 1);
+  assert.equal(getUpgradeLevel(state, 'ironSword', undefined), 0);
+});
+
+test('getUpgradeLevel defaults to 0 for an item/tier with no recorded upgrade', () => {
+  const state = createNewGame();
+  assert.equal(getUpgradeLevel(state, 'ironSword', 'superior'), 0);
+});
+
+test('migrateUpgradesToPerTier moves a legacy bare-itemId key to the currently-equipped slot\'s real tier', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1, 'fine');
+  state = equipItem(state, 'ironSword', 'weapon', 'fine');
+  state.upgrades.ironSword = 2; // legacy bare-key write, as if from before this fix
+  state = migrateUpgradesToPerTier(state);
+  assert.equal(getUpgradeLevel(state, 'ironSword', 'fine'), 2);
+  assert.equal(state.upgrades.ironSword, undefined);
+});
+
+test('migrateUpgradesToPerTier defaults an orphaned legacy key (item not currently equipped) to Plain', () => {
+  let state = createNewGame();
+  state.upgrades.ironScrap = 1; // not equippable at all, but exercises the "no equipped slot found" path
+  state = migrateUpgradesToPerTier(state);
+  assert.equal(getUpgradeLevel(state, 'ironScrap', undefined), 1);
+});
+
+test('migrateUpgradesToPerTier is a no-op when there are no legacy bare keys', () => {
+  const state = createNewGame();
+  const migrated = migrateUpgradesToPerTier(state);
+  assert.deepEqual(migrated.upgrades, state.upgrades);
+});
+
+// Raised 2026-08-29 (screenshot): Plain Goblin Club x2 and Fine Goblin Club
+// both showed "(attack -16)" in the inventory list even though Fine is
+// genuinely 1 attack point stronger - getItemStatDelta rounded the final
+// subtracted difference instead of rounding each side first, so two raw
+// deltas 0.8 apart could land in the same rounding bucket. Reproduced here
+// with the exact real config that collides: Fossil Fang (attack 14) maxed
+// at upgrade level 3 equipped as the weapon.
+test('getItemStatDelta never shows the same delta for a Plain and a Fine copy of the same base item', () => {
+  let state = createNewGame();
+  state = addItem(state, 'fossilFang', 1);
+  state = equipItem(state, 'fossilFang', 'weapon');
+  state.upgrades[upgradeKey('fossilFang', undefined)] = MAX_UPGRADE_LEVEL;
+
+  const plainDelta = getItemStatDelta(state, 'goblinClub', undefined);
+  const fineDelta = getItemStatDelta(state, 'goblinClub', 'fine');
+  assert.notEqual(plainDelta.attack, fineDelta.attack);
+  assert.equal(fineDelta.attack, plainDelta.attack + 1);
 });

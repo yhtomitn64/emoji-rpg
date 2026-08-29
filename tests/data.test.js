@@ -124,7 +124,7 @@ test('the rare elite (jurassicJerky) has near-dragon stats, is not a boss, and d
   assert.equal(fang.name, 'Fossil Fang');
   assert.equal(fang.slot, 'weapon');
   assert.equal(fang.price, 0);
-  assert.equal(fang.stats.attack, 12);
+  assert.equal(fang.stats.attack, 14);
 });
 
 test('the three v1 Unique-effect items have the documented slots, prices, and effect stats', () => {

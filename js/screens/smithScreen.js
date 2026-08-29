@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL, describeItem } from '../systems/inventory.js';
+import { upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL, describeItem, getUpgradeLevel } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
@@ -21,8 +21,8 @@ function render() {
     if (!itemId) return `<div class="smith-row">${slot}: (empty)</div>`;
 
     const item = ITEMS[itemId];
-    const level = state.upgrades?.[itemId] || 0;
     const tier = state.equipmentTiers?.[slot];
+    const level = getUpgradeLevel(state, itemId, tier);
 
     if (level >= MAX_UPGRADE_LEVEL) {
       return `<div class="smith-row">
@@ -78,7 +78,8 @@ function tryUpgrade(slot) {
   if (!materialId) return;
 
   const itemId = state.equipment[slot];
-  const level = state.upgrades?.[itemId] || 0;
+  const tier = state.equipmentTiers?.[slot];
+  const level = getUpgradeLevel(state, itemId, tier);
   const cost = upgradeCost(level);
 
   try {
