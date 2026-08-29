@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.6',
+    date: '2026-08-29',
+    highlights: [
+      'Moved the "Sell Duplicate Gear" button from the Inventory screen to the Shop, where selling actually belongs.',
+    ],
+  },
+  {
     version: '0.7.5',
     date: '2026-08-29',
     highlights: [

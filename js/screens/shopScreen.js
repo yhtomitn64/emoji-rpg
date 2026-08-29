@@ -1,5 +1,5 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
-import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear } from '../systems/inventory.js';
 
 const BUY_QUANTITIES = [1, 5, 10, 100];
 
@@ -7,6 +7,7 @@ let rootEl = null;
 let state = null;
 let callbacks = null;
 let pendingEquip = null;
+let sellDuplicatesMessage = null;
 
 function formatDelta(delta) {
   return Object.entries(delta)
@@ -23,6 +24,20 @@ function renderEquipPrompt() {
     <span>Equip ${item.emoji} ${item.name} now?${deltaText ? ` (${deltaText})` : ''}</span>
     <button id="btn-equip-prompt-yes">Equip</button>
     <button id="btn-equip-prompt-no">Not now</button>
+  </div>`;
+}
+
+// Raised 2026-08-29: "add a sell duplicates button... auto sells all your
+// dupes to clean up INV" - originally landed in the inventory screen, then
+// moved here per Timothy's own correction ("that should be a shop feature
+// not something you can do all the time"). Scans the player's whole gear
+// inventory, not just SHOP_CATALOG - a duplicate boss/unique drop (price 0)
+// is just as much clutter as a duplicate shop item.
+function renderSellDuplicatesControl() {
+  const duplicateCount = state.inventory.filter((entry) => ITEMS[entry.itemId].slot && entry.quantity > 1).length;
+  return `<div class="shop-sell-duplicates">
+    <button id="btn-sell-duplicates" ${duplicateCount === 0 ? 'disabled' : ''}>🧹 Sell Duplicate Gear</button>
+    ${sellDuplicatesMessage ? `<span class="shop-sell-duplicates-message">${sellDuplicatesMessage}</span>` : ''}
   </div>`;
 }
 
@@ -52,6 +67,7 @@ function render() {
       <button class="screen-close-x" id="btn-close-x" aria-label="Leave shop">✕</button>
       <h2>Shop (Gold: ${state.player.gold})</h2>
       ${renderEquipPrompt()}
+      ${renderSellDuplicatesControl()}
       ${rows}
       <button id="btn-leave">Leave</button>
     </div>
@@ -63,6 +79,19 @@ function render() {
   rootEl.querySelectorAll('button[data-sell]').forEach((btn) => {
     btn.onclick = () => sellItem(btn.dataset.sell);
   });
+  const sellDuplicatesBtn = document.getElementById('btn-sell-duplicates');
+  if (sellDuplicatesBtn) {
+    sellDuplicatesBtn.onclick = () => {
+      const result = sellDuplicateGear(state);
+      Object.assign(state, result.state);
+      sellDuplicatesMessage = result.soldCount === 0
+        ? 'No duplicates to sell.'
+        : `Sold ${result.soldCount} duplicate item${result.soldCount === 1 ? '' : 's'} for ${result.goldEarned}g.`;
+      pendingEquip = null;
+      callbacks.onPurchase();
+      render();
+    };
+  }
   if (pendingEquip) {
     document.getElementById('btn-equip-prompt-yes').onclick = () => {
       Object.assign(state, equipItem(state, pendingEquip, ITEMS[pendingEquip].slot));
@@ -88,6 +117,7 @@ function buyItem(itemId, quantity = 1) {
   next = addItem(next, itemId, quantity);
   Object.assign(state, next);
   pendingEquip = (item.slot && state.equipment[item.slot] !== itemId) ? itemId : null;
+  sellDuplicatesMessage = null;
   callbacks.onPurchase();
   render();
 }
@@ -112,6 +142,7 @@ function sellItem(itemId) {
   next = addGold(next, sellPrice(ITEMS[itemId].price));
   Object.assign(state, next);
   pendingEquip = null;
+  sellDuplicatesMessage = null;
   callbacks.onPurchase();
   render();
 }
@@ -121,6 +152,7 @@ export function mount(root, props) {
   state = props.state;
   callbacks = props.callbacks;
   pendingEquip = null;
+  sellDuplicatesMessage = null;
   render();
   window.addEventListener('keydown', handleKeydown);
 }

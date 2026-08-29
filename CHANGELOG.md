@@ -24,6 +24,16 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-08-29
+
+### Changed
+- "Sell Duplicate Gear" (added in 0.7.4) moved from the Inventory screen to
+  the Shop screen - Timothy's own correction: selling belongs in the shop,
+  not something available anywhere/anytime. Same behavior otherwise (sells
+  every unequipped duplicate copy of a gear item, keeping one, at half
+  price), scanning the player's whole inventory rather than just
+  `SHOP_CATALOG`.
+
 ## [0.7.5] - 2026-08-29
 
 ### Fixed

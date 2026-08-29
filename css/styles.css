@@ -534,6 +534,16 @@ button:focus-visible {
   border: 1px solid #4ade80;
   border-radius: 6px;
 }
+.shop-sell-duplicates {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.shop-sell-duplicates-message {
+  color: #4ade80;
+  font-size: 0.8rem;
+}
 .slot-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 8px 0; border-bottom: 1px solid #444;
@@ -645,16 +655,6 @@ button:focus-visible {
 }
 .inventory-sort-control select {
   margin-left: 4px;
-}
-.inventory-sell-duplicates {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.inventory-sell-duplicates-message {
-  color: #4ade80;
-  font-size: 0.8rem;
 }
 .loot-source { color: #888; font-size: 0.8rem; text-align: right; }
 
