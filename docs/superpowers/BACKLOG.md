@@ -975,3 +975,37 @@ signals?), where the opt-in toggle lives in the UI (no settings screen
 exists today - closest precedent is the logout/switch-character flow),
 and how consent state persists (per-save? per-browser via localStorage,
 alongside `state`?). Needs its own design pass before implementation.
+
+**Update (2026-08-28):** motivated by a concrete balance question now,
+not just "know how people are playing" in the abstract. Timothy, playing
+the latest build himself: "I got to the axe I think by level 7 or 8 and
+then I'm close to getting the pick at level 9. So we should probably
+tune monsters in those areas differently so they are too hard until you
+are the appropriate level." Zone 1's tool-gate order is fixed by design
+(axe first, then pick, then both together unlock the boat, boat unlocks
+the dragon) - the ask is for the monsters guarding/surrounding each
+gate's screens to actually gatekeep by difficulty, not just by requiring
+the tool item itself, so a player can't wander into axe/pick/boat
+territory underleveled and steamroll (or get steamrolled by) it. Also
+raised in the same note: "We might need more enemies too, not just the
+modified current ones" - the existing per-zone monster pool may be too
+small to express a real difficulty gradient across the screens leading
+to each gate without just reskinning stat multipliers on the same few
+monsters.
+
+The other new piece: "we should collect data as I play... give me a
+command to extract it for you" - wants his own local play sessions
+instrumented (level reached, timestamp of each tool pickup, fight
+outcomes) with some export path (a console command? a downloadable
+file? not specified) so this session's own gameplay can be handed back
+for tuning, distinct from the opt-in-with-consent GA idea above which is
+about *other* players once the game has real traffic. "Maybe this ties
+to our Google Analytics and we can use the data for both" - his own
+instinct that the local-extract mechanism and the opt-in GA telemetry
+above should probably share one underlying event-tracking
+implementation (same events, two different sinks: a local
+export/console command for his own dev-mode use now, GA for aggregate
+player data once opted-in players exist), rather than being built
+twice. Still just an idea - which events, what the extract command looks
+like, and how/whether it shares code with the GA item above are all open
+design questions, not decided.
