@@ -600,6 +600,21 @@ the design when this gets picked up rather than have it speced now —
 flagged as a real "when the time comes" item, not raw-idea-only like
 the general version above.
 
+**Timing and dismissal, added 2026-08-29:** the explainer should fire
+right at the moment a new ability unlocks (same level-up event that
+already triggers `playCelebration`'s ability-unlocked banner in
+`js/main.js`), not some separate later screen — read the ability and its
+synergy explanation right then. Timothy also wants it to require an
+explicit close/dismiss action (not a toast that can be missed or a timed
+auto-fade like the existing celebration banners) so there's a real
+guarantee the player actually saw it before play continues. Separately,
+Timothy floated this eventually tying into the story he's writing himself
+(see "The game needs an actual story" above) — still just a possibility,
+not a commitment, and doesn't change the authorship boundary: any actual
+narrative framing for these explainers is his to write, this item stays
+scoped to the engineering (trigger timing, modal/dismiss mechanic) same as
+the rest of this section.
+
 ## Feature requests
 
 *(Everything that was originally in this section shipped 2026-08-17;
