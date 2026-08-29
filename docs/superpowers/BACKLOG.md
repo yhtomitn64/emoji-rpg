@@ -1032,6 +1032,18 @@ better-informed.
 
 ## Infrastructure / deployment
 
+### A friend playtester reported lag — worth a performance pass? Raised 2026-08-29
+Timothy relaying a friend's report: "I tried last night but my PC was
+lagging for various windows reasons. Will try again later." Explicitly
+vague on the friend's end ("various windows reasons") — not clearly
+attributed to the game itself rather than the friend's own machine/OS at
+the time. No profiling done, no specific screen/action identified as slow.
+Not investigated - flagged so a recurrence (same friend or someone else)
+isn't dismissed as one-off, but nothing here yet points at an actual
+in-game performance problem to fix. If it recurs or gets more specific
+(which screen, browser, whether it's the new continuous-camera map
+rendering specifically), worth profiling then rather than guessing now.
+
 ### Pixel-level visual regression test for the worn-path trail (and similar rendering bugs) — raised 2026-08-26
 Timothy, after several rounds of "there's a seam" reports that turned out
 real but took multiple live-browser screenshot/zoom cycles each to pin
