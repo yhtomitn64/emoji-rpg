@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-29
+
 ### Added
 - Inventory screen now has switchable tabs (Gear/Materials/Potions/Tools)
   instead of one long scrolling list, plus a per-tab sort control
