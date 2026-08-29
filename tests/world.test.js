@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { directionFromDelta, computeEdgeLandingPosition, isWalkableAt, isValidSavedPosition, pickTileVariant, isChokepointTile } from '../js/systems/world.js';
+import { directionFromDelta, computeEdgeLandingPosition, isWalkableAt, isValidSavedPosition, pickTileVariant, isChokepointTile, computeViewportOrigin } from '../js/systems/world.js';
 
 test('directionFromDelta maps movement deltas to compass directions', () => {
   assert.equal(directionFromDelta(1, 0), 'east');
@@ -93,4 +93,26 @@ test('isChokepointTile is false for a dead end - fewer than two passable neighbo
     '..',
   ];
   assert.equal(isChokepointTile(2, 2, 1, 1, gridIsPassable(rows)), false);
+});
+
+test('computeViewportOrigin centers the viewport on the player away from any edge', () => {
+  const bounds = { minGx: 0, minGy: 0, maxGx: 99, maxGy: 99 };
+  assert.deepEqual(computeViewportOrigin(50, 50, 11, 7, bounds), { originGx: 45, originGy: 47 });
+});
+
+test('computeViewportOrigin clamps at the minimum edge instead of showing past it', () => {
+  const bounds = { minGx: 0, minGy: 0, maxGx: 99, maxGy: 99 };
+  assert.deepEqual(computeViewportOrigin(1, 1, 11, 7, bounds), { originGx: 0, originGy: 0 });
+});
+
+test('computeViewportOrigin clamps at the maximum edge instead of showing past it', () => {
+  const bounds = { minGx: 0, minGy: 0, maxGx: 99, maxGy: 99 };
+  assert.deepEqual(computeViewportOrigin(98, 98, 11, 7, bounds), { originGx: 89, originGy: 93 });
+});
+
+test('computeViewportOrigin centers a whole small map (viewport bigger than the world) with no panning', () => {
+  const bounds = { minGx: 0, minGy: 0, maxGx: 9, maxGy: 7 }; // a 10x8 town-sized map
+  assert.deepEqual(computeViewportOrigin(3, 3, 21, 15, bounds), { originGx: -5, originGy: -3 });
+  // moving the "player" elsewhere on the same small map doesn't move the origin at all
+  assert.deepEqual(computeViewportOrigin(8, 6, 21, 15, bounds), { originGx: -5, originGy: -3 });
 });

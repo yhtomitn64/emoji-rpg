@@ -88,6 +88,28 @@ export function isChokepointTile(width, height, x, y, isPassable) {
   return rest.some((p) => !reached.has(`${p.x},${p.y}`));
 }
 
+// The camera's top-left global tile for a viewport of tilesWide x tilesTall,
+// centered on (centerGx, centerGy) - except clamped so the viewport never
+// shows past `bounds` (a cluster's outer extent, from worldGrid.js's
+// clusterBounds). When the viewport is bigger than the world itself in a
+// given axis (true of every town/dungeon screen today), that axis centers
+// the whole world instead of the player, with no panning ever possible in
+// it - see js/screens/mapScreen.js's render().
+export function computeViewportOrigin(centerGx, centerGy, tilesWide, tilesTall, bounds) {
+  const worldWidth = bounds.maxGx - bounds.minGx + 1;
+  const worldHeight = bounds.maxGy - bounds.minGy + 1;
+
+  const originGx = tilesWide >= worldWidth
+    ? bounds.minGx - Math.floor((tilesWide - worldWidth) / 2)
+    : Math.max(bounds.minGx, Math.min(centerGx - Math.floor(tilesWide / 2), bounds.maxGx - tilesWide + 1));
+
+  const originGy = tilesTall >= worldHeight
+    ? bounds.minGy - Math.floor((tilesTall - worldHeight) / 2)
+    : Math.max(bounds.minGy, Math.min(centerGy - Math.floor(tilesTall / 2), bounds.maxGy - tilesTall + 1));
+
+  return { originGx, originGy };
+}
+
 export function computeEdgeLandingPosition(direction, currentPosition, neighborMap) {
   if (direction === 'east') return { x: 0, y: currentPosition.y };
   if (direction === 'west') return { x: neighborMap.rows[0].length - 1, y: currentPosition.y };
