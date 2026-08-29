@@ -491,6 +491,21 @@ placement data is structured/stored, whether it reuses or replaces the
 existing cache-reward system, how the shop rebalance numbers actually
 land) before implementation.
 
+**Update (2026-08-28):** Timothy reiterated the same underlying ask,
+framed around exploration purpose rather than the shop-rebalance half:
+"a few more things in our map tool place. Maybe a few special loot items
+or just a loot dropdown and I can place dungeons with that loot in it,
+or come up with more special items I can place via dungeons or
+something. I guess need a design pass for this. I just want more stuff
+to put in our zone 1 to give folks a purpose to walk around." Two
+threads in this restatement: (1) the same hand-placement-dropdown system
+already captured above, and (2) a related but distinct idea - more
+*special items themselves* (not just placement tooling) to actually
+populate that dropdown with, possibly tied to hand-placed mini-dungeons
+specifically rather than bare map tiles. Explicitly flagged by him
+(again) as needing its own design pass before implementation - not
+ready to scope.
+
 ## In-game tutorials / mechanic explainers, raised 2026-08-28
 
 Timothy, in the same note as the combo-priming timing gap (shipped
@@ -588,6 +603,21 @@ mid-tier monster gold drops outpace those costs comfortably — nothing
 sinks gold or materials fast enough to make this a real gap yet, just a
 few extra tidy-up rows in the inventory. Revisit if that changes (e.g.
 materials pile up faster, or a future economy pass tightens gold flow).
+
+### Quest board should glow/indicate when you have turn-ins ready, raised 2026-08-28
+Timothy wants the quest giver (in this game, that's the town's
+`questBoard` map tile — `js/tiles.js`, 📋 — there's no separate NPC
+sprite) to visibly glow when the player has one or more completed
+quests ready to turn in, so it's noticeable from a distance on the town
+map instead of only discoverable by walking in and checking. The signal
+already exists and is cheap to check: `canTurnInQuest(state, monsterId)`
+(`js/systems/quests.js`) is exactly the same per-monster check
+`questBoardScreen.js` already uses to enable each "Turn In" button and
+the "Turn In All" button - `mapScreen.js`'s own tile rendering would
+just need to check `Object.keys(QUEST_REQUIREMENTS).some((id) =>
+canTurnInQuest(state, id))` while painting the town screen's tiles and
+apply a glow class when true. Not scoped/implemented yet - just capturing
+the idea.
 
 ### Tiered gear can never be sold or discarded, flagged by final review 2026-08-28
 The shop deliberately only ever sells/buys the Plain stack of an item
