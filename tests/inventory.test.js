@@ -4,8 +4,9 @@ import { createNewGame } from '../js/state.js';
 import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
-  maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier,
+  maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier, sellDuplicateGear,
 } from '../js/systems/inventory.js';
+import { ITEMS } from '../js/data/items.js';
 
 test('addGold and spendGold adjust player gold immutably', () => {
   const state = createNewGame();
@@ -392,4 +393,40 @@ test('getItemStatDelta never shows the same delta for a Plain and a Fine copy of
   const fineDelta = getItemStatDelta(state, 'goblinClub', 'fine');
   assert.notEqual(plainDelta.attack, fineDelta.attack);
   assert.equal(fineDelta.attack, plainDelta.attack + 1);
+});
+
+// Raised 2026-08-29: "add a sell duplicates button... auto sells all your
+// dupes to clean up INV."
+test('sellDuplicateGear keeps one copy of each gear entry and sells the rest at half price', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 3); // price 30 -> sellPrice 15 each
+  state = addItem(state, 'clothCap', 1); // no duplicate, untouched
+
+  const result = sellDuplicateGear(state);
+
+  const swordEntry = result.state.inventory.find((e) => e.itemId === 'ironSword');
+  assert.equal(swordEntry.quantity, 1, 'expected one Iron Sword kept, the other 2 sold');
+  const capEntry = result.state.inventory.find((e) => e.itemId === 'clothCap');
+  assert.equal(capEntry.quantity, 1, 'expected the non-duplicate item left untouched');
+  assert.equal(result.soldCount, 2);
+  assert.equal(result.goldEarned, 2 * sellPrice(ITEMS.ironSword.price));
+  assert.equal(result.state.player.gold, state.player.gold + result.goldEarned);
+});
+
+test('sellDuplicateGear ignores materials/potions/tools even at quantity > 1', () => {
+  let state = createNewGame(); // starts with 2 potions
+  const result = sellDuplicateGear(state);
+  assert.equal(result.soldCount, 0);
+  assert.equal(result.goldEarned, 0);
+  const potionEntry = result.state.inventory.find((e) => e.itemId === 'potion');
+  assert.equal(potionEntry.quantity, 2, 'expected potions (not gear) to be left alone');
+});
+
+test('sellDuplicateGear leaves a currently-equipped item alone (equipping already removes its inventory copy)', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironSword', 1);
+  state = equipItem(state, 'ironSword', 'weapon');
+  const result = sellDuplicateGear(state);
+  assert.equal(result.soldCount, 0);
+  assert.equal(result.state.equipment.weapon, 'ironSword');
 });

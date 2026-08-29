@@ -1,5 +1,5 @@
 import { ITEMS } from '../data/items.js';
-import { getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses, describeItem, getUpgradeLevel } from '../systems/inventory.js';
+import { getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses, describeItem, getUpgradeLevel, sellDuplicateGear } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
@@ -24,6 +24,7 @@ let state = null;
 let callbacks = null;
 let activeTabId = 'gear';
 let sortOrderByTab = null;
+let sellDuplicatesMessage = null;
 
 function defaultSortOrderByTab() {
   return Object.fromEntries(TABS.map((tab) => [tab.id, 'alpha']));
@@ -106,6 +107,14 @@ function renderToolRows(entries) {
   }).join('');
 }
 
+function renderSellDuplicatesControl(entries) {
+  const duplicateCount = entries.filter((entry) => entry.quantity > 1).length;
+  return `<div class="inventory-sell-duplicates">
+    <button id="btn-sell-duplicates" ${duplicateCount === 0 ? 'disabled' : ''}>🧹 Sell Duplicate Gear</button>
+    ${sellDuplicatesMessage ? `<span class="inventory-sell-duplicates-message">${sellDuplicatesMessage}</span>` : ''}
+  </div>`;
+}
+
 function renderTabButtons() {
   return TABS.map((tab) => `<button class="inventory-tab-btn${tab.id === activeTabId ? ' active' : ''}" data-tab="${tab.id}">${tab.label}</button>`).join('');
 }
@@ -132,6 +141,7 @@ function render() {
         <div class="inventory-tab-buttons">${renderTabButtons()}</div>
         <div class="inventory-tab-content">
           ${renderSortControl(activeTab)}
+          ${activeTab.id === 'gear' ? renderSellDuplicatesControl(entries) : ''}
           ${activeTab.render(entries)}
         </div>
       </div>
@@ -142,9 +152,22 @@ function render() {
   rootEl.querySelectorAll('button[data-tab]').forEach((btn) => {
     btn.onclick = () => {
       activeTabId = btn.dataset.tab;
+      sellDuplicatesMessage = null;
       render();
     };
   });
+  const sellDuplicatesBtn = rootEl.querySelector('#btn-sell-duplicates');
+  if (sellDuplicatesBtn) {
+    sellDuplicatesBtn.onclick = () => {
+      const result = sellDuplicateGear(state);
+      Object.assign(state, result.state);
+      sellDuplicatesMessage = result.soldCount === 0
+        ? 'No duplicates to sell.'
+        : `Sold ${result.soldCount} duplicate item${result.soldCount === 1 ? '' : 's'} for ${result.goldEarned}g.`;
+      callbacks.onChange();
+      render();
+    };
+  }
   const sortSelect = rootEl.querySelector('#inventory-sort-select');
   if (sortSelect) {
     sortSelect.onchange = () => {
@@ -188,6 +211,7 @@ export function mount(root, props) {
   callbacks = props.callbacks;
   activeTabId = 'gear';
   sortOrderByTab = defaultSortOrderByTab();
+  sellDuplicatesMessage = null;
   render();
 }
 

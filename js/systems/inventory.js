@@ -114,6 +114,34 @@ export function sellPrice(price) {
   return Math.floor(price / 2);
 }
 
+// Raised 2026-08-29: "add a sell duplicates button... auto sells all your
+// dupes to clean up INV." Equipping an item already removes its one copy
+// from state.inventory (see equipItem above), so a gear entry's quantity
+// can only ever be >1 here from owning multiple *unequipped* copies of the
+// exact same itemId+tier - the first copy isn't a duplicate, so this keeps
+// one and sells the rest at half price, same as a normal shop sale.
+// Deliberately gear-only (`ITEMS[entry.itemId].slot` is only set on
+// equippable items) - materials/potions are meant to stack past 1, that's
+// not a "duplicate" in the same sense, and materials have no price/sell
+// path at all yet (see the still-open "sell unneeded crafting materials"
+// backlog item).
+export function sellDuplicateGear(state) {
+  let next = state;
+  let soldCount = 0;
+  let goldEarned = 0;
+  for (const entry of state.inventory) {
+    const item = ITEMS[entry.itemId];
+    if (!item.slot || entry.quantity <= 1) continue;
+    const excess = entry.quantity - 1;
+    const earned = sellPrice(item.price) * excess;
+    next = removeItem(next, entry.itemId, excess, entry.tier);
+    next = addGold(next, earned);
+    soldCount += excess;
+    goldEarned += earned;
+  }
+  return { state: next, soldCount, goldEarned };
+}
+
 export function maxAffordableQuantity(gold, price, requested) {
   if (price <= 0) return requested;
   return Math.min(requested, Math.floor(gold / price));

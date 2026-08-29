@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.7.4',
+    date: '2026-08-29',
+    highlights: [
+      'Added a "Sell Duplicate Gear" button to the inventory\'s Gear tab — auto-sells every extra unequipped copy of the same item (keeping one) at the usual half price, to clean up clutter.',
+      'Fixed the "what you got" popup after a fight sometimes appearing on top of the inventory screen if you opened it while the popup was still fading out.',
+    ],
+  },
+  {
     version: '0.7.3',
     date: '2026-08-29',
     highlights: [

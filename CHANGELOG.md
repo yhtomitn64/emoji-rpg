@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-08-29
+
+### Added
+- Inventory's Gear tab now has a "🧹 Sell Duplicate Gear" button - sells
+  every unequipped duplicate copy of the same gear item (keeping one),
+  same half-price sale as the shop. Gear-only: materials/potions are meant
+  to stack past 1, and equipping an item already removes its own inventory
+  copy (`equipItem`), so a gear entry's quantity can only be >1 from owning
+  multiple unequipped copies in the first place. New
+  `sellDuplicateGear` in `js/systems/inventory.js`.
+
+### Fixed
+- The post-fight "what you got" item-pickup toast (anchored near the HUD
+  Inventory button) could render on top of the inventory screen if opened
+  while the toast's 1.2s fade was still playing - `#item-pickup-toast` had
+  an explicit `z-index: 30` but `#overlay` (every overlay screen: inventory,
+  shop, smith, etc.) had none, so the toast painted above it. `#overlay`
+  now sets `z-index: 35`.
+
 ## [0.7.3] - 2026-08-29
 
 ### Fixed

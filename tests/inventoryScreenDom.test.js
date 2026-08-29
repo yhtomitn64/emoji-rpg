@@ -107,4 +107,37 @@ test('inventoryScreen DOM', async (t) => {
     assert.equal(changed, true);
     assert.ok(!tabRowTexts(root).some((text) => text.includes('Iron Sword')));
   });
+
+  await t.test('Sell Duplicate Gear button is disabled when no gear entry has quantity > 1', async () => {
+    const root = await mountInventory(buildState());
+    assert.equal(root.querySelector('#btn-sell-duplicates').disabled, true);
+  });
+
+  await t.test('clicking Sell Duplicate Gear keeps one copy, sells the rest, and reports the result', async () => {
+    const state = buildState();
+    state.inventory.find((e) => e.itemId === 'ironSword').quantity = 3;
+    let changed = false;
+    const root = await mountInventory(state, { onChange: () => { changed = true; }, onClose: () => {} });
+
+    const btn = root.querySelector('#btn-sell-duplicates');
+    assert.equal(btn.disabled, false);
+    click(btn);
+
+    assert.equal(changed, true);
+    assert.equal(state.inventory.find((e) => e.itemId === 'ironSword').quantity, 1);
+    assert.ok(state.player.gold > 0, 'expected gold to increase from the sale');
+    assert.ok(root.querySelector('.inventory-sell-duplicates-message').textContent.includes('Sold 2 duplicate items'));
+  });
+
+  await t.test('the Sell Duplicate Gear message clears when switching tabs', async () => {
+    const state = buildState();
+    state.inventory.find((e) => e.itemId === 'ironSword').quantity = 2;
+    const root = await mountInventory(state);
+    click(root.querySelector('#btn-sell-duplicates'));
+    assert.ok(root.querySelector('.inventory-sell-duplicates-message'));
+
+    click(root.querySelector('.inventory-tab-btn[data-tab="material"]'));
+    click(root.querySelector('.inventory-tab-btn[data-tab="gear"]'));
+    assert.equal(root.querySelector('.inventory-sell-duplicates-message'), null);
+  });
 });
