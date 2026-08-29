@@ -563,9 +563,24 @@ you the battle window shakes. Also battle is over transition back to
 map in a cool way." Three related, separable pieces: a battle-start
 transition (map fade/pixelate, battle area "swirls in"), a
 crit-triggered screen shake (either side landing a crit), and a
-battle-end transition back to the map. None designed or scoped yet —
-captured here as concrete additions to the same open animation
-initiative.
+battle-end transition back to the map.
+
+**Status check 2026-08-28 (before starting implementation):** the
+crit-shake piece turned out to already be shipped, from an earlier,
+unrelated session (commit `e8c91cb`, "make crit hits pop and let damage
+numbers float above the dialog") — `playCritReaction`
+(`js/screens/battleScreen.js`) already shakes `elements.dialog` and sways
+the decoration on every crit, either side, wired through `playHitEffect`.
+Never marked here, found by code-reading before building it a second
+time. The `#app` dim/undim transition (`css/styles.css`, used by every
+overlay including battle) also gained a smooth `transition: filter 0.3s`
+as a small immediate step toward the battle-start/end fade ask. Still
+open: the battle dialog's own entrance ("swirls in") and exit animations
+specifically, and the perfect-timing visual payoff (parry success and
+ability timing-hits currently get no distinct visual beyond the normal
+hit-flash and a "Perfect timing!" log line). See
+`docs/superpowers/plans/2026-08-28-battle-animations-handoff.md` for
+implementation notes/plan on the remaining pieces.
 
 ### A proud, visible "you can do this now" moment when a tool is first picked up, raised 2026-08-28
 Timothy: "Also after getting axe, pick, canoe the character should hold

@@ -833,6 +833,14 @@ public API, no formal release process — commits land straight on
   a moment at the start of the *next* battle. Found while writing the new
   jsdom test suite above.
 
+### Changed
+- `#app`'s dim/undim transition (used by every overlay, including battle)
+  now animates smoothly (`transition: filter 0.3s ease`,
+  `css/styles.css`) instead of snapping instantly — a first small step
+  toward the still-open "battle starts with a cool
+  transition/fade" ask. See `docs/superpowers/BACKLOG.md`'s "Level-up and
+  general animation pass" entry for the rest of that initiative.
+
 ## [0.5.1] - 2026-08-17
 
 ### Fixed
