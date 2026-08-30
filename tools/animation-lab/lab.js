@@ -249,3 +249,93 @@ if (abilitySelect.value !== 'sweep') {
     selectKeyframe(0);
   });
 }
+
+// Export - direct-to-disk via File System Access API + copy/paste fallback
+import { generateKeyframesCaseCode, generateDurationEntryCode, patchMarkedBlock } from './keyframes.js';
+
+const chooseRepoBtn = document.getElementById('chooseRepoBtn');
+const repoStatus = document.getElementById('repoStatus');
+const exportBtn = document.getElementById('exportBtn');
+const copyJsonBtn = document.getElementById('copyJsonBtn');
+const copyCodeBtn = document.getElementById('copyCodeBtn');
+const exportStatus = document.getElementById('exportStatus');
+const exportOutput = document.getElementById('exportOutput');
+
+let repoHandle = null;
+
+chooseRepoBtn.addEventListener('click', async () => {
+  repoHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+  repoStatus.textContent = `Writing to: ${repoHandle.name}`;
+});
+
+async function writeFile(relativePath, contents) {
+  const parts = relativePath.split('/');
+  let dir = repoHandle;
+  for (const part of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(part);
+  const fh = await dir.getFileHandle(parts[parts.length - 1]);
+  const writable = await fh.createWritable();
+  await writable.write(contents);
+  await writable.close();
+}
+
+async function readFile(relativePath) {
+  const parts = relativePath.split('/');
+  let dir = repoHandle;
+  for (const part of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(part);
+  const fh = await dir.getFileHandle(parts[parts.length - 1]);
+  return (await fh.getFile()).text();
+}
+
+// swingKeyframesFor's Attack case is the switch's `default:` arm, not a
+// literal `case 'attack':` (js/screens/battleScreen.js, see Task 4's own
+// note on this) - the generated case-header text is swapped for that one
+// ability only, the marker comments and everything else about the patch
+// are identical to every other ability.
+function keyframesCodeFor(abilityId, design) {
+  const code = generateKeyframesCaseCode(abilityId, design);
+  if (abilityId === 'attack') return code.replace(/^case 'attack':/, 'default:');
+  return code;
+}
+
+async function exportToFiles() {
+  const abilityId = abilitySelect.value;
+  if (abilityId === 'sweep') {
+    exportStatus.textContent = 'Sweep export not wired up yet - edit designs/sweep.json by hand.';
+    return;
+  }
+  if (!repoHandle) {
+    exportStatus.textContent = 'Choose a repo folder first.';
+    return;
+  }
+  await writeFile(`tools/animation-lab/designs/${abilityId}.json`, JSON.stringify(currentDesign, null, 2));
+
+  let battleScreenText = await readFile('js/screens/battleScreen.js');
+  battleScreenText = patchMarkedBlock(battleScreenText, `${abilityId}:KEYFRAMES`, keyframesCodeFor(abilityId, currentDesign));
+  battleScreenText = patchMarkedBlock(battleScreenText, `${abilityId}:DURATION`, generateDurationEntryCode(abilityId, currentDesign));
+  await writeFile('js/screens/battleScreen.js', battleScreenText);
+
+  exportStatus.textContent = `Exported ${abilityId} to designs/${abilityId}.json and battleScreen.js.`;
+}
+
+exportBtn.addEventListener('click', exportToFiles);
+
+copyJsonBtn.addEventListener('click', async () => {
+  const text = JSON.stringify(currentDesign, null, 2);
+  exportOutput.value = text;
+  try { await navigator.clipboard.writeText(text); exportStatus.textContent = 'JSON copied to clipboard.'; }
+  catch { exportStatus.textContent = 'Clipboard blocked - copy from the box below.'; }
+});
+
+copyCodeBtn.addEventListener('click', async () => {
+  const abilityId = abilitySelect.value;
+  const text = `${keyframesCodeFor(abilityId, currentDesign)}\n\n${generateDurationEntryCode(abilityId, currentDesign)}`;
+  exportOutput.value = text;
+  try { await navigator.clipboard.writeText(text); exportStatus.textContent = 'Generated code copied to clipboard.'; }
+  catch { exportStatus.textContent = 'Clipboard blocked - copy from the box below.'; }
+});
+
+if (!window.showDirectoryPicker) {
+  chooseRepoBtn.disabled = true;
+  exportBtn.disabled = true;
+  repoStatus.textContent = 'File System Access API unavailable in this browser (Firefox/Safari) - use Copy JSON / Copy generated code instead.';
+}

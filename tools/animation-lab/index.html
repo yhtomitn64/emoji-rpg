@@ -77,6 +77,17 @@
   <label>rotate <input type="number" id="kfRotate" style="width: 60px;"></label>
   <label>scale <input type="number" id="kfScale" step="0.1" style="width: 60px;"></label>
 </div>
+<div id="exportControls" style="margin-top: 16px; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+  <button id="chooseRepoBtn">Choose Repo Folder</button>
+  <span id="repoStatus">No folder chosen - writes straight to disk once you pick your repo's root folder.</span>
+</div>
+<div id="exportControls2" style="margin-top: 8px; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+  <button id="exportBtn">Export to Files</button>
+  <button id="copyJsonBtn">Copy JSON</button>
+  <button id="copyCodeBtn">Copy generated code</button>
+  <span id="exportStatus"></span>
+</div>
+<textarea id="exportOutput" readonly style="width: 100%; max-width: 900px; height: 100px; margin-top: 8px; background: #000; color: #0f0; font-family: monospace; font-size: 12px;" placeholder="Copied output also appears here, in case clipboard access is blocked."></textarea>
 <script type="module" src="lab.js"></script>
 </body>
 </html>
