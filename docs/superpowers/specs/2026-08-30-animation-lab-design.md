@@ -67,11 +67,16 @@ AnimationDesign = {
       scale: number },         // 1 = natural size
     ...
   ],
-  // Sweep only: one profile per target count, since playPlayerSweepSwing
-  // builds waypoints procedurally at runtime rather than from a fixed
-  // keyframe list. Each profile is the same {anchor, keyframes} shape,
-  // applied per-waypoint-segment rather than once end-to-end.
-  sweepProfiles?: { [targetCount: number]: { anchor, keyframes } },
+  // Sweep only: not a flat keyframe list (playPlayerSweepSwing builds one
+  // keyframe per *live* target at cast time, and target count varies), so
+  // Sweep gets its own shape - a "default" template applied to every
+  // target count, plus per-count "overrides":
+  //   { default: { pinned, anchor, leadIn, perWaypoint }, overrides: {} }
+  // `leadIn` is the fixed first keyframe (offset 0, matching today's
+  // static "at rest" pose); `perWaypoint` describes one waypoint segment
+  // ({ x, y, dxFactor, dyFactor, rotateStep, scale }) applied at each live
+  // target in turn, with `rotate` accumulating as `(i + 1) * rotateStep` -
+  // a direct generalization of today's hardcoded `(i + 1) * 120deg`.
 }
 ```
 
