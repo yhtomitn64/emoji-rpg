@@ -172,3 +172,80 @@ function playPreview() {
 }
 
 playBtn.addEventListener('click', playPreview);
+
+// Persistence - localStorage autosave + loading real designs
+import { validateDesign } from './keyframes.js';
+
+const AUTOSAVE_KEY = 'animation-lab-autosave-v1';
+
+function autosave() {
+  try {
+    const all = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}');
+    all[abilitySelect.value] = currentDesign;
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(all));
+  } catch {
+    // localStorage may be unavailable (private browsing, quota) - editing
+    // still works for the current session, just without the safety net.
+  }
+}
+
+async function loadDesignForAbility(abilityId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}');
+    if (all[abilityId] && validateDesign(all[abilityId]).length === 0) {
+      currentDesign = all[abilityId];
+      return;
+    }
+  } catch {
+    // fall through to loading from the real file below
+  }
+  const response = await fetch(`./designs/${abilityId}.json`);
+  currentDesign = await response.json();
+}
+
+abilitySelect.addEventListener('change', async () => {
+  updateSweepGuard();
+  if (abilitySelect.value === 'sweep') return;
+  await loadDesignForAbility(abilitySelect.value);
+  selectedKeyframeIndex = 0;
+  pinnedToggle.checked = currentDesign.pinned;
+  renderTimeline();
+  selectKeyframe(0);
+});
+
+[kfXInput, kfYInput, kfRotateInput, kfScaleInput, pinnedToggle].forEach((input) => {
+  input.addEventListener('input', autosave);
+});
+addKeyframeBtn.addEventListener('click', autosave);
+removeKeyframeBtn.addEventListener('click', autosave);
+
+// Sweep guard - Sweep's design shape ({ default, overrides }, no top-level
+// keyframes/pinned per Task 3's sweep.json) doesn't fit this tool's flat
+// keyframe-list editor yet, so the timeline/inspector are disabled with a
+// notice instead of attempting to render/edit it.
+function updateSweepGuard() {
+  const isSweep = abilitySelect.value === 'sweep';
+  timelineEl.style.display = isSweep ? 'none' : 'flex';
+  document.getElementById('keyframeInspector').style.display = isSweep ? 'none' : 'flex';
+  playBtn.disabled = isSweep;
+  let notice = document.getElementById('sweepNotice');
+  if (isSweep && !notice) {
+    notice = document.createElement('p');
+    notice.id = 'sweepNotice';
+    notice.style.fontSize = '12px';
+    notice.style.color = '#e0a539';
+    notice.textContent = 'Sweep profile editing (per-target-count leadIn/perWaypoint fields) isn\'t wired into this UI yet - edit tools/animation-lab/designs/sweep.json by hand for now.';
+    timelineEl.after(notice);
+  }
+  if (notice) notice.style.display = isSweep ? 'block' : 'none';
+}
+
+updateSweepGuard();
+
+if (abilitySelect.value !== 'sweep') {
+  loadDesignForAbility(abilitySelect.value).then(() => {
+    pinnedToggle.checked = currentDesign.pinned;
+    renderTimeline();
+    selectKeyframe(0);
+  });
+}
