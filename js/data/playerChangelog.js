@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.10.0',
+    date: '2026-08-30',
+    highlights: [
+      'Behind-the-scenes cleanup to how attack animations work internally - nothing to see yet, but it sets up better weapon-swing animations coming soon.',
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-08-30',
     highlights: [

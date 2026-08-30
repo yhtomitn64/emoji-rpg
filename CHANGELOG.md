@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-30
+
 ### Added
 - Animation Lab (`tools/animation-lab/`): a dev-only visual tool for
   designing weapon-swing animations, following the same never-deployed,
