@@ -2,7 +2,6 @@
   "default": {
     "pinned": false,
     "anchor": { "x": 0, "y": 0 },
-    "durationMs": 1500,
     "leadIn": { "x": 0, "y": 0, "dxFactor": 0, "dyFactor": 0, "rotate": 0, "scale": 1 },
     "perWaypoint": { "x": 0, "y": 0, "dxFactor": 1, "dyFactor": 1, "rotateStep": 120, "scale": 1 }
   },

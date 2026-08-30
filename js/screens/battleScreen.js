@@ -631,8 +631,7 @@ function swingSpriteEmoji(ability) {
 // marker block) since it's identical logic for every ability, not
 // per-ability data. Mirrors tools/animation-lab/keyframes.js's own
 // buildTransform() byte-for-byte - if one changes, change the other by
-// hand and add a matching case to tests/animationLabKeyframes.test.js
-// (see that file's own header comment).
+// hand and add a matching case to tests/animationLabKeyframes.test.js.
 //
 // Pinned: rotates around the fixed `anchor` with the glyph riding a
 // rotating arm out to its keyframe position - the CSS transform function

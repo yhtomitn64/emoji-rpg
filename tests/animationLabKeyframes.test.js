@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveXY, buildTransform, buildWaapiKeyframes } from '../tools/animation-lab/keyframes.js';
+import { readFileSync } from 'node:fs';
+import {
+  resolveXY,
+  buildTransform,
+  buildWaapiKeyframes,
+  generateKeyframesCaseCode,
+  generateDurationEntryCode,
+  generateSweepProfilesCode,
+  patchMarkedBlock,
+  validateDesign,
+} from '../tools/animation-lab/keyframes.js';
 
 test('resolveXY', async (t) => {
   await t.test('resolves a plain offset with no dx/dy contribution', () => {
@@ -54,8 +64,6 @@ test('buildWaapiKeyframes', async (t) => {
   });
 });
 
-import { generateKeyframesCaseCode, generateDurationEntryCode, generateSweepProfilesCode, patchMarkedBlock } from '../tools/animation-lab/keyframes.js';
-
 test('generateKeyframesCaseCode', async (t) => {
   await t.test('emits a switch case that embeds the design as data and calls the shared buildTransform helper', () => {
     const design = {
@@ -85,10 +93,16 @@ test('generateSweepProfilesCode', async (t) => {
 });
 
 test('patchMarkedBlock', async (t) => {
-  await t.test('replaces only the text between matching markers', () => {
+  await t.test('replaces only the text between matching markers, with no indentation when the START marker has none', () => {
     const original = 'before\n// ANIMATION-DESIGNER:chop:START\nold content\n// ANIMATION-DESIGNER:chop:END\nafter';
     const result = patchMarkedBlock(original, 'chop', 'new content');
-    assert.equal(result, 'before\n// ANIMATION-DESIGNER:chop:START\n  new content\n  // ANIMATION-DESIGNER:chop:END\nafter');
+    assert.equal(result, 'before\n// ANIMATION-DESIGNER:chop:START\nnew content\n// ANIMATION-DESIGNER:chop:END\nafter');
+  });
+
+  await t.test('matches the indentation actually preceding the START marker (battleScreen.js uses 4 spaces, not a hardcoded 2)', () => {
+    const original = 'before\n    // ANIMATION-DESIGNER:chop:START\n    old content\n    // ANIMATION-DESIGNER:chop:END\nafter';
+    const result = patchMarkedBlock(original, 'chop', 'new content');
+    assert.equal(result, 'before\n    // ANIMATION-DESIGNER:chop:START\n    new content\n    // ANIMATION-DESIGNER:chop:END\nafter');
   });
 
   await t.test('leaves unrelated markers and surrounding text untouched', () => {
@@ -101,10 +115,12 @@ test('patchMarkedBlock', async (t) => {
   await t.test('throws a clear error when the markers are missing', () => {
     assert.throws(() => patchMarkedBlock('no markers here', 'chop', 'x'), /Markers for "chop" not found/);
   });
-});
 
-import { readFileSync } from 'node:fs';
-import { validateDesign } from '../tools/animation-lab/keyframes.js';
+  await t.test('throws a clear error when the END marker appears before the START marker', () => {
+    const backwards = '// ANIMATION-DESIGNER:chop:END\nstuff\n// ANIMATION-DESIGNER:chop:START';
+    assert.throws(() => patchMarkedBlock(backwards, 'chop', 'x'), /END marker.*before.*START marker/);
+  });
+});
 
 test('validateDesign', async (t) => {
   const validDesign = {

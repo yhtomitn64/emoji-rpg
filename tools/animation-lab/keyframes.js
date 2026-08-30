@@ -70,9 +70,19 @@ export function patchMarkedBlock(fileText, markerId, newBlockText) {
   if (startIdx === -1 || endIdx === -1) {
     throw new Error(`Markers for "${markerId}" not found in file`);
   }
+  if (endIdx < startIdx) {
+    throw new Error(`END marker for "${markerId}" appears before its START marker`);
+  }
+  // Match the file's actual indentation at the marker instead of guessing:
+  // capture whatever whitespace precedes the START marker on its own line
+  // (battleScreen.js's markers sit at 4-space indent inside a switch, not
+  // the hardcoded 2 spaces this used to assume) and reuse it to prefix the
+  // inserted block.
+  const lineStart = fileText.lastIndexOf('\n', startIdx) + 1;
+  const indent = fileText.slice(lineStart, startIdx);
   const before = fileText.slice(0, startIdx + startMarker.length);
   const after = fileText.slice(endIdx);
-  return `${before}\n  ${newBlockText}\n  ${after}`;
+  return `${before}\n${indent}${newBlockText}\n${indent}${after}`;
 }
 
 export function validateDesign(design) {
