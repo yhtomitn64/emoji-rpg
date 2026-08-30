@@ -39,3 +39,38 @@ export function buildWaapiKeyframes(design, dx, dy) {
     offset: kf.offset,
   }));
 }
+
+// Generated code embeds the design as a literal object rather than
+// individually-typed-out keyframe expressions - keeps codegen to a single
+// JSON.stringify, and keeps the generated block byte-for-byte reproducible
+// from the same design JSON the tool round-trips through designs/*.json.
+export function generateKeyframesCaseCode(abilityId, design) {
+  const json = JSON.stringify({ pinned: design.pinned, anchor: design.anchor, keyframes: design.keyframes });
+  return `case '${abilityId}': {\n    const ANIMATION = ${json};\n    return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));\n  }`;
+}
+
+export function generateDurationEntryCode(abilityId, design) {
+  return `${abilityId}: ${design.durationMs},`;
+}
+
+export function generateSweepProfilesCode(sweepProfiles) {
+  return `const SWEEP_PROFILES = ${JSON.stringify(sweepProfiles)};`;
+}
+
+// Replaces only the text strictly between a `// ANIMATION-DESIGNER:<id>:START`
+// and `// ANIMATION-DESIGNER:<id>:END` comment pair - same one-block-at-a-time
+// guarantee tools/terrain-painter/painter.js gives for LEGEND/ROWS via regex
+// against a known declaration shape, adapted here with explicit markers
+// since a switch case's braces aren't safely bracket-matchable by regex.
+export function patchMarkedBlock(fileText, markerId, newBlockText) {
+  const startMarker = `// ANIMATION-DESIGNER:${markerId}:START`;
+  const endMarker = `// ANIMATION-DESIGNER:${markerId}:END`;
+  const startIdx = fileText.indexOf(startMarker);
+  const endIdx = fileText.indexOf(endMarker);
+  if (startIdx === -1 || endIdx === -1) {
+    throw new Error(`Markers for "${markerId}" not found in file`);
+  }
+  const before = fileText.slice(0, startIdx + startMarker.length);
+  const after = fileText.slice(endIdx);
+  return `${before}\n  ${newBlockText}\n  ${after}`;
+}

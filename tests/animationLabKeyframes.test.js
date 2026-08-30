@@ -53,3 +53,52 @@ test('buildWaapiKeyframes', async (t) => {
     assert.equal(result[1].transform, 'translate(-50%, -50%) translate(10px, 10px) rotate(90deg) scale(1.5)');
   });
 });
+
+import { generateKeyframesCaseCode, generateDurationEntryCode, generateSweepProfilesCode, patchMarkedBlock } from '../tools/animation-lab/keyframes.js';
+
+test('generateKeyframesCaseCode', async (t) => {
+  await t.test('emits a switch case that embeds the design as data and calls the shared buildTransform helper', () => {
+    const design = {
+      pinned: true,
+      anchor: { x: 5, y: 5 },
+      keyframes: [{ offset: 0, x: 0, y: 0, rotate: 0, scale: 1 }],
+    };
+    const code = generateKeyframesCaseCode('chop', design);
+    assert.match(code, /^case 'chop': \{/);
+    assert.match(code, /const ANIMATION = \{"pinned":true,"anchor":\{"x":5,"y":5\},"keyframes":\[\{"offset":0,"x":0,"y":0,"rotate":0,"scale":1\}\]\};/);
+    assert.match(code, /buildTransform\(ANIMATION\.pinned, ANIMATION\.anchor, kf, dx, dy\)/);
+  });
+});
+
+test('generateDurationEntryCode', async (t) => {
+  await t.test('emits one object-literal entry', () => {
+    assert.equal(generateDurationEntryCode('chop', { durationMs: 1500 }), 'chop: 1500,');
+  });
+});
+
+test('generateSweepProfilesCode', async (t) => {
+  await t.test('emits a const declaration holding the whole profiles table', () => {
+    const profiles = { default: { pinned: false, anchor: { x: 0, y: 0 }, leadIn: { rotate: 0, scale: 1 }, perWaypoint: { rotateStep: 120, scale: 1 } } };
+    const code = generateSweepProfilesCode(profiles);
+    assert.match(code, /^const SWEEP_PROFILES = \{"default":/);
+  });
+});
+
+test('patchMarkedBlock', async (t) => {
+  await t.test('replaces only the text between matching markers', () => {
+    const original = 'before\n// ANIMATION-DESIGNER:chop:START\nold content\n// ANIMATION-DESIGNER:chop:END\nafter';
+    const result = patchMarkedBlock(original, 'chop', 'new content');
+    assert.equal(result, 'before\n// ANIMATION-DESIGNER:chop:START\n  new content\n  // ANIMATION-DESIGNER:chop:END\nafter');
+  });
+
+  await t.test('leaves unrelated markers and surrounding text untouched', () => {
+    const original = '// ANIMATION-DESIGNER:attack:START\nkeep me\n// ANIMATION-DESIGNER:attack:END\n// ANIMATION-DESIGNER:chop:START\nold\n// ANIMATION-DESIGNER:chop:END';
+    const result = patchMarkedBlock(original, 'chop', 'new');
+    assert.match(result, /keep me/);
+    assert.doesNotMatch(result, /old/);
+  });
+
+  await t.test('throws a clear error when the markers are missing', () => {
+    assert.throws(() => patchMarkedBlock('no markers here', 'chop', 'x'), /Markers for "chop" not found/);
+  });
+});
