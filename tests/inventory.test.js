@@ -6,6 +6,7 @@ import {
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
   maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier, sellDuplicateGear,
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
+  resolveRingEquipSlot,
 } from '../js/systems/inventory.js';
 import { ITEMS } from '../js/data/items.js';
 
@@ -479,6 +480,15 @@ test('reforgeToMythic throws when the slot is not Superior tier', () => {
     inventory: [{ itemId: 'mythicEssence', quantity: 5 }],
   };
   assert.throws(() => reforgeToMythic(state, 'weapon'));
+});
+
+test('resolveRingEquipSlot picks ring1 first, then ring2, then null when both are full', () => {
+  const empty = { equipment: { ring1: null, ring2: null } };
+  assert.equal(resolveRingEquipSlot(empty), 'ring1');
+  const oneFull = { equipment: { ring1: 'emberRing', ring2: null } };
+  assert.equal(resolveRingEquipSlot(oneFull), 'ring2');
+  const bothFull = { equipment: { ring1: 'emberRing', ring2: 'windfuryRing' } };
+  assert.equal(resolveRingEquipSlot(bothFull), null);
 });
 
 test('reforgeToMythic throws when short on gold or essence', () => {

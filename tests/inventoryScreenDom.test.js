@@ -10,7 +10,7 @@ import { setupDom, teardownDom, createRoot, click } from './helpers/dom.js';
 function buildState() {
   return {
     player: { hp: 20, maxHp: 20, gold: 0 },
-    equipment: { weapon: null, head: null, body: null, legs: null, accessory: null },
+    equipment: { weapon: null, head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
     equipmentTiers: {},
     upgrades: {},
     inventory: [
@@ -106,5 +106,28 @@ test('inventoryScreen DOM', async (t) => {
     click(root.querySelector('button[data-equip="ironSword"]'));
     assert.equal(changed, true);
     assert.ok(!tabRowTexts(root).some((text) => text.includes('Iron Sword')));
+  });
+
+  await t.test('equipping a ring-slot item with one empty ring slot targets that slot directly', async () => {
+    const state = buildState();
+    state.inventory.push({ itemId: 'emberRing', quantity: 1 });
+    const root = await mountInventory(state);
+    const equipBtn = root.querySelector('button[data-equip="emberRing"]');
+    assert.ok(equipBtn);
+    assert.equal(equipBtn.dataset.slot, 'ring1');
+    click(equipBtn);
+    assert.equal(state.equipment.ring1, 'emberRing');
+  });
+
+  await t.test('equipping a ring-slot item with both rings full offers a choice of which to replace', async () => {
+    const state = buildState();
+    state.equipment.ring1 = 'emberRing';
+    state.equipment.ring2 = 'windfuryRing';
+    state.inventory.push({ itemId: 'emberRing', quantity: 1 }); // a second copy, in the bag
+    const root = await mountInventory(state);
+    const ring1Btn = root.querySelector('button[data-equip="emberRing"][data-slot="ring1"]');
+    const ring2Btn = root.querySelector('button[data-equip="emberRing"][data-slot="ring2"]');
+    assert.ok(ring1Btn);
+    assert.ok(ring2Btn);
   });
 });

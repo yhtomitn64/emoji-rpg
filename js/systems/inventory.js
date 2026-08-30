@@ -93,6 +93,17 @@ export function equipItem(state, itemId, slot, tier) {
   return next;
 }
 
+// Rings are a slot *type* ('ring' on the item), not a physical equipment
+// key - this resolves which of the two physical slots (ring1/ring2) an
+// equip action should target. Returns null when both are already occupied,
+// which callers (inventoryScreen.js) use to offer an explicit choice
+// instead of guessing which ring to replace.
+export function resolveRingEquipSlot(state) {
+  if (!state.equipment.ring1) return 'ring1';
+  if (!state.equipment.ring2) return 'ring2';
+  return null;
+}
+
 export function unequipItem(state, slot) {
   const itemId = state.equipment[slot];
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);

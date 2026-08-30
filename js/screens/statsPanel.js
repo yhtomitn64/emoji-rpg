@@ -3,7 +3,8 @@ import { xpForLevel } from '../systems/leveling.js';
 import { getEquipmentBonuses } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
-const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
+const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
+const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
 
 let rootEl = null;
 let state = null;
@@ -15,11 +16,12 @@ function render() {
 
   const equipRows = SLOTS.map((slot) => {
     const itemId = state.equipment[slot];
-    if (!itemId) return `<div class="stats-slot">${slot}: (empty)</div>`;
+    const label = SLOT_LABELS[slot] || slot;
+    if (!itemId) return `<div class="stats-slot">${label}: (empty)</div>`;
     const item = ITEMS[itemId];
     const level = state.upgrades?.[itemId] || 0;
     const tier = state.equipmentTiers?.[slot];
-    return `<div class="stats-slot">${slot}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</div>`;
+    return `<div class="stats-slot">${label}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</div>`;
   }).join('');
 
   const effectRows = [

@@ -1,8 +1,12 @@
 import { ITEMS } from '../data/items.js';
-import { getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses, describeItem, getUpgradeLevel } from '../systems/inventory.js';
+import {
+  getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses,
+  describeItem, getUpgradeLevel, resolveRingEquipSlot,
+} from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
-const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
+const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
+const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
 
 // Raised 2026-08-29: "our inventory screen should have tabs for the
 // different stuff instead of endless list and maybe some sorting" - split
@@ -17,7 +21,7 @@ const TABS = [
   { id: 'tool', label: 'Tools', predicate: (entry) => ITEMS[entry.itemId].type === 'tool', sortOptions: ['alpha', 'quantity'], render: renderToolRows, emptyText: 'No tools.' },
 ];
 const SORT_LABELS = { alpha: 'A-Z', quantity: 'Qty', tier: 'Rarity' };
-const TIER_RANK = { superior: 2, fine: 1 };
+const TIER_RANK = { mythic: 3, superior: 2, fine: 1 };
 
 let rootEl = null;
 let state = null;
@@ -52,15 +56,28 @@ function formatDelta(delta) {
 function renderEquippedRows() {
   return SLOTS.map((slot) => {
     const itemId = state.equipment[slot];
-    if (!itemId) return `<div class="inventory-row">${slot}: (empty)</div>`;
+    const label = SLOT_LABELS[slot] || slot;
+    if (!itemId) return `<div class="inventory-row">${label}: (empty)</div>`;
     const item = ITEMS[itemId];
     const tier = state.equipmentTiers?.[slot];
     const level = getUpgradeLevel(state, itemId, tier);
     return `<div class="inventory-row">
-      <span title="${describeItem(itemId, tier)}">${slot}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span title="${describeItem(itemId, tier)}">${label}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <button data-unequip="${slot}">Unequip</button>
     </div>`;
   }).join('');
+}
+
+function equipButtonsFor(entry, item) {
+  if (item.slot !== 'ring') {
+    return `<button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="${item.slot}">Equip</button>`;
+  }
+  const resolvedSlot = resolveRingEquipSlot(state);
+  if (resolvedSlot) {
+    return `<button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="${resolvedSlot}">Equip</button>`;
+  }
+  return `<button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="ring1">→ Ring 1</button>
+    <button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="ring2">→ Ring 2</button>`;
 }
 
 function renderGearRows(entries) {
@@ -72,7 +89,7 @@ function renderGearRows(entries) {
     const qtyText = entry.quantity > 1 ? ` x${entry.quantity}` : '';
     return `<div class="inventory-row">
       <span title="${describeItem(entry.itemId, entry.tier)}">${item.emoji} ${tierLabel(entry.tier)}${item.name}${qtyText}${deltaText ? ` (${deltaText})` : ''}</span>
-      <button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}">Equip</button>
+      ${equipButtonsFor(entry, item)}
     </div>`;
   }).join('');
 }
@@ -156,7 +173,7 @@ function render() {
     btn.onclick = () => {
       const itemId = btn.dataset.equip;
       const tier = btn.dataset.tier || undefined;
-      Object.assign(state, equipItem(state, itemId, ITEMS[itemId].slot, tier));
+      Object.assign(state, equipItem(state, itemId, btn.dataset.slot, tier));
       callbacks.onChange();
       render();
     };
