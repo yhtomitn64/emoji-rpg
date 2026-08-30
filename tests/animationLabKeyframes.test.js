@@ -102,3 +102,52 @@ test('patchMarkedBlock', async (t) => {
     assert.throws(() => patchMarkedBlock('no markers here', 'chop', 'x'), /Markers for "chop" not found/);
   });
 });
+
+import { readFileSync } from 'node:fs';
+import { validateDesign } from '../tools/animation-lab/keyframes.js';
+
+test('validateDesign', async (t) => {
+  const validDesign = {
+    pinned: false,
+    anchor: { x: 0, y: 0 },
+    durationMs: 1500,
+    keyframes: [
+      { offset: 0, x: 0, y: 0, rotate: 0, scale: 1 },
+      { offset: 1, x: 10, y: 10, rotate: 90, scale: 1 },
+    ],
+  };
+
+  await t.test('accepts a well-formed design', () => {
+    assert.deepEqual(validateDesign(validDesign), []);
+  });
+
+  await t.test('flags a non-boolean pinned, a missing anchor field, too few keyframes, and a bad scale', () => {
+    const errors = validateDesign({
+      pinned: 'yes',
+      anchor: { x: 0 },
+      durationMs: 1500,
+      keyframes: [{ offset: 0, x: 0, y: 0, rotate: 0, scale: -1 }],
+    });
+    assert.ok(errors.some((e) => e.includes('pinned')));
+    assert.ok(errors.some((e) => e.includes('anchor')));
+    assert.ok(errors.some((e) => e.includes('keyframes')));
+    assert.ok(errors.some((e) => e.includes('scale')));
+  });
+});
+
+test('seed design files', async (t) => {
+  const abilityIds = ['attack', 'stab', 'chop', 'slash'];
+  for (const id of abilityIds) {
+    await t.test(`designs/${id}.json is valid`, () => {
+      const design = JSON.parse(readFileSync(new URL(`../tools/animation-lab/designs/${id}.json`, import.meta.url)));
+      assert.deepEqual(validateDesign(design), []);
+    });
+  }
+
+  await t.test('designs/sweep.json has a default profile with at least one override', () => {
+    const sweep = JSON.parse(readFileSync(new URL('../tools/animation-lab/designs/sweep.json', import.meta.url)));
+    assert.ok(sweep.default);
+    assert.ok(sweep.default.perWaypoint);
+    assert.ok(typeof sweep.default.perWaypoint.rotateStep === 'number');
+  });
+});

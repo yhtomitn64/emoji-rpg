@@ -1,0 +1,9 @@
+{
+  "pinned": false,
+  "anchor": { "x": 0, "y": 0 },
+  "durationMs": 1500,
+  "keyframes": [
+    { "offset": 0, "x": -24, "y": -24, "dxFactor": 1, "dyFactor": 1, "rotate": -45, "scale": 1 },
+    { "offset": 1, "x": 24, "y": 24, "dxFactor": 1, "dyFactor": 1, "rotate": 45, "scale": 1 }
+  ]
+}

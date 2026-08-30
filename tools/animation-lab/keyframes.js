@@ -74,3 +74,24 @@ export function patchMarkedBlock(fileText, markerId, newBlockText) {
   const after = fileText.slice(endIdx);
   return `${before}\n  ${newBlockText}\n  ${after}`;
 }
+
+export function validateDesign(design) {
+  const errors = [];
+  if (typeof design.pinned !== 'boolean') errors.push('pinned must be a boolean');
+  if (!design.anchor || typeof design.anchor.x !== 'number' || typeof design.anchor.y !== 'number') {
+    errors.push('anchor.x/anchor.y must be numbers');
+  }
+  if (typeof design.durationMs !== 'number' || design.durationMs <= 0) errors.push('durationMs must be a positive number');
+  if (!Array.isArray(design.keyframes) || design.keyframes.length < 2) {
+    errors.push('keyframes must be an array of at least 2 entries');
+  }
+  if (Array.isArray(design.keyframes)) {
+    design.keyframes.forEach((kf, i) => {
+      if (typeof kf.offset !== 'number' || kf.offset < 0 || kf.offset > 1) errors.push(`keyframes[${i}].offset must be a number between 0 and 1`);
+      if (typeof kf.x !== 'number' || typeof kf.y !== 'number') errors.push(`keyframes[${i}].x/y must be numbers`);
+      if (typeof kf.rotate !== 'number') errors.push(`keyframes[${i}].rotate must be a number`);
+      if (typeof kf.scale !== 'number' || kf.scale <= 0) errors.push(`keyframes[${i}].scale must be a positive number`);
+    });
+  }
+  return errors;
+}
