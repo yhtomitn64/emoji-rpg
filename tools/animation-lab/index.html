@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Animation Lab</title>
+<link rel="stylesheet" href="../../css/styles.css">
+<style>
+  body { background: #111; color: #eee; font-family: monospace; margin: 0; padding: 16px; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  details#helpDetails summary { cursor: pointer; font-size: 12px; color: #ddd; padding: 4px 0; }
+  details#helpDetails p { font-size: 12px; color: #aaa; max-width: 900px; }
+  #topControls { margin-top: 12px; display: flex; align-items: center; gap: 16px; font-size: 12px; }
+  #topControls select { background: #222; color: #eee; border: 2px solid #444; font-family: monospace; padding: 4px; }
+  #labStage {
+    position: relative; margin-top: 16px; min-height: 260px; background: #1a1a1a;
+    border: 1px solid #444; display: flex; align-items: center; justify-content: space-between; padding: 24px;
+  }
+  #labStage .battle-monster-row { display: flex; gap: 12px; }
+  #anchorHandle {
+    position: absolute; width: 12px; height: 12px; border-radius: 50%;
+    background: #e07b39; border: 2px solid #fff; cursor: grab; transform: translate(-50%, -50%);
+  }
+</style>
+</head>
+<body>
+<h1>Animation Lab</h1>
+<details id="helpDetails">
+<summary>❓ Help — what everything does (click to expand)</summary>
+<p>
+  Dev-only tool for designing the battle screen's weapon-swing animations
+  (Attack/Stab/Chop/Slash/Sweep). Pick an ability and a target-count preset,
+  drag the orange anchor dot to where the weapon should pivot from, then add
+  keyframes on the timeline and drag each one's position/rotation/scale.
+  Play previews using the exact same animation call the real game uses.
+  Export writes straight into <code>js/screens/battleScreen.js</code> and
+  <code>tools/animation-lab/designs/*.json</code> - see this tool's own
+  README.md for the full save/export workflow.
+</p>
+</details>
+<div id="topControls">
+  <label for="abilitySelect">Ability:</label>
+  <select id="abilitySelect">
+    <option value="attack">Attack</option>
+    <option value="stab">Stab</option>
+    <option value="chop">Chop</option>
+    <option value="slash">Slash</option>
+    <option value="sweep">Sweep</option>
+  </select>
+  <label for="weaponSelect">Weapon (preview only):</label>
+  <select id="weaponSelect"></select>
+  <label for="targetCountSelect">Targets:</label>
+  <select id="targetCountSelect">
+    <option value="1">1</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+  </select>
+</div>
+<div id="labStage">
+  <div class="battle-monster-row" id="labMonsterRow"></div>
+  <div class="battle-divider">⚔️</div>
+  <div class="battle-combatant" id="labHeroZone">
+    <div class="battle-emoji" id="labHeroEmoji">🧑</div>
+    <div class="battle-name">You</div>
+  </div>
+  <div id="anchorHandle" title="Drag to set the pin/pivot point"></div>
+</div>
+<script type="module" src="lab.js"></script>
+</body>
+</html>
