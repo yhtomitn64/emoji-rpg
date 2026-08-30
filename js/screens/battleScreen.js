@@ -631,7 +631,7 @@ function swingSpriteEmoji(ability) {
 // marker block) since it's identical logic for every ability, not
 // per-ability data. Mirrors tools/animation-lab/keyframes.js's own
 // buildTransform() byte-for-byte - if one changes, change the other by
-// hand and add a matching case to tests/animationLabKeyframesParity.test.js
+// hand and add a matching case to tests/animationLabKeyframes.test.js
 // (see that file's own header comment).
 //
 // Pinned: rotates around the fixed `anchor` with the glyph riding a
@@ -775,6 +775,14 @@ function playPlayerSwing(ability, targetZoneEl, isCrit) {
 
 const SWEEP_STAGGER_MS = 260;
 
+// ANIMATION-DESIGNER:sweep:PROFILES:START
+const SWEEP_PROFILES = {"default":{"pinned":false,"anchor":{"x":0,"y":0},"leadIn":{"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":0,"scale":1},"perWaypoint":{"x":0,"y":0,"dxFactor":1,"dyFactor":1,"rotateStep":120,"scale":1}},"overrides":{}};
+// ANIMATION-DESIGNER:sweep:PROFILES:END
+
+function sweepProfileFor(targetCount) {
+  return SWEEP_PROFILES.overrides[String(targetCount)] || SWEEP_PROFILES.default;
+}
+
 // Sweep's own swing: one big sprite that travels through every living
 // target's zone in turn (left to right), matching the sequential contact
 // timing of the caller's own staggered hit loop below - never a fan of one
@@ -784,6 +792,7 @@ const SWEEP_STAGGER_MS = 260;
 function playPlayerSweepSwing(ability, targetZoneEls) {
   playHeroAttackLunge();
   const emoji = swingSpriteEmoji(ability);
+  const profile = sweepProfileFor(targetZoneEls.length);
   const totalDurationMs = targetZoneEls.length * SWEEP_STAGGER_MS;
   const startRect = elements.heroZone.getBoundingClientRect();
   const startX = startRect.left + startRect.width / 2;
@@ -796,11 +805,21 @@ function playPlayerSweepSwing(ability, targetZoneEls) {
     };
   });
   const keyframesFn = () => [
-    { transform: 'translate(-50%, -50%) translate(0, 0) rotate(0deg)', offset: 0 },
-    ...waypoints.map((p, i) => ({
-      transform: `translate(-50%, -50%) translate(${p.dx}px, ${p.dy}px) rotate(${(i + 1) * 120}deg)`,
-      offset: (i + 1) / waypoints.length,
-    })),
+    { transform: buildTransform(profile.pinned, profile.anchor, { ...profile.leadIn }, 0, 0), offset: 0 },
+    ...waypoints.map((p, i) => {
+      const kf = {
+        x: profile.perWaypoint.x,
+        y: profile.perWaypoint.y,
+        dxFactor: profile.perWaypoint.dxFactor,
+        dyFactor: profile.perWaypoint.dyFactor,
+        rotate: (i + 1) * profile.perWaypoint.rotateStep,
+        scale: profile.perWaypoint.scale,
+      };
+      return {
+        transform: buildTransform(profile.pinned, profile.anchor, kf, p.dx, p.dy),
+        offset: (i + 1) / waypoints.length,
+      };
+    }),
   ];
   // heroZone passed as both start and end below only to anchor the sprite's
   // starting (left, top) position - the real multi-waypoint path is baked
