@@ -24,6 +24,16 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-30
+
+### Changed
+- Stab's swing was facing back toward the hero instead of the enemy -
+  flipped 180 degrees.
+- Chop's swing redesigned so the axe blade (on the left side of the 🪓
+  glyph, not the right) actually leads into the target: it now approaches
+  from the target's own right and swings down-left into it, instead of
+  falling straight down from directly overhead.
+
 ## [0.8.2] - 2026-08-30
 
 ### Fixed

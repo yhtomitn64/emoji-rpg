@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.8.3',
+    date: '2026-08-30',
+    highlights: [
+      'Fixed Stab facing the wrong way (was pointing at yourself).',
+      "Chop's axe now actually chops into the enemy blade-first instead of falling flat.",
+    ],
+  },
+  {
     version: '0.8.2',
     date: '2026-08-30',
     highlights: [

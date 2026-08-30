@@ -624,9 +624,16 @@ function swingKeyframesFor(abilityId, dx, dy) {
   const at = (x, y, rotateDeg = 0) => `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotateDeg}deg)`;
   switch (abilityId) {
     case 'stab':
-      return [{ transform: at(0, 0, -45) }, { transform: at(dx, dy, -45) }, { transform: at(0, 0, -45) }];
+      // Raised 2026-08-30: was pointing back at the hero instead of at the
+      // target - flipped 180deg (-45 -> 135) from the original guess.
+      return [{ transform: at(0, 0, 135) }, { transform: at(dx, dy, 135) }, { transform: at(0, 0, 135) }];
     case 'chop':
-      return [{ transform: at(dx * 0.3, dy * 0.3 - 40, -80) }, { transform: at(dx, dy, 0) }];
+      // Raised 2026-08-30: redesigned per Timothy's read of the actual axe
+      // glyph - its blade sits on the left side of the emoji, handle to the
+      // right, so a strike that actually looks like the blade biting in has
+      // to approach from the target's own right and swing down-left into
+      // it, blade-leading, rather than falling straight down from above.
+      return [{ transform: at(dx + 50, dy - 60, -30) }, { transform: at(dx, dy, 10) }];
     case 'slash':
       return [{ transform: at(dx - 24, dy - 24, -45) }, { transform: at(dx + 24, dy + 24, 45) }];
     default:
