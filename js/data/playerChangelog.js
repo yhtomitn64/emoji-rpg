@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.8.4',
+    date: '2026-08-30',
+    highlights: [
+      'Stab and Chop now stop right at the enemy instead of looking like they punch all the way through.',
+    ],
+  },
+  {
     version: '0.8.3',
     date: '2026-08-30',
     highlights: [

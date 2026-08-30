@@ -623,17 +623,28 @@ function swingSpriteEmoji(ability) {
 function swingKeyframesFor(abilityId, dx, dy) {
   const at = (x, y, rotateDeg = 0) => `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotateDeg}deg)`;
   switch (abilityId) {
-    case 'stab':
+    case 'stab': {
       // Raised 2026-08-30: was pointing back at the hero instead of at the
-      // target - flipped 180deg (-45 -> 135) from the original guess.
-      return [{ transform: at(0, 0, 135) }, { transform: at(dx, dy, 135) }, { transform: at(0, 0, 135) }];
-    case 'chop':
+      // target - flipped 180deg (-45 -> 135) from the original guess. Also
+      // stops short of the target's own center (0.7, not 1.0) rather than
+      // fully overlapping it - with no way to actually hide the blade tip
+      // inside the target sprite, traveling all the way to center read as
+      // stabbing all the way through and out the other side.
+      const tipX = dx * 0.7;
+      const tipY = dy * 0.7;
+      return [{ transform: at(0, 0, 135) }, { transform: at(tipX, tipY, 135) }, { transform: at(0, 0, 135) }];
+    }
+    case 'chop': {
       // Raised 2026-08-30: redesigned per Timothy's read of the actual axe
       // glyph - its blade sits on the left side of the emoji, handle to the
       // right, so a strike that actually looks like the blade biting in has
       // to approach from the target's own right and swing down-left into
       // it, blade-leading, rather than falling straight down from above.
-      return [{ transform: at(dx + 50, dy - 60, -30) }, { transform: at(dx, dy, 10) }];
+      // Same short-of-center stop as Stab above, same reasoning.
+      const impactX = dx * 0.7;
+      const impactY = dy * 0.7;
+      return [{ transform: at(dx + 50, dy - 60, -30) }, { transform: at(impactX, impactY, 10) }];
+    }
     case 'slash':
       return [{ transform: at(dx - 24, dy - 24, -45) }, { transform: at(dx + 24, dy + 24, 45) }];
     default:

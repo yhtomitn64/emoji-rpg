@@ -24,6 +24,16 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-30
+
+### Changed
+- Stab and Chop now stop short of the target's own center (70% of the way
+  in) instead of traveling all the way to it - with no way to hide the
+  blade tip inside the target sprite, going all the way to center read as
+  stabbing/chopping all the way through and out the other side. Slash and
+  Sweep are unchanged - a full pass-through already reads correctly for a
+  wipe/sweep motion.
+
 ## [0.8.3] - 2026-08-30
 
 ### Changed
