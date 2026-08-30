@@ -7,7 +7,7 @@ export const MAX_UPGRADE_LEVEL = 3;
 const STAT_KEYS = [
   'attack', 'defense', 'maxHp', 'speed', 'enemySlowPercent',
   'lifestealPercent', 'extraSwingChance', 'elementalProcChance', 'elementalProcDamage',
-  'critChancePercent',
+  'critChancePercent', 'thornsPercent',
 ];
 
 function zeroStats() {
@@ -183,6 +183,43 @@ export function upgradeItem(state, slot, materialId, cost) {
   next = removeItem(next, materialId, 1);
   const upgradeLevel = getUpgradeLevel(next, itemId, tier) + 1;
   next = { ...next, upgrades: { ...next.upgrades, [upgradeKey(itemId, tier)]: upgradeLevel } };
+  return next;
+}
+
+// Reforge: Superior -> Mythic, gold + Mythic Essence, gated to NG+ by the
+// caller (smithScreen.js only shows this once ngPlusCycle >= 1). Starting
+// numbers, not final balance - see the design spec.
+export const REFORGE_GOLD_COST = 400;
+export const REFORGE_ESSENCE_COST = 3;
+
+export function canReforgeToMythic(state, slot) {
+  const itemId = state.equipment[slot];
+  if (!itemId) return false;
+  return state.equipmentTiers?.[slot] === 'superior';
+}
+
+// Carries the item's current (Superior-tier) upgrade level over to its new
+// Mythic-tier key, rather than resetting to 0 - it's the same physical
+// item being reforged, not a fresh copy, so losing smith-upgrade progress
+// on reforge would make this a straight downgrade until re-upgraded.
+export function reforgeToMythic(state, slot) {
+  const itemId = state.equipment[slot];
+  if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
+  const tier = state.equipmentTiers?.[slot];
+  if (tier !== 'superior') throw new Error(`${itemId} must be Superior tier to reforge`);
+
+  const essenceCount = state.inventory.find((entry) => entry.itemId === 'mythicEssence')?.quantity || 0;
+  if (essenceCount < REFORGE_ESSENCE_COST) throw new Error('Not enough Mythic Essence');
+  if (state.player.gold < REFORGE_GOLD_COST) throw new Error('Not enough gold');
+
+  let next = spendGold(state, REFORGE_GOLD_COST);
+  next = removeItem(next, 'mythicEssence', REFORGE_ESSENCE_COST);
+  const carriedUpgradeLevel = getUpgradeLevel(next, itemId, tier);
+  next = {
+    ...next,
+    equipmentTiers: { ...next.equipmentTiers, [slot]: 'mythic' },
+    upgrades: { ...next.upgrades, [upgradeKey(itemId, 'mythic')]: carriedUpgradeLevel },
+  };
   return next;
 }
 

@@ -5,6 +5,7 @@ import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
   maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier, sellDuplicateGear,
+  canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
 } from '../js/systems/inventory.js';
 import { ITEMS } from '../js/data/items.js';
 
@@ -114,7 +115,7 @@ test('getItemEffectiveStats returns unrounded base stats at upgrade level 0', ()
   assert.deepEqual(stats, {
     attack: 3, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0,
     lifestealPercent: 0, extraSwingChance: 0, elementalProcChance: 0, elementalProcDamage: 0,
-    critChancePercent: 0,
+    critChancePercent: 0, thornsPercent: 0,
   });
 });
 
@@ -429,4 +430,63 @@ test('sellDuplicateGear leaves a currently-equipped item alone (equipping alread
   const result = sellDuplicateGear(state);
   assert.equal(result.soldCount, 0);
   assert.equal(result.state.equipment.weapon, 'ironSword');
+});
+
+test('getEquipmentBonuses includes thornsPercent from an equipped Retribution Charm', () => {
+  const state = {
+    equipment: { weapon: null, head: null, body: null, legs: null, accessory: 'retributionCharm', ring1: null, ring2: null },
+    equipmentTiers: {},
+    upgrades: {},
+  };
+  const bonuses = getEquipmentBonuses(state);
+  assert.equal(bonuses.thornsPercent, 20);
+});
+
+test('canReforgeToMythic is true only for an equipped Superior-tier item', () => {
+  const state = {
+    equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
+    equipmentTiers: { weapon: 'superior' },
+    upgrades: {},
+  };
+  assert.equal(canReforgeToMythic(state, 'weapon'), true);
+  assert.equal(canReforgeToMythic(state, 'head'), false); // nothing equipped
+  const fineState = { ...state, equipmentTiers: { weapon: 'fine' } };
+  assert.equal(canReforgeToMythic(fineState, 'weapon'), false);
+});
+
+test('reforgeToMythic spends gold and essence, sets the slot tier to mythic, and carries over the upgrade level', () => {
+  const state = {
+    player: { gold: 500 },
+    equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
+    equipmentTiers: { weapon: 'superior' },
+    upgrades: { 'ironSword:superior': 2 },
+    inventory: [{ itemId: 'mythicEssence', quantity: 5 }],
+  };
+  const next = reforgeToMythic(state, 'weapon');
+  assert.equal(next.player.gold, 500 - REFORGE_GOLD_COST);
+  assert.equal(next.equipmentTiers.weapon, 'mythic');
+  assert.equal(next.upgrades['ironSword:mythic'], 2);
+  const essenceEntry = next.inventory.find((e) => e.itemId === 'mythicEssence');
+  assert.equal(essenceEntry.quantity, 5 - REFORGE_ESSENCE_COST);
+});
+
+test('reforgeToMythic throws when the slot is not Superior tier', () => {
+  const state = {
+    player: { gold: 500 },
+    equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
+    equipmentTiers: {},
+    upgrades: {},
+    inventory: [{ itemId: 'mythicEssence', quantity: 5 }],
+  };
+  assert.throws(() => reforgeToMythic(state, 'weapon'));
+});
+
+test('reforgeToMythic throws when short on gold or essence', () => {
+  const base = {
+    equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
+    equipmentTiers: { weapon: 'superior' },
+    upgrades: {},
+  };
+  assert.throws(() => reforgeToMythic({ ...base, player: { gold: 0 }, inventory: [{ itemId: 'mythicEssence', quantity: 5 }] }, 'weapon'));
+  assert.throws(() => reforgeToMythic({ ...base, player: { gold: 500 }, inventory: [] }, 'weapon'));
 });
