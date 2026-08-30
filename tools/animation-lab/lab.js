@@ -4,6 +4,7 @@
 // screen's CSS/DOM classes (via index.html's <link> to css/styles.css) so
 // the preview is what the game will actually render, not a lookalike.
 import { ITEMS } from '../../js/data/items.js';
+import { buildWaapiKeyframes } from './keyframes.js';
 
 const ABILITY_ICONS = { attack: null, stab: '🥊', chop: '🪓', slash: '⚔️', sweep: '🌪️' };
 
@@ -141,3 +142,33 @@ window.addEventListener('mousemove', (e) => {
 
 renderTimeline();
 selectKeyframe(0);
+
+// Play/preview playback
+const playBtn = document.getElementById('playBtn');
+
+function firstTargetZone() {
+  return monsterRow.firstElementChild;
+}
+
+function playPreview() {
+  const targetZone = firstTargetZone();
+  if (!targetZone) return;
+  const heroRect = heroZone.getBoundingClientRect();
+  const targetRect = targetZone.getBoundingClientRect();
+  const dx = (targetRect.left + targetRect.width / 2) - (heroRect.left + heroRect.width / 2);
+  const dy = (targetRect.top + targetRect.height / 2) - (heroRect.top + heroRect.height / 2);
+
+  const sprite = document.createElement('div');
+  sprite.textContent = currentSwingEmoji();
+  sprite.className = 'battle-swing-sprite';
+  sprite.style.position = 'fixed';
+  sprite.style.left = `${heroRect.left + heroRect.width / 2}px`;
+  sprite.style.top = `${heroRect.top + heroRect.height / 2}px`;
+  document.body.appendChild(sprite);
+
+  const waapiKeyframes = buildWaapiKeyframes(currentDesign, dx, dy);
+  const animation = sprite.animate(waapiKeyframes, { duration: currentDesign.durationMs, easing: 'ease-out', fill: 'forwards' });
+  animation.onfinish = () => sprite.remove();
+}
+
+playBtn.addEventListener('click', playPreview);
