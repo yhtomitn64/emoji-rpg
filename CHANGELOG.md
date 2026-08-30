@@ -26,14 +26,21 @@ public API, no formal release process — commits land straight on
 
 ## [0.8.1] - 2026-08-30
 
+### Fixed
+- 0.7.9's `#overlay` z-index bump (raised to sit above `#item-pickup-toast`)
+  had an unnoticed side effect: every fixed-position battle effect appended
+  directly to `<body>` - damage numbers, the "PERFECT!" timing badge, the
+  monster's own ranged-attack projectile, and (as of 0.8.0) the new
+  weapon-swing sprites and their afterimage trail - was still sitting at a
+  lower z-index than the dialog itself, so all of them had been silently
+  rendering *behind* the battle screen instead of over it. Raised each of
+  their z-index values above `#overlay`'s (`css/styles.css`) so they're
+  actually visible again.
+
 ### Changed
-- TEMPORARY troubleshooting bump: 0.8.0's weapon-swing sprites are much
-  bigger and slower than intended right now (`css/styles.css`'s
-  `.battle-swing-sprite`/`.battle-swing-sprite-large`,
-  `js/screens/battleScreen.js`'s `SWING_DURATION_MS`) - live testing found
-  them invisible at their originally-shipped size/speed; this makes them
-  impossible to miss so we can confirm whether they're rendering at all
-  before tuning the real size back down.
+- Weapon-swing sprites (0.8.0) are noticeably bigger and slower than
+  originally shipped - confirmed via live testing that this reads much
+  better than the original subtle version.
 
 ## [0.8.0] - 2026-08-29
 

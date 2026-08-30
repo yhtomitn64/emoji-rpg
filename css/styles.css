@@ -815,27 +815,36 @@ button:focus-visible {
   position: fixed;
   font-size: 1.4rem;
   pointer-events: none;
-  z-index: 30;
+  /* 36, not 30 - see .battle-swing-sprite's comment below for why. */
+  z-index: 36;
   will-change: transform, opacity;
 }
 .battle-swing-sprite {
   position: fixed;
-  /* TEMP, raised 2026-08-30: bumped way up from 1.6rem/2.2rem for live
-     troubleshooting - Timothy reported seeing nothing at all, even on
-     Sweep, across Chrome/Safari/localhost, and confirmed code was deployed
-     correctly. This makes the sprite impossible to miss if it's rendering
-     at all, to separate "too subtle" from "actually broken." Revert to a
-     smaller size once confirmed visible. */
+  /* Confirmed 2026-08-30 (live troubleshooting with Timothy) that big/slow
+     reads much better than the originally-shipped 1.6-2.2rem/220-350ms -
+     keeping it at this size/speed rather than reverting. */
   font-size: 4rem;
   pointer-events: none;
-  z-index: 31;
+  /* #overlay (the battle dialog's own fixed-position backdrop) got bumped to
+     z-index: 35 on 2026-08-29 to fix an unrelated toast-layering issue (see
+     #overlay's own comment above). Every body-appended battle effect here -
+     this sprite, its trail, the damage number float, the PERFECT! badge, and
+     the monster's own ranged-attack projectile - was still sitting at
+     z-index: 30 (or, for the badge, 22), so all of them silently started
+     rendering *behind* the dialog instead of over it the moment that change
+     shipped. Confirmed live 2026-08-30: Timothy saw the new swing sprites
+     appearing under/beside the battle screen. Fixed by moving every one of
+     these above 35 - same fix, one root cause.
+  */
+  z-index: 37;
   will-change: transform, opacity;
 }
 .battle-swing-sprite-large {
   font-size: 6rem;
 }
 .battle-swing-trail {
-  z-index: 30;
+  z-index: 36;
 }
 .map-flee-emoji {
   position: fixed;
@@ -912,7 +921,8 @@ button:focus-visible {
   font-weight: 700;
   color: #ff5555;
   pointer-events: none;
-  z-index: 30;
+  /* 36, not 30 - see .battle-swing-sprite's comment for why. */
+  z-index: 36;
   animation: battle-float-up 1.4s ease-out forwards;
 }
 .battle-damage-number-crit {
@@ -939,7 +949,8 @@ button:focus-visible {
   color: #7dd3fc;
   text-shadow: 0 0 8px rgba(125, 211, 252, 0.9), 0 0 18px rgba(56, 189, 248, 0.6);
   pointer-events: none;
-  z-index: 22;
+  /* 36, not 22 - see .battle-swing-sprite's comment for why. */
+  z-index: 36;
   animation: battle-perfect-timing-pop 0.9s ease-out forwards;
 }
 @keyframes battle-perfect-timing-pop {

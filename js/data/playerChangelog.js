@@ -9,7 +9,8 @@ export const PLAYER_CHANGELOG = [
     version: '0.8.1',
     date: '2026-08-30',
     highlights: [
-      'Weapon-swing animations are temporarily much bigger and slower while we track down why they weren\'t showing up for everyone - tuning this back down once confirmed.',
+      'Fixed damage numbers, the "PERFECT!" badge, enemy projectiles, and the new weapon-swing effects all silently rendering behind the battle screen instead of on top of it.',
+      'Weapon-swing animations are now bigger and slower, on purpose - it reads much better than the original quick/subtle version.',
     ],
   },
   {
