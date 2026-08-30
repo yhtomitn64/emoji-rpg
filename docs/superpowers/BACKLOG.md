@@ -723,6 +723,25 @@ through in a dedicated future combat pass rather than one-off adds.
 (A number of items originally captured here have since shipped — see
 BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
 
+- **Slower combat with fewer, harder-hitting swings; also reconsidering
+  the parry/attack timing minigame, raised 2026-08-30.** Timothy's own
+  words: "Maybe we slow down combat and have fewer but harder hitting
+  times you attack or something. also not sure how i feel about the
+  timing minigame for parry and attacks so want to think through this
+  more." Two linked but distinct threads: (1) a pacing change — reduce
+  attack frequency (fewer ATB ticks resolving into swings) while raising
+  per-swing damage, rather than today's rapid smaller hits; (2) an open
+  reconsideration of whether the timing-minigame layer itself (parry's
+  wind-up/parry window in `js/systems/parry.js`, and Stab/Slash's
+  press-in-the-sweet-spot combo mechanic) is the right mechanic at all,
+  not just how it's tuned. Explicitly not ready to design — Timothy wants
+  to think it through more before this becomes a spec. Raw idea only;
+  worth reading together with the already-open "rhythm-style multi-hit
+  parry" and "hold-to-block shield" ideas further below in this section,
+  since all three are really the same underlying question (is
+  timing-minigame combat the right shape for this game) approached from
+  different angles.
+
 - **Bigger, mixed, synergistic monster groups + battle-screen visual
   overhaul, raised 2026-08-29.** Timothy's own words: "when multiple
   enemies show up it can be a mix of enemies and maybe some can buff
