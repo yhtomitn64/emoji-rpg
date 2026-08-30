@@ -44,10 +44,11 @@ import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, reso
 import { chooseAction } from './simulateAbilityPolicy.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
-import { getEquipmentBonuses } from '../js/systems/inventory.js';
+import { getEquipmentBonuses, upgradeKey, MAX_UPGRADE_LEVEL } from '../js/systems/inventory.js';
 import { applyXp, xpForLevel } from '../js/systems/leveling.js';
 import { createNewGame } from '../js/state.js';
 import { getBossTierStats, MAX_BOSS_TIER } from '../js/systems/bossTiers.js';
+import { getNgPlusCombatOverrides } from '../js/systems/ngPlus.js';
 
 // --- CLI ---------------------------------------------------------------
 
@@ -83,10 +84,10 @@ function gearCost(equipment) {
     .reduce((sum, itemId) => sum + (ITEMS[itemId].price || 0), 0);
 }
 
-function makeBuild({ name, level, equipment, potions }) {
+function makeBuild({ name, level, equipment, equipmentTiers = {}, upgrades = {}, potions }) {
   const player = playerAtLevel(level);
-  const fullEquipment = { weapon: null, head: null, body: null, legs: null, accessory: null, ...equipment };
-  const bonuses = getEquipmentBonuses({ player, equipment: fullEquipment, upgrades: {} });
+  const fullEquipment = { weapon: null, head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null, ...equipment };
+  const bonuses = getEquipmentBonuses({ player, equipment: fullEquipment, equipmentTiers, upgrades });
   return {
     name,
     level,
@@ -97,6 +98,17 @@ function makeBuild({ name, level, equipment, potions }) {
     defense: player.defense + bonuses.defense,
     speed: player.speed + bonuses.speed,
   };
+}
+
+// Every slot at Mythic tier, upgrade level 3 (the actual ceiling this
+// feature is meant to raise) - used by the maxed-Mythic NG+2 build below.
+function maxedUpgrades(equipment, equipmentTiers) {
+  const upgrades = {};
+  for (const [slot, itemId] of Object.entries(equipment)) {
+    if (!itemId) continue;
+    upgrades[upgradeKey(itemId, equipmentTiers[slot])] = MAX_UPGRADE_LEVEL;
+  }
+  return upgrades;
 }
 
 const BUILDS = [
@@ -195,6 +207,23 @@ const BUILDS = [
     },
     potions: 6,
   }),
+  // NG+ gear-ceiling baseline, added for the Mythic tier feature - every
+  // slot maxed (Mythic tier, upgrade level 3), run against NG+2-scaled
+  // monsters below. Compare its win rate against 'veteran L11 (full iron)'
+  // vs. the same monsters at NG+0 to see how much of today's Superior-tier
+  // ceiling this build actually recovers.
+  (() => {
+    const equipment = { weapon: 'ironSword', head: 'ironHelm', body: 'ironArmor', legs: 'ironGreaves', accessory: 'powerRing' };
+    const equipmentTiers = { weapon: 'mythic', head: 'mythic', body: 'mythic', legs: 'mythic', accessory: 'mythic' };
+    return makeBuild({
+      name: 'maxed Mythic L12 (NG+2)',
+      level: 12,
+      equipment,
+      equipmentTiers,
+      upgrades: maxedUpgrades(equipment, equipmentTiers),
+      potions: 6,
+    });
+  })(),
 ];
 
 const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc', 'wraith', 'jurassicJerky'];
@@ -397,10 +426,20 @@ function main() {
     monsters[id] = { ...dragonBase, ...tierStats, name: `Dragon (tier ${tier})`, ...(overrides[id] || {}) };
   }
 
+  const NG_PLUS_MATCHUP_IDS = MATCHUPS.map((id) => `${id}NgPlus2`);
+  for (const id of MATCHUPS) {
+    monsters[`${id}NgPlus2`] = {
+      ...MONSTERS[id],
+      ...getNgPlusCombatOverrides(MONSTERS[id], 2),
+      name: `${MONSTERS[id].name} (NG+2)`,
+      ...(overrides[`${id}NgPlus2`] || {}),
+    };
+  }
+
   console.log(`Balance simulation — ${trials} trials per matchup\n`);
 
   console.log('Monster stats under test:');
-  for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS]) {
+  for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
     const m = monsters[id];
     console.log(`  ${m.name.padEnd(22)} hp ${String(m.hp).padStart(3)}  atk ${String(m.attack).padStart(2)}  def ${String(m.defense).padStart(2)}  spd ${String(m.speed).padStart(2)}`);
   }
@@ -413,7 +452,7 @@ function main() {
   console.log('\n' + 'build'.padEnd(38) + 'monster'.padEnd(22) + '  win   HP left  potions');
   console.log('-'.repeat(88));
   for (const build of BUILDS) {
-    for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS]) {
+    for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
       const r = runMatchup(build, monsters[id], trials);
       const stalemateNote = r.stalemateRate > 0 ? `  (stalemate ${pct(r.stalemateRate)})` : '';
       console.log(

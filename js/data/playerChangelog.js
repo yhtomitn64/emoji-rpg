@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.11.0',
+    date: '2026-08-30',
+    highlights: [
+      'New Game+ players can now find and forge Mythic-tier gear, one step beyond Superior.',
+      'Two new ring slots — go find some rings to fill them.',
+      'Two new rare items only found in New Game+: the Retribution Charm and the Windfury Ring.',
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-08-30',
     highlights: [

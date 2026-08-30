@@ -24,6 +24,13 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-30
+
+### Added
+- Mythic gear tier (NG+ only): a fourth quality tier above Superior, obtainable via drop luck or a gold + Mythic Essence smith reforge.
+- Two new NG+-exclusive unique items: Retribution Charm (reflects damage) and Windfury Ring.
+- Two new ring equipment slots (Ring 1 / Ring 2), alongside the existing weapon/head/body/legs/accessory slots. Ring-slot items (Ember Ring, Windfury Ring) only drop from sufficiently tough monsters.
+
 ## [0.10.0] - 2026-08-30
 
 ### Added
