@@ -394,4 +394,55 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
       Math.random = originalRandom;
     }
   });
+
+  await t.test('ngPlusCycle and zone1Steps escalate the group size through to the real call site', async () => {
+    const originalRandom = Math.random;
+    // Verified by running this exact scenario against the real implementation.
+    // Same call order as the "mixed-species group" test above:
+    // (1) mini-dungeon check (always misses, miniDungeonChance undefined),
+    // (2) cache check (always misses, cacheChance: 0), (3) encounterChance
+    // (< 1), (4) elite roll (>= 0.05 to miss), (5) monsterId pick (0.01 ->
+    // index 0, 'boar'), then rollEncounterGroup's own calls: (6) group-chance
+    // roll (must be < groupSpawnChance(2) = 0.5), (7) size roll (0.99 ->
+    // effectiveGroupSizeMax(2, 900) = min(6, 4 + 2 + floor(900/300)) = 6),
+    // then (8)-(12) one species pick per of the 5 extra slots.
+    const sequence = [0.5, 0.5, 0.01, 0.99, 0.01, 0.01, 0.99, 0.01, 0.4, 0.7, 0.2, 0.99];
+    let i = 0;
+    Math.random = () => sequence[Math.min(i++, sequence.length - 1)];
+    try {
+      const northScreen = {
+        id: 'north',
+        legend: { '.': 'grass' },
+        rows: ['...', '...', '...'],
+        neighbors: {},
+        monsterTable: ['boar', 'bat', 'snake'],
+        encounterChance: 1,
+        cacheChance: 0,
+      };
+      const maps = { north: northScreen };
+      const worldGrid = buildWorldGrid(maps);
+      const state = baseState({
+        position: { x: 0, y: 1 },
+        monsterKillCounts: { boar: 10, bat: 10, snake: 10 },
+        ngPlusCycle: 2,
+        zone1Steps: 900,
+      });
+      const { mount } = await import('../js/screens/mapScreen.js');
+      const root = createRoot();
+      let encounteredIds = null;
+      mount(root, {
+        state, mapConfig: northScreen, maps, worldGrid,
+        callbacks: {
+          onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
+          onToolGateNearby: () => {}, onAction: () => {}, onEnterMiniDungeon: () => {}, onCacheFound: () => {},
+          onGateReward: () => {}, onEncounter: (ids) => { encounteredIds = ids; },
+        },
+      });
+      keydown('ArrowRight');
+      assert.ok(encounteredIds, 'expected an encounter to fire');
+      assert.equal(encounteredIds.length, 6, 'ngPlusCycle=2 + zone1Steps=900 should reach the effective max of 6, not the baseline of 4');
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
 });

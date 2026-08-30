@@ -69,7 +69,7 @@ import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, sc
 import { pickMonsterVariant } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
-import { rollEncounterGroup, incrementKillCount } from './systems/groupEncounters.js';
+import { incrementKillCount } from './systems/groupEncounters.js';
 import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWarpCost } from './systems/comeback.js';
 import * as questBoardScreen from './screens/questBoardScreen.js';
 import * as changelogScreen from './screens/changelogScreen.js';

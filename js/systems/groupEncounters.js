@@ -21,7 +21,11 @@ export function groupSpawnChance(ngPlusCycle) {
 // wilderness screen this cycle (js/screens/mapScreen.js's tryMove, reset on
 // NG+ transition - see js/systems/ngPlus.js's resetWorldForNgPlus). A
 // player who lingers in zone-1 long enough can reach the max group size
-// even at NG+ cycle 0.
+// even at NG+ cycle 0. Despite the zone-scoped name, zone1Steps is read by
+// every encounter roll that feeds into this function - including rolls
+// inside the boss dungeon and mini-dungeons, not just literal zone-1
+// wilderness screens - so in practice it functions as an "elapsed time
+// this NG+ cycle" proxy rather than a zone-1-only effect.
 export function effectiveGroupSizeMax(ngPlusCycle, zone1Steps) {
   const escalation = ngPlusCycle + Math.floor(zone1Steps / ZONE1_STEPS_PER_SIZE_ESCALATION);
   return Math.min(GROUP_SIZE_MAX_CAP, GROUP_SIZE_MAX_BASE + escalation);

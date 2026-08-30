@@ -665,6 +665,7 @@ button:focus-visible {
   top: 0; left: 0; right: 0; bottom: 0;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   background: rgba(0, 0, 0, 0.4);
   /* Above #item-pickup-toast's z-index: 30 - the toast's 1.2s fade can
      still be playing when the player opens the inventory screen right
