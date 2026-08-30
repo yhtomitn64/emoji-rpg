@@ -24,6 +24,17 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-30
+
+### Added
+- Monster groups can now reach up to 6 members (up from 3) and mix
+  species within one group instead of always-identical copies
+  (`js/systems/groupEncounters.js`).
+- Two independent pressures push group size toward that cap: NG+ cycle,
+  and time spent wandering zone-1 wilderness screens this cycle
+  (`state.zone1Steps`, `js/screens/mapScreen.js`). NG+ also raises how
+  often a group spawns at all, not just how big it is.
+
 ## [0.8.6] - 2026-08-30
 
 ### Changed

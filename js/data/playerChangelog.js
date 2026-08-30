@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.9.0',
+    date: '2026-08-30',
+    highlights: [
+      'Monster groups can now have up to 6 members instead of 3, and can be a mix of different enemy types instead of always the same one.',
+      'The longer you wander the wilds (or the deeper into New Game+ you are), the bigger and more frequent those groups get.',
+    ],
+  },
+  {
     version: '0.8.6',
     date: '2026-08-30',
     highlights: [
