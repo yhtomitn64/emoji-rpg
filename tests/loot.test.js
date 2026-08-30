@@ -154,3 +154,69 @@ test('EQUIPMENT_DROP_POOL contains only equipment-slot items from the shop catal
   }
   assert.ok(!EQUIPMENT_DROP_POOL.includes('potion'));
 });
+
+test('rollDrop never rolls mythic essence, retributionCharm, or windfuryRing when ngPlusCycle is omitted or 0', () => {
+  const toughMonster = { goldRange: [18, 30], xp: 63, dropTable: [] }; // wraith-level
+  for (let i = 0; i <= 20; i++) {
+    const v = i / 20;
+    const drop = rollDrop(toughMonster, () => v);
+    assert.notEqual(drop.item, 'mythicEssence');
+    assert.notEqual(drop.item, 'retributionCharm');
+    assert.notEqual(drop.item, 'windfuryRing');
+  }
+});
+
+test('rollDrop can grant mythic essence once ngPlusCycle >= 1', () => {
+  const toughMonster = { goldRange: [18, 30], xp: 63, dropTable: [] };
+  // sequence: [gold, mythic-essence check (0.01 < 0.06 ceiling at toughness 1 -> hits)]
+  const drop = rollDrop(toughMonster, sequence(0, 0.01), 1);
+  assert.equal(drop.item, 'mythicEssence');
+});
+
+test('rollDrop can grant a mythic-tier ordinary equipment drop once ngPlusCycle >= 1', () => {
+  const toughMonster = { goldRange: [18, 30], xp: 63, dropTable: [] };
+  // sequence: [gold, mythic-essence check (misses), unique-effect check (misses),
+  //            ordinary-gear gate (hits), pool pick, quality roll -> mythic]
+  const drop = rollDrop(toughMonster, sequence(0, 0.5, 0.5, 0.05, 0, 0.001), 1);
+  assert.ok(EQUIPMENT_DROP_POOL.includes(drop.item));
+  assert.equal(drop.tier, 'mythic');
+});
+
+test('rollDrop excludes windfuryRing/retributionCharm from the Unique-effect pool below ngPlusCycle 1, and Ember Ring below the ring toughness floor', () => {
+  const weakMonster = { goldRange: [4, 8], xp: 16, dropTable: [] }; // boar-level, toughness ~0.096, well under the 0.6 ring floor
+  // sequence: [gold, mythic-essence check misses (0.5 well above its ~2.4% chance at this toughness),
+  //            unique-effect check hits (0.001 well below its ~1.4% chance), pool pick index 0]
+  // At this toughness/cycle, emberRing and windfuryRing are excluded (ring floor), retributionCharm is
+  // NOT excluded (it's accessory-slot, only gated by ngPlusOnly, which cycle 1 satisfies) - the surviving
+  // pool is ['vampiricFang', 'swiftStrikeCharm', 'keenEye', 'retributionCharm'], so index 0 is deterministic.
+  const drop = rollDrop(weakMonster, sequence(0, 0.5, 0.001, 0), 1);
+  assert.equal(drop.item, 'vampiricFang');
+});
+
+test('rollDrop can grant windfuryRing once ngPlusCycle >= 1 and the monster is above the ring toughness floor', () => {
+  const toughMonster = { goldRange: [18, 30], xp: 63, dropTable: [] }; // toughness 1, well above the 0.6 floor
+  // sequence: [gold, mythic-essence check misses, unique-effect check hits, pool pick -> last index]
+  // At toughness 1/cycle 1 nothing is excluded, so the pool is the full 6-item
+  // UNIQUE_EFFECT_ITEM_IDS list in its declared order - index 5 (floor(0.999*6)) is windfuryRing.
+  const drop = rollDrop(toughMonster, sequence(0, 0.5, 0.01, 0.999), 1);
+  assert.equal(drop.item, 'windfuryRing');
+});
+
+test('rollDrop tags a boss\'s named drop as mythic once ngPlusCycle >= 1, per BOSS_MYTHIC_CHANCE', () => {
+  const bossLike = { goldRange: [65, 100], xp: 200, isBoss: true, dropTable: [{ itemId: 'dragonFang', chance: 1 }] };
+  // sequence: [gold, dropTable roll (hits dragonFang), boss-mythic roll (0.01 < 0.25 -> hits)]
+  const drop = rollDrop(bossLike, sequence(0, 0, 0.01), 1);
+  assert.equal(drop.item, 'dragonFang');
+  assert.equal(drop.tier, 'mythic');
+});
+
+test('rollDrop never tags a boss drop mythic when ngPlusCycle is 0', () => {
+  const bossLike = { goldRange: [65, 100], xp: 200, isBoss: true, dropTable: [{ itemId: 'dragonFang', chance: 1 }] };
+  const drop = rollDrop(bossLike, sequence(0, 0, 0), 0);
+  assert.equal(drop.item, 'dragonFang');
+  assert.equal(drop.tier, undefined);
+});
+
+test('getItemSources gives mythicEssence a real source instead of falling through to Unknown source', () => {
+  assert.ok(getItemSources('mythicEssence').length > 0);
+});
