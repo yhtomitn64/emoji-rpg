@@ -24,6 +24,17 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-30
+
+### Changed
+- TEMPORARY troubleshooting bump: 0.8.0's weapon-swing sprites are much
+  bigger and slower than intended right now (`css/styles.css`'s
+  `.battle-swing-sprite`/`.battle-swing-sprite-large`,
+  `js/screens/battleScreen.js`'s `SWING_DURATION_MS`) - live testing found
+  them invisible at their originally-shipped size/speed; this makes them
+  impossible to miss so we can confirm whether they're rendering at all
+  before tuning the real size back down.
+
 ## [0.8.0] - 2026-08-29
 
 ### Added

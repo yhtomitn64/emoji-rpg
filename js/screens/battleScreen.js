@@ -592,7 +592,10 @@ function playMonsterAttackWindup(monster, monsterIndex) {
   }
 }
 
-const SWING_DURATION_MS = { attack: 220, stab: 300, chop: 350, slash: 300 };
+// TEMP, raised 2026-08-30: slowed way down from 220-350ms for live
+// troubleshooting (see the matching .battle-swing-sprite comment in
+// css/styles.css) - revert once confirmed visible.
+const SWING_DURATION_MS = { attack: 1500, stab: 1500, chop: 1500, slash: 1500 };
 
 // Attack has no ability object/icon of its own to swing - falls back to
 // whatever's actually equipped (js/data/items.js's own emoji per weapon),

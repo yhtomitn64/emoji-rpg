@@ -820,13 +820,19 @@ button:focus-visible {
 }
 .battle-swing-sprite {
   position: fixed;
-  font-size: 1.6rem;
+  /* TEMP, raised 2026-08-30: bumped way up from 1.6rem/2.2rem for live
+     troubleshooting - Timothy reported seeing nothing at all, even on
+     Sweep, across Chrome/Safari/localhost, and confirmed code was deployed
+     correctly. This makes the sprite impossible to miss if it's rendering
+     at all, to separate "too subtle" from "actually broken." Revert to a
+     smaller size once confirmed visible. */
+  font-size: 4rem;
   pointer-events: none;
   z-index: 31;
   will-change: transform, opacity;
 }
 .battle-swing-sprite-large {
-  font-size: 3rem;
+  font-size: 6rem;
 }
 .battle-swing-trail {
   z-index: 30;

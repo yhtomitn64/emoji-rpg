@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.8.1',
+    date: '2026-08-30',
+    highlights: [
+      'Weapon-swing animations are temporarily much bigger and slower while we track down why they weren\'t showing up for everyone - tuning this back down once confirmed.',
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-08-29',
     highlights: [
