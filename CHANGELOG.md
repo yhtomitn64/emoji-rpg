@@ -24,7 +24,18 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
-## [0.8.5] - 2026-08-30
+## [0.8.6] - 2026-08-30
+
+### Changed
+- Weapon swings (Attack/Stab/Chop/Slash/Sweep) all traveled the full
+  distance from hero to target, which read as a projectile flying at the
+  enemy rather than the hero's own weapon swinging near them. Attack and
+  Chop specifically now stay anchored close to the hero (dx/dy only lightly
+  bias the direction) instead of traveling to the target - the target's
+  existing hit-flash/shake/damage-number still sells the impact. The hero's
+  own emoji also now lunges toward the target on every swing (the same
+  lunge-and-snap-back trick monsters already use for their own attacks),
+  so the character itself visibly moves into the strike.
 
 ### Changed
 - Plain Attack's swing (whatever weapon's equipped) redesigned - was

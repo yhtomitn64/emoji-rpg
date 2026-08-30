@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.8.6',
+    date: '2026-08-30',
+    highlights: [
+      'Your character now visibly lunges into every swing, and Attack/Chop stay close to you instead of looking like a weapon flying off on its own.',
+    ],
+  },
+  {
     version: '0.8.5',
     date: '2026-08-30',
     highlights: [

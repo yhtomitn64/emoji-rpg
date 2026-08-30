@@ -640,29 +640,42 @@ function swingKeyframesFor(abilityId, dx, dy) {
       // right, so a strike that actually looks like the blade biting in has
       // to approach from the target's own right and swing down-left into
       // it, blade-leading, rather than falling straight down from above.
-      // Same short-of-center stop as Stab above, same reasoning.
-      const impactX = dx * 0.7;
-      const impactY = dy * 0.7;
-      return [{ transform: at(dx + 50, dy - 60, -30) }, { transform: at(impactX, impactY, 10) }];
+      //
+      // Kept anchored close to the hero (dx/dy only lightly nudge the
+      // direction, small fixed offsets otherwise) rather than fully
+      // traveling to the target - raised 2026-08-30 again: at full travel
+      // distance this read as a projectile flying to the enemy rather than
+      // the hero's own weapon swinging near them. The target's existing
+      // hit-flash/shake/damage-number (unrelated to this sprite's own
+      // travel) is what actually sells the impact now.
+      const raiseX = dx * 0.15 + 40;
+      const raiseY = dy * 0.15 - 50;
+      const strikeX = dx * 0.15 - 10;
+      const strikeY = dy * 0.15 + 10;
+      return [{ transform: at(raiseX, raiseY, -30) }, { transform: at(strikeX, strikeY, 10) }];
     }
     case 'slash':
       return [{ transform: at(dx - 24, dy - 24, -45) }, { transform: at(dx + 24, dy + 24, 45) }];
     default: {
       // Raised 2026-08-30: the plain Attack's swing (whatever weapon's
       // equipped, no ability icon of its own) just sat at one fixed
-      // diagonal orientation with no rotation - looked inert/silly. Now
-      // arcs up and over the target in a curved "rainbow" path while
-      // spinning a full rotation, and (unlike Stab/Chop, which stop short
-      // per Timothy's ask) carries on through past the target rather than
-      // retracting back to the hero - a big tumbling swing, not a precise
-      // thrust.
-      const throughX = dx * 1.3;
-      const throughY = dy * 1.3;
+      // diagonal orientation with no rotation - looked inert/silly. Arcs up
+      // and over in a curved "rainbow" path while spinning a full rotation,
+      // distinct from Stab/Chop's precise stop-short thrust.
+      //
+      // Kept anchored close to the hero (dx/dy only lightly nudge the
+      // direction/bow, small fixed offsets otherwise) rather than fully
+      // traveling to the target - raised 2026-08-30 again, same reasoning
+      // as Chop above: at full travel distance this read as a projectile
+      // flying to the enemy rather than the hero's own weapon swinging near
+      // them.
+      const throughX = dx * 0.15 + 25;
+      const throughY = dy * 0.15 - 25;
       // Bows the path's midpoint away from the direct hero->target line
       // (a perpendicular nudge added to the straight-line midpoint) so the
       // sprite travels a curve instead of cutting straight across.
-      const bowX = dx * 0.5 - dy * 0.35;
-      const bowY = dy * 0.5 + dx * 0.35;
+      const bowX = dx * 0.1 - dy * 0.08 - 15;
+      const bowY = dy * 0.1 + dx * 0.08 - 20;
       return [
         { transform: at(0, 0, 0), offset: 0 },
         { transform: at(bowX, bowY, 180), offset: 0.5 },
@@ -724,10 +737,23 @@ function spawnSwingTrail(emoji, className, startZoneEl, endZoneEl, keyframesFn, 
   });
 }
 
+const HERO_ATTACK_LUNGE_MS = 300;
+
+// Same trick as playMeleeLunge above, but for the hero's own attacks - see
+// .battle-hero-attack-lunge's own comment in css/styles.css for why this
+// exists (make the swing sprites read as the hero's own swing, not a
+// projectile flying at the enemy on its own).
+function playHeroAttackLunge() {
+  if (!elements.heroEmoji) return;
+  elements.heroEmoji.classList.add('battle-hero-attack-lunge');
+  setTimeout(() => elements.heroEmoji.classList.remove('battle-hero-attack-lunge'), HERO_ATTACK_LUNGE_MS);
+}
+
 // Single-target swing: Attack (ability === null) or a non-AOE ability
 // (Stab/Chop/Slash). isCrit adds the afterimage trail on top of the base
 // swing - see spawnSwingTrail.
 function playPlayerSwing(ability, targetZoneEl, isCrit) {
+  playHeroAttackLunge();
   const emoji = swingSpriteEmoji(ability);
   const durationMs = SWING_DURATION_MS[ability?.id || 'attack'] || 250;
   const keyframesFn = (dx, dy) => swingKeyframesFor(ability?.id, dx, dy);
@@ -744,6 +770,7 @@ const SWEEP_STAGGER_MS = 260;
 // spawnSwingTrail), independent of crit, since Sweep is meant to read as one
 // big sweep through the whole line regardless of how any single hit rolls.
 function playPlayerSweepSwing(ability, targetZoneEls) {
+  playHeroAttackLunge();
   const emoji = swingSpriteEmoji(ability);
   const totalDurationMs = targetZoneEls.length * SWEEP_STAGGER_MS;
   const startRect = elements.heroZone.getBoundingClientRect();

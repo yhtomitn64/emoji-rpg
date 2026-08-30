@@ -811,6 +811,21 @@ button:focus-visible {
 .battle-monster-lunge {
   animation: battle-monster-lunge 0.3s ease-in-out;
 }
+/* Same lunge-and-snap-back trick as battle-monster-lunge above, but on the
+   hero's own emoji for the hero's own attacks - translateY, not translateX,
+   since the battle layout stacks monsters above the hero
+   (.battle-combatants-row), not side by side. Raised 2026-08-30: the
+   weapon-swing sprites alone read as a projectile flying at the enemy: the
+   hero visibly moving into the strike (like every monster already does for
+   its own attacks) sells "this is the hero's own swing" instead. */
+@keyframes battle-hero-attack-lunge {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-24px); }
+  100% { transform: translateY(0); }
+}
+.battle-hero-attack-lunge {
+  animation: battle-hero-attack-lunge 0.3s ease-in-out;
+}
 .battle-projectile {
   position: fixed;
   font-size: 1.4rem;
