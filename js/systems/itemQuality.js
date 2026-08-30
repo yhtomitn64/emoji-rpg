@@ -16,19 +16,26 @@ export function monsterToughness(monster) {
 
 function lerp(min, max, t) { return min + (max - min) * t; }
 
-export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20 };
+export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.35 };
 
-// Returns 'plain' | 'fine' | 'superior'. Deciding whether something is a
-// Unique-effect item at all happens earlier, via rollUniqueEffectChance -
-// this function is scoped to just the three ordinary tiers so its odds are
-// the same whether it's called for the new generic drop roll or for an
-// existing named drop like goblinClub (see js/systems/loot.js).
-export function rollQualityTier(toughness, rng = Math.random) {
+// Starting hypothesis, not a final balance number - verify with
+// scripts/simulate-balance.js before treating this as correct. A fully
+// maxed Mythic item (1.35 tier x 1.75 upgrade-level-3) tops out at 2.3625x
+// base, vs. Superior's current 2.1x ceiling.
+export const MYTHIC_TIER_CHANCE_MIN = 0.005;
+export const MYTHIC_TIER_CHANCE_MAX = 0.02;
+
+// Only reachable once ngPlusCycle >= 1 - the mythic band sits at the low end
+// of the same single roll Fine/Superior already use, so ngPlusCycle=0 (the
+// default) reproduces today's exact thresholds with zero behavior change.
+export function rollQualityTier(toughness, rng = Math.random, ngPlusCycle = 0) {
+  const mythicChance = ngPlusCycle >= 1 ? lerp(MYTHIC_TIER_CHANCE_MIN, MYTHIC_TIER_CHANCE_MAX, toughness) : 0;
   const superiorChance = lerp(0.02, 0.10, toughness);
   const fineChance = lerp(0.10, 0.25, toughness);
   const roll = rng();
-  if (roll < superiorChance) return 'superior';
-  if (roll < superiorChance + fineChance) return 'fine';
+  if (roll < mythicChance) return 'mythic';
+  if (roll < mythicChance + superiorChance) return 'superior';
+  if (roll < mythicChance + superiorChance + fineChance) return 'fine';
   return 'plain';
 }
 
@@ -38,8 +45,29 @@ export function rollUniqueEffectChance(toughness, rng = Math.random) {
   return rng() < lerp(0.01, 0.05, toughness);
 }
 
+// Mythic Essence: the reforge material, dropped the same way as everything
+// else in this file - toughness-weighted, gated to ngPlusCycle >= 1 by its
+// caller (loot.js), not by this function itself.
+export const MYTHIC_ESSENCE_CHANCE_MIN = 0.02;
+export const MYTHIC_ESSENCE_CHANCE_MAX = 0.06;
+
+export function rollMythicEssenceChance(toughness, rng = Math.random) {
+  return rng() < lerp(MYTHIC_ESSENCE_CHANCE_MIN, MYTHIC_ESSENCE_CHANCE_MAX, toughness);
+}
+
+// A hard floor, not a weighted chance like the rolls above - below this
+// toughness, no ring-slot item can drop at all, regardless of RNG. Applies
+// uniformly to every ring-slot item (loot.js's eligibleUniqueEffectPool).
+export const RING_TOUGHNESS_FLOOR = 0.6;
+
+// Bosses are excluded from rollQualityTier entirely (isToughnessEligible
+// returns false for isBoss) - a dragon kill's chance to tag its named drop
+// Mythic is a separate, flat roll in loot.js, not toughness-weighted.
+export const BOSS_MYTHIC_CHANCE = 0.25;
+
 export function tierLabel(tier) {
   if (tier === 'fine') return 'Fine ';
   if (tier === 'superior') return 'Superior ';
+  if (tier === 'mythic') return 'Mythic ';
   return '';
 }
