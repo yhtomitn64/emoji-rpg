@@ -24,6 +24,16 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-08-30
+
+### Changed
+- Plain Attack's swing (whatever weapon's equipped) redesigned - was
+  holding one fixed diagonal orientation with no rotation, which read as
+  inert. Now arcs up and over the target along a curved "rainbow" path
+  while spinning a full rotation, and carries on through past the target
+  rather than retracting - a big tumbling swing, distinct from Stab/Chop's
+  precise stop-short thrust.
+
 ## [0.8.4] - 2026-08-30
 
 ### Changed

@@ -647,8 +647,28 @@ function swingKeyframesFor(abilityId, dx, dy) {
     }
     case 'slash':
       return [{ transform: at(dx - 24, dy - 24, -45) }, { transform: at(dx + 24, dy + 24, 45) }];
-    default:
-      return [{ transform: at(0, 0) }, { transform: at(dx * 0.6, dy * 0.6) }, { transform: at(0, 0) }];
+    default: {
+      // Raised 2026-08-30: the plain Attack's swing (whatever weapon's
+      // equipped, no ability icon of its own) just sat at one fixed
+      // diagonal orientation with no rotation - looked inert/silly. Now
+      // arcs up and over the target in a curved "rainbow" path while
+      // spinning a full rotation, and (unlike Stab/Chop, which stop short
+      // per Timothy's ask) carries on through past the target rather than
+      // retracting back to the hero - a big tumbling swing, not a precise
+      // thrust.
+      const throughX = dx * 1.3;
+      const throughY = dy * 1.3;
+      // Bows the path's midpoint away from the direct hero->target line
+      // (a perpendicular nudge added to the straight-line midpoint) so the
+      // sprite travels a curve instead of cutting straight across.
+      const bowX = dx * 0.5 - dy * 0.35;
+      const bowY = dy * 0.5 + dx * 0.35;
+      return [
+        { transform: at(0, 0, 0), offset: 0 },
+        { transform: at(bowX, bowY, 180), offset: 0.5 },
+        { transform: at(throughX, throughY, 360), offset: 1 },
+      ];
+    }
   }
 }
 

@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.8.5',
+    date: '2026-08-30',
+    highlights: [
+      'Plain Attack now arcs your weapon over the enemy in a spinning rainbow swing instead of just poking forward.',
+    ],
+  },
+  {
     version: '0.8.4',
     date: '2026-08-30',
     highlights: [
