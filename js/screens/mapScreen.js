@@ -184,6 +184,24 @@ const KEY_TO_DELTA = {
   ArrowRight: [1, 0], d: [1, 0],
 };
 
+// No "zone" concept exists in the map registry (js/main.js's MAPS object is
+// a flat list) - this is the explicit list of the 24 wilderness screens
+// ("zone 1"), deliberately excluding center (the town screen itself,
+// monsterTable: [], no encounters ever roll there) and every dungeon/
+// mini-dungeon. Used only to decide whether a step counts toward
+// state.zone1Steps (js/systems/groupEncounters.js's effectiveGroupSizeMax
+// escalation) - see docs/superpowers/specs/2026-08-30-bigger-mixed-monster-
+// groups-design.md.
+const ZONE1_WILDERNESS_MAP_IDS = new Set([
+  'north', 'south', 'east', 'west',
+  'northeast', 'northwest', 'southeast', 'southwest',
+  'farNorthwest', 'northNorthwest', 'farNorth', 'northNortheast', 'farNortheast',
+  'westNorthwest', 'farWest', 'westSouthwest',
+  'eastNortheast', 'farEast', 'eastSoutheast',
+  'southSouthwest', 'farSouth', 'southSoutheast',
+  'farSouthwest', 'farSoutheast',
+]);
+
 // Whichever terrain a screen's true outer world-edge (a side with no
 // neighbor at all - the literal boundary of the 5x5 wilderness grid) happens
 // to have painted on it doesn't matter for actually leaving the map: this
@@ -640,6 +658,10 @@ function tryMove(dx, dy) {
     announceScreenIfNew(screenConfig);
   }
 
+  if (ZONE1_WILDERNESS_MAP_IDS.has(state.map)) {
+    state.zone1Steps = (state.zone1Steps || 0) + 1;
+  }
+
   const discovery = resolveStepDiscovery(state, mapConfig, nx, ny, tile, Math.random, isScreenChokepoint);
   if (discovery.miniDungeons) {
     Object.assign(state, { miniDungeons: discovery.miniDungeons });
@@ -695,7 +717,7 @@ function tryMove(dx, dy) {
       return;
     }
     const monsterId = mapConfig.monsterTable[Math.floor(Math.random() * mapConfig.monsterTable.length)];
-    const monsterIds = rollEncounterGroup(monsterId, state.monsterKillCounts);
+    const monsterIds = rollEncounterGroup(monsterId, state.monsterKillCounts, mapConfig.monsterTable, state.ngPlusCycle, state.zone1Steps);
     Object.assign(state, { encounterCooldown: ENCOUNTER_COOLDOWN_STEPS });
     callbacks.onEncounter(monsterIds);
   }

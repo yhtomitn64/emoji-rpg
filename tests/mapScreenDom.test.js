@@ -243,3 +243,155 @@ test('mapScreen DOM - encounter cooldown blocks the next few steps after a rando
     assert.equal(encounterCount, 2, 'expected the encounter roll to resume once the cooldown has fully counted down');
   });
 });
+
+test('mapScreen DOM - zone-1 step tracking', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('a step on a zone-1 wilderness screen increments state.zone1Steps', async () => {
+    // 7 columns wide (not 3) so a single ArrowRight step from x=1 lands on
+    // x=2, a genuine interior tile - a 3-wide row's x=2 is the sealed east
+    // world edge (isSealedWorldEdge treats a screen with no neighbors as
+    // sealed on every side of its own bounding box), which renders as an
+    // impassable mountainWall and would silently block the move entirely
+    // (same reasoning as the encounter-cooldown test's own `plains` fixture
+    // above).
+    const northScreen = {
+      id: 'north',
+      legend: { '.': 'grass' },
+      rows: ['.......', '.......', '.......'],
+      neighbors: {},
+      monsterTable: [],
+      encounterChance: 0,
+      cacheChance: 0,
+    };
+    const maps = { north: northScreen };
+    const worldGrid = buildWorldGrid(maps);
+    // state.map must already match mapConfig.id here, same as it would in
+    // real play (main.js keeps them in sync) - tryMove only re-syncs
+    // state.map on an actual screen-boundary crossing, and this single-
+    // screen synthetic map never crosses one, so without this override
+    // state.map would stay stuck on createNewGame()'s 'center' default.
+    const state = baseState({ position: { x: 1, y: 1 }, map: 'north' });
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    mount(root, {
+      state, mapConfig: northScreen, maps, worldGrid,
+      callbacks: {
+        onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
+        onToolGateNearby: () => {}, onAction: () => {}, onEnterMiniDungeon: () => {}, onCacheFound: () => {},
+        onGateReward: () => {}, onEncounter: () => {},
+      },
+    });
+    assert.equal(state.zone1Steps, 0);
+    keydown('ArrowRight');
+    assert.equal(state.zone1Steps, 1);
+  });
+
+  await t.test('a step on the town screen does not increment state.zone1Steps', async () => {
+    // Same 7-wide rationale as the zone-1 screen above - keeps this a real
+    // step onto an interior tile rather than a move silently blocked by the
+    // sealed world edge, so the assertion actually exercises "a real step on
+    // town doesn't increment" rather than "a blocked non-step doesn't".
+    const centerScreen = {
+      id: 'center',
+      legend: { '.': 'grass' },
+      rows: ['.......', '.......', '.......'],
+      neighbors: {},
+      monsterTable: [],
+      encounterChance: 0,
+      cacheChance: 0,
+    };
+    const maps = { center: centerScreen };
+    const worldGrid = buildWorldGrid(maps);
+    // 'center' already matches createNewGame()'s default state.map, but set
+    // it explicitly for symmetry with the zone-1 test above rather than
+    // relying on that coincidence.
+    const state = baseState({ position: { x: 1, y: 1 }, map: 'center' });
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    mount(root, {
+      state, mapConfig: centerScreen, maps, worldGrid,
+      callbacks: {
+        onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
+        onToolGateNearby: () => {}, onAction: () => {}, onEnterMiniDungeon: () => {}, onCacheFound: () => {},
+        onGateReward: () => {}, onEncounter: () => {},
+      },
+    });
+    keydown('ArrowRight');
+    assert.equal(state.zone1Steps, 0);
+  });
+});
+
+test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1Steps through', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('a forced encounter past the kill threshold can roll a mixed-species group', async () => {
+    const originalRandom = Math.random;
+    // Verified against a real run of this exact scenario (not just read from
+    // source) - js/screens/mapScreen.js's tryMove makes/triggers Math.random()
+    // calls in this exact order for one step onto a tile with tile.encounter
+    // true: (1) js/systems/discovery.js's resolveStepDiscovery, mini-dungeon
+    // check (mapConfig.miniDungeonChance is undefined below, so this always
+    // misses regardless of the value rolled - still consumes one call), (2)
+    // resolveStepDiscovery's cache check (cacheChance: 0 below, same deal -
+    // always misses, still consumes one call), (3) the encounterChance roll
+    // (must be < 1), (4) rollEliteEncounter's own roll
+    // (js/systems/eliteEncounter.js, ELITE_ENCOUNTER_CHANCE = 0.05 - must
+    // roll >= 0.05 to miss), (5) picking monsterId out of monsterTable
+    // (floor(val * 3) into ['boar','bat','snake'] - 0.01 -> index 0, 'boar'),
+    // then js/systems/groupEncounters.js's own rollEncounterGroup takes over:
+    // (6) the group-spawn-chance roll (must be < 0.3 to hit), (7) the size
+    // roll (0.99 -> the effective max, 4, since effectiveGroupSizeMax(0, 0)
+    // = GROUP_SIZE_MAX_BASE = 4), then (8)-(10) one species pick per of the
+    // 3 extra slots - 0.01/0.4/0.7 into the same 3-species table picks index
+    // 0/1/2 ('boar'/'bat'/'snake'). Confirmed this sequence actually produces
+    // ['boar', 'boar', 'bat', 'snake'] against Task 1 + this task's own
+    // call-site change, both applied.
+    const sequence = [0.5, 0.5, 0.01, 0.99, 0.01, 0.01, 0.99, 0.01, 0.4, 0.7];
+    let i = 0;
+    Math.random = () => sequence[Math.min(i++, sequence.length - 1)];
+    try {
+      const northScreen = {
+        id: 'north',
+        legend: { '.': 'grass' },
+        rows: ['...', '...', '...'],
+        neighbors: {},
+        monsterTable: ['boar', 'bat', 'snake'],
+        encounterChance: 1,
+        cacheChance: 0,
+      };
+      const maps = { north: northScreen };
+      const worldGrid = buildWorldGrid(maps);
+      const state = baseState({
+        position: { x: 0, y: 1 },
+        monsterKillCounts: { boar: 10, bat: 10, snake: 10 },
+      });
+      const { mount } = await import('../js/screens/mapScreen.js');
+      const root = createRoot();
+      let encounteredIds = null;
+      mount(root, {
+        state, mapConfig: northScreen, maps, worldGrid,
+        callbacks: {
+          onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
+          onToolGateNearby: () => {}, onAction: () => {}, onEnterMiniDungeon: () => {}, onCacheFound: () => {},
+          onGateReward: () => {}, onEncounter: (ids) => { encounteredIds = ids; },
+        },
+      });
+      keydown('ArrowRight');
+      assert.ok(encounteredIds, 'expected an encounter to fire');
+      assert.ok(encounteredIds.length > 1, 'expected a group, not a solo encounter');
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+});
