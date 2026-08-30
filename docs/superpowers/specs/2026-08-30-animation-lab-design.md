@@ -58,7 +58,7 @@ arc, free flight, boomerang, weapon-detaches-and-hits) — no separate
 AnimationDesign = {
   abilityId: 'attack' | 'stab' | 'chop' | 'slash' | 'sweep',
   weaponEmojiOverride: string | null,   // preview only; real game still reads swingSpriteEmoji()
-  anchor: { x: number, y: number },     // transform-origin, px offset from hero-zone center
+  anchor: { x: number, y: number },     // pinned-mode pivot point, px offset from hero-zone center
   durationMs: number,
   keyframes: [
     { offset: number,  // 0..1
@@ -83,9 +83,16 @@ AnimationDesign = {
 - **Pinned arc** (Attack, Chop, single-target Sweep segment): `anchor` sits
   near the hero's hand; `x`/`y` stay small across keyframes; `rotate`/
   `scale` do the work. This is the direct fix for the "spins in a circle" /
-  "floats" complaints — the sprite's `transform-origin` is set to `anchor`
-  instead of the default center, so rotation pivots from a fixed point
-  instead of the glyph's own middle.
+  "floats" complaints — rather than changing the sprite's CSS
+  `transform-origin`, each keyframe's `transform` composes
+  `translate(anchor) rotate(deg) translate(arm) scale(s)` directly in the
+  transform function list (`buildTransform()` in
+  `tools/animation-lab/keyframes.js`, `arm = keyframe position - anchor`).
+  CSS transform functions matrix-multiply in the order they're written, so
+  this behaves like a nested coordinate frame: move the origin to `anchor`,
+  rotate *that frame*, then place the glyph `arm` pixels out from the
+  now-rotated origin — a rigid arm swinging on a fixed pivot, interpolable
+  per keyframe the way a static `transform-origin` property wouldn't be.
 - **Free flight / boomerang** (e.g. a redesigned Stab that detaches and
   flies to the target and back): `anchor` defaults to the sprite's own
   center (today's behavior); `x`/`y` range widely across keyframes so the
