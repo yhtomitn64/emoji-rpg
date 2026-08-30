@@ -730,59 +730,45 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   boost it up to like 6 enemies can show up and then can be slightly on
   top of each other and different sizes and let's increase the battle
   screen size and how could we draw a cool background behind the whole
-  fight scene?" Several distinct asks bundled together, needing their
-  own design pass: (1) raise the group-size cap — today's
-  `GROUP_SIZE_MAX` is 3 (`js/systems/groupEncounters.js`, see
-  `docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md`),
-  he wants up to 6; (2) mixed monster types within one group (today a
-  group is always the same `monsterId` rolled multiple times — see
-  `rollEncounterGroup`); (3) inter-monster buffs/synergies, a wholly new
-  mechanic with no groundwork today; (4) overlapping/varied-size monster
-  rendering in the battle screen (today's monster zones are presumably
-  uniform, not investigated); (5) a larger battle screen; (6) a
-  background illustration behind the fight. Not designed — raw idea
-  only, likely warrants splitting into separate specs given the number
-  of independent pieces.
+  fight scene?" Split into sub-projects (see
+  `docs/superpowers/specs/2026-08-30-bigger-mixed-monster-groups-design.md`).
 
-  **Two escalation triggers added, raised 2026-08-29:** Timothy: "in NG+
-  monsters should appear in packs more and the longer you stay in zone 1
-  no matter what monsters appear in larger and larger packs maybe even
-  up to 6 of them!" Reinforces the group-size-cap-of-6 number already
-  captured above, and adds two distinct drivers for when a bigger pack
-  should roll, neither designed: (a) NG+ cycle should raise pack
-  frequency/size (today `rollEncounterGroup`/`GROUP_SPAWN_CHANCE`/
-  `GROUP_SIZE_MAX` in `js/systems/groupEncounters.js` don't read
-  `state.ngPlusCycle` at all); (b) time spent in zone 1 (not tied to any
-  specific monster's own kill count, unlike the existing
-  `GROUP_SPAWN_KILL_THRESHOLD` mechanic, which only escalates a species
-  you've personally farmed 10+ times) should independently push pack
-  size up the longer a playthrough lingers in zone 1 — what "the longer
-  you stay" measures (real playtime? steps taken? screens visited?) is
-  undecided.
+  ~~Sub-project 1: group-size cap raised to 6, mixed species per group,
+  and both NG+-cycle/zone-1-lingering escalation triggers~~ **Shipped
+  2026-08-30 — see BACKLOG_SHIPPED.md.** `state.zone1Steps` (steps taken
+  on a zone-1 wilderness screen this NG+ cycle, per Timothy's own pick
+  among the undecided options) is the "how long you've lingered"
+  measure.
 
-- **Weapon-swing attack animations per ability, raised 2026-08-28.**
-  Timothy: "for our attacking I'd like to see our weapon swing at the
-  enemy and I guess match the chop/slice/sweep and so on. so different
-  animations for each type and for multiple enemies don't have multiple
-  weapons show up just have the attacks that do multimob damage hit all
-  of them at once by going through all of them." Today's battle screen
-  has no player-side weapon sprite at all — only the monster's own
-  attack is depicted (melee lunge or ranged projectile,
-  `js/screens/battleScreen.js`'s themed-attack-animation pass); the
-  player's Attack/Stab/Chop/Slash/Sweep/Super Scream just resolve
-  numerically with a hit-flash on the target, no swing visual on the
-  player's side. The ask is a distinct weapon-swing animation per
-  ability (so Chop reads differently from Slash, etc.), and for
-  multi-target hits (Sweep, which already deals full damage to every
-  living monster per `js/systems/abilities.js`) explicitly *not* to
-  render one weapon per target simultaneously — instead one swing that
-  visits/hits each enemy in turn (sequential contact), not a fan of
-  duplicate sprites. Not designed — needs its own pass: what the weapon
-  sprite actually is (an emoji? matches the equipped weapon's own
-  emoji?), where it animates from/to, per-ability motion shape (a stab
-  thrust vs. a wide arcing sweep vs. a chop's overhead swing), and how
-  the sequential multi-target hit timing lines up with the existing
-  per-monster `playHitEffect` flash/shake calls.
+  Still open, deferred to their own later specs:
+  - **(3) Inter-monster buffs/synergies** — a wholly new mechanic with no
+    groundwork today.
+  - **(4) Overlapping/varied-size monster rendering in the battle
+    screen** — today's monster zones are uniform. Timothy's 2026-08-30
+    addition, raised while reviewing sub-project 1's design: sizing
+    should scale with how tough the specific monster instance is, tying
+    into the existing `VARIANT_TIERS` system
+    (`js/systems/monsterVariants.js` — Puny/Lesser/Greater/Savage,
+    currently a stat multiplier with no visual difference at all beyond
+    the name label).
+  - **(5) A larger battle screen.**
+  - **(6) A background illustration behind the fight.**
+
+- ~~**Weapon-swing attack animations per ability, raised 2026-08-28.**~~
+  **Shipped 2026-08-30 — see BACKLOG_SHIPPED.md.** Attack/Stab/Chop/Slash
+  each swing a distinct emoji with a distinct motion; Sweep is one
+  traveling sprite that hits every target in turn, never a fan of
+  duplicate sprites. Went through several rounds of live-feedback polish
+  the same day (z-index/stacking fix, per-ability motion tuning, a
+  hero-side attack lunge so the swing reads as anchored to the
+  character rather than a projectile) - see CHANGELOG 0.8.0 through
+  0.8.6. Flagged as still not fully dialed in ("not sure the anchoring
+  is 100% yet") - revisit with a fresh session and a handoff prompt
+  rather than more blind iteration; possible next experiment raised
+  2026-08-30: build the swing out of real DOM elements (a `.blade`/
+  `.hilt` pair with `transform-origin` pivoting at the hilt, like a
+  found CSS-weapon-animation example) instead of a single rotated emoji
+  glyph, for at least Sweep or Attack, to compare.
 - **Rung-3 gear effects, raised 2026-08-26 during the gear/progression
   design pass (see `docs/superpowers/specs/2026-08-26-item-quality-and-
   effects-design.md`):** candidate additions to that spec's "growable

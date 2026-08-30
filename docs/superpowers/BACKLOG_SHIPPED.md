@@ -566,6 +566,56 @@ distinctly-colored gold "PARRY!" badge (`.battle-perfect-timing-badge-parry`)
 plus a brief flash on the hero's own emoji (`.battle-parry-flash`). See
 CHANGELOG.
 
+### ~~Weapon-swing attack animations per ability~~ Shipped 2026-08-30
+Raised 2026-08-28: "for our attacking I'd like to see our weapon swing at
+the enemy and I guess match the chop/slice/sweep and so on... for multiple
+enemies don't have multiple weapons show up just have the attacks that do
+multimob damage hit all of them at once by going through all of them."
+Attack (swings the equipped weapon's own emoji, with a `swingEmoji`
+override for the three weapons whose display emoji is a body-part pun -
+Dragon Fang Blade/Fossil Fang/Vampiric Fang - not a weapon shape) and
+Stab/Chop/Slash (swing their own ability icon) each play a distinct motion;
+Sweep is one traveling sprite that hits every living target in turn,
+sequential contact, never a fan of duplicate sprites
+(`js/screens/battleScreen.js`'s `playPlayerSwing`/`playPlayerSweepSwing`).
+A crit hit's swing (and Sweep's, always) trails a fading afterimage.
+Several rounds of same-day live-feedback polish followed: a `#overlay`
+z-index regression (from the unrelated parry-visual fix two days earlier)
+was found to be rendering every body-appended battle effect - not just the
+new swings, but pre-existing damage numbers/PERFECT!-badges/the monster's
+own projectile too - behind the dialog instead of over it; Stab/Chop's
+orientation and travel distance were corrected against Timothy's read of
+the actual emoji artwork; a hero-side attack lunge
+(`.battle-hero-attack-lunge`, mirroring the existing monster lunge) was
+added so the swing reads as the hero's own weapon rather than a projectile
+flying at the enemy on its own. See CHANGELOG 0.8.0 through 0.8.6.
+Explicitly left as a work in progress, not a finished polish pass -
+"looking better... but I am not sure the anchoring is 100% yet" - deferred
+to a future session with a handoff prompt rather than more blind
+iteration; see BACKLOG.md's own note on this item for the next experiment
+floated (real DOM blade/hilt elements with a hinged `transform-origin`,
+instead of a single rotated emoji).
+
+### ~~Bigger, mixed monster groups (sub-project 1: size cap, species mix, NG+/zone-1 escalation)~~ Shipped 2026-08-30
+Sub-project 1 of the larger "bigger, mixed, synergistic monster groups +
+battle-screen visual overhaul" idea (raised 2026-08-29; the other two
+sub-projects - inter-monster synergies, and the visual overhaul itself -
+remain open in BACKLOG.md). Design:
+`docs/superpowers/specs/2026-08-30-bigger-mixed-monster-groups-design.md`;
+plan: `docs/superpowers/plans/2026-08-30-bigger-mixed-monster-groups.md`.
+Group-size ceiling raised from 3 to 6 (`GROUP_SIZE_MAX_BASE = 4` baseline,
+`GROUP_SIZE_MAX_CAP = 6`); every group slot beyond the seed monster is now
+independently rolled from that screen's own `monsterTable` instead of
+always cloning the seed species (`js/systems/groupEncounters.js`'s
+`rollEncounterGroup`). Two escalation pressures stack additively toward
+the cap: NG+ cycle (which also raises how *often* a group spawns at all,
+not just its size), and a new `state.zone1Steps` counter - steps taken on
+a zone-1 wilderness screen this NG+ cycle, resetting only on an NG+
+transition (`js/screens/mapScreen.js`'s `tryMove`, `js/systems/ngPlus.js`'s
+`resetWorldForNgPlus`) - Timothy's own pick, from several options offered,
+for what "the longer you stay in zone 1" should measure. See CHANGELOG
+0.9.0.
+
 ### ~~Status log could snapshot effective stats/gear per entry~~ Shipped 2026-08-29
 Turned out the effective Lv/ATK/DEF/HP half of this ask already shipped
 earlier as part of the status log itself (`formatBattleOutcomeMessage` in
