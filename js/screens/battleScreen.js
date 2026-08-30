@@ -595,7 +595,20 @@ function playMonsterAttackWindup(monster, monsterIndex) {
 // Slowed way down from the originally-shipped 220-350ms during live
 // troubleshooting 2026-08-30 (see the matching .battle-swing-sprite comment
 // in css/styles.css) - confirmed this reads much better, keeping it.
-const SWING_DURATION_MS = { attack: 1500, stab: 1500, chop: 1500, slash: 1500 };
+const SWING_DURATION_MS = {
+  // ANIMATION-DESIGNER:attack:DURATION:START
+  attack: 1500,
+  // ANIMATION-DESIGNER:attack:DURATION:END
+  // ANIMATION-DESIGNER:stab:DURATION:START
+  stab: 1500,
+  // ANIMATION-DESIGNER:stab:DURATION:END
+  // ANIMATION-DESIGNER:chop:DURATION:START
+  chop: 1500,
+  // ANIMATION-DESIGNER:chop:DURATION:END
+  // ANIMATION-DESIGNER:slash:DURATION:START
+  slash: 1500,
+  // ANIMATION-DESIGNER:slash:DURATION:END
+};
 
 // Attack has no ability object/icon of its own to swing - falls back to
 // whatever's actually equipped (js/data/items.js's own emoji per weapon),
@@ -613,75 +626,74 @@ function swingSpriteEmoji(ability) {
   return weapon?.swingEmoji || weapon?.emoji || '👊';
 }
 
+// Shared by every ability's generated case inside swingKeyframesFor below -
+// kept here as hand-written plumbing (not inside any ANIMATION-DESIGNER
+// marker block) since it's identical logic for every ability, not
+// per-ability data. Mirrors tools/animation-lab/keyframes.js's own
+// buildTransform() byte-for-byte - if one changes, change the other by
+// hand and add a matching case to tests/animationLabKeyframesParity.test.js
+// (see that file's own header comment).
+//
+// Pinned: rotates around the fixed `anchor` with the glyph riding a
+// rotating arm out to its keyframe position - the CSS transform function
+// list composes like nested coordinate frames, so `translate(anchor)
+// rotate(deg) translate(arm)` moves the origin to anchor, rotates that
+// frame, then places the glyph arm-px out from the rotated origin.
+// Free: matches every existing swing's prior behavior exactly - rotates
+// the glyph about its own center while translating it along the path.
+function resolveXY(point, dx, dy) {
+  return {
+    x: point.x + dx * (point.dxFactor ?? 0),
+    y: point.y + dy * (point.dyFactor ?? 0),
+  };
+}
+
+function buildTransform(pinned, anchor, kf, dx, dy) {
+  const { x, y } = resolveXY(kf, dx, dy);
+  if (pinned) {
+    const { x: ax, y: ay } = resolveXY(anchor, dx, dy);
+    const armX = x - ax;
+    const armY = y - ay;
+    return `translate(-50%, -50%) translate(${ax}px, ${ay}px) rotate(${kf.rotate}deg) translate(${armX}px, ${armY}px) scale(${kf.scale})`;
+  }
+  return `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${kf.rotate}deg) scale(${kf.scale})`;
+}
+
 // Distinct motion per ability - a stab thrusts straight in, a chop arcs down
 // from overhead, a slash wipes diagonally across, and the bare Attack (no
 // ability, no icon) gets a smaller plain jab. dx/dy are the target zone's
 // center offset from the swing's start position (hero zone or, for a Sweep
-// waypoint, the previous target). Every keyframe carries the same
-// translate(-50%, -50%) prefix as playRangedProjectile's own keyframes, to
-// keep the sprite centered on its own (left, top) coordinate throughout.
+// waypoint, the previous target). Each case's ANIMATION literal is a
+// hand-transcribed copy of tools/animation-lab/designs/<ability>.json (see
+// buildTransform above) - Animation Lab (tools/animation-lab/) regenerates
+// the code between each case's ANIMATION-DESIGNER markers, it doesn't read
+// the JSON at runtime.
 function swingKeyframesFor(abilityId, dx, dy) {
-  const at = (x, y, rotateDeg = 0) => `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotateDeg}deg)`;
   switch (abilityId) {
+    // ANIMATION-DESIGNER:stab:KEYFRAMES:START
     case 'stab': {
-      // Raised 2026-08-30: was pointing back at the hero instead of at the
-      // target - flipped 180deg (-45 -> 135) from the original guess. Also
-      // stops short of the target's own center (0.7, not 1.0) rather than
-      // fully overlapping it - with no way to actually hide the blade tip
-      // inside the target sprite, traveling all the way to center read as
-      // stabbing all the way through and out the other side.
-      const tipX = dx * 0.7;
-      const tipY = dy * 0.7;
-      return [{ transform: at(0, 0, 135) }, { transform: at(tipX, tipY, 135) }, { transform: at(0, 0, 135) }];
+      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":135,"scale":1},{"offset":0.5,"x":0,"y":0,"dxFactor":0.7,"dyFactor":0.7,"rotate":135,"scale":1},{"offset":1,"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":135,"scale":1}]};
+      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
     }
+    // ANIMATION-DESIGNER:stab:KEYFRAMES:END
+    // ANIMATION-DESIGNER:chop:KEYFRAMES:START
     case 'chop': {
-      // Raised 2026-08-30: redesigned per Timothy's read of the actual axe
-      // glyph - its blade sits on the left side of the emoji, handle to the
-      // right, so a strike that actually looks like the blade biting in has
-      // to approach from the target's own right and swing down-left into
-      // it, blade-leading, rather than falling straight down from above.
-      //
-      // Kept anchored close to the hero (dx/dy only lightly nudge the
-      // direction, small fixed offsets otherwise) rather than fully
-      // traveling to the target - raised 2026-08-30 again: at full travel
-      // distance this read as a projectile flying to the enemy rather than
-      // the hero's own weapon swinging near them. The target's existing
-      // hit-flash/shake/damage-number (unrelated to this sprite's own
-      // travel) is what actually sells the impact now.
-      const raiseX = dx * 0.15 + 40;
-      const raiseY = dy * 0.15 - 50;
-      const strikeX = dx * 0.15 - 10;
-      const strikeY = dy * 0.15 + 10;
-      return [{ transform: at(raiseX, raiseY, -30) }, { transform: at(strikeX, strikeY, 10) }];
+      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":40,"y":-50,"dxFactor":0.15,"dyFactor":0.15,"rotate":-30,"scale":1},{"offset":1,"x":-10,"y":10,"dxFactor":0.15,"dyFactor":0.15,"rotate":10,"scale":1}]};
+      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
     }
-    case 'slash':
-      return [{ transform: at(dx - 24, dy - 24, -45) }, { transform: at(dx + 24, dy + 24, 45) }];
+    // ANIMATION-DESIGNER:chop:KEYFRAMES:END
+    // ANIMATION-DESIGNER:slash:KEYFRAMES:START
+    case 'slash': {
+      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":-24,"y":-24,"dxFactor":1,"dyFactor":1,"rotate":-45,"scale":1},{"offset":1,"x":24,"y":24,"dxFactor":1,"dyFactor":1,"rotate":45,"scale":1}]};
+      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
+    }
+    // ANIMATION-DESIGNER:slash:KEYFRAMES:END
+    // ANIMATION-DESIGNER:attack:KEYFRAMES:START
     default: {
-      // Raised 2026-08-30: the plain Attack's swing (whatever weapon's
-      // equipped, no ability icon of its own) just sat at one fixed
-      // diagonal orientation with no rotation - looked inert/silly. Arcs up
-      // and over in a curved "rainbow" path while spinning a full rotation,
-      // distinct from Stab/Chop's precise stop-short thrust.
-      //
-      // Kept anchored close to the hero (dx/dy only lightly nudge the
-      // direction/bow, small fixed offsets otherwise) rather than fully
-      // traveling to the target - raised 2026-08-30 again, same reasoning
-      // as Chop above: at full travel distance this read as a projectile
-      // flying to the enemy rather than the hero's own weapon swinging near
-      // them.
-      const throughX = dx * 0.15 + 25;
-      const throughY = dy * 0.15 - 25;
-      // Bows the path's midpoint away from the direct hero->target line
-      // (a perpendicular nudge added to the straight-line midpoint) so the
-      // sprite travels a curve instead of cutting straight across.
-      const bowX = dx * 0.1 - dy * 0.08 - 15;
-      const bowY = dy * 0.1 + dx * 0.08 - 20;
-      return [
-        { transform: at(0, 0, 0), offset: 0 },
-        { transform: at(bowX, bowY, 180), offset: 0.5 },
-        { transform: at(throughX, throughY, 360), offset: 1 },
-      ];
+      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":0,"scale":1},{"offset":0.5,"x":-15,"y":-20,"dxFactor":0.1,"dyFactor":0.1,"rotate":180,"scale":1},{"offset":1,"x":25,"y":-25,"dxFactor":0.15,"dyFactor":0.15,"rotate":360,"scale":1}]};
+      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
     }
+    // ANIMATION-DESIGNER:attack:KEYFRAMES:END
   }
 }
 
