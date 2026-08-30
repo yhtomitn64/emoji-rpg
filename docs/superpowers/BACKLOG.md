@@ -212,15 +212,34 @@ one-off task.
     and resets `clearedGates` each cycle, plus a one-time migration for
     saves already mid-cycle.
   - **NG+ loot feels stale without new/better items — reiterated
-    2026-08-29.** Same underlying gap as "Should the dragon drop better
-    items in NG+?" just below, restated more bluntly: Timothy, after
-    being reminded how NG+ loot scaling actually works today (chance-only,
-    via `NG_PLUS_DROP_CHANCE_MULTIPLIER` — no new items, no higher tiers):
+    2026-08-29, reiterated again 2026-08-30.** Same underlying gap as
+    "Should the dragon drop better items in NG+?" just below, restated
+    more bluntly: Timothy, after being reminded how NG+ loot scaling
+    actually works today (chance-only, via
+    `NG_PLUS_DROP_CHANCE_MULTIPLIER` — no new items, no higher tiers):
     "I think we need to make the loot better in NG+... right now NG+ feels
     pretty stale w/o new loot." Explicitly deferred to backlog rather than
     tackled immediately — this is real item-design work (what the new
     items are, their stats, which tier they'd sit at), not a quick
     mechanical change, so it wasn't done in the same session as the ask.
+    **Sharper 2026-08-30 reiteration, with a concrete cause identified:**
+    Timothy, mid-NG+2 having just hit the boss-tier/NG+ ceiling (see "Boss
+    tier / NG+ cycle ceiling" below): "I do think we should have better
+    loot and gear from NG+ though because I can't upgrade any more and
+    that's no fun. So I can't really tear apart enemies as fast as I want."
+    This is a hard, verifiable wall, not just a vibe: gear progression caps
+    at `MAX_UPGRADE_LEVEL = 3` per item/tier
+    (`js/systems/inventory.js`) and the Fine/Superior quality tiers
+    (`QUALITY_TIER_MULTIPLIERS`, `js/systems/itemQuality.js`) — once every
+    slot is Superior + upgrade level 3, there is no further gear power
+    available at all, while `getNgPlusCombatOverrides`
+    (`js/systems/ngPlus.js`) keeps scaling monster hp/attack/defense up
+    every NG+ cycle regardless. A maxed-out player actually gets
+    *relatively* weaker each cycle, the opposite of "tear apart enemies
+    faster." Still not designed - needs the same item-design pass as
+    above, now with an explicit design goal: player power should have
+    *some* NG+-scoped headroom past today's absolute gear ceiling, not
+    just better odds at the same finite item pool.
   - **Should the dragon drop better items in NG+? Raised 2026-08-29.**
     Timothy: "can we make the dragon drop better items in NG+?"
     `scaleDropTable` (`js/systems/ngPlus.js`) already scales
@@ -243,6 +262,18 @@ one-off task.
     with NG+ cycle, and how a felt-appropriately-terrifying "the dragon
     just showed up in a random field encounter" moment would even resolve
     (a real fight? an instant flee prompt? guaranteed-loss with an escape?).
+  - **Boss tier / NG+ cycle ceiling, raised 2026-08-30.** Timothy hit the
+    top of both escalation dials at once - `MAX_BOSS_TIER = 2`
+    (`js/systems/bossTiers.js`, three "star" difficulties per cycle) and
+    `MAX_NG_PLUS_CYCLE = 2` (`js/systems/ngPlus.js`) - and asked whether
+    the boss fight starting immediately instead of showing the
+    tier/NG+ choice prompt was a bug. It isn't:
+    `shouldPromptForRematch`/`canStartNgPlus` correctly have nothing left
+    to offer once both caps are maxed, so `handleBossBattle`
+    (`js/main.js`) skips straight to the fight. Confirmed as the intended
+    end-state for now - "I think we are good with this ceiling for now" -
+    but flagged as something to revisit later (raise either cap further)
+    once there's a reason to. Not designed, not scheduled.
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
