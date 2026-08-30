@@ -1,8 +1,11 @@
 import { ITEMS } from '../data/items.js';
-import { upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL, describeItem, getUpgradeLevel } from '../systems/inventory.js';
+import {
+  upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL, describeItem, getUpgradeLevel,
+  canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
+} from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
-const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory'];
+const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
 
 let rootEl = null;
 let state = null;
@@ -24,9 +27,17 @@ function render() {
     const tier = state.equipmentTiers?.[slot];
     const level = getUpgradeLevel(state, itemId, tier);
 
+    const reforgeEligible = state.ngPlusCycle >= 1 && canReforgeToMythic(state, slot);
+    const essenceCount = state.inventory.find((entry) => entry.itemId === 'mythicEssence')?.quantity || 0;
+    const canAffordReforge = state.player.gold >= REFORGE_GOLD_COST && essenceCount >= REFORGE_ESSENCE_COST;
+    const reforgeButton = reforgeEligible
+      ? `<button data-reforge="${slot}" ${canAffordReforge ? '' : 'disabled'}>Reforge to Mythic (${REFORGE_GOLD_COST}g + ${REFORGE_ESSENCE_COST} Essence)</button>`
+      : '';
+
     if (level >= MAX_UPGRADE_LEVEL) {
       return `<div class="smith-row">
       <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
+      ${reforgeButton}
     </div>`;
     }
 
@@ -41,6 +52,7 @@ function render() {
       <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
       <button data-slot="${slot}" ${materials.length === 0 || !canAfford ? 'disabled' : ''}>Upgrade (${cost}g)</button>
+      ${reforgeButton}
     </div>`;
   }).join('');
 
@@ -55,6 +67,9 @@ function render() {
 
   rootEl.querySelectorAll('button[data-slot]').forEach((btn) => {
     btn.onclick = () => tryUpgrade(btn.dataset.slot);
+  });
+  rootEl.querySelectorAll('button[data-reforge]').forEach((btn) => {
+    btn.onclick = () => tryReforge(btn.dataset.reforge);
   });
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
   document.getElementById('btn-close-x').onclick = () => callbacks.onLeave();
@@ -88,6 +103,17 @@ function tryUpgrade(slot) {
     callbacks.onUpgrade();
   } catch {
     // Not enough gold or missing material — button availability already reflects this
+  }
+  render();
+}
+
+function tryReforge(slot) {
+  try {
+    const next = reforgeToMythic(state, slot);
+    Object.assign(state, next);
+    callbacks.onUpgrade();
+  } catch {
+    // Not enough gold or essence — button availability already reflects this
   }
   render();
 }
