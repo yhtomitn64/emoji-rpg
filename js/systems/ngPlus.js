@@ -76,6 +76,7 @@ export function resetWorldForNgPlus(state) {
     map: 'center',
     position: null,
     lossStreak: 0,
+    zone1Steps: 0,
     ngPlusCycle: Math.min(state.ngPlusCycle + 1, MAX_NG_PLUS_CYCLE),
   };
 }

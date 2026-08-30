@@ -183,6 +183,9 @@ function startGame(loadedState, slotId) {
   if (!state.lossStreak) {
     state.lossStreak = 0;
   }
+  if (!state.zone1Steps) {
+    state.zone1Steps = 0;
+  }
   if (!state.dungeonEntrancePosition) {
     state.dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION;
   }

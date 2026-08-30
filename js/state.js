@@ -75,6 +75,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     clearedGates: {},
     lossStreak: 0,
     encounterCooldown: 0,
+    zone1Steps: 0,
     dungeonEntrancePosition,
   };
 }

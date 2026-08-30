@@ -50,6 +50,11 @@ test('createNewGame includes a zero-initialized monsterKillCounts, independent o
   });
 });
 
+test('createNewGame starts zone1Steps at 0', () => {
+  const state = createNewGame();
+  assert.equal(state.zone1Steps, 0);
+});
+
 test('createNewGame uses the passed hero emoji instead of the default', () => {
   const state = createNewGame('🧙');
   assert.equal(state.player.emoji, '🧙');

@@ -144,6 +144,13 @@ test('resetWorldForNgPlus preserves player power and resets world state', () => 
   assert.deepEqual(reset.clearedGates, {});
 });
 
+test('resetWorldForNgPlus resets zone1Steps to 0', () => {
+  const state = createNewGame();
+  state.zone1Steps = 1234;
+  const reset = resetWorldForNgPlus(state);
+  assert.equal(reset.zone1Steps, 0);
+});
+
 // Raised 2026-08-29: "NG+ should reset the tools you have otherwise you can
 // go straight to dragon." resetWorldForNgPlus never touched state.inventory
 // or state.clearedGates before this fix, so a player who already owned
