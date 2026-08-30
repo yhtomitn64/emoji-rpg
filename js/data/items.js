@@ -45,10 +45,16 @@ export const ITEMS = {
     stats: { attack: 7, lifestealPercent: 15 } },
   swiftStrikeCharm: { id: 'swiftStrikeCharm', name: 'Swift Strike Charm', emoji: '🔮', slot: 'accessory', price: 0,
     stats: { extraSwingChance: 10 } },
-  emberRing: { id: 'emberRing', name: 'Ember Ring', emoji: '🔥', slot: 'accessory', price: 0,
+  emberRing: { id: 'emberRing', name: 'Ember Ring', emoji: '🔥', slot: 'ring', price: 0,
     stats: { elementalProcChance: 20, elementalProcDamage: 6 } },
   keenEye: { id: 'keenEye', name: 'Keen Eye', emoji: '👁️', slot: 'accessory', price: 0,
     stats: { critChancePercent: 8 } },
+  // NG+-exclusive - see js/systems/loot.js's eligibleUniqueEffectPool,
+  // gated on ngPlusOnly + (for windfuryRing) the ring toughness floor.
+  retributionCharm: { id: 'retributionCharm', name: 'Retribution Charm', emoji: '🪞', slot: 'accessory', price: 0,
+    stats: { thornsPercent: 20 }, ngPlusOnly: true },
+  windfuryRing: { id: 'windfuryRing', name: 'Windfury Ring', emoji: '💍', slot: 'ring', price: 0,
+    stats: { extraSwingChance: 10, critChancePercent: 8 }, ngPlusOnly: true },
 
   // Consumables
   potion: { id: 'potion', name: 'Potion', emoji: '🧪', type: 'consumable', price: 10, heal: 15 },
@@ -65,6 +71,10 @@ export const ITEMS = {
   frogSkin: { id: 'frogSkin', name: 'Frog Skin', emoji: '🟢', type: 'material', upgradeSlot: 'body' },
   scorpionVenom: { id: 'scorpionVenom', name: 'Scorpion Venom', emoji: '💉', type: 'material', upgradeSlot: 'accessory' },
   boneFragment: { id: 'boneFragment', name: 'Bone Fragment', emoji: '🦴', type: 'material', upgradeSlot: 'head' },
+  // Reforge material for the Mythic tier (js/systems/inventory.js's
+  // reforgeToMythic) - no upgradeSlot, since it's collected generically
+  // rather than per-slot like the other materials above.
+  mythicEssence: { id: 'mythicEssence', name: 'Mythic Essence', emoji: '💎', type: 'material' },
 
   // Tools
   miningPick: { id: 'miningPick', name: 'Mining Pick', emoji: '⛏️', type: 'tool', price: 0, description: 'Clears mountain gates blocking the way' },

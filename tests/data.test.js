@@ -143,7 +143,7 @@ test('the three v1 Unique-effect items have the documented slots, prices, and ef
 
   const emberRing = ITEMS.emberRing;
   assert.equal(emberRing.name, 'Ember Ring');
-  assert.equal(emberRing.slot, 'accessory');
+  assert.equal(emberRing.slot, 'ring'); // reclassified 2026-08-30 - was 'accessory'
   assert.equal(emberRing.price, 0);
   assert.equal(emberRing.stats.elementalProcChance, 20);
   assert.equal(emberRing.stats.elementalProcDamage, 6);
@@ -151,6 +151,35 @@ test('the three v1 Unique-effect items have the documented slots, prices, and ef
   for (const id of ['vampiricFang', 'swiftStrikeCharm', 'emberRing']) {
     assert.ok(!SHOP_CATALOG.includes(id), `${id} must not be shop-purchasable`);
   }
+});
+
+test('the two NG+-exclusive unique items have the documented slots, prices, effect stats, and ngPlusOnly flag', () => {
+  const retributionCharm = ITEMS.retributionCharm;
+  assert.equal(retributionCharm.name, 'Retribution Charm');
+  assert.equal(retributionCharm.slot, 'accessory');
+  assert.equal(retributionCharm.price, 0);
+  assert.equal(retributionCharm.stats.thornsPercent, 20);
+  assert.equal(retributionCharm.ngPlusOnly, true);
+
+  const windfuryRing = ITEMS.windfuryRing;
+  assert.equal(windfuryRing.name, 'Windfury Ring');
+  assert.equal(windfuryRing.slot, 'ring');
+  assert.equal(windfuryRing.price, 0);
+  assert.equal(windfuryRing.stats.extraSwingChance, 10);
+  assert.equal(windfuryRing.stats.critChancePercent, 8);
+  assert.equal(windfuryRing.ngPlusOnly, true);
+
+  for (const id of ['retributionCharm', 'windfuryRing']) {
+    assert.ok(!SHOP_CATALOG.includes(id), `${id} must not be shop-purchasable`);
+  }
+});
+
+test('mythicEssence is a generic material (no upgradeSlot) not sold in the shop', () => {
+  const essence = ITEMS.mythicEssence;
+  assert.equal(essence.name, 'Mythic Essence');
+  assert.equal(essence.type, 'material');
+  assert.equal(essence.upgradeSlot, undefined);
+  assert.ok(!SHOP_CATALOG.includes('mythicEssence'));
 });
 
 test('every monster has a valid attackStyle, and ranged monsters have a projectileEmoji', () => {
