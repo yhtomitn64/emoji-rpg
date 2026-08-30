@@ -193,6 +193,32 @@ test('rollDrop excludes windfuryRing/retributionCharm from the Unique-effect poo
   assert.equal(drop.item, 'vampiricFang');
 });
 
+test('rollDrop\'s ring-toughness-floor filter actually shrinks the Unique-effect pool below the ring floor (not just a coincidental index match)', () => {
+  const weakMonster = { goldRange: [4, 8], xp: 16, dropTable: [] }; // toughness ~0.096, well under the 0.6 ring floor
+  // sequence: [gold, mythic-essence check misses, unique-effect check hits (0.001), pool pick 0.999]
+  // At ngPlusCycle 1 the ring floor excludes emberRing and windfuryRing (both ring-slot, below
+  // floor) but not retributionCharm (accessory-slot, ngPlusOnly satisfied at cycle 1) - the
+  // filtered pool is ['vampiricFang', 'swiftStrikeCharm', 'keenEye', 'retributionCharm'] (4
+  // items), so floor(0.999*4) = 3 -> retributionCharm. The unfiltered 6-item list would instead
+  // give floor(0.999*6) = 5 -> windfuryRing, so this distinguishes filtered from unfiltered output.
+  const drop = rollDrop(weakMonster, sequence(0, 0.5, 0.001, 0.999), 1);
+  assert.equal(drop.item, 'retributionCharm');
+});
+
+test('rollDrop\'s Unique-effect pool filter applies both the ring floor and ngPlusOnly gate together at ngPlusCycle 0', () => {
+  const weakMonster = { goldRange: [4, 8], xp: 16, dropTable: [] }; // toughness ~0.096, well under the 0.6 ring floor
+  // sequence: [gold, unique-effect check hits (0.001) - no mythic-essence-check rng() call at
+  //            cycle 0, since `ngPlusCycle >= 1 && ...` short-circuits before calling rng() -
+  //            pool pick 0.999]
+  // At ngPlusCycle 0 the ring floor excludes emberRing/windfuryRing AND ngPlusOnly excludes
+  // retributionCharm/windfuryRing, leaving only ['vampiricFang', 'swiftStrikeCharm', 'keenEye']
+  // (3 items), so floor(0.999*3) = 2 -> keenEye. The unfiltered 6-item list would instead give
+  // floor(0.999*6) = 5 -> windfuryRing, so this distinguishes filtered from unfiltered output
+  // and proves both gates (not just one) are active at cycle 0.
+  const drop = rollDrop(weakMonster, sequence(0, 0.001, 0.999), 0);
+  assert.equal(drop.item, 'keenEye');
+});
+
 test('rollDrop can grant windfuryRing once ngPlusCycle >= 1 and the monster is above the ring toughness floor', () => {
   const toughMonster = { goldRange: [18, 30], xp: 63, dropTable: [] }; // toughness 1, well above the 0.6 floor
   // sequence: [gold, mythic-essence check misses, unique-effect check hits, pool pick -> last index]
