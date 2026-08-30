@@ -24,6 +24,16 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- Animation Lab (`tools/animation-lab/`): a dev-only visual tool for
+  designing weapon-swing animations, following the same never-deployed,
+  no-build-step pattern as `tools/terrain-painter/`.
+
+### Changed
+- Weapon-swing keyframes (Attack/Stab/Chop/Slash/Sweep) are now
+  data-driven inside `js/screens/battleScreen.js`, so Animation Lab can
+  regenerate them - no visible gameplay change from this alone.
+
 ## [0.9.0] - 2026-08-30
 
 ### Added
