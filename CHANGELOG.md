@@ -24,6 +24,28 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-29
+
+### Added
+- Player attacks now play a weapon-swing animation instead of resolving as a
+  silent number - Attack swings the equipped weapon's own emoji, while
+  Stab/Chop/Slash each swing their own ability icon with a distinct motion
+  (thrust/overhead chop/diagonal wipe) (`js/screens/battleScreen.js`).
+- Sweep now plays as one large traveling swing sprite that visits every
+  living target in turn, staggered so each monster's hit lands as the sprite
+  actually reaches it, rather than every target taking damage in the same
+  instant with no visual to match.
+- A crit hit's swing (and Sweep's swing, always) now trails a fading
+  afterimage of ghost copies along the same path.
+- A crit killing blow has a chance to play an alternate "split in two" death
+  animation instead of the usual spin-and-shrink.
+
+### Changed
+- Sweep's cooldown/attack-streak/combo bookkeeping now commits at the moment
+  the ability is pressed rather than after its (now staggered) hits finish
+  resolving, matching this file's existing press-time-semantics convention
+  for every other ability.
+
 ## [0.7.9] - 2026-08-29
 
 ### Fixed

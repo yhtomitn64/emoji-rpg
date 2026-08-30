@@ -818,6 +818,19 @@ button:focus-visible {
   z-index: 30;
   will-change: transform, opacity;
 }
+.battle-swing-sprite {
+  position: fixed;
+  font-size: 1.6rem;
+  pointer-events: none;
+  z-index: 31;
+  will-change: transform, opacity;
+}
+.battle-swing-sprite-large {
+  font-size: 3rem;
+}
+.battle-swing-trail {
+  z-index: 30;
+}
 .map-flee-emoji {
   position: fixed;
   font-size: 1.4rem;
@@ -849,6 +862,43 @@ button:focus-visible {
 @keyframes battle-death-spin {
   0% { transform: rotate(0deg) scale(1); opacity: 1; }
   100% { transform: rotate(720deg) scale(0); opacity: 0; }
+}
+/* Splits the monster's own emoji glyph into two halves that fly apart,
+   an occasional alternate to battle-death-spin on a crit killing blow (see
+   maybeMarkSplitDeath in js/screens/battleScreen.js, which stamps the glyph
+   onto data-glyph before adding this class). The original glyph is hidden
+   (color: transparent) and reconstructed as two clip-path halves via ::before/
+   ::after, since there's no way to split a single text character in place. */
+.battle-death-split {
+  position: relative;
+  color: transparent;
+}
+.battle-death-split::before,
+.battle-death-split::after {
+  content: attr(data-glyph);
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: initial;
+  animation-duration: 0.9s;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+.battle-death-split::before {
+  clip-path: inset(0 50% 0 0);
+  animation-name: battle-death-split-left;
+}
+.battle-death-split::after {
+  clip-path: inset(0 0 0 50%);
+  animation-name: battle-death-split-right;
+}
+@keyframes battle-death-split-left {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-26px, 12px) rotate(-50deg); opacity: 0; }
+}
+@keyframes battle-death-split-right {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(26px, 12px) rotate(50deg); opacity: 0; }
 }
 .battle-damage-number {
   position: fixed;

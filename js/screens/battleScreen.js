@@ -46,6 +46,13 @@ let playerCombatant = null;
 let monsterCombatants = [];
 let selectedMonsterIndex = 0;
 let battleOver = false;
+// Distinct from battleOver: a battle can end (win/lose/flee) and still sit on
+// screen for VICTORY_PAUSE_MS before unmount() actually tears the screen
+// down, but unmount() can also happen well before that (e.g. the app force-
+// navigates away). Anything resuming after a real awaited delay - the Sweep
+// stagger loop below, the trail-ghost spawn timers - needs to check this
+// specifically, since battleOver alone doesn't cover an abrupt unmount.
+let unmounted = false;
 let log = [];
 let elements = {};
 let endBattleTimeoutId = null;
@@ -59,6 +66,7 @@ let attackCooldownMs = 0;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
+let liveSwingSprites = [];
 let livePerfectBadges = [];
 let playerEffectBonuses = null;
 
@@ -89,6 +97,7 @@ function buildMonsterCombatant(monsterId, overrides) {
     windup: createWindupState(),
     defenseDebuff: null,
     pendingDelayedHit: null,
+    deathStyle: null,
   };
 }
 
@@ -328,8 +337,17 @@ function updateHpBars() {
         zone.dataset.deathHidePending = '1';
         // Spin-in-place + shrink, distinct from the flee effect's
         // shrink-and-slide-sideways - a kill reads as "defeated", a flee
-        // reads as "escaped".
-        elements.monsterEmojis[i].classList.add('battle-death-spin');
+        // reads as "escaped". A crit killing blow can instead roll the
+        // split-death variant - see maybeMarkSplitDeath. The split CSS reads
+        // the glyph back via attr(data-glyph) (see .battle-death-split in
+        // css/styles.css), so it has to be stamped on before the class is
+        // added.
+        if (mc.deathStyle === 'split') {
+          elements.monsterEmojis[i].dataset.glyph = elements.monsterEmojis[i].textContent;
+          elements.monsterEmojis[i].classList.add('battle-death-split');
+        } else {
+          elements.monsterEmojis[i].classList.add('battle-death-spin');
+        }
         setTimeout(() => {
           delete zone.dataset.deathHidePending;
           zone.classList.add('battle-monster-slot-dead');
@@ -574,6 +592,153 @@ function playMonsterAttackWindup(monster, monsterIndex) {
   }
 }
 
+const SWING_DURATION_MS = { attack: 220, stab: 300, chop: 350, slash: 300 };
+
+// Attack has no ability object/icon of its own to swing - falls back to
+// whatever's actually equipped (js/data/items.js's own emoji per weapon),
+// so an unarmed player (weapon slot unequipped via the inventory screen -
+// js/systems/inventory.js's unequipItem allows this) still gets *something*
+// rather than a blank sprite.
+function swingSpriteEmoji(ability) {
+  if (ability) return ability.icon;
+  const weaponId = state.equipment.weapon;
+  return ITEMS[weaponId]?.emoji || '👊';
+}
+
+// Distinct motion per ability - a stab thrusts straight in, a chop arcs down
+// from overhead, a slash wipes diagonally across, and the bare Attack (no
+// ability, no icon) gets a smaller plain jab. dx/dy are the target zone's
+// center offset from the swing's start position (hero zone or, for a Sweep
+// waypoint, the previous target). Every keyframe carries the same
+// translate(-50%, -50%) prefix as playRangedProjectile's own keyframes, to
+// keep the sprite centered on its own (left, top) coordinate throughout.
+function swingKeyframesFor(abilityId, dx, dy) {
+  const at = (x, y, rotateDeg = 0) => `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotateDeg}deg)`;
+  switch (abilityId) {
+    case 'stab':
+      return [{ transform: at(0, 0, -45) }, { transform: at(dx, dy, -45) }, { transform: at(0, 0, -45) }];
+    case 'chop':
+      return [{ transform: at(dx * 0.3, dy * 0.3 - 40, -80) }, { transform: at(dx, dy, 0) }];
+    case 'slash':
+      return [{ transform: at(dx - 24, dy - 24, -45) }, { transform: at(dx + 24, dy + 24, 45) }];
+    default:
+      return [{ transform: at(0, 0) }, { transform: at(dx * 0.6, dy * 0.6) }, { transform: at(0, 0) }];
+  }
+}
+
+// Spawns one fixed-on-<body> emoji sprite that travels from startZoneEl to
+// endZoneEl using keyframesFn(dx, dy), same fixed-position/live-tracking
+// pattern as showDamageNumber/playPerfectTimingEffect above. Purely
+// presentational, like playMonsterAttackWindup: callers apply damage/log/
+// hit-effect on their own timing around this. jsdom (tests/helpers/dom.js)
+// has no Element.prototype.animate, so the WAAPI call is best-effort -
+// skipping it there still exercises the DOM structure/emoji/class assertions
+// tests actually check, per this file's own tests' stated scope.
+function spawnSwingSprite(emoji, className, startZoneEl, endZoneEl, keyframesFn, durationMs) {
+  const startRect = startZoneEl.getBoundingClientRect();
+  const endRect = endZoneEl.getBoundingClientRect();
+  const dx = (endRect.left + endRect.width / 2) - (startRect.left + startRect.width / 2);
+  const dy = (endRect.top + endRect.height / 2) - (startRect.top + startRect.height / 2);
+  const spriteEl = document.createElement('div');
+  spriteEl.textContent = emoji;
+  spriteEl.className = className;
+  spriteEl.style.left = `${startRect.left + startRect.width / 2}px`;
+  spriteEl.style.top = `${startRect.top + startRect.height / 2}px`;
+  document.body.appendChild(spriteEl);
+  if (typeof spriteEl.animate === 'function') {
+    // fill: 'forwards' - without it, the instant the WAAPI animation's own
+    // timeline finishes (independent of the separate setTimeout below), the
+    // transform reverts to none, snapping the sprite to its raw uncentered
+    // (left, top) corner for the remainder of the setTimeout's own delay.
+    spriteEl.animate(keyframesFn(dx, dy), { duration: durationMs, easing: 'ease-out', fill: 'forwards' });
+  }
+  const timeoutId = setTimeout(() => {
+    spriteEl.remove();
+    liveSwingSprites = liveSwingSprites.filter((s) => s.timeoutId !== timeoutId);
+  }, durationMs);
+  liveSwingSprites.push({ el: spriteEl, timeoutId });
+  return spriteEl;
+}
+
+const TRAIL_GHOST_OPACITIES = [0.5, 0.3, 0.15];
+const TRAIL_GHOST_STAGGER_MS = 50;
+
+// Afterimage trail: faint blurred copies of the same swing, chasing it along
+// the identical path a beat behind - reuses spawnSwingSprite for each ghost
+// rather than a separate code path. Called for a crit hit's swing, and always
+// for Sweep's traveling sprite (see playPlayerSweepSwing).
+function spawnSwingTrail(emoji, className, startZoneEl, endZoneEl, keyframesFn, durationMs) {
+  TRAIL_GHOST_OPACITIES.forEach((opacity, i) => {
+    setTimeout(() => {
+      if (unmounted) return;
+      const ghost = spawnSwingSprite(emoji, `${className} battle-swing-trail`, startZoneEl, endZoneEl, keyframesFn, durationMs);
+      ghost.style.opacity = String(opacity);
+      ghost.style.filter = 'blur(1px)';
+    }, (i + 1) * TRAIL_GHOST_STAGGER_MS);
+  });
+}
+
+// Single-target swing: Attack (ability === null) or a non-AOE ability
+// (Stab/Chop/Slash). isCrit adds the afterimage trail on top of the base
+// swing - see spawnSwingTrail.
+function playPlayerSwing(ability, targetZoneEl, isCrit) {
+  const emoji = swingSpriteEmoji(ability);
+  const durationMs = SWING_DURATION_MS[ability?.id || 'attack'] || 250;
+  const keyframesFn = (dx, dy) => swingKeyframesFor(ability?.id, dx, dy);
+  spawnSwingSprite(emoji, 'battle-swing-sprite', elements.heroZone, targetZoneEl, keyframesFn, durationMs);
+  if (isCrit) spawnSwingTrail(emoji, 'battle-swing-sprite', elements.heroZone, targetZoneEl, keyframesFn, durationMs);
+}
+
+const SWEEP_STAGGER_MS = 260;
+
+// Sweep's own swing: one big sprite that travels through every living
+// target's zone in turn (left to right), matching the sequential contact
+// timing of the caller's own staggered hit loop below - never a fan of one
+// sprite per target. Always carries the afterimage trail (see
+// spawnSwingTrail), independent of crit, since Sweep is meant to read as one
+// big sweep through the whole line regardless of how any single hit rolls.
+function playPlayerSweepSwing(ability, targetZoneEls) {
+  const emoji = swingSpriteEmoji(ability);
+  const totalDurationMs = targetZoneEls.length * SWEEP_STAGGER_MS;
+  const startRect = elements.heroZone.getBoundingClientRect();
+  const startX = startRect.left + startRect.width / 2;
+  const startY = startRect.top + startRect.height / 2;
+  const waypoints = targetZoneEls.map((zoneEl) => {
+    const rect = zoneEl.getBoundingClientRect();
+    return {
+      dx: (rect.left + rect.width / 2) - startX,
+      dy: (rect.top + rect.height / 2) - startY,
+    };
+  });
+  const keyframesFn = () => [
+    { transform: 'translate(-50%, -50%) translate(0, 0) rotate(0deg)', offset: 0 },
+    ...waypoints.map((p, i) => ({
+      transform: `translate(-50%, -50%) translate(${p.dx}px, ${p.dy}px) rotate(${(i + 1) * 120}deg)`,
+      offset: (i + 1) / waypoints.length,
+    })),
+  ];
+  // heroZone passed as both start and end below only to anchor the sprite's
+  // starting (left, top) position - the real multi-waypoint path is baked
+  // into keyframesFn via the waypoints closure above, not derived from a
+  // single dx/dy the way every other swing's path is.
+  spawnSwingSprite(emoji, 'battle-swing-sprite battle-swing-sprite-large', elements.heroZone, elements.heroZone, keyframesFn, totalDurationMs);
+  spawnSwingTrail(emoji, 'battle-swing-sprite battle-swing-sprite-large', elements.heroZone, elements.heroZone, keyframesFn, totalDurationMs);
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const SPLIT_DEATH_CHANCE = 0.5;
+
+// A crit killing blow can, once in a while, play the split-in-two death
+// animation instead of the usual spin (raised 2026-08-29) - checked and
+// stamped onto the target the instant its result is known, so
+// updateHpBars() (which actually applies the class) just reads it back.
+function maybeMarkSplitDeath(target, result) {
+  if (result.monsterHp <= 0 && result.isCrit && Math.random() < SPLIT_DEATH_CHANCE) {
+    target.deathStyle = 'split';
+  }
+}
+
 function playReviveEffect(emojiEl) {
   // Scoped to just the emoji, not the whole zone - the zone's own
   // battle-hit-shake animates `transform` via the `animation` shorthand,
@@ -675,6 +840,7 @@ function resolveOneAttack(countsTowardStreak) {
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
   playerCombatant.atb = result.playerAtb;
+  maybeMarkSplitDeath(target, result);
   log.push(result.isCrit
     ? `Critical! You hit ${target.name} for ${result.damage}!`
     : `You hit ${target.name} for ${result.damage}.`);
@@ -689,6 +855,7 @@ function resolveOneAttack(countsTowardStreak) {
   // Play the hit effect before updateHpBars() hides a killed monster's slot
   // (display: none), so a killing blow's damage number/flash/shake is
   // actually visible instead of rendering onto an already-hidden element.
+  playPlayerSwing(null, elements.monsterZones[targetIndex], result.isCrit);
   playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
   applyOnHitEffects(target, result.damage, streakMultiplier);
 }
@@ -783,22 +950,11 @@ async function playerUseAbility(abilityId) {
       const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter(ability);
       // Same battle-can-end-mid-await hazard as the single-target path below.
       if (battleOver) return;
-      targetIndices.forEach((monsterIndex, n) => {
-        const mc = monsterCombatants[monsterIndex];
-        if (mc.hp <= 0) return; // died during the meter (bleed tick / parry counter)
-        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, playerEffectBonuses.critChancePercent / 100);
-        mc.hp = result.monsterHp;
-        mc.atb = result.monsterAtb;
-        playerCombatant.atb = result.playerAtb;
-        mc.defenseDebuff = createDefenseDebuff(ability);
-        const timingSuffix = timingHit ? ' Perfect timing!' : '';
-        log.push((result.isCrit
-          ? `Critical! You use ${ability.name} on ${mc.name} for ${result.damage}!`
-          : `You use ${ability.name} on ${mc.name} for ${result.damage}.`) + timingSuffix);
-        playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
-        if (timingHit) playPerfectTimingEffect(elements.monsterZones[monsterIndex]);
-        applyOnHitEffects(mc, result.damage);
-      });
+      // Press-time semantics (see the buffActiveAtPress/comboBonusActive
+      // snapshots above): cooldown/streak/combo bookkeeping all commit here,
+      // immediately on press, rather than waiting for the staggered sequence
+      // below to finish - the player's commitment is the button press, not
+      // however long the sweep animation takes to play out.
       abilityCooldowns[abilityId] = ability.cooldownMs;
       attackStreak = 0;
       attackStreakIdleMs = 0;
@@ -814,9 +970,47 @@ async function playerUseAbility(abilityId) {
       if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
         comboState[ability.comboPartnerId] = true;
       }
-      updateHpBars();
-      updateAtbBars();
-      updateLog();
+      // Sequential contact, not a fan of duplicate sprites (raised
+      // 2026-08-28, see BACKLOG.md): one traveling sweep sprite visits each
+      // living target in turn, and each target's own hp/log/hit-effect lands
+      // in sync with the sprite actually reaching it - a real awaited delay
+      // between targets, not everything resolving in one synchronous batch.
+      // abilityActionInFlight (see the try/finally around this whole
+      // function) stays true for the entire sequence, so it behaves like the
+      // existing timing-meter await above: no re-entrant action mid-swing.
+      const livingIndices = targetIndices.filter((i) => monsterCombatants[i].hp > 0);
+      playPlayerSweepSwing(ability, livingIndices.map((i) => elements.monsterZones[i]));
+      for (let n = 0; n < targetIndices.length; n++) {
+        const monsterIndex = targetIndices[n];
+        // Always sleeps first, even for a target that turns out to already be
+        // dead below - the sweep sprite's own waypoint schedule (built from a
+        // fixed livingIndices count above) assumes one stagger slot per living
+        // target regardless of what happens to any of them mid-sequence. A
+        // target that dies from something unrelated while waiting its turn
+        // (e.g. a Slash bleed tick landing via tick()'s own setInterval) still
+        // consumes its slot instead of the remaining hits resolving early and
+        // outrunning the sprite still visually en route to them.
+        await sleep(SWEEP_STAGGER_MS);
+        if (battleOver || unmounted) return;
+        const mc = monsterCombatants[monsterIndex];
+        if (mc.hp <= 0) continue; // died before its own turn in the sequence
+        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, playerEffectBonuses.critChancePercent / 100);
+        mc.hp = result.monsterHp;
+        mc.atb = result.monsterAtb;
+        playerCombatant.atb = result.playerAtb;
+        maybeMarkSplitDeath(mc, result);
+        mc.defenseDebuff = createDefenseDebuff(ability);
+        const timingSuffix = timingHit ? ' Perfect timing!' : '';
+        log.push((result.isCrit
+          ? `Critical! You use ${ability.name} on ${mc.name} for ${result.damage}!`
+          : `You use ${ability.name} on ${mc.name} for ${result.damage}.`) + timingSuffix);
+        playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
+        if (timingHit) playPerfectTimingEffect(elements.monsterZones[monsterIndex]);
+        applyOnHitEffects(mc, result.damage);
+        updateHpBars();
+        updateAtbBars();
+        updateLog();
+      }
       checkOutcome();
       updateMenu();
       return;
@@ -838,6 +1032,7 @@ async function playerUseAbility(abilityId) {
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
+    maybeMarkSplitDeath(target, result);
     abilityCooldowns[abilityId] = ability.cooldownMs;
     attackStreak = 0;
     attackStreakIdleMs = 0;
@@ -858,6 +1053,7 @@ async function playerUseAbility(abilityId) {
     // Play the hit effect before updateHpBars() hides a killed monster's slot
     // (display: none), so a killing blow's damage number/flash/shake is
     // actually visible instead of rendering onto an already-hidden element.
+    playPlayerSwing(ability, elements.monsterZones[targetIndex], result.isCrit);
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
     if (timingHit) playPerfectTimingEffect(elements.monsterZones[targetIndex]);
     applyOnHitEffects(target, result.damage);
@@ -1073,6 +1269,7 @@ export function mount(root, props) {
   monsterOverridesList = props.monsterOverrides || monsterIds.map(() => null);
   callbacks = props.callbacks;
   battleOver = false;
+  unmounted = false;
   playerCombatant = buildPlayerCombatant();
   playerEffectBonuses = getEquipmentBonuses(state);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
@@ -1126,6 +1323,7 @@ export function mount(root, props) {
 }
 
 export function unmount() {
+  unmounted = true;
   clearInterval(intervalId);
   clearTimeout(endBattleTimeoutId);
   clearTimeout(exitAnimTimeoutId);
@@ -1140,4 +1338,9 @@ export function unmount() {
     el.remove();
   });
   livePerfectBadges = [];
+  liveSwingSprites.forEach(({ el, timeoutId }) => {
+    clearTimeout(timeoutId);
+    el.remove();
+  });
+  liveSwingSprites = [];
 }

@@ -193,6 +193,142 @@ test('battleScreen DOM', async (t) => {
     assert.equal(sweetSpot.style.animation, 'battle-zone-pulse 0.35s ease-out 800ms');
   });
 
+  await t.test('clicking Attack spawns a swing sprite carrying the equipped weapon\'s emoji', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    const sprite = document.querySelector('.battle-swing-sprite');
+    assert.ok(sprite, 'expected a swing sprite element on a basic Attack');
+    // createNewGame() starts the player with starterSword equipped (js/state.js) -
+    // its item emoji (js/data/items.js) is what Attack's swing should carry,
+    // since Attack has no ability icon of its own to fall back on.
+    assert.equal(sprite.textContent, '🗡️');
+  });
+
+  await t.test('using Chop spawns a swing sprite carrying Chop\'s own icon, not the equipped weapon\'s', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
+    // Chop is a combo payoff (js/systems/abilities.js) - it skips the timing
+    // meter entirely, so clicking it resolves synchronously like Attack does,
+    // no need for the timing-meter wait/keydown dance the Stab test above uses.
+    click(root.querySelector('#btn-ability-chop'));
+    const sprite = document.querySelector('.battle-swing-sprite');
+    assert.ok(sprite, 'expected a swing sprite element on using Chop');
+    assert.equal(sprite.textContent, '🪓');
+  });
+
+  await t.test('using Sweep hits each target in sequence with a single traveling swing sprite, not all at once', async () => {
+    const { root } = await mountBattle(['boar', 'boar', 'boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    const hpText = (i) => root.querySelector(`#battle-monster-hp-text-${i}`).textContent;
+    const before = [hpText(0), hpText(1), hpText(2)];
+    // Sweep is a combo payoff (js/systems/abilities.js) - like Chop, it skips
+    // the timing meter, so the only await before the first target resolves
+    // is the new staggered sequence's own delay.
+    click(root.querySelector('#btn-ability-sweep'));
+    assert.deepEqual([hpText(0), hpText(1), hpText(2)], before, 'no target should be hit yet, immediately after pressing Sweep');
+    assert.equal(
+      document.querySelectorAll('.battle-swing-sprite:not(.battle-swing-trail)').length, 1,
+      'Sweep should use exactly one traveling swing sprite, not one per target',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.notEqual(hpText(0), before[0], 'the first target should be hit after roughly one stagger step');
+    assert.equal(hpText(1), before[1], 'the second target should not be hit yet');
+    assert.equal(hpText(2), before[2], 'the third target should not be hit yet');
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    assert.notEqual(hpText(1), before[1], 'the second target should be hit by now');
+    assert.notEqual(hpText(2), before[2], 'the third target should be hit by now');
+  });
+
+  await t.test('unmounting mid-Sweep-stagger does not throw touching a torn-down document', async () => {
+    const { mount, unmount } = await import('../js/screens/battleScreen.js');
+    const root = createRoot();
+    mount(root, {
+      state: baseState({ player: { ...createNewGame().player, level: 8 } }),
+      monsterIds: ['boar', 'boar', 'boar'],
+      callbacks: { onBattleEnd: () => {} },
+    });
+    click(root.querySelector('#btn-ability-sweep'));
+    // Tear down before any of the staggered loop's awaited sleeps resolve.
+    // Without the `unmounted` guard (js/screens/battleScreen.js), the loop
+    // would resume after this, call playHitEffect -> showDamageNumber, and
+    // throw reaching for a document/elements this screen no longer owns -
+    // this is node:test's own uncaughtException path, not a regular assert,
+    // so the absence of a thrown error after waiting out the full sequence
+    // below is itself the assertion.
+    unmount();
+    await new Promise((resolve) => setTimeout(resolve, 900));
+  });
+
+  await t.test('a crit hit\'s swing gets an afterimage trail', async () => {
+    const originalRandom = Math.random;
+    // Forces every rollCrit() roll (js/systems/combat.js's CRIT_CHANCE = 0.1)
+    // to land as a crit, for the whole test.
+    Math.random = () => 0.01;
+    try {
+      const { root } = await mountBattle(['boar']);
+      click(root.querySelector('#btn-attack'));
+      // Let all staggered trail ghosts (TRAIL_GHOST_STAGGER_MS apart) spawn.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      assert.ok(document.querySelectorAll('.battle-swing-trail').length > 0, 'a crit swing should spawn afterimage trail ghosts');
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  await t.test('a non-crit hit\'s swing has no afterimage trail', async () => {
+    const originalRandom = Math.random;
+    Math.random = () => 0.99; // never satisfies rollCrit()'s < 0.1 check
+    try {
+      const { root } = await mountBattle(['boar']);
+      click(root.querySelector('#btn-attack'));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      assert.equal(document.querySelectorAll('.battle-swing-trail').length, 0, 'a non-crit swing should not spawn any trail ghosts');
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  await t.test('Sweep always shows a trail on its traveling sprite, regardless of crit', async () => {
+    const originalRandom = Math.random;
+    Math.random = () => 0.99; // forces every hit in the sequence to be a non-crit
+    try {
+      const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+      click(root.querySelector('#btn-ability-sweep'));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      assert.ok(document.querySelectorAll('.battle-swing-trail').length > 0, "Sweep's traveling sprite should always carry a trail");
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  await t.test('a crit killing blow can play the split-death animation instead of the spin', async () => {
+    const originalRandom = Math.random;
+    // 0.01 satisfies both rollCrit()'s < 0.1 check and the split-death
+    // chance roll in the same breath - forces a crit AND the split variant.
+    Math.random = () => 0.01;
+    try {
+      const { root } = await mountBattle(['boar'], { monsterOverrides: [{ hp: 1 }] });
+      click(root.querySelector('#btn-attack'));
+      const emojiEl = root.querySelector('#battle-monster-emoji-0');
+      assert.ok(emojiEl.classList.contains('battle-death-split'), 'a crit kill should be able to play the split-death animation');
+      assert.ok(!emojiEl.classList.contains('battle-death-spin'), 'split-death should replace the spin, not layer on top of it');
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  await t.test('a non-crit killing blow always uses the normal spin animation', async () => {
+    const originalRandom = Math.random;
+    Math.random = () => 0.99; // never a crit, so split-death never rolls either
+    try {
+      const { root } = await mountBattle(['boar'], { monsterOverrides: [{ hp: 1 }] });
+      click(root.querySelector('#btn-attack'));
+      const emojiEl = root.querySelector('#battle-monster-emoji-0');
+      assert.ok(emojiEl.classList.contains('battle-death-spin'), 'a non-crit kill should always use the spin animation');
+      assert.ok(!emojiEl.classList.contains('battle-death-split'));
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
   await t.test('unmount removes the keydown listener - a keypress after unmount is inert', async () => {
     const { mount, unmount } = await import('../js/screens/battleScreen.js');
     const root = createRoot();

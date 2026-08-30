@@ -6,6 +6,16 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.8.0',
+    date: '2026-08-29',
+    highlights: [
+      'Attacks now actually swing your weapon at the enemy instead of just popping a damage number - Attack swings your equipped weapon, and Stab/Chop/Slash each get their own distinct swing.',
+      'Sweep now visibly swings through every enemy in the group one at a time, instead of everyone taking damage at once with nothing to show for it.',
+      'Landing a critical hit (or any Sweep) now leaves a trailing afterimage on the swing.',
+      'A critical killing blow can now, once in a while, split the enemy in two instead of the usual spin.',
+    ],
+  },
+  {
     version: '0.7.9',
     date: '2026-08-29',
     highlights: [
