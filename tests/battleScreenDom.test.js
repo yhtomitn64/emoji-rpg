@@ -204,6 +204,21 @@ test('battleScreen DOM', async (t) => {
     assert.equal(sprite.textContent, '🗡️');
   });
 
+  await t.test('clicking Attack with the Dragon Fang Blade equipped swings a blade, not its own tooth-shaped inventory icon', async () => {
+    // Raised 2026-08-30: Timothy equipped Dragon Fang Blade (js/data/items.js,
+    // emoji '🦷' - a literal tooth, chosen for inventory-row flavor, not for
+    // being swung) and the Attack swing carried that tooth emoji verbatim.
+    // A weapon's swingEmoji override (when present) should win over its own
+    // display emoji for this specific purpose.
+    const state = baseState();
+    state.equipment.weapon = 'dragonFang';
+    const { root } = await mountBattle(['boar'], { state });
+    click(root.querySelector('#btn-attack'));
+    const sprite = document.querySelector('.battle-swing-sprite');
+    assert.ok(sprite, 'expected a swing sprite element on a basic Attack');
+    assert.notEqual(sprite.textContent, '🦷', 'should not swing the raw tooth emoji');
+  });
+
   await t.test('using Chop spawns a swing sprite carrying Chop\'s own icon, not the equipped weapon\'s', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
     // Chop is a combo payoff (js/systems/abilities.js) - it skips the timing

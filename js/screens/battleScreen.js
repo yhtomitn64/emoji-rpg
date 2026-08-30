@@ -605,7 +605,12 @@ const SWING_DURATION_MS = { attack: 1500, stab: 1500, chop: 1500, slash: 1500 };
 function swingSpriteEmoji(ability) {
   if (ability) return ability.icon;
   const weaponId = state.equipment.weapon;
-  return ITEMS[weaponId]?.emoji || '👊';
+  const weapon = ITEMS[weaponId];
+  // swingEmoji (js/data/items.js) overrides a weapon's own display emoji for
+  // this one purpose - a few weapons (Dragon Fang Blade, Fossil Fang,
+  // Vampiric Fang) use a body-part pun as their inventory icon, which reads
+  // fine in a gear list but not as a swung weapon.
+  return weapon?.swingEmoji || weapon?.emoji || '👊';
 }
 
 // Distinct motion per ability - a stab thrusts straight in, a chop arcs down

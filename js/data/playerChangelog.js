@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.8.2',
+    date: '2026-08-30',
+    highlights: [
+      'Attack now swings a proper blade instead of a literal tooth/dinosaur/bone when Dragon Fang Blade, Fossil Fang, or Vampiric Fang is equipped.',
+    ],
+  },
+  {
     version: '0.8.1',
     date: '2026-08-30',
     highlights: [

@@ -24,6 +24,17 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-30
+
+### Fixed
+- Attack's weapon-swing sprite (0.8.0) used a weapon's own inventory emoji
+  verbatim, which looks fine in a gear list but not for three weapons whose
+  icon is a body-part pun rather than a weapon shape - Dragon Fang Blade
+  (🦷), Fossil Fang (🦖), and Vampiric Fang (🦴) all swung that literal
+  tooth/dinosaur/bone. Added an optional `swingEmoji` override
+  (`js/data/items.js`) so these three swing a proper blade (🗡️) instead;
+  every other weapon is unaffected.
+
 ## [0.8.1] - 2026-08-30
 
 ### Fixed
