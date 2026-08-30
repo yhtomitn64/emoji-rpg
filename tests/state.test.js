@@ -13,6 +13,7 @@ import {
   SKIN_TONES,
   isToneCapableEmoji,
   applySkinTone,
+  migrateRingSlots,
 } from '../js/state.js';
 
 function createFakeStorage() {
@@ -143,4 +144,35 @@ test('applySkinTone is a no-op for tone-incapable emoji, even with a modifier pa
 
 test('applySkinTone is a no-op for an empty/default modifier', () => {
   assert.equal(applySkinTone('🧑', ''), '🧑');
+});
+
+test('createNewGame includes empty ring1/ring2 equipment slots', () => {
+  const state = createNewGame();
+  assert.equal(state.equipment.ring1, null);
+  assert.equal(state.equipment.ring2, null);
+});
+
+test('migrateRingSlots adds empty ring1/ring2 keys to a save that predates them', () => {
+  const legacy = createNewGame();
+  delete legacy.equipment.ring1;
+  delete legacy.equipment.ring2;
+  const migrated = migrateRingSlots(legacy);
+  assert.equal(migrated.equipment.ring1, null);
+  assert.equal(migrated.equipment.ring2, null);
+});
+
+test('migrateRingSlots is a no-op on a save that already has ring slots', () => {
+  const state = createNewGame();
+  state.equipment.ring1 = 'emberRing';
+  const migrated = migrateRingSlots(state);
+  assert.equal(migrated.equipment.ring1, 'emberRing');
+});
+
+test('migrateRingSlots never overwrites an already-equipped ring', () => {
+  const legacy = createNewGame();
+  legacy.equipment.ring1 = 'emberRing';
+  delete legacy.equipment.ring2;
+  const migrated = migrateRingSlots(legacy);
+  assert.equal(migrated.equipment.ring1, 'emberRing');
+  assert.equal(migrated.equipment.ring2, null);
 });

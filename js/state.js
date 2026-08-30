@@ -45,7 +45,7 @@ export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'farNorthwest', x: 
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
-    equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory: null },
+    equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
     upgrades: {},
     equipmentTiers: {},
     inventory: [{ itemId: 'potion', quantity: 2 }],
@@ -77,6 +77,19 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     encounterCooldown: 0,
     zone1Steps: 0,
     dungeonEntrancePosition,
+  };
+}
+
+// One-time migration for saves from before ring slots existed - nothing
+// carries over into them (no item has ever occupied a ring slot before this
+// feature), this just adds the two empty keys so downstream code that reads
+// state.equipment.ring1/ring2 directly never sees undefined vs. null drift.
+export function migrateRingSlots(state) {
+  if ('ring1' in state.equipment && 'ring2' in state.equipment) return state;
+  return {
+    ...state,
+    equipment: { ring1: null, ring2: null, ...state.equipment },
+    equipmentTiers: { ...state.equipmentTiers },
   };
 }
 
