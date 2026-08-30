@@ -747,7 +747,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       }
 
       const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
-      const drop = rollDrop(scaledMonster);
+      const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
       const gold = Math.round(drop.gold * rewardMultiplier.gold);
       Object.assign(state, addGold(state, gold));
       if (drop.item) {
@@ -803,7 +803,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     const monster = MONSTERS[encounterMonsterIds[0]];
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
     const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
-    const drop = rollDrop(scaledMonster);
+    const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
     const gold = Math.round(drop.gold * rewardMultiplier.gold);
     Object.assign(state, addGold(state, gold));
     if (drop.item) {
@@ -820,7 +820,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       const { player } = applyXp(state.player, xp);
       state.player = player;
       const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
-      const drop = rollDrop(scaledMonster);
+      const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
       const gold = Math.round(drop.gold * rewardMultiplier.gold);
       Object.assign(state, addGold(state, gold));
       if (drop.item) {
