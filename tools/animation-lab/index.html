@@ -13,9 +13,8 @@
   #topControls select { background: #222; color: #eee; border: 2px solid #444; font-family: monospace; padding: 4px; }
   #labStage {
     position: relative; margin-top: 16px; min-height: 260px; background: #1a1a1a;
-    border: 1px solid #444; display: flex; align-items: center; justify-content: space-between; padding: 24px;
+    border: 1px solid #444; padding: 24px;
   }
-  #labStage .battle-monster-row { display: flex; gap: 12px; }
   #anchorHandle {
     position: absolute; width: 12px; height: 12px; border-radius: 50%;
     background: #e07b39; border: 2px solid #fff; cursor: grab; transform: translate(-50%, -50%);
@@ -56,11 +55,13 @@
   </select>
 </div>
 <div id="labStage">
-  <div class="battle-monster-row" id="labMonsterRow"></div>
-  <div class="battle-divider">⚔️</div>
-  <div class="battle-combatant" id="labHeroZone">
-    <div class="battle-emoji" id="labHeroEmoji">🧑</div>
-    <div class="battle-name">You</div>
+  <div class="battle-combatants-row">
+    <div class="battle-monster-row" id="labMonsterRow"></div>
+    <div class="battle-divider">⚔️</div>
+    <div class="battle-combatant" id="labHeroZone">
+      <div class="battle-emoji" id="labHeroEmoji">🧑</div>
+      <div class="battle-name">You</div>
+    </div>
   </div>
   <div id="anchorHandle" title="Drag to set the pin/pivot point"></div>
 </div>
@@ -69,9 +70,11 @@
   <button id="removeKeyframeBtn">Remove selected</button>
   <label>Pinned: <input type="checkbox" id="pinnedToggle"></label>
   <button id="playBtn">▶ Play</button>
+  <label>Duration (ms) <input type="number" id="designDuration" step="50" min="0" style="width: 70px;"></label>
 </div>
 <div id="timeline" style="margin-top: 8px; display: flex; gap: 4px;"></div>
 <div id="keyframeInspector" style="margin-top: 8px; font-size: 12px; display: flex; gap: 12px; align-items: center;">
+  <label>offset <input type="number" id="kfOffset" step="0.05" min="0" max="1" style="width: 60px;"></label>
   <label>x <input type="number" id="kfX" style="width: 60px;"></label>
   <label>y <input type="number" id="kfY" style="width: 60px;"></label>
   <label>rotate <input type="number" id="kfRotate" style="width: 60px;"></label>
