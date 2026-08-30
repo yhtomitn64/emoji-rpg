@@ -184,6 +184,25 @@ test('battleScreen DOM', async (t) => {
     assert.equal(zone.style.animation, `battle-zone-pulse 0.35s ease-out ${expectedDelayMs}ms`);
   });
 
+  await t.test('a Retribution Charm reflects damage back at the attacking monster on its unparried attack', async () => {
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ equipment: { ...createNewGame().equipment, accessory: 'retributionCharm' } }),
+      monsterOverrides: [{ speed: 1000 }],
+    });
+    // windup starts on the first tick (~300ms); wait past the full
+    // PARRY_WINDUP_DURATION_MS (1000ms) without pressing the parry key
+    // ('s'), then past one more 300ms tick so tick()'s own
+    // isWindupComplete poll catches it and resolves an unparried attack -
+    // same windup mechanics the existing parry tests above use, just
+    // letting the window close instead of pressing in time.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const log = root.querySelector('#battle-log').textContent;
+    assert.match(log, /hits you for/);
+    assert.match(log, /Retribution Charm reflects/);
+  });
+
   await t.test('ability timing meter sweet spot is scheduled to pulse via a real-time-delayed CSS animation', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
     click(root.querySelector('#btn-ability-stab'));

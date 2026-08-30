@@ -1209,6 +1209,11 @@ function applyMonsterAttackImpact(monster, result) {
   log.push(result.isCrit
     ? `Critical! ${monster.name} hits you for ${result.damage}!`
     : `${monster.name} hits you for ${result.damage}.`);
+  if (result.reflectedDamage > 0) {
+    log.push(`Your Retribution Charm reflects ${result.reflectedDamage} damage back at ${monster.name}!`);
+    const monsterIndex = monsterCombatants.indexOf(monster);
+    playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.reflectedDamage, false);
+  }
   updateHpBars();
   updateLog();
   playHitEffect(elements.heroZone, elements.heroEmoji, result.damage, result.isCrit);
@@ -1216,10 +1221,11 @@ function applyMonsterAttackImpact(monster, result) {
 }
 
 function monsterAttack(monster) {
-  const result = resolveMonsterAttack(monster, playerCombatant);
+  const result = resolveMonsterAttack(monster, playerCombatant, Math.random, playerEffectBonuses.thornsPercent);
   playerCombatant.hp = result.playerHp;
   playerCombatant.atb = result.playerAtb;
   monster.atb = result.monsterAtb;
+  monster.hp = result.monsterHp;
   const monsterIndex = monsterCombatants.indexOf(monster);
   playMonsterAttackWindup(monster, monsterIndex);
   // Impact resolves immediately for every attack style, purely cosmetic
