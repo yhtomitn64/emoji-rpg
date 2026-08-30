@@ -35,6 +35,12 @@ public API, no formal release process — commits land straight on
   (`state.zone1Steps`, `js/screens/mapScreen.js`). NG+ also raises how
   often a group spawns at all, not just how big it is.
 
+### Fixed
+- `#overlay` (the battle dialog's own backdrop) had no `overflow-y`, so a
+  6-member group's monster row wrapping onto two lines on a short
+  viewport could clip the battle menu with no way to scroll to it.
+  Added `overflow-y: auto` as a safety net (`css/styles.css`).
+
 ## [0.8.6] - 2026-08-30
 
 ### Changed
