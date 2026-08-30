@@ -137,16 +137,19 @@ export function resolvePlayerAttack(player, monster, rng = Math.random, streakMu
   };
 }
 
-export function resolveMonsterAttack(monster, player, rng = Math.random) {
+export function resolveMonsterAttack(monster, player, rng = Math.random, thornsPercent = 0) {
   const isCrit = rollCrit(rng);
   let damage = calculateDamage(monster, player, rng);
   damage = applyCritMultiplier(damage, isCrit);
+  const reflectedDamage = Math.round(damage * thornsPercent / 100);
   return {
     damage,
     isCrit,
     playerHp: Math.max(0, player.hp - damage),
     playerAtb: applyKnockback(player.atb, ATB_KNOCKBACK),
     monsterAtb: 0,
+    monsterHp: Math.max(0, monster.hp - reflectedDamage),
+    reflectedDamage,
   };
 }
 

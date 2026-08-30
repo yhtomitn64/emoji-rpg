@@ -169,6 +169,31 @@ test('resolveMonsterAttack composes damage, crit, and knockback the same way, wi
   assert.equal(result.monsterAtb, 0);
 });
 
+test('resolveMonsterAttack with thornsPercent 0 (the default) never reflects damage', () => {
+  const monster = { attack: 8, defense: 2, atb: 0, hp: 50 };
+  const player = { hp: 20, defense: 4, atb: 60 };
+  const result = resolveMonsterAttack(monster, player, () => 0.5);
+  assert.equal(result.monsterHp, 50);
+  assert.equal(result.reflectedDamage, 0);
+});
+
+test('resolveMonsterAttack reflects thornsPercent of the incoming damage back at the monster', () => {
+  const monster = { attack: 8, defense: 2, atb: 0, hp: 50 };
+  const player = { hp: 20, defense: 4, atb: 60 };
+  // base 8-4=4, variance 1.0 -> damage 4; 20% of 4 = 0.8, rounds to 1
+  const result = resolveMonsterAttack(monster, player, () => 0.5, 20);
+  assert.equal(result.damage, 4);
+  assert.equal(result.reflectedDamage, 1);
+  assert.equal(result.monsterHp, 49);
+});
+
+test('resolveMonsterAttack thorns reflect never drops monsterHp below 0', () => {
+  const monster = { attack: 8, defense: 2, atb: 0, hp: 1 };
+  const player = { hp: 20, defense: 4, atb: 60 };
+  const result = resolveMonsterAttack(monster, player, () => 0.5, 100);
+  assert.equal(result.monsterHp, 0);
+});
+
 test('resolvePotionUse heals by the given amount, capped at maxHp', () => {
   const player = { hp: 10, maxHp: 20 };
   const result = resolvePotionUse(player, 15, () => 0.5);
