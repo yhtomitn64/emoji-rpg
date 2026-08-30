@@ -64,6 +64,18 @@
   </div>
   <div id="anchorHandle" title="Drag to set the pin/pivot point"></div>
 </div>
+<div id="timelineControls" style="margin-top: 16px; font-size: 12px;">
+  <button id="addKeyframeBtn">+ Add keyframe</button>
+  <button id="removeKeyframeBtn">Remove selected</button>
+  <label>Pinned: <input type="checkbox" id="pinnedToggle"></label>
+</div>
+<div id="timeline" style="margin-top: 8px; display: flex; gap: 4px;"></div>
+<div id="keyframeInspector" style="margin-top: 8px; font-size: 12px; display: flex; gap: 12px; align-items: center;">
+  <label>x <input type="number" id="kfX" style="width: 60px;"></label>
+  <label>y <input type="number" id="kfY" style="width: 60px;"></label>
+  <label>rotate <input type="number" id="kfRotate" style="width: 60px;"></label>
+  <label>scale <input type="number" id="kfScale" step="0.1" style="width: 60px;"></label>
+</div>
 <script type="module" src="lab.js"></script>
 </body>
 </html>

@@ -50,3 +50,94 @@ renderTargets();
 abilitySelect.addEventListener('change', renderTargets);
 targetCountSelect.addEventListener('change', renderTargets);
 weaponSelect.addEventListener('change', renderTargets);
+
+// Timeline and keyframe editing
+const DEFAULT_KEYFRAME = { offset: 0, x: 0, y: 0, dxFactor: 0, dyFactor: 0, rotate: 0, scale: 1 };
+
+let currentDesign = { pinned: false, anchor: { x: 0, y: 0 }, durationMs: 1500, keyframes: [{ ...DEFAULT_KEYFRAME }, { ...DEFAULT_KEYFRAME, offset: 1 }] };
+let selectedKeyframeIndex = 0;
+
+const addKeyframeBtn = document.getElementById('addKeyframeBtn');
+const removeKeyframeBtn = document.getElementById('removeKeyframeBtn');
+const pinnedToggle = document.getElementById('pinnedToggle');
+const timelineEl = document.getElementById('timeline');
+const kfXInput = document.getElementById('kfX');
+const kfYInput = document.getElementById('kfY');
+const kfRotateInput = document.getElementById('kfRotate');
+const kfScaleInput = document.getElementById('kfScale');
+
+function renderTimeline() {
+  timelineEl.innerHTML = '';
+  currentDesign.keyframes.forEach((kf, i) => {
+    const stop = document.createElement('button');
+    stop.textContent = `${Math.round(kf.offset * 100)}%`;
+    stop.style.border = i === selectedKeyframeIndex ? '2px solid #fff' : '2px solid #444';
+    stop.addEventListener('click', () => selectKeyframe(i));
+    timelineEl.appendChild(stop);
+  });
+  updateAnchorHandlePosition();
+}
+
+function selectKeyframe(i) {
+  selectedKeyframeIndex = i;
+  const kf = currentDesign.keyframes[i];
+  kfXInput.value = kf.x;
+  kfYInput.value = kf.y;
+  kfRotateInput.value = kf.rotate;
+  kfScaleInput.value = kf.scale;
+  renderTimeline();
+}
+
+function updateAnchorHandlePosition() {
+  const stageRect = stage.getBoundingClientRect();
+  const heroRect = heroZone.getBoundingClientRect();
+  const heroCenterX = heroRect.left + heroRect.width / 2 - stageRect.left;
+  const heroCenterY = heroRect.top + heroRect.height / 2 - stageRect.top;
+  anchorHandle.style.left = `${heroCenterX + currentDesign.anchor.x}px`;
+  anchorHandle.style.top = `${heroCenterY + currentDesign.anchor.y}px`;
+}
+
+addKeyframeBtn.addEventListener('click', () => {
+  currentDesign.keyframes.push({ ...DEFAULT_KEYFRAME, offset: 1 });
+  currentDesign.keyframes.sort((a, b) => a.offset - b.offset);
+  renderTimeline();
+});
+
+removeKeyframeBtn.addEventListener('click', () => {
+  if (currentDesign.keyframes.length <= 2) return;
+  currentDesign.keyframes.splice(selectedKeyframeIndex, 1);
+  selectedKeyframeIndex = 0;
+  renderTimeline();
+  selectKeyframe(0);
+});
+
+pinnedToggle.addEventListener('change', () => {
+  currentDesign.pinned = pinnedToggle.checked;
+});
+
+[kfXInput, kfYInput, kfRotateInput, kfScaleInput].forEach((input) => {
+  input.addEventListener('input', () => {
+    const kf = currentDesign.keyframes[selectedKeyframeIndex];
+    kf.x = Number(kfXInput.value);
+    kf.y = Number(kfYInput.value);
+    kf.rotate = Number(kfRotateInput.value);
+    kf.scale = Number(kfScaleInput.value);
+  });
+});
+
+let draggingAnchor = false;
+anchorHandle.addEventListener('mousedown', () => { draggingAnchor = true; });
+window.addEventListener('mouseup', () => { draggingAnchor = false; });
+window.addEventListener('mousemove', (e) => {
+  if (!draggingAnchor) return;
+  const stageRect = stage.getBoundingClientRect();
+  const heroRect = heroZone.getBoundingClientRect();
+  const heroCenterX = heroRect.left + heroRect.width / 2;
+  const heroCenterY = heroRect.top + heroRect.height / 2;
+  currentDesign.anchor.x = e.clientX - heroCenterX;
+  currentDesign.anchor.y = e.clientY - heroCenterY;
+  updateAnchorHandlePosition();
+});
+
+renderTimeline();
+selectKeyframe(0);
