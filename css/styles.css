@@ -1095,6 +1095,10 @@ button:focus-visible {
   0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
   100% { transform: translate(26px, 12px) rotate(50deg); opacity: 0; }
 }
+/* animation-duration is set inline by showDamageNumber() (battleScreen.js)
+   from its own DAMAGE_NUMBER_DURATION_MS, the same value that function waits
+   before removing this element - see --battle-death-anim-ms above for why
+   this is split into longhand instead of a single animation shorthand. */
 .battle-damage-number {
   position: fixed;
   font-size: 1.6rem;
@@ -1103,7 +1107,9 @@ button:focus-visible {
   pointer-events: none;
   /* 36, not 30 - see .battle-swing-sprite's comment for why. */
   z-index: 36;
-  animation: battle-float-up 1.4s ease-out forwards;
+  animation-name: battle-float-up;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
 }
 .battle-damage-number-crit {
   font-size: 2.6rem;
@@ -1120,6 +1126,10 @@ button:focus-visible {
   20% { transform: translate(-50%, -10px) scale(1); opacity: 1; }
   100% { transform: translate(-50%, -110px) scale(1); opacity: 0; }
 }
+/* animation-duration is set inline by playPerfectTimingEffect() (battleScreen.js)
+   from its own PERFECT_TIMING_BADGE_MS, the same value that function waits
+   before removing this element - see --battle-death-anim-ms above for why
+   this is split into longhand instead of a single animation shorthand. */
 .battle-perfect-timing-badge {
   position: fixed;
   transform: translate(-50%, -50%) scale(0.3);
@@ -1131,7 +1141,9 @@ button:focus-visible {
   pointer-events: none;
   /* 36, not 22 - see .battle-swing-sprite's comment for why. */
   z-index: 36;
-  animation: battle-perfect-timing-pop 0.9s ease-out forwards;
+  animation-name: battle-perfect-timing-pop;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
 }
 @keyframes battle-perfect-timing-pop {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }

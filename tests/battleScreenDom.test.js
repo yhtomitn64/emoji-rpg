@@ -395,6 +395,35 @@ test('battleScreen DOM', async (t) => {
     assert.equal(emojiEl.style.getPropertyValue('--battle-death-anim-ms'), '900ms');
   });
 
+  await t.test('a hit sets the floating damage number\'s animation-duration inline, the value its CSS animation actually runs on', async () => {
+    // Same "two hardcoded durations that must agree" hazard as
+    // --battle-death-anim-ms above: css/styles.css's .battle-damage-number
+    // no longer hardcodes its own animation-duration in the animation
+    // shorthand - it's set here from showDamageNumber()'s own
+    // DAMAGE_NUMBER_DURATION_MS (1400ms as of this writing - update this
+    // literal alongside that constant if it's ever retuned), the same value
+    // the element's removal setTimeout waits out.
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    const numberEl = document.querySelector('.battle-damage-number');
+    assert.ok(numberEl, 'expected a floating damage number on a basic Attack');
+    assert.equal(numberEl.style.animationDuration, '1400ms');
+  });
+
+  await t.test('a landed parry sets the PERFECT!/PARRY! badge\'s animation-duration inline, the value its CSS animation actually runs on', async () => {
+    // Same hazard again, for playPerfectTimingEffect()'s own
+    // PERFECT_TIMING_BADGE_MS (900ms as of this writing) and
+    // .battle-perfect-timing-badge in css/styles.css.
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    keydown('s');
+    assert.match(root.querySelector('#battle-log').textContent, /You parry/);
+    const badge = document.querySelector('.battle-perfect-timing-badge-parry');
+    assert.ok(badge, 'expected a PARRY! badge on a landed parry');
+    assert.equal(badge.style.animationDuration, '900ms');
+  });
+
   await t.test('action buttons stay on screen but are inert during the post-battle pause', async () => {
     // Raised 2026-08-31: buttons used to be cleared the instant the battle
     // ended; now they're deliberately left in place (see updateMenu()) so

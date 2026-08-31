@@ -24,6 +24,16 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Fixed
+- The floating damage number and the PERFECT!/PARRY! badge now get their CSS
+  animation duration from the same `DAMAGE_NUMBER_DURATION_MS`/
+  `PERFECT_TIMING_BADGE_MS` constants that drive their removal `setTimeout`,
+  set inline instead of a second hardcoded value in `css/styles.css` —
+  the same "two numbers that only happen to agree" hazard the death
+  animation's `--battle-death-anim-ms` fix (0.12.0, below) closed for that
+  animation, applied here to the other two spots in `battleScreen.js` with
+  the identical shape.
+
 ## [0.12.0] - 2026-08-31
 
 ### Added

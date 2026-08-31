@@ -585,6 +585,7 @@ function showDamageNumber(zoneEl, amount, isCrit) {
   numberEl.className = 'battle-damage-number' + (isCrit ? ' battle-damage-number-crit' : '');
   numberEl.style.left = `${rect.left + rect.width / 2}px`;
   numberEl.style.top = `${rect.top + 10}px`;
+  numberEl.style.animationDuration = `${DAMAGE_NUMBER_DURATION_MS}ms`;
   document.body.appendChild(numberEl);
   const timeoutId = setTimeout(() => {
     numberEl.remove();
@@ -610,6 +611,7 @@ function playPerfectTimingEffect(zoneEl, text = 'PERFECT!', variantClass = null)
   badgeEl.className = variantClass ? `battle-perfect-timing-badge ${variantClass}` : 'battle-perfect-timing-badge';
   badgeEl.style.left = `${rect.left + rect.width / 2}px`;
   badgeEl.style.top = `${rect.top + rect.height / 2}px`;
+  badgeEl.style.animationDuration = `${PERFECT_TIMING_BADGE_MS}ms`;
   document.body.appendChild(badgeEl);
   const timeoutId = setTimeout(() => {
     badgeEl.remove();
