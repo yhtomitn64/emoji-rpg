@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 
@@ -530,7 +530,14 @@ function abilityButtonEntries() {
     const damageSuffix = ability.type === 'damage' && target
       ? ` ~${estimateAbilityDamage(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), ability, buffState.active, comboPrimed)} dmg`
       : '';
-    const title = `${ability.name} (${keyLabel})${cooldownSuffix}${comboSuffix}${damageSuffix}`;
+    // Computed here (not baked into ability.description) so the number
+    // can't silently drift from ROTATION_BONUS_MULTIPLIER/buffDurationMs if
+    // either is retuned later - see the damage-decay/animation-duration
+    // "two numbers that only happen to agree" hazard elsewhere in this file.
+    const buffEffectSuffix = ability.type === 'buff'
+      ? ` (+${Math.round((ROTATION_BONUS_MULTIPLIER - 1) * 100)}% for ${ability.buffDurationMs / 1000}s)`
+      : '';
+    const title = `${ability.name} (${keyLabel}) — ${ability.description}${buffEffectSuffix}${cooldownSuffix}${comboSuffix}${damageSuffix}`;
     const comboClass = comboPrimed ? ' battle-ability-button-combo' : '';
     const html = actionButtonHtml({
       id: `btn-ability-${ability.id}`,
@@ -584,7 +591,7 @@ function updateMenu() {
       id: 'btn-attack',
       icon: '👊',
       key: 'a',
-      title: `Attack (a)${attackDecaySuffix}`,
+      title: `Attack (a) — basic swing, no cooldown at first; repeated spam decays its damage toward a floor and eventually adds a brief cooldown${attackDecaySuffix}`,
       disabled: attackCooldownMs > 0,
       cooldownPct: attackCooldownPct,
     })}
@@ -593,14 +600,14 @@ function updateMenu() {
       id: 'btn-item',
       icon: '🧪',
       key: 'i',
-      title: hasPotion ? 'Item (i)' : 'Item (i) — no potions',
+      title: hasPotion ? `Item (i) — drink a potion to heal ${ITEMS.potion.heal} HP` : `Item (i) — drink a potion to heal ${ITEMS.potion.heal} HP (no potions left)`,
       disabled: !hasPotion,
     })}
     ${actionButtonHtml({
       id: 'btn-flee',
       icon: '🏃',
       key: 'f',
-      title: 'Flee (f)',
+      title: 'Flee (f) — retreat from the fight instantly; always works except against bosses',
       disabled: !ready,
     })}
     </div>

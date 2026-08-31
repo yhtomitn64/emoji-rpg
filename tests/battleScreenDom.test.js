@@ -54,6 +54,26 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#btn-ability-chop'), null); // unlocks at 4
   });
 
+  // Raised 2026-08-31: with pause now able to freeze mid-battle specifically
+  // so a player can go read tooltips (see the mid-battle pause entry in
+  // BACKLOG_SHIPPED.md), every action button needs an actual "what this
+  // does" description in its tooltip, not just name/cooldown/numbers -
+  // matching what Parry's tooltip already had. One assertion per button,
+  // checking real button text rather than pure ABILITIES data, so a typo in
+  // the template string (not just the data) would be caught.
+  await t.test('every action button has a plain-language description in its tooltip, not just name/cooldown', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
+    assert.match(root.querySelector('#btn-parry').title, /reflect its attack/);
+    assert.match(root.querySelector('#btn-attack').title, /decays/);
+    assert.match(root.querySelector('#btn-item').title, /heal/);
+    assert.match(root.querySelector('#btn-flee').title, /retreat|escape/);
+    assert.match(root.querySelector('#btn-ability-stab').title, /prime/);
+    assert.match(root.querySelector('#btn-ability-chop').title, /bonus damage/);
+    assert.match(root.querySelector('#btn-ability-slash').title, /prime/);
+    assert.match(root.querySelector('#btn-ability-sweep').title, /every living enemy/);
+    assert.match(root.querySelector('#btn-ability-superScream').title, /boosts all your damage/);
+  });
+
   await t.test('clicking Attack deals damage to the target monster', async () => {
     const { root } = await mountBattle(['boar']);
     const hpTextBefore = root.querySelector('#battle-monster-hp-text-0').textContent;

@@ -15,17 +15,20 @@ export const ABILITIES = [
   {
     id: 'stab', name: 'Stab', icon: '🗡️', unlockLevel: 2, type: 'damage',
     damageMultiplier: 0.8, cooldownMs: 4000,
+    description: "a quick, lighter jab — land it in the timing window to prime Chop's bonus",
     comboRole: 'setup', comboPartnerId: 'chop', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
   },
   {
     id: 'chop', name: 'Chop', icon: '🪓', unlockLevel: 4, type: 'damage',
     damageMultiplier: 1.1, cooldownMs: 10000,
+    description: 'a heavy payoff swing — deals bonus damage right after a well-timed Stab',
     comboRole: 'payoff', comboPartnerId: 'stab', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,
   },
   {
     id: 'slash', name: 'Slash', icon: '⚔️', unlockLevel: 6, type: 'damage',
     damageMultiplier: 0.85, cooldownMs: 6000,
     delayedHitMultiplier: 0.2, delayedHitDelayMs: 900,
+    description: 'a cut that also bleeds for extra damage a moment later — land it in the timing window to prime Sweep\'s bonus',
     comboRole: 'setup', comboPartnerId: 'sweep', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
   },
   {
@@ -33,11 +36,13 @@ export const ABILITIES = [
     damageMultiplier: 1.3, cooldownMs: 12000,
     defenseShredMultiplier: 0.85, defenseShredDurationMs: 6000,
     aoe: true,
+    description: 'a spinning hit on every living enemy that also weakens their defense for a few seconds — deals bonus damage right after a well-timed Slash',
     comboRole: 'payoff', comboPartnerId: 'slash', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,
   },
   {
     id: 'superScream', name: 'Super Scream', icon: '📢', unlockLevel: 10, type: 'buff',
     cooldownMs: 30000, buffDurationMs: 12000,
+    description: 'a roar that boosts all your damage for a while',
   },
 ];
 

@@ -24,6 +24,22 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-08-31
+
+### Added
+- Every battle action button now has a real plain-language "what this
+  does" description in its hover tooltip, not just name/cooldown/combo/
+  damage numbers - matching what Parry's tooltip already had. Attack
+  explains its spam-decay mechanic, Item states the exact heal amount
+  (`ITEMS.potion.heal`), Flee explains it always works except against
+  bosses, and each of Stab/Chop/Slash/Sweep/Super Scream now has a
+  `description` field in `js/systems/abilities.js` describing its actual
+  effect - Super Scream's damage-boost percentage and duration are
+  computed from `ROTATION_BONUS_MULTIPLIER`/`buffDurationMs` at render
+  time rather than hardcoded, so they can't drift from the real values.
+  Motivated by mid-battle pause (0.13.0): pausing to go read a tooltip
+  is only useful if the tooltip actually explains something.
+
 ## [0.13.0] - 2026-08-31
 
 ### Added

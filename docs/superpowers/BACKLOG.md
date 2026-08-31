@@ -48,6 +48,7 @@ one is raised — that's the whole point of it.
 - **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass).
 - **Discoverability / monetization** — AdSense (blocked on Google review; placement plan already decided); Cloudflare traffic analytics (waiting on a token from Timothy); opt-in gameplay analytics + local play-data export (not designed, tied to the same difficulty-by-tool-gate tuning question).
 - **Input / accessibility** — controller support, raw idea, not investigated.
+- **Feature requests** — item selection menu for the Item button (raw idea, waits on a second consumable item type existing, possibly ties to pause); "New Max damage!" progression callouts + a DPS meter (raw idea, raised in passing).
 - **Quests / economy** — manual sell-materials path (deferred, no real pain yet); **excess-gold sink** — revisit condition already hit (3k+ gold, nothing to spend it on), direction undecided (more sinks vs. reduced income).
 
 ## Story / narrative
@@ -776,6 +777,29 @@ BACKLOG_SHIPPED.md. One thing was dropped rather than shipped: swapping
 monster emoji to match their silly food names — Timothy likes them as
 they are, e.g. "Slippery Breadstick" for the snake. Not tracked anywhere;
 revisit only if it comes up again for a future zone.)*
+
+### Item selection menu for the Item button, raised 2026-08-31
+Raised while reviewing the new action-button tooltip descriptions: right
+now Item (`i`) always drinks the one potion type in `ITEMS` — there's no
+menu because there's nothing to choose between yet. Timothy's own words,
+flagging it as forward-looking rather than needed today: "Item is
+interesting because at some point you will choose from a number of items.
+That might tie into pause where if you hit i a ring of stuff comes up and
+you choose from the one you want. that's a future backlog thing." Raw
+idea only — not designed: what a multi-item inventory in battle even
+looks like (a radial picker was Timothy's own mental image), whether it
+auto-pauses the battle while open, and what triggers it existing at all
+(more consumable item types don't exist yet either). Revisit once/if a
+second consumable item type is added.
+
+### "New Max damage!" progression feedback + a DPS meter, raised 2026-08-31
+Timothy's own words: "New Max damage for ability!!! and things like that
+so you know you are progressing. Also maybe a DPS meter somewhere!" Raw
+idea only, raised in passing (not part of any active work) — not
+designed: what counts as "max" (per-ability best hit ever, best this
+battle, both), where the callout shows (log line, badge on the
+button/damage number, toast), and what a DPS meter would actually measure
+or where it'd live (per-battle, rolling window, lifetime stat).
 
 ## Input / accessibility
 

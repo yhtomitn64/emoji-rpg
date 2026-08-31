@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.13.1',
+    date: '2026-08-31',
+    highlights: [
+      'Every battle button (Attack, Item, Flee, and each ability) now explains what it actually does when you hover it - handy to check while paused.',
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-08-31',
     highlights: [
