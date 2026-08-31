@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-31
+
+### Added
+- Progression feedback for battle damage: a per-move lifetime-best tracker
+  (`state.bestDamage`, keyed by ability id / `'attack'`) pops a distinct
+  purple "NEW MAX!" badge (`playNewMaxEffect` in `js/screens/battleScreen.js`,
+  reusing the existing `playPerfectTimingEffect` pop-badge mechanics) whenever
+  a hit beats its move's own recorded best - persists across battles/saves/NG+
+  via the existing `persist()` call at battle end, migrated onto old saves by
+  `migrateBestDamage` (`js/state.js`). Also added a live DPS meter in the
+  battle sidebar (`#battle-dps`), computed from cumulative player damage over
+  `battleElapsedMs` (advanced only inside `tick()`, so pausing the battle
+  freezes it for free - no separate pause bookkeeping needed) and reset each
+  battle. Raised 2026-08-31 (see `docs/superpowers/BACKLOG.md`).
+
 ## [0.13.1] - 2026-08-31
 
 ### Added

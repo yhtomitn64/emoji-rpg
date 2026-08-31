@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.14.0',
+    date: '2026-08-31',
+    highlights: [
+      'New: a "NEW MAX!" callout pops up whenever a hit beats your all-time best damage with that move - tracked separately per ability (and for Attack).',
+      'New: a live DPS meter in the battle sidebar shows your damage output for the current fight.',
+    ],
+  },
+  {
     version: '0.13.1',
     date: '2026-08-31',
     highlights: [

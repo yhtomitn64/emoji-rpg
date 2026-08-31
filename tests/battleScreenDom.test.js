@@ -444,6 +444,36 @@ test('battleScreen DOM', async (t) => {
     assert.equal(badge.style.animationDuration, '900ms');
   });
 
+  await t.test('clicking Attack in a fresh battle beats the (zero) recorded best and shows a NEW MAX! badge', async () => {
+    const { root, state } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    const badge = document.querySelector('.battle-perfect-timing-badge-max');
+    assert.ok(badge, 'expected a NEW MAX! badge on a hit beating the recorded best');
+    assert.equal(badge.textContent, 'NEW MAX!');
+    assert.ok(state.bestDamage.attack > 0, 'expected the hit\'s damage to be recorded in state.bestDamage.attack');
+  });
+
+  await t.test('clicking Attack when the recorded best already beats the roll shows no NEW MAX! badge', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ bestDamage: { attack: 99999 } }) });
+    click(root.querySelector('#btn-attack'));
+    const badge = document.querySelector('.battle-perfect-timing-badge-max');
+    assert.equal(badge, null, 'an already-unbeatable recorded best should show no badge');
+  });
+
+  await t.test('the DPS meter reads DPS: 0.0 immediately on mount, before any damage is dealt', async () => {
+    const { root } = await mountBattle(['boar']);
+    assert.equal(root.querySelector('#battle-dps').textContent, 'DPS: 0.0');
+  });
+
+  await t.test('the DPS meter climbs above zero once damage has been dealt and a tick has passed', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    await new Promise((resolve) => setTimeout(resolve, 350)); // let one 300ms tick fire
+    const dpsText = root.querySelector('#battle-dps').textContent;
+    assert.match(dpsText, /^DPS: \d+\.\d$/);
+    assert.ok(parseFloat(dpsText.slice('DPS: '.length)) > 0, `expected a positive DPS reading, got "${dpsText}"`);
+  });
+
   await t.test('action buttons stay on screen but are inert during the post-battle pause', async () => {
     // Raised 2026-08-31: buttons used to be cleared the instant the battle
     // ended; now they're deliberately left in place (see updateMenu()) so

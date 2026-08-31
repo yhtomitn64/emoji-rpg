@@ -14,6 +14,7 @@ import {
   isToneCapableEmoji,
   applySkinTone,
   migrateRingSlots,
+  migrateBestDamage,
 } from '../js/state.js';
 
 function createFakeStorage() {
@@ -196,4 +197,23 @@ test('migrateRingSlots leaves a non-Ember-Ring accessory item untouched', () => 
   const migrated = migrateRingSlots(legacy);
   assert.equal(migrated.equipment.accessory, 'luckyCharm');
   assert.equal(migrated.equipment.ring1, null);
+});
+
+test('createNewGame includes an empty bestDamage object', () => {
+  const state = createNewGame();
+  assert.deepEqual(state.bestDamage, {});
+});
+
+test('migrateBestDamage adds an empty bestDamage object to a save that predates it', () => {
+  const legacy = createNewGame();
+  delete legacy.bestDamage;
+  const migrated = migrateBestDamage(legacy);
+  assert.deepEqual(migrated.bestDamage, {});
+});
+
+test('migrateBestDamage is a no-op on a save that already has bestDamage', () => {
+  const state = createNewGame();
+  state.bestDamage = { attack: 12 };
+  const migrated = migrateBestDamage(state);
+  assert.deepEqual(migrated.bestDamage, { attack: 12 });
 });

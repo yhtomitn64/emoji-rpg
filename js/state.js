@@ -71,6 +71,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
       boar: 0, bat: 0, snake: 0, goblin: 0,
       direWolf: 0, spider: 0, orc: 0, wraith: 0,
     },
+    bestDamage: {},
     gateRewards: {},
     clearedGates: {},
     lossStreak: 0,
@@ -109,6 +110,16 @@ export function migrateRingSlots(state) {
     equipment,
     equipmentTiers: { ...state.equipmentTiers },
   };
+}
+
+// One-time migration for saves from before per-move best-damage tracking
+// existed ("New Max damage!" progression callout, added 2026-08-31) -
+// nothing carries over (no move has ever recorded a best hit before this),
+// this just adds the empty tracking object so downstream code that reads
+// state.bestDamage[moveId] directly never sees undefined.
+export function migrateBestDamage(state) {
+  if ('bestDamage' in state) return state;
+  return { ...state, bestDamage: {} };
 }
 
 export function serializeState(state) {

@@ -73,6 +73,13 @@ let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
 let liveSwingSprites = [];
 let livePerfectBadges = [];
+// DPS meter (raised 2026-08-31, see BACKLOG.md's "New Max damage!" +
+// DPS-meter entry): battleElapsedMs only advances inside tick(), and
+// pauseBattle()/resumeBattle() already stop/restart tick()'s own interval -
+// so pause time is excluded from the DPS denominator for free, with no
+// extra bookkeeping here.
+let battleDamageDealt = 0;
+let battleElapsedMs = 0;
 let playerEffectBonuses = null;
 // Only game-state-affecting timers freeze on pause (the 300ms tick, a
 // monster's windup/parry clock, the ability timing-meter's rAF loop) - see
@@ -251,6 +258,7 @@ function buildDom() {
         </div>
         <div class="battle-sidebar">
           <div class="battle-log-label">Battle Log</div>
+          <div class="battle-dps" id="battle-dps">DPS: 0.0</div>
           <div class="battle-log" id="battle-log"></div>
         </div>
       </div>
@@ -263,6 +271,7 @@ function buildDom() {
     dialog: rootEl.querySelector('.overlay-panel.battle-screen'),
     decoration: rootEl.querySelector('.battle-decoration'),
     pauseBtn: document.getElementById('battle-pause-btn'),
+    dpsDisplay: document.getElementById('battle-dps'),
     pausedOverlay: document.getElementById('battle-paused-overlay'),
     monsterRow: document.getElementById('battle-monster-row'),
     monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
@@ -695,6 +704,34 @@ function playParryEffect(zoneEl, emojiEl) {
     emojiEl.classList.add('battle-parry-flash');
     setTimeout(() => emojiEl.classList.remove('battle-parry-flash'), PARRY_FLASH_MS);
   }
+}
+
+// Distinct wording/color from the ability-timing-hit PERFECT!/landed-parry
+// PARRY! badges above, so a new personal-best hit reads as its own kind of
+// moment rather than a reskinned timing reward.
+function playNewMaxEffect(zoneEl) {
+  playPerfectTimingEffect(zoneEl, 'NEW MAX!', 'battle-perfect-timing-badge-max');
+}
+
+// "New Max damage!" progression feedback (raised 2026-08-31, see
+// BACKLOG.md): compares a landed hit against moveKey's lifetime-best in
+// state.bestDamage and pops a callout when it's beaten. Mutates state
+// in place rather than calling saveState directly - persist() (js/main.js)
+// already runs at battle end on every exit path, the same way
+// monsterKillCounts gets picked up. Also feeds the live DPS meter's
+// damage-dealt total, for every kind of player damage (Attack, abilities,
+// Slash's delayed bleed) alike.
+function recordPlayerDamage(moveKey, damage, zoneEl) {
+  battleDamageDealt += damage;
+  if (damage > (state.bestDamage[moveKey] || 0)) {
+    state.bestDamage[moveKey] = damage;
+    playNewMaxEffect(zoneEl);
+  }
+}
+
+function updateDpsDisplay() {
+  const dps = battleElapsedMs > 0 ? battleDamageDealt / (battleElapsedMs / 1000) : 0;
+  elements.dpsDisplay.textContent = `DPS: ${dps.toFixed(1)}`;
 }
 
 function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
@@ -1141,6 +1178,7 @@ function resolveOneAttack(countsTowardStreak) {
   // actually visible instead of rendering onto an already-hidden element.
   playPlayerSwing(null, elements.monsterZones[targetIndex], result.isCrit);
   playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
+  recordPlayerDamage('attack', result.damage, elements.monsterZones[targetIndex]);
   applyOnHitEffects(target, result.damage, streakMultiplier);
 }
 
@@ -1298,6 +1336,7 @@ async function playerUseAbility(abilityId) {
           : `You use ${ability.name} on ${mc.name} for ${result.damage}.`) + timingSuffix);
         playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
         if (timingHit) playPerfectTimingEffect(elements.monsterZones[monsterIndex]);
+        recordPlayerDamage(abilityId, result.damage, elements.monsterZones[monsterIndex]);
         applyOnHitEffects(mc, result.damage);
         updateHpBars();
         updateAtbBars();
@@ -1348,6 +1387,7 @@ async function playerUseAbility(abilityId) {
     playPlayerSwing(ability, elements.monsterZones[targetIndex], result.isCrit);
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
     if (timingHit) playPerfectTimingEffect(elements.monsterZones[targetIndex]);
+    recordPlayerDamage(abilityId, result.damage, elements.monsterZones[targetIndex]);
     applyOnHitEffects(target, result.damage);
     updateHpBars();
     updateAtbBars();
@@ -1474,6 +1514,8 @@ function checkOutcome() {
 
 function tick() {
   if (battleOver) return;
+  battleElapsedMs += 300;
+  updateDpsDisplay();
   playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
   // Attack's decayed streak only resets passively after a sustained
   // real-time idle stretch with no Attack presses (ATTACK_STREAK_RECOVERY_MS) -
@@ -1538,6 +1580,7 @@ function tick() {
         updateLog();
         const index = monsterCombatants.indexOf(mc);
         playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], amount, false);
+        recordPlayerDamage('slash', amount, elements.monsterZones[index]);
         checkOutcome();
         if (battleOver) return;
       }
@@ -1663,6 +1706,8 @@ export function mount(root, props) {
   // real bug.
   attackCooldownMs = 0;
   attackCooldownTotalMs = 0;
+  battleDamageDealt = 0;
+  battleElapsedMs = 0;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   // The elite gets an adaptive appear line based on estimated win chance
   // instead of a random pick from a fixed pool - needs the built combatant
