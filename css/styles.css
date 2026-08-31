@@ -206,6 +206,14 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   display: flex;
   flex-direction: column;
   max-width: min(92vw, 860px);
+  /* Anchors .battle-pause-btn/.battle-paused-overlay below, which need to
+     span the dialog AND the action bar together (raised 2026-08-31: "gray
+     out the whole battle dialog and container dialog window ... not just
+     the battle hero/enemy screen") - the two panels are visually one card
+     (see .overlay-panel.battle-screen's own comment on their split
+     border-radius) but are separate flex children of this stack, so the
+     overlay has to live here, a level up, not inside either child alone. */
+  position: relative;
 }
 .overlay-panel.battle-screen {
   /* Overrides the base .overlay-panel rule's `width: 90%` - that was
@@ -238,6 +246,69 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
    the action bar's own box sat there unmoved. */
 .battle-screen-swirl-in {
   animation: battle-screen-swirl-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* Deliberately its own corner, not part of .battle-action-bar's ability row
+   below - raised 2026-08-31: "button should be upper left of screen ...
+   and not in ability list." Pinned to .battle-screen-stack (not the dialog
+   alone), same as .battle-paused-overlay below - see that rule's comment. */
+.battle-pause-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  background: rgba(17, 17, 17, 0.85);
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #eee;
+  cursor: pointer;
+}
+.battle-pause-btn:hover {
+  background: rgba(40, 40, 40, 0.92);
+  border-color: #888;
+}
+/* Spans .battle-screen-stack (dialog + action bar together, raised
+   2026-08-31 - see that rule's own comment), not just the dialog, so the
+   ability buttons read as grayed-out too, not just the hero/monster area.
+   pointer-events: none so this dim layer never blocks the native `title`
+   tooltips (damage estimates, cooldowns, etc.) it's meant to make it safe
+   to go read mid-battle - see actionButtonHtml()'s own comment. Clicks and
+   hovers pass straight through to whatever's underneath, including the
+   pause button above despite being a later sibling. Matches the combined
+   dialog+action-bar card's own corner radius (8px 8px 0 0 on the dialog,
+   0 0 8px 8px on the action bar - see .overlay-panel.battle-screen) so the
+   dim layer doesn't square off past their rounded corners. */
+.battle-paused-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
+  pointer-events: none;
+}
+/* Without this, the class's own `display: flex` above (an author style)
+   beats the browser's default `[hidden] { display: none }` UA rule at
+   equal selector specificity, and toggling the `hidden` property from JS
+   would silently stop working. */
+.battle-paused-overlay[hidden] {
+  display: none;
+}
+.battle-paused-label {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 @keyframes battle-screen-swirl-in {
   0% { opacity: 0; transform: scale(0.4) rotate(-25deg); }

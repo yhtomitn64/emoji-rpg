@@ -35,7 +35,7 @@ one is raised — that's the whole point of it.
 - **New terrain: sand/tarpit/water enemies** — raw idea; needs per-tile-kind monster tables + a move-speed-modifier mechanic, neither exists today.
 - **Hand-placed zone-1 loot + shop rebalance** (big, needs design pass) — weaker shop gear, a placement-dropdown system for world loot, possibly tied to hand-placed mini-dungeons.
 - **In-game tutorials / mechanic explainers** — general onboarding idea, sharper combat-specific version (explain abilities/synergies/attack-falloff at unlock, explicit dismiss required). Timothy wants to talk through design when picked up.
-- **Ability buttons: icon-only redesign** — implemented 2026-08-31 (0.12.0/0.12.1) with several live-feedback follow-ups already shipped; only remaining gap is Timothy actually playing a battle with it before this moves to shipped. Spun off: **mid-battle pause** idea, raw, not designed.
+- **Ability buttons: icon-only redesign** — implemented 2026-08-31 (0.12.0/0.12.1) with several live-feedback follow-ups already shipped; only remaining gap is Timothy actually playing a battle with it before this moves to shipped. Spun off and now shipped separately: **mid-battle pause** (0.13.0) — see BACKLOG_SHIPPED.md.
 - **Combat pass ideas** — several independent threads, none scheduled:
   - Slower combat / reconsider the timing-minigame layer entirely — raw, Timothy wants to think it through more.
   - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
@@ -1001,7 +1001,7 @@ the same `DAMAGE_NUMBER_DURATION_MS`/`PERFECT_TIMING_BADGE_MS` constants
 that drive their removal timeout, same fix shape as the death animation
 got in 0.12.0. See BACKLOG_SHIPPED.md.
 
-**Spun out of this clarification, new idea — a mid-battle pause,
+~~**Spun out of this clarification, new idea — a mid-battle pause,
 raised 2026-08-31:** Timothy, while discussing moving damage/combo
 details to a hover tooltip: "maybe if we had a combat pause button that
 would make it more helpful to use the tooltip mid battle so someone can
@@ -1013,7 +1013,24 @@ monster attack timers all run continuously. Explicitly floated as a
 raw idea only, not designed: what actually freezes (ATB fill, cooldown
 timers, monster AI ticks, animations in flight), what the keybind is,
 and whether it's available during every battle state (e.g. mid-parry
-window) are all open.
+window) are all open.~~ **Shipped 2026-08-31 (0.13.0).** Brainstormed
+with Timothy and designed: a pause button (upper-left of the battle
+dialog, not in the ability list) plus a `P` keybind, both toggling
+pause/resume. Freezes the 300ms tick (ATB/cooldowns/buffs), a monster's
+windup/parry-zone CSS animation and its real-time parry window (offset
+on resume via `shiftWindupStart()` in `js/systems/parry.js`, so paused
+time never counts against the window), and the ability timing-meter's
+rAF loop and sweet-spot pulse — available during every battle state,
+including mid-windup/parry, per Timothy's "I like [freezing the parry
+window too]." Already-in-flight cosmetic effects (damage numbers, crit
+shake, lunges, death anim, an ability's AOE stagger) are left running
+rather than frozen — nothing to get wrong by not freezing them, per
+Timothy's "#1 is the way to go" on that question. Dim overlay + "PAUSED"
+label spans the whole dialog-and-action-bar card (raised after first
+pass: "also need to gray out the whole battle dialog and container...
+not just the battle hero/enemy screen"), with `pointer-events: none` so
+hovering for the tooltip that motivated this still works through it. See
+BACKLOG_SHIPPED.md.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think

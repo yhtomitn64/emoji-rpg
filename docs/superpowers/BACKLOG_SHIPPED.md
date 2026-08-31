@@ -1096,6 +1096,81 @@ proc, thorns) at all, only flat stats. Two real fixes landed together:
 All 660 tests pass (`tests/itemQuality.test.js`'s exact-value assertion
 updated to 1.5). See CHANGELOG 0.12.2.
 
+### ~~Mid-battle pause, spun out of the icon-only redesign's own animation-duration clarification, raised 2026-08-31~~ Shipped 2026-08-31 (0.13.0)
+Timothy, while discussing moving damage/combo details to a hover tooltip:
+"maybe if we had a combat pause button that would make it more helpful to
+use the tooltip mid battle so someone can see damage numbers and then
+unpause and keep playing. pause should have a keybind too so they can
+quickly pause/unpause." Raised as a raw "throw it in backlog" aside with
+nothing designed - what actually freezes, the keybind, and whether pause
+works mid-parry-window were all open. Brainstormed with Timothy before any
+code, then built:
+
+- **Trigger:** a pause button docked upper-left of the battle dialog
+  (explicitly not grouped with the ability action bar - "button should be
+  upper left of screen or something and not in ability list") plus a
+  `P`/`p` keybind, both toggling pause/resume (`toggleBattlePause()` in
+  `js/screens/battleScreen.js`).
+- **What freezes:** the shared 300ms `tick()` interval (ATB fill,
+  cooldowns, buff duration) is simply stopped/restarted via
+  `clearInterval`/`setInterval`. The trickier part was the two
+  wall-clock-anchored systems `tick()` doesn't drive: a monster's
+  windup/parry-zone CSS animation is frozen with
+  `animation-play-state: paused`, and its real parry deadline
+  (`windupState.startedAt`, checked against `Date.now()`) is shifted
+  forward on resume by however long the pause lasted, via a new
+  `shiftWindupStart()` in `js/systems/parry.js` (TDD'd in
+  `tests/parry.test.js`) - without that shift, paused time would either
+  silently burn through the parry window or falsely fail a fair-looking
+  press. The ability timing-meter's own `requestAnimationFrame` loop
+  (`runTimingMeter`) needed the equivalent treatment even though its state
+  is local to its own Promise executor: it now registers a
+  `{ pause(), resume() }` handle in a module-level
+  `activeTimingMeterHandle` so pauseBattle()/resumeBattle() can reach in,
+  cancel/restart the rAF loop, and re-anchor `startedAt` from the
+  remembered elapsed time - including its sweet-spot pulse animation,
+  caught as a real gap in code-trace verification (the fill bar was
+  freezing but the pulse kept animating) and fixed before shipping.
+  Pause is available in every battle state, including mid-windup/parry,
+  per Timothy's "I like [freezing the parry window too]" (with an
+  explicit note to pivot to a simpler design if it became a "token
+  destroyer" - it didn't).
+- **What does NOT freeze:** already-committed cosmetic effects (damage
+  numbers, crit shake, PERFECT!/PARRY! badges, lunges, death spin/split,
+  an in-flight ability's AOE hit-stagger) keep playing out on their
+  original `setTimeout` schedule - per Timothy's "#1 is the way to go" on
+  this question, there's nothing gameplay-wise to get wrong by not
+  freezing them, and it avoided needing pause-aware bookkeeping for all of
+  them.
+- **Input:** every player battle action (attack, ability, parry, item,
+  flee, target-select) is a no-op while paused - guarded at each action's
+  own entry point (`playerAttack`, `playerUseAbility`, `playerUseItem`,
+  `playerFlee`, `resolveMonsterWindup`) so both the keyboard and mouse
+  paths are covered from one place.
+- **Visual:** a dim overlay + "PAUSED" label, using `pointer-events: none`
+  so hovering for a native `title` tooltip - the entire point of pausing -
+  still works right through it. First pass only covered the battle dialog
+  (hero/monster/log area); Timothy caught after trying it live that the
+  ability action bar below it (a visually separate docked panel, not a
+  child of the dialog) stayed undimmed - "also need to gray out the whole
+  battle dialog and container dialog window... not just the battle
+  hero/enemy screen." Fixed by moving the overlay/button up a level to
+  `.battle-screen-stack` (the shared parent of both panels) with a
+  matching `border-radius` so it doesn't square off past their rounded
+  corners.
+- **Edge case:** a still-resolving ability sequence can end the battle
+  while paused (since it isn't frozen, per the "what does NOT freeze"
+  note above) - `endBattle()` now drops the pause state and hides the
+  overlay itself rather than let it sit on top of the win/loss sequence.
+
+Verified via `tests/parry.test.js` (the offset math, real TDD - RED before
+GREEN), new DOM-wiring tests in `tests/battleScreenDom.test.js` (button/
+keybind toggle, action no-ops while paused, resumed play works normally),
+a careful code-trace of the pause/resume paths (per this project's "avoid
+Chrome automation cost" memory - too token-expensive for this plan tier),
+and Timothy clicking through a real local build twice (first pass, then
+the action-bar dimming fix). All 667 tests pass. See CHANGELOG 0.13.0.
+
 ## Balance / design gaps
 
 ### ~~Abilities have made the game too easy overall, raised 2026-08-22~~ Balance pass shipped 2026-08-22

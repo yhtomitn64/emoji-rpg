@@ -468,4 +468,52 @@ test('battleScreen DOM', async (t) => {
     assert.notEqual(root2.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
     unmount();
   });
+
+  await t.test('clicking the pause button shows the paused overlay and flips the button to a resume icon', async () => {
+    const { root } = await mountBattle(['boar']);
+    const overlay = root.querySelector('#battle-paused-overlay');
+    const btn = root.querySelector('#battle-pause-btn');
+    assert.equal(overlay.hidden, true);
+    click(btn);
+    assert.equal(overlay.hidden, false);
+    assert.equal(btn.textContent, '▶️');
+  });
+
+  await t.test('clicking the pause button again resumes: overlay hides and the icon flips back', async () => {
+    const { root } = await mountBattle(['boar']);
+    const overlay = root.querySelector('#battle-paused-overlay');
+    const btn = root.querySelector('#battle-pause-btn');
+    click(btn);
+    click(btn);
+    assert.equal(overlay.hidden, true);
+    assert.equal(btn.textContent, '⏸️');
+  });
+
+  await t.test('the "p" keybind toggles pause the same as clicking the button', async () => {
+    const { root } = await mountBattle(['boar']);
+    const overlay = root.querySelector('#battle-paused-overlay');
+    assert.equal(overlay.hidden, true);
+    keydown('p');
+    assert.equal(overlay.hidden, false);
+    keydown('p');
+    assert.equal(overlay.hidden, true);
+  });
+
+  await t.test('while paused, Attack (button or "a" key) is a no-op', async () => {
+    const { root } = await mountBattle(['boar']);
+    keydown('p');
+    const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
+    click(root.querySelector('#btn-attack'));
+    keydown('a');
+    assert.equal(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
+  });
+
+  await t.test('unpausing restores normal play - Attack works again after a pause/resume cycle', async () => {
+    const { root } = await mountBattle(['boar']);
+    keydown('p');
+    keydown('p');
+    const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
+    click(root.querySelector('#btn-attack'));
+    assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
+  });
 });

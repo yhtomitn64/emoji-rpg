@@ -24,6 +24,32 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-31
+
+### Added
+- Mid-battle pause: a pause button docked upper-left of the battle
+  dialog (separate from the ability action bar) plus a `P`/`p` keybind,
+  both toggling pause/resume. Freezes everything that decides the
+  outcome - the 300ms tick (ATB fill, cooldowns, buff duration), a
+  monster's windup/parry-zone CSS animation and its real-time parry
+  window (shifted forward on resume by however long the pause lasted,
+  via `shiftWindupStart()` in `js/systems/parry.js`, so the paused time
+  never counts as elapsed windup time), and the ability timing-meter's
+  `requestAnimationFrame` loop and sweet-spot pulse. All player battle
+  actions (attack, ability, parry, item, flee, target-select) are
+  no-ops while paused. A dim overlay + "PAUSED" label spans the whole
+  dialog-and-action-bar card (not just the hero/monster area, so the
+  ability buttons read as grayed out too), using `pointer-events: none`
+  so hovering for a native `title` tooltip - the actual point of
+  pausing, per the idea that spawned this - still works right through
+  it. Already-committed cosmetic effects (damage numbers, crit shake,
+  lunges, death animation, an in-flight ability's AOE stagger) are
+  deliberately left running rather than frozen - they don't resolve
+  into anything a pause could get wrong, and freezing them had no
+  gameplay payoff. See `docs/superpowers/BACKLOG.md`'s "mid-battle
+  pause" entry (now moved to BACKLOG_SHIPPED.md) for the raised idea
+  and open questions this closed out.
+
 ## [0.12.2] - 2026-08-31
 
 ### Changed

@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.13.0',
+    date: '2026-08-31',
+    highlights: [
+      'New: a Pause button (top-left of the battle screen) and P key let you freeze mid-battle to check tooltips, then unpause and keep fighting - the parry window won\'t sneak by while you\'re paused.',
+    ],
+  },
+  {
     version: '0.12.2',
     date: '2026-08-31',
     highlights: [

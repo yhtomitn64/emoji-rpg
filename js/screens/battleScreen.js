@@ -3,7 +3,7 @@ import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked } from '../systems/abilities.js';
-import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../systems/parry.js';
+import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 
 const VICTORY_PAUSE_MS = 1200;
@@ -74,6 +74,18 @@ let liveDamageNumbers = [];
 let liveSwingSprites = [];
 let livePerfectBadges = [];
 let playerEffectBonuses = null;
+// Only game-state-affecting timers freeze on pause (the 300ms tick, a
+// monster's windup/parry clock, the ability timing-meter's rAF loop) - see
+// pauseBattle()/resumeBattle(). Already-committed cosmetic effects (damage
+// numbers, crit shake, lunges, death anim) deliberately keep playing out on
+// their own setTimeout schedule, since freezing those has no gameplay
+// payoff and they don't resolve into anything a pause could get wrong.
+let battlePaused = false;
+let pauseStartedAt = 0;
+// Set by runTimingMeter() while its promise is pending, cleared once it
+// resolves - lets pauseBattle()/resumeBattle() reach into that otherwise-
+// local closure without a bigger refactor.
+let activeTimingMeterHandle = null;
 
 function buildPlayerCombatant() {
   const bonuses = getEquipmentBonuses(state);
@@ -214,6 +226,10 @@ function buildDom() {
   // entrance/exit animation moved.
   rootEl.innerHTML = `
     <div class="battle-screen-stack battle-screen-swirl-in">
+      <button class="battle-pause-btn" id="battle-pause-btn" type="button" title="Pause battle (P)">⏸️</button>
+      <div class="battle-paused-overlay" id="battle-paused-overlay" hidden>
+        <div class="battle-paused-label">⏸️ PAUSED</div>
+      </div>
       <div class="overlay-panel battle-screen ${envClass}">
         <div class="battle-main">
           <div class="battle-combatants-row">
@@ -246,6 +262,8 @@ function buildDom() {
     stack: rootEl.querySelector('.battle-screen-stack'),
     dialog: rootEl.querySelector('.overlay-panel.battle-screen'),
     decoration: rootEl.querySelector('.battle-decoration'),
+    pauseBtn: document.getElementById('battle-pause-btn'),
+    pausedOverlay: document.getElementById('battle-paused-overlay'),
     monsterRow: document.getElementById('battle-monster-row'),
     monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
     monsterEmojis: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-emoji-${i}`)),
@@ -296,11 +314,17 @@ function runTimingMeter(ability) {
       void elements.timingSweetSpot.offsetWidth; // force reflow so re-triggering restarts the animation
       elements.timingSweetSpot.style.animation = `battle-zone-pulse 0.35s ease-out ${pulseDelayMs}ms`;
     }
-    const startedAt = performance.now();
+    let startedAt = performance.now();
     let resolved = false;
     let rafId = null;
+    // Non-null only while a mid-battle pause has this meter's rAF loop
+    // suspended - holds how far into the meter it had gotten, so resume can
+    // pick up from the same point instead of restarting or jumping ahead by
+    // however long the pause lasted (see pauseBattle()/resumeBattle()).
+    let pausedElapsedMs = null;
 
     function onKeydown(event) {
+      if (battlePaused) return;
       if (event.code !== 'Space' && event.code !== 'Enter') return;
       event.preventDefault();
       const elapsed = performance.now() - startedAt;
@@ -311,6 +335,7 @@ function runTimingMeter(ability) {
       if (resolved) return;
       resolved = true;
       cancelAnimationFrame(rafId);
+      activeTimingMeterHandle = null;
       elements.timingMeter.classList.remove('battle-timing-meter-active');
       elements.timingMeter.onclick = null;
       window.removeEventListener('keydown', onKeydown);
@@ -332,11 +357,31 @@ function runTimingMeter(ability) {
     }
 
     elements.timingMeter.onclick = () => {
+      if (battlePaused) return;
       const elapsed = performance.now() - startedAt;
       finish(Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100));
     };
 
     window.addEventListener('keydown', onKeydown);
+
+    activeTimingMeterHandle = {
+      pause() {
+        if (pausedElapsedMs !== null) return;
+        pausedElapsedMs = performance.now() - startedAt;
+        cancelAnimationFrame(rafId);
+        // The sweet-spot pulse (set above via style.animation) runs on its
+        // own CSS clock, independent of the rAF loop above - without this it
+        // would keep animating while the fill bar sits frozen.
+        if (elements.timingSweetSpot) elements.timingSweetSpot.style.animationPlayState = 'paused';
+      },
+      resume() {
+        if (pausedElapsedMs === null) return;
+        startedAt = performance.now() - pausedElapsedMs;
+        pausedElapsedMs = null;
+        rafId = requestAnimationFrame(frame);
+        if (elements.timingSweetSpot) elements.timingSweetSpot.style.animationPlayState = 'running';
+      },
+    };
 
     rafId = requestAnimationFrame(frame);
   });
@@ -987,6 +1032,15 @@ function attemptParry() {
 function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
+  if (key === 'p' || key === 'P') {
+    toggleBattlePause();
+    return;
+  }
+  // Every other key is a real battle action - no-op them all while paused,
+  // per the "pause should have a keybind too so they can quickly
+  // pause/unpause" ask (the point is freezing everything to look around,
+  // not sneaking in an action mid-pause).
+  if (battlePaused) return;
   if (key === 's' || key === 'S') {
     // 's' collides with the map screen's WASD-south binding; this is only
     // safe because screenManager.js's mountOverlay() calls pause() on the
@@ -1097,7 +1151,7 @@ function playerAttack() {
   // without it, clicking a still-visible-but-inert button during the
   // post-battle pause would re-run a real attack against an already-over
   // battle and call checkOutcome() -> endBattle() a second time.
-  if (battleOver) return;
+  if (battleOver || battlePaused) return;
   if (abilityActionInFlight || attackCooldownMs > 0) return;
   resolveOneAttack(true);
   updateHpBars();
@@ -1128,7 +1182,7 @@ function playerAttack() {
 
 async function playerUseAbility(abilityId) {
   // See playerAttack's own comment on this same guard.
-  if (battleOver) return;
+  if (battleOver || battlePaused) return;
   // Guard against re-entrant activation: while a damage ability's timing meter is
   // awaited below, the player's ATB isn't reset yet (that only happens once the
   // await resolves), so a second click/keypress during that ~1s window would
@@ -1302,7 +1356,7 @@ function playerUseItem() {
   // See playerAttack's own comment on this same guard - Item stays
   // rendered (but inert) through the post-battle pause now, so clicking it
   // needs to be a real no-op, not just a currently-hidden button.
-  if (battleOver) return;
+  if (battleOver || battlePaused) return;
   const potionEntry = state.inventory.find((entry) => entry.itemId === 'potion' && entry.quantity > 0);
   if (!potionEntry) {
     log.push('No potions left.');
@@ -1322,7 +1376,7 @@ function playerUseItem() {
 
 function playerFlee() {
   // See playerAttack's own comment on this same guard.
-  if (battleOver) return;
+  if (battleOver || battlePaused) return;
   // Same re-entrancy hazard as playerAttack's guard above: block Flee (button
   // or Escape) while an ability's timing meter is still pending.
   if (abilityActionInFlight) return;
@@ -1375,7 +1429,7 @@ function monsterAttack(monster) {
 }
 
 function resolveMonsterWindup(monster, parried) {
-  if (battleOver) return;
+  if (battleOver || battlePaused) return;
   if (monster.hp <= 0) return;
   if (!monster.windup.active) return;
   const elapsedPercent = windupElapsedPercent(monster.windup);
@@ -1488,8 +1542,64 @@ function tick() {
   updateBuffIndicator();
 }
 
+// Freezes everything that decides a battle outcome: the 300ms tick (ATB
+// fill, cooldowns, buff duration), every monster's windup/parry clock, and
+// the ability timing-meter. Cosmetic effects already in flight are left
+// alone - see the battlePaused declaration's own comment.
+function pauseBattle() {
+  if (battlePaused || battleOver) return;
+  battlePaused = true;
+  pauseStartedAt = Date.now();
+  clearInterval(intervalId);
+  intervalId = null;
+  monsterCombatants.forEach((mc, i) => {
+    if (mc.windup.active) {
+      elements.monsterAtbFills[i].style.animationPlayState = 'paused';
+      elements.monsterParryZones[i].style.animationPlayState = 'paused';
+    }
+  });
+  if (activeTimingMeterHandle) activeTimingMeterHandle.pause();
+  elements.pauseBtn.textContent = '▶️';
+  elements.pauseBtn.title = 'Resume battle (P)';
+  elements.pausedOverlay.hidden = false;
+}
+
+function resumeBattle() {
+  if (!battlePaused) return;
+  const pausedForMs = Date.now() - pauseStartedAt;
+  battlePaused = false;
+  monsterCombatants.forEach((mc, i) => {
+    if (mc.windup.active) {
+      // Shift the windup's wall-clock start forward by the paused duration
+      // so the time spent paused doesn't count as elapsed windup time - see
+      // shiftWindupStart's own comment in js/systems/parry.js.
+      mc.windup = shiftWindupStart(mc.windup, pausedForMs);
+      elements.monsterAtbFills[i].style.animationPlayState = 'running';
+      elements.monsterParryZones[i].style.animationPlayState = 'running';
+    }
+  });
+  if (activeTimingMeterHandle) activeTimingMeterHandle.resume();
+  intervalId = setInterval(tick, 300);
+  elements.pauseBtn.textContent = '⏸️';
+  elements.pauseBtn.title = 'Pause battle (P)';
+  elements.pausedOverlay.hidden = true;
+}
+
+function toggleBattlePause() {
+  if (battlePaused) resumeBattle();
+  else pauseBattle();
+}
+
 function endBattle(outcome) {
   battleOver = true;
+  // A still-resolving ability sequence (e.g. an AOE stagger) can end the
+  // battle while paused - see the battlePaused declaration's own comment on
+  // why those aren't frozen. Drop the pause rather than let its dim overlay
+  // and inert pause button sit on top of the win/loss sequence.
+  if (battlePaused) {
+    battlePaused = false;
+    elements.pausedOverlay.hidden = true;
+  }
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
   if (outcome === 'lost') {
@@ -1525,6 +1635,8 @@ export function mount(root, props) {
   callbacks = props.callbacks;
   battleOver = false;
   unmounted = false;
+  battlePaused = false;
+  activeTimingMeterHandle = null;
   playerCombatant = buildPlayerCombatant();
   playerEffectBonuses = getEquipmentBonuses(state);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
@@ -1555,6 +1667,7 @@ export function mount(root, props) {
   buildDom();
   monsterCombatants.forEach((mc, i) => {
     elements.monsterZones[i].onclick = () => {
+      if (battlePaused) return;
       selectedMonsterIndex = i;
       updateMonsterSelection();
     };
@@ -1574,6 +1687,7 @@ export function mount(root, props) {
 
   updateLog();
   updateMenu();
+  elements.pauseBtn.onclick = toggleBattlePause;
   intervalId = setInterval(tick, 300);
   window.addEventListener('keydown', handleKeydown);
 }

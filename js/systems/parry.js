@@ -32,6 +32,12 @@ export function startWindup(now = Date.now()) {
   return { active: true, startedAt: now };
 }
 
+// Called on resume from a mid-battle pause, with offsetMs = how long the
+// pause lasted, so the paused duration doesn't count as windup elapsed time.
+export function shiftWindupStart(windupState, offsetMs) {
+  return { ...windupState, startedAt: windupState.startedAt + offsetMs };
+}
+
 export function windupElapsedMs(windupState, now = Date.now()) {
   if (!windupState.active) return 0;
   return Math.max(0, now - windupState.startedAt);

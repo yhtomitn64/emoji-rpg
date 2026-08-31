@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_ZONE_END_PERCENT,
   createWindupState, startWindup, windupElapsedMs, isWindupComplete, windupElapsedPercent,
-  resolveParryAttempt, rollIncomingDamage, resolveParrySuccess,
+  resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart,
 } from '../js/systems/parry.js';
 
 test('createWindupState returns an inactive state', () => {
@@ -141,4 +141,26 @@ test('resolveParrySuccess resets monster ATB to 0, not a flat knockback', () => 
   const monster = { hp: 100, defense: 0 };
   const result = resolveParrySuccess(monster, 30);
   assert.equal(result.monsterAtb, 0);
+});
+
+// A mid-battle pause freezes the windup visually (CSS animation-play-state)
+// but Date.now() keeps ticking in the background. Without shifting
+// startedAt forward by however long the pause lasted, resuming would count
+// the paused time as elapsed windup time - either falsely completing the
+// windup instantly or making a fair-looking parry press read as too late.
+test('shiftWindupStart pushes startedAt forward by the given offset, leaving elapsed time unchanged across the shift', () => {
+  const state = startWindup(1000);
+  const shifted = shiftWindupStart(state, 5000); // paused for 5000ms
+  assert.equal(shifted.startedAt, 6000);
+  assert.equal(shifted.active, true);
+  // elapsed time measured after the shift, at a `now` also pushed forward
+  // by the same offset, is identical to what it would have been unpaused
+  assert.equal(windupElapsedMs(shifted, 6350), windupElapsedMs(state, 1350));
+});
+
+test('shiftWindupStart on an inactive state stays inactive and still shifts startedAt', () => {
+  const state = createWindupState();
+  const shifted = shiftWindupStart(state, 5000);
+  assert.equal(shifted.active, false);
+  assert.equal(shifted.startedAt, 5000);
 });
