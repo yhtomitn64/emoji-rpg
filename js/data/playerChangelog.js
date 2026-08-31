@@ -6,6 +6,17 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.11.1',
+    date: '2026-08-30',
+    highlights: [
+      'Fixed rings not showing up as "owned" in the Loot Reference once equipped.',
+      'Fixed gear comparisons showing the wrong stat change for rings.',
+      'A ring stuck equipped from before ring slots existed now moves into a proper ring slot automatically.',
+      'The Smith no longer shows a dead upgrade button on rings (rings can\'t be upgraded there).',
+      "The Stats panel now shows the Retribution Charm's thorns bonus.",
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-08-30',
     highlights: [

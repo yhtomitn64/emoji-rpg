@@ -176,3 +176,24 @@ test('migrateRingSlots never overwrites an already-equipped ring', () => {
   assert.equal(migrated.equipment.ring1, 'emberRing');
   assert.equal(migrated.equipment.ring2, null);
 });
+
+test('migrateRingSlots relocates a legacy accessory-equipped Ember Ring into ring1', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'emberRing';
+  delete legacy.equipment.ring1;
+  delete legacy.equipment.ring2;
+  const migrated = migrateRingSlots(legacy);
+  assert.equal(migrated.equipment.ring1, 'emberRing');
+  assert.equal(migrated.equipment.accessory, null);
+  assert.equal(migrated.equipment.ring2, null);
+});
+
+test('migrateRingSlots leaves a non-Ember-Ring accessory item untouched', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'luckyCharm';
+  delete legacy.equipment.ring1;
+  delete legacy.equipment.ring2;
+  const migrated = migrateRingSlots(legacy);
+  assert.equal(migrated.equipment.accessory, 'luckyCharm');
+  assert.equal(migrated.equipment.ring1, null);
+});

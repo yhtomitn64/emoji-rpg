@@ -28,6 +28,7 @@ function render() {
     bonuses.lifestealPercent > 0 ? `<div>Lifesteal: ${bonuses.lifestealPercent}%</div>` : '',
     bonuses.extraSwingChance > 0 ? `<div>Extra Swing Chance: ${bonuses.extraSwingChance}%</div>` : '',
     bonuses.elementalProcChance > 0 ? `<div>Elemental Proc: ${bonuses.elementalProcChance}% chance, +${bonuses.elementalProcDamage} dmg</div>` : '',
+    bonuses.thornsPercent > 0 ? `<div>Thorns: ${bonuses.thornsPercent}%</div>` : '',
   ].join('');
 
   const ngPlusBadge = state.ngPlusCycle > 0 ? `<div class="ngplus-badge">New Game+${state.ngPlusCycle}</div>` : '';

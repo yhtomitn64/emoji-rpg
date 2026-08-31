@@ -53,4 +53,20 @@ test('smithScreen reforge DOM', async (t) => {
     click(root.querySelector('button[data-reforge="weapon"]'));
     assert.ok(upgraded);
   });
+
+  await t.test('a ring slot with an equipped item shows no upgrade select/button, only the reforge button', async () => {
+    const state = buildState({
+      equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: 'emberRing', ring2: null },
+      equipmentTiers: { weapon: 'superior' }, // emberRing has no tier - never eligible for reforge either, confirms no reforge button shows for it
+    });
+    const root = await mountSmith(state);
+    assert.equal(root.querySelector('select[data-slot="ring1"]'), null);
+    assert.equal(root.querySelector('button[data-slot="ring1"]'), null); // the upgrade button (not data-reforge)
+  });
+
+  await t.test('an empty ring slot shows the friendly label, not the raw key', async () => {
+    const root = await mountSmith(buildState());
+    assert.ok(root.textContent.includes('Ring 1: (empty)'));
+    assert.ok(root.textContent.includes('Ring 2: (empty)'));
+  });
 });

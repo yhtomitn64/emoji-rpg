@@ -129,5 +129,7 @@ test('inventoryScreen DOM', async (t) => {
     const ring2Btn = root.querySelector('button[data-equip="emberRing"][data-slot="ring2"]');
     assert.ok(ring1Btn);
     assert.ok(ring2Btn);
+    click(ring2Btn);
+    assert.equal(state.equipment.ring2, 'emberRing');
   });
 });

@@ -104,6 +104,18 @@ export function resolveRingEquipSlot(state) {
   return null;
 }
 
+// Resolves an item's slot *type* (item.slot) to the physical equipment key
+// to compare against. Non-ring items pass through unchanged (item.slot IS
+// already the physical key for those). Ring items resolve via
+// resolveRingEquipSlot - when both rings are already occupied (null
+// returned), falls back to comparing against ring1 specifically, so the
+// comparison is always well-defined rather than silently comparing against
+// nothing.
+export function resolvePhysicalSlot(state, item) {
+  if (item.slot !== 'ring') return item.slot;
+  return resolveRingEquipSlot(state) ?? 'ring1';
+}
+
 export function unequipItem(state, slot) {
   const itemId = state.equipment[slot];
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
@@ -267,8 +279,9 @@ export function getEquipmentBonuses(state) {
 
 export function getItemStatDelta(state, itemId, tier) {
   const item = ITEMS[itemId];
-  const currentItemId = state.equipment[item.slot];
-  const currentTier = currentItemId ? state.equipmentTiers?.[item.slot] : undefined;
+  const physicalSlot = resolvePhysicalSlot(state, item);
+  const currentItemId = state.equipment[physicalSlot];
+  const currentTier = currentItemId ? state.equipmentTiers?.[physicalSlot] : undefined;
   const currentUpgrade = currentItemId ? getUpgradeLevel(state, currentItemId, currentTier) : 0;
   const newUpgrade = getUpgradeLevel(state, itemId, tier);
   const currentStats = currentItemId

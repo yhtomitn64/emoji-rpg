@@ -6,6 +6,7 @@ import {
 import { tierLabel } from '../systems/itemQuality.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
+const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
 
 let rootEl = null;
 let state = null;
@@ -21,7 +22,7 @@ function materialOptionsForSlot(slot) {
 function render() {
   const rows = SLOTS.map((slot) => {
     const itemId = state.equipment[slot];
-    if (!itemId) return `<div class="smith-row">${slot}: (empty)</div>`;
+    if (!itemId) return `<div class="smith-row">${SLOT_LABELS[slot] || slot}: (empty)</div>`;
 
     const item = ITEMS[itemId];
     const tier = state.equipmentTiers?.[slot];
@@ -37,6 +38,19 @@ function render() {
     if (level >= MAX_UPGRADE_LEVEL) {
       return `<div class="smith-row">
       <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
+      ${reforgeButton}
+    </div>`;
+    }
+
+    const hasUpgradePath = Object.values(ITEMS).some((candidate) => candidate.type === 'material' && candidate.upgradeSlot === slot);
+    if (!hasUpgradePath) {
+      // Ring slots have no upgrade material defined anywhere in the game
+      // (unlike the five original slots, which always have one even when
+      // the player doesn't currently hold a copy) - there's no reachable
+      // upgrade path here, ever, so skip the select/button entirely rather
+      // than show a control that can never work.
+      return `<div class="smith-row">
+      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       ${reforgeButton}
     </div>`;
     }

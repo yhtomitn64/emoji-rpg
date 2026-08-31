@@ -84,11 +84,29 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
 // carries over into them (no item has ever occupied a ring slot before this
 // feature), this just adds the two empty keys so downstream code that reads
 // state.equipment.ring1/ring2 directly never sees undefined vs. null drift.
+//
+// Also relocates a legacy-equipped Ember Ring out of the accessory slot: it
+// was reclassified from slot:'accessory' to slot:'ring' after some saves
+// already had it equipped there, so a save mid-migration can have
+// equipment.accessory === 'emberRing' - left alone, that player keeps a
+// de-facto third accessory slot with different upgrade rules than the same
+// ring equipped normally (see the smith-screen ring-upgrade-suppression fix
+// in the same commit as this migration change). Relocating it into ring1
+// (guaranteed empty here, since ring1 has never existed before this
+// migration runs) converges every player onto the same slot for the same
+// item. The upgrade level carries automatically - upgradeKey is keyed by
+// itemId+tier only, never by physical slot, so this move needs no upgrades
+// bookkeeping of its own.
 export function migrateRingSlots(state) {
   if ('ring1' in state.equipment && 'ring2' in state.equipment) return state;
+  const equipment = { ring1: null, ring2: null, ...state.equipment };
+  if (equipment.accessory === 'emberRing') {
+    equipment.ring1 = 'emberRing';
+    equipment.accessory = null;
+  }
   return {
     ...state,
-    equipment: { ring1: null, ring2: null, ...state.equipment },
+    equipment,
     equipmentTiers: { ...state.equipmentTiers },
   };
 }

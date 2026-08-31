@@ -164,6 +164,31 @@ test("getItemStatDelta uses the candidate item's own real upgrade level, not the
   assert.equal(delta.attack, 6);
 });
 
+test('getItemStatDelta compares a ring candidate against the empty ring2 slot when ring1 is occupied', () => {
+  const state = {
+    equipment: { weapon: null, head: null, body: null, legs: null, accessory: null, ring1: 'emberRing', ring2: null },
+    equipmentTiers: {},
+    upgrades: {},
+  };
+  const delta = getItemStatDelta(state, 'windfuryRing');
+  assert.equal(delta.extraSwingChance, 10); // full raw value, ring2 (the resolved slot) is empty
+  assert.equal(delta.critChancePercent, 8);
+});
+
+test('getItemStatDelta compares a ring candidate against ring1 specifically when both rings are occupied', () => {
+  const state = {
+    equipment: { weapon: null, head: null, body: null, legs: null, accessory: null, ring1: 'emberRing', ring2: 'windfuryRing' },
+    equipmentTiers: {},
+    upgrades: {},
+  };
+  const delta = getItemStatDelta(state, 'windfuryRing');
+  // resolveRingEquipSlot returns null (both full) -> falls back to ring1, which holds
+  // emberRing - the delta should reflect replacing emberRing with a second windfuryRing,
+  // not comparing against nothing (the pre-fix bug: this used to always be the raw value).
+  assert.equal(delta.extraSwingChance, 10); // emberRing has 0
+  assert.equal(delta.elementalProcChance, -20); // emberRing's 20 is lost
+});
+
 test('unequipItem moves the equipped item back to inventory and empties the slot', () => {
   let state = createNewGame(); // weapon: starterSword equipped, not in inventory
   state = unequipItem(state, 'weapon');

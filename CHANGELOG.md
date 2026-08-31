@@ -24,6 +24,30 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-08-30
+
+### Fixed
+- Ring-slot items (`slot: 'ring'`) were compared/counted against a
+  nonexistent `state.equipment['ring']` key in two places: the Smith and
+  inventory item-stat-delta comparison (`getItemStatDelta` in
+  `js/systems/inventory.js`) and the Loot Reference "own N" count
+  (`js/screens/lootReferenceScreen.js`), which never recognized an
+  equipped ring as owned. Both now resolve through the real `ring1`/`ring2`
+  keys.
+- A save from before Ember Ring was reclassified from `slot: 'accessory'`
+  to `slot: 'ring'` could have it stuck equipped in the accessory slot
+  forever. `migrateRingSlots` (`js/state.js`) now relocates a
+  legacy-equipped Ember Ring into `ring1` on load.
+- The Smith screen showed a permanently-empty, permanently-disabled
+  upgrade select/button on an equipped ring, since no upgrade material
+  exists for ring slots. It's now suppressed for any slot with no
+  upgrade material defined at all, while the normal 5 gear slots still
+  correctly show a disabled-but-real button when the player just doesn't
+  currently hold a material. Empty ring rows also now read "Ring 1:" /
+  "Ring 2:" instead of the raw `ring1`/`ring2` key.
+- The Stats panel's effects list didn't include Retribution Charm's
+  thorns bonus, so it was invisible even when equipped.
+
 ## [0.11.0] - 2026-08-30
 
 ### Added
