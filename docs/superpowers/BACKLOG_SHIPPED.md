@@ -1171,6 +1171,97 @@ Chrome automation cost" memory - too token-expensive for this plan tier),
 and Timothy clicking through a real local build twice (first pass, then
 the action-bar dimming fix). All 667 tests pass. See CHANGELOG 0.13.0.
 
+### ~~Ability buttons: icon-only redesign, raised 2026-08-30~~ Shipped 2026-08-31 (0.12.0/0.12.1), confirmed live by Timothy 2026-08-31
+
+Timothy's own words: "I want our abilities to just be icons and not all
+the text on them and on one line. the button should have a picture and
+the key on it. so let's spin up a few design options using mocks." He
+explicitly asked for a few visual design options as mockups before
+picking one, not a single guessed design.
+
+**Clarified via brainstorming before mockups were built.** Today's
+buttons also carried a cooldown countdown, a combo-ready gold glow, and
+an estimated-damage number - stripping to icon+key alone raised where
+that other info goes:
+- **Cooldown → a radial/wipe indicator, not text.** Timothy: "some sort
+  of indicator about the cooldown remaining. Like the button slowly
+  draining of a color until it looks clickable again or maybe like a
+  circular clock hands like pattern that indicates when it's ready to
+  use. Transparent red shade for the time left until you can use it."
+- **Kept the existing combo-ready glow** (`.battle-ability-button-combo`)
+  as-is - only the text content was stripped, not that effect.
+- **Button content is just the icon plus a small keybind label in one
+  corner.** Everything else (name, cooldown seconds, combo-ready text,
+  damage estimate) moved to a hover tooltip instead of staying
+  always-visible on the button.
+- **Scope was all four battle buttons, not just the 5 unlockable
+  abilities** - Attack, Item, and Flee went icon-only too, for visual
+  consistency across the whole action row.
+
+**Implemented - Timothy picked "Option A"** (radial clock-wipe cooldown,
+square buttons) from three mockups. `js/screens/battleScreen.js`/
+`css/styles.css` build every battle button (Parry, Attack, the unlocked
+abilities, Item, Flee) through a shared `actionButtonHtml()` helper: icon
++ a corner keybind chip only, with name/cooldown/combo/damage in the
+button's `title` tooltip and a red conic-gradient wipe overlay for
+cooldown.
+
+Several rounds of same-day live-feedback polish followed, each its own
+real fix:
+- The action row moved out of `.overlay-panel.battle-screen` into its own
+  sibling `.battle-action-bar` (docked under the dialog inside a new
+  `.battle-screen-stack` wrapper) so the buttons stay stationary instead
+  of wiggling with the dialog's own shake/swirl effects - "the buttons
+  should stay stationary and not have all the dialog wiggle shake effects
+  as it's a little disorienting."
+- Split into two `.battle-action-row`s - numbered ability keys on top,
+  Parry/Attack/Item/Flee below - to match where a player's fingers
+  already sit: "I'm used to having my fingers on 1,2,3,4 and so on...
+  when I see that first row of buttons start with letters it feels off."
+- `justify-content: center` added so both rows center under the dialog
+  instead of hugging the left edge - "can we get the fight dialog, the
+  number row and the other letter row all centered together."
+- A real bug, not just polish: the dialog rendered narrower than the
+  action bar below it (a `width: 90%` circular-sizing mismatch once the
+  dialog moved a level deeper into `.battle-screen-stack`). Fixed per
+  Timothy's own direction - "one container around them all and both
+  inner containers at 100% inside there and then animation... can apply
+  to all of it at once" - both panels now `width: 100%` of the shared
+  stack, and `battle-screen-swirl-in`/`-out` moved onto the stack so both
+  animate in/out as one unit.
+- Steered back after watching that live: "why do the buttons hide and
+  then the whole box animates away... let's have buttons stay there and
+  just animate away after battle along with everything else." `updateMenu()`
+  no longer clears the action bar on `battleOver` - this surfaced a real
+  gap (`playerAttack`/`playerFlee`/`playerUseItem`/`playerUseAbility` had
+  no `battleOver` guard, so a click during the post-battle pause could
+  re-run a real action and call `endBattle()` twice), fixed with a guard
+  added to all four and covered by a new test.
+- `endBattle()` now waits for the killing blow's own effects (damage
+  number, death-spin, revive-glow, perfect/parry badge - up to
+  `DAMAGE_NUMBER_DURATION_MS`) before starting the exit animation, so
+  "any battle related animations finish before running the whole dialog
+  close animation" instead of competing with it.
+- Dead monster slots switched from `display: none` to `visibility:
+  hidden` so the dialog's size stays constant through every death in a
+  fight (previously reflowed/shrank on each kill, then shrank again right
+  before the exit animation) - "have the space stay as you kill monsters
+  so that the dialog size doesn't jump around."
+- A good follow-up question surfaced a real robustness fix: the
+  death-spin/split animation's 900ms CSS duration and `DEATH_HIDE_DELAY_MS`
+  were two independently hardcoded numbers that only happened to agree.
+  `updateHpBars()` now sets a `--battle-death-anim-ms` custom property
+  driven straight from the JS constant, read by both CSS animation rules,
+  so retuning one can't silently desync the other - covered by a test
+  asserting the property is actually set to `900ms` on a kill. The same
+  fix shape was later applied to the floating damage number and PERFECT!/
+  PARRY! badge (0.12.1, entry above) and spun off the mid-battle-pause
+  idea (0.13.0, entry above) from this same clarification.
+
+**Confirmed live 2026-08-31** - Timothy played real battles with it (both
+directly and while testing mid-battle pause/tooltips): "I did try it and
+it looks good. So satisfied on my part!" See CHANGELOG 0.12.0/0.12.1.
+
 ## Balance / design gaps
 
 ### ~~Abilities have made the game too easy overall, raised 2026-08-22~~ Balance pass shipped 2026-08-22
