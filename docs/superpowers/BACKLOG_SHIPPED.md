@@ -253,6 +253,25 @@ object.
 
 ## Bugs
 
+### ~~Tool-pickup celebration animation isn't anchored to the player~~ Shipped 2026-08-29 (0.7.1)
+Timothy's own words (getting the boat/canoe): "my character was in the
+corner of the screen but the boat went in the middle of the screen and
+circle around. Either character needs to warp to middle of boat zone or
+boat needs to do it's animatin down by character and i'm not sure what
+the speed is of the animation now but let's do it twice as slow for more
+effect!" Of the two fix directions floated, "anchor to player" shipped:
+`anchorBurstToPlayer()` (`js/screens/celebrationEffect.js`) reads
+`.map-tile-player`'s `getBoundingClientRect()` and sets `#celebration-burst`'s
+inline `left`/`top` to that tile's center before the orbit plays, mirroring
+`mapScreen.js`'s existing `playMonsterFleeEffect` pattern; the element's own
+`translate(-50%, -50%)` centers on whatever point that is. `TOOL_SEQUENCE_MS`
+doubled 1400ms → 2800ms with a matching `celebration-burst-tool-sequence`
+keyframe duration in `css/styles.css`. **This backlog entry sat stale after
+shipping** — the fix and both changelog entries (`CHANGELOG.md` 0.7.1,
+`PLAYER_CHANGELOG` 0.7.1) landed in commit `9194b55` on 2026-08-29, but the
+backlog file itself was never updated to match; caught and reconciled
+2026-08-31 while picking this item up as if it were still open.
+
 ### ~~HUD's HP readout doesn't update during battle~~ Shipped 2026-08-28
 Timothy: "my HP in the main game window with the map doesn't update while
 in battle and I think it should becaause I look up there sometimes." The

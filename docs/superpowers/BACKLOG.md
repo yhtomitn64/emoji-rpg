@@ -33,7 +33,6 @@ one is raised — that's the whole point of it.
 - **Roaming visible enemies + dragon difficulty scaling** (big, needs design pass) — visible overworld entities, cross-screen movement, opt-in power-scaling dragon mode (standard dragon fight stays fixed). Possible dependency on a scrolling/camera rendering rewrite (also raised independently for mobile-responsive viewport).
 - **Fog-of-war reveal map** (`m` keypress) — raw idea, not scoped.
 - **New terrain: sand/tarpit/water enemies** — raw idea; needs per-tile-kind monster tables + a move-speed-modifier mechanic, neither exists today.
-- **Tool-pickup celebration animation isn't anchored to the player** — concrete bug, two fix directions identified (anchor to player tile, or center viewport first), plus wants the orbit slowed ~2x. Ready to just fix.
 - **Hand-placed zone-1 loot + shop rebalance** (big, needs design pass) — weaker shop gear, a placement-dropdown system for world loot, possibly tied to hand-placed mini-dungeons.
 - **In-game tutorials / mechanic explainers** — general onboarding idea, sharper combat-specific version (explain abilities/synergies/attack-falloff at unlock, explicit dismiss required). Timothy wants to talk through design when picked up.
 - **Ability buttons: icon-only redesign** — implemented 2026-08-31 (0.12.0/0.12.1) with several live-feedback follow-ups already shipped; only remaining gap is Timothy actually playing a battle with it before this moves to shipped. Spun off: **mid-battle pause** idea, raw, not designed.
@@ -674,28 +673,6 @@ missing piece called out above (per-tile-kind `monsterTable`, since
 today's roster is screen-level and doesn't distinguish grass from water
 on the same screen). Not designed, just confirms this is the same
 underlying gap rather than a separate one.
-
-## Tool-pickup celebration animation isn't anchored to the player, raised 2026-08-28
-Timothy's own words (getting the boat/canoe): "my character was in the
-corner of the screen but the boat went in the middle of the screen and
-circle around. Either character needs to warp to middle of boat zone or
-boat needs to do it's animatin down by character and i'm not sure what
-the speed is of the animation now but let's do it twice as slow for more
-effect!" `playToolCelebration` (`js/screens/celebrationEffect.js`)
-animates the `#celebration-burst` element, which is `position: fixed`
-at the viewport's dead-center (`css/styles.css:858`) — unrelated to
-where the player actually stands on the map grid, so the orbiting tool
-emoji can land far from the character if they're anywhere but
-center-screen. Two fix directions floated, neither chosen yet: anchor
-the burst to the player's own map tile instead of viewport-center, or
-warp/scroll the view so the player is centered first. Separately, also
-wants the orbit animation (`celebration-burst-tool-sequence`, currently
-1.4s via `TOOL_SEQUENCE_MS` in celebrationEffect.js and its matching
-keyframe timing in styles.css) slowed to roughly 2x its current
-duration. Worth revisiting once the map-camera/centered-viewport
-backlog item (this doc's "Roaming visible enemies..." section) lands,
-since a hero-centered camera would make "anchor to player" and "player
-is always centered" the same fix.
 
 ## Hand-placed zone 1 loot, rebalanced around it (big idea — needs its own design pass)
 
