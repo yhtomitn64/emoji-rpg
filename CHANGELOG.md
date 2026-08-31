@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-08-31
+
 ### Fixed
 - The floating damage number and the PERFECT!/PARRY! badge now get their CSS
   animation duration from the same `DAMAGE_NUMBER_DURATION_MS`/

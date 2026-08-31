@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.12.1',
+    date: '2026-08-31',
+    highlights: [
+      'Behind-the-scenes fix to how battle-effect animations time out - nothing to see, just more reliable timing under the hood.',
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-08-31',
     highlights: [
