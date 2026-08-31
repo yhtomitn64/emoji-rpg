@@ -6,6 +6,16 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.12.0',
+    date: '2026-08-31',
+    highlights: [
+      'Battle abilities are now icon buttons with your keybind shown right on them - hover one for its name, cooldown, and damage estimate.',
+      'Added a Parry button so you can click to parry instead of only using the S key.',
+      'The number-key abilities (1, 2, 3, 4...) now sit in their own row above Parry/Attack/Item/Flee.',
+      'The battle screen no longer jumps or resizes as monsters die, and the whole battle window closes smoothly in one motion when a fight ends.',
+    ],
+  },
+  {
     version: '0.11.1',
     date: '2026-08-30',
     highlights: [

@@ -24,6 +24,45 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-31
+
+### Added
+- Battle action row redesigned to icon-only buttons (icon + a small keybind
+  chip in the corner, no more wrapping text), and given a Parry button
+  (🛡️ S) so the mechanic has a visible reminder and a click target instead
+  of being keyboard-only. A red conic-gradient "clock wipe" now shows
+  cooldown remaining instead of a countdown number; the ability name,
+  cooldown, combo status, and damage estimate that used to sit in the
+  button's own text now live in its hover tooltip.
+- The action row now docks as its own stationary bar directly under the
+  battle dialog instead of living inside it, so it no longer swirls in/out
+  with the dialog's own mount/unmount animation.
+- That action bar now splits into two rows: the numbered ability keys
+  (1, 2, 3, 4, ...) on top, Parry/Attack/Item/Flee below - matching the
+  muscle memory of resting fingers on the number row first.
+- Both action rows now center their buttons under the dialog instead of
+  packing them against the left edge.
+- Fixed the dialog rendering narrower than (and misaligned under) the
+  action bar - the dialog and action bar are now both fixed-width panels
+  inside one shared container, guaranteed to line up exactly.
+- The dialog and action bar now swirl in/out together as one unit on
+  battle start/end, instead of only the dialog animating while the empty
+  action bar sat on screen a beat longer.
+- Action buttons now stay visible (though inert) through the post-battle
+  pause and fade away together with the dialog, instead of disappearing
+  the instant the battle ends.
+- The dialog's exit animation now waits for the battle-ending hit's own
+  effects (damage number, death animation, revive glow) to finish first,
+  instead of starting while they're still playing.
+- A dead monster's slot now keeps its space reserved in the dialog
+  instead of collapsing, so the dialog no longer resizes/re-centers each
+  time a monster dies mid-fight, or visibly shrinks right before its exit
+  animation plays on the final kill.
+- The monster death animation's visible duration is now driven directly
+  from the same timing value that decides when the slot gets hidden,
+  instead of two separately-hardcoded numbers that happened to agree -
+  retuning one now automatically keeps the other in sync.
+
 ## [0.11.1] - 2026-08-30
 
 ### Fixed

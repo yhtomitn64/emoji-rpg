@@ -186,20 +186,56 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   padding-right: 32px;
 }
 
-.overlay-panel.battle-screen {
+/* One outer container around the whole battle screen (raised 2026-08-31:
+   "one container around them all and both inner containers at 100%
+   inside there") - the dialog and the action bar stack inside it as two
+   full-width panels, and #overlay (which centers a single flex child)
+   centers the pair as one unit. Both inner panels are width: 100% of
+   this box rather than left to size themselves independently - the
+   previous "let each shrink-wrap its own content, then stretch to match"
+   approach broke the moment the two disagreed on which was wider (the
+   base .overlay-panel rule's own `width: 90%` won out over stretch for
+   the dialog specifically, since a percentage width isn't `auto` and so
+   isn't stretched - see .overlay-panel.battle-screen's own width
+   override below for the actual fix). With both children pinned to
+   100%, this column's own shrink-to-fit width resolves to whichever
+   panel's real content is wider (dialog or action bar), and the other
+   one is guaranteed to match it exactly - not just "close," a browser
+   quirk away from lining up. */
+.battle-screen-stack {
+  display: flex;
+  flex-direction: column;
   max-width: min(92vw, 860px);
-  margin: 0 auto;
+}
+.overlay-panel.battle-screen {
+  /* Overrides the base .overlay-panel rule's `width: 90%` - that was
+     sized for being #overlay's direct, sole centered child; nested one
+     level deeper inside .battle-screen-stack now, 90% of an ancestor
+     whose own width depends on this element's content is a circular
+     mess that left the dialog narrower than (and misaligned under) the
+     action bar below it. 100% is simple and correct: match whatever
+     width .battle-screen-stack settles on. */
+  width: 100%;
+  margin: 0;
   display: flex;
   gap: 16px;
   position: relative;
   overflow: hidden;
+  /* Only the top corners round - the action bar below owns the bottom
+     ones, so together they read as one continuous card split into a
+     "stage" (dialog + combatants/log) and a toolbar (action bar). */
+  border-radius: 8px 8px 0 0;
 }
-/* Own class, not folded into .overlay-panel.battle-screen above, so this
+/* Own class, not baked into .battle-screen-stack above, so this
    `animation` shorthand can't collide with any other single-class rule
-   later added to the same dialog element. Plays once:
-   js/screens/battleScreen.js's buildDom() rebuilds the dialog fresh every
+   later added to the same element. Plays once:
+   js/screens/battleScreen.js's buildDom() rebuilds the stack fresh every
    mount() and bakes this class into the template, so there's no JS
-   toggling - a brand-new element just animates on insertion. */
+   toggling - a brand-new element just animates on insertion. Lives on
+   the outer stack, not the dialog (moved 2026-08-31) - see buildDom()'s
+   own comment for why: so the dialog and the action bar swirl in/out
+   together as one rigid unit instead of only the dialog animating while
+   the action bar's own box sat there unmoved. */
 .battle-screen-swirl-in {
   animation: battle-screen-swirl-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -393,8 +429,20 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   transform: scale(0.85);
   opacity: 0.55;
 }
+/* visibility: hidden, not display: none - a dead monster keeps its slot's
+   layout space reserved (raised 2026-08-31: "have the space stay as you
+   kill monsters so that the dialog size doesn't jump around as monsters
+   die"). display: none used to let .battle-monster-row (justify-content:
+   center) reflow and re-center around whichever monsters were still
+   alive every time one died, visibly shifting the whole row - and on the
+   battle-ending kill specifically, shrank the dialog's own width/height a
+   beat before battle-screen-swirl-out even started, so the dialog visibly
+   resized and THEN animated away as two separate motions instead of one.
+   visibility: hidden still removes the slot from hit-testing/pointer
+   events (same as display: none for click purposes), it just keeps the
+   box's own size counted in layout. */
 .battle-monster-slot-dead {
-  display: none;
+  visibility: hidden;
 }
 .battle-buff-indicator {
   font-size: 0.85rem;
@@ -492,6 +540,99 @@ button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* Battle action row - icon-only redesign (raised 2026-08-30, mockups
+   compared 2026-08-31: "Option A", a radial clock-wipe cooldown). Every
+   button (Parry, Attack, the unlocked abilities, Item, Flee) shares this
+   fixed-size square chrome so the row stays one line; name, cooldown
+   seconds, combo status and the damage estimate that used to sit in the
+   button's own text now live in its `title` tooltip instead - see
+   actionButtonHtml() in battleScreen.js.
+
+   Docked as its own panel directly under the battle dialog (raised
+   2026-08-31) rather than living inside it - background/border match
+   .overlay-panel so the two read as one card, with only the bottom
+   corners rounded here (the dialog above owns the top ones). See the
+   .battle-screen-stack comment in this file and buildDom()'s own comment
+   in battleScreen.js for why this keeps the buttons from moving with the
+   dialog's shake/swirl effects.
+
+   Split into two stacked rows (raised 2026-08-31: "I'm used to having my
+   fingers on 1,2,3,4... and when I see that first row of buttons start
+   with letters it feels off") - .battle-action-bar is just the shared
+   panel chrome now, each .battle-action-row is one line: the numbered
+   ability keys on top, Parry/Attack/Item/Flee (and any Space-keyed buff
+   ability) below. */
+.battle-action-bar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(17, 17, 17, 0.97);
+  border: 1px solid #444;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 10px 16px;
+}
+.battle-action-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  /* .battle-action-bar's default align-items: stretch already widens each
+     row to match the dialog above it (see that rule's own comment) - but a
+     row's buttons are usually narrower than that full width, and flex's
+     own default (justify-content: flex-start) packed them against the
+     left edge instead of centering them under the wider dialog (raised
+     2026-08-31: "I want everything stacked centered"). */
+  justify-content: center;
+  gap: 8px;
+  overflow-x: auto;
+}
+.battle-ability-button {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.battle-ability-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+.battle-ability-key {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-weight: 700;
+  font-size: 0.62rem;
+  line-height: 1;
+  color: #ddd;
+  background: rgba(10, 10, 10, 0.82);
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 1px 3px;
+  z-index: 3;
+  pointer-events: none;
+}
+/* The cooldown "clock wipe": a red wedge that shrinks clockwise from 12
+   o'clock as --pct counts down from 100 to 0, gone entirely once the
+   button is usable again - set inline per-button from the JS cooldown
+   fraction, same real-time-driven approach as the monster parry zone's
+   own pulse (see startWindup's caller in battleScreen.js). */
+.battle-ability-cooldown-wipe {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: conic-gradient(rgba(231, 76, 60, 0.5) calc(var(--pct, 0) * 1%), transparent calc(var(--pct, 0) * 1%));
+}
 .battle-ability-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -507,6 +648,18 @@ button:disabled {
   0% { transform: scale(1); filter: brightness(1); }
   35% { transform: scale(1.14); filter: brightness(1.6); }
   100% { transform: scale(1); filter: brightness(1); }
+}
+/* Parry is a standalone reaction, not one of the ATB-gated actions beside
+   it - a distinct blue border (matches the existing water/ATB blue used
+   elsewhere, #2b6cb0) sets it apart from the combat buttons rather than
+   blending into the row. It's never disabled: whether a parry actually
+   lands still depends entirely on real-time windup timing (see
+   attemptParry()), same as the "s" keyboard shortcut it mirrors - the
+   button exists as a persistent reminder the mechanic exists and a click
+   target for players who'd rather not rely on the keyboard, not a
+   simplified/guaranteed version of it. */
+.battle-parry-button {
+  border-color: #2b6cb0;
 }
 button:focus-visible {
   outline: 2px solid #4ade80;
@@ -887,8 +1040,15 @@ button:focus-visible {
   40% { box-shadow: 0 0 14px 4px rgba(74, 222, 128, 0.85); }
   100% { box-shadow: none; }
 }
+/* --battle-death-anim-ms is set inline by updateHpBars() (battleScreen.js)
+   from its own DEATH_HIDE_DELAY_MS constant, the same value that function
+   waits before actually hiding this slot - so this animation's visible
+   duration and that hide delay can't drift out of sync with each other.
+   The 0.9s here is a fallback only (matches DEATH_HIDE_DELAY_MS's value as
+   of this writing), used only if that inline property is ever missing -
+   JS is the source of truth, not this file. */
 .battle-death-spin {
-  animation: battle-death-spin 0.9s ease-in forwards;
+  animation: battle-death-spin var(--battle-death-anim-ms, 0.9s) ease-in forwards;
 }
 @keyframes battle-death-spin {
   0% { transform: rotate(0deg) scale(1); opacity: 1; }
@@ -911,7 +1071,11 @@ button:focus-visible {
   left: 0;
   top: 0;
   color: initial;
-  animation-duration: 0.9s;
+  /* Same --battle-death-anim-ms as .battle-death-spin above (see its own
+     comment) - a pseudo-element can't receive an inline style directly
+     from JS, which is exactly what a custom property set on the real host
+     element (here) is for. */
+  animation-duration: var(--battle-death-anim-ms, 0.9s);
   animation-timing-function: ease-in;
   animation-fill-mode: forwards;
 }

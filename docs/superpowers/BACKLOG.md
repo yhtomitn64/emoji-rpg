@@ -768,6 +768,179 @@ this same session and never picked back up. First step next time: build
 2-3 icon-only button layout options side by side for Timothy to compare,
 not a single guessed design.
 
+**Picked up 2026-08-31, clarified via brainstorming before mockups were
+built.** Today's buttons also carry a cooldown countdown, a combo-ready
+gold glow, and an estimated-damage number — stripping to icon+key alone
+raises where that other info goes. Timothy's answers:
+- **Cooldown → a radial/wipe indicator, not text.** His own words: "some
+  sort of indicator about the cooldown remaining. Like the button slowly
+  draining of a color until it looks clickable again or maybe like a
+  circular clock hands like pattern that indicates when it's ready to
+  use. Transparent red shade for the time left until you can use it."
+- **Keep the existing combo-ready glow** (`.battle-ability-button-combo`)
+  as-is — only the text content is being stripped, not that effect.
+- **Button content becomes just the icon plus a small keybind label in
+  one corner.** Everything else that's on the button today (name,
+  cooldown seconds, combo-ready text, damage estimate) moves to a hover
+  tooltip instead of staying always-visible on the button.
+- **Scope is all four battle buttons, not just the 5 unlockable
+  abilities** — Attack, Item, and Flee go icon-only too, for visual
+  consistency across the whole action row (not scoped to `#btn-ability-*`
+  only as the original ask's wording implied).
+
+Mockups being built against this clarified direction — see session
+history around 2026-08-31 for the actual comparison options.
+
+**Implemented 2026-08-31 — Timothy picked "Option A" (radial clock-wipe
+cooldown, square buttons)** from the three mockups. `js/screens/
+battleScreen.js`/`css/styles.css` now build every battle button (Parry,
+Attack, the unlocked abilities, Item, Flee) through a shared
+`actionButtonHtml()` helper: icon + a corner keybind chip only, with name/
+cooldown/combo/damage moved to the button's `title` tooltip and a red
+conic-gradient wipe overlay for cooldown. Not yet confirmed live in a
+browser (only `npm run test`'s jsdom coverage so far, per the standing
+"avoid Chrome automation" preference) — move this to BACKLOG_SHIPPED.md
+once Timothy's actually played a battle with it.
+
+**Follow-up, same day:** Timothy noticed the whole action row still lived
+inside `.overlay-panel.battle-screen` and swirled in/out with the dialog's
+own `battle-screen-swirl-in`/`-out` mount/unmount animation - "the buttons
+should stay stationary and not have all the dialog wiggle shake effects as
+it's a little disorienting." Fixed by pulling the action bar out into its
+own sibling `.battle-action-bar`, docked visually under the dialog (shared
+border/background, only the outer corners rounded) inside a new
+`.battle-screen-stack` wrapper - the dialog is still free to swirl/shake,
+the buttons no longer live in that subtree so they don't move with it.
+
+**Follow-up, same day:** Timothy: "I'm used to having my fingers on
+1,2,3,4 and so on and then moving off to other keys as needed and when I
+see that first row of buttons start with letters it feels off." Split the
+action bar into two `.battle-action-row`s - numbered ability keys on top,
+Parry/Attack/Item/Flee (and any future Space-keyed buff ability) below -
+so the row order matches where a player's fingers already are.
+
+**Follow-up, same day:** Timothy: "can we get the fight dialog, the number
+row and the other letter row all centered together. Rightnow all of it is
+aligned left." Each `.battle-action-row` was already stretched to match
+the dialog's width (see the `.battle-action-bar` comment above), but flex's
+own default (`justify-content: flex-start`) packed each row's buttons
+against that box's left edge instead of centering them in it - added
+`justify-content: center` to fix.
+
+**Follow-up, same day - a real bug, not just polish:** Timothy noticed the
+dialog itself rendered narrower than the action bar below it, leaving a
+gap on one side (screenshot showed the two misaligned). Root cause: the
+base `.overlay-panel` rule sets `width: 90%`, sized for being `#overlay`'s
+direct sole centered child - once the dialog moved one level deeper into
+`.battle-screen-stack`, that 90% resolved against a container whose own
+width depends on the dialog's content, a circular case Chrome resolves in
+a way that left the dialog undersized and left-aligned instead of
+stretched. Also explained the still-open "small rectangle lingers after
+the dialog's exit animation" bug from two entries up - same root
+mismatch, different symptom. Timothy's own fix direction: "one container
+around them all and both inner containers at 100% inside there and then
+animation ... can apply to all of it at once." Implemented exactly that -
+`.overlay-panel.battle-screen` and `.battle-action-bar` are both
+`width: 100%` of `.battle-screen-stack` now (guaranteed to match, not
+just usually matching), and `battle-screen-swirl-in`/`-out` moved from the
+dialog onto the stack so both panels animate in/out together as one unit,
+which incidentally also fully resolves the lingering-rectangle bug (see
+that entry) without the buttons needing any special-cased hide.
+
+**Steer, same day:** Timothy watched the shared-animation fix live and
+didn't like it after all: "why do the buttons hide and then the whole box
+animates away... it's my fault guiding you that way but that's okay we
+can change. Let's have buttons stay there and just animate away after
+battle along with everything else." So `updateMenu()` no longer clears
+the action bar at all when `battleOver` - the buttons from the last real
+render just sit there, then fade away with the dialog via the shared
+`battle-screen-swirl-out`. That only works if every action function
+actually treats a still-visible button as inert (a real gap this
+surfaced): `playerAttack`/`playerFlee`/`playerUseItem`/`playerUseAbility`
+had no `battleOver` guard at their own top - a click during the pause
+would have re-run a real action and called `endBattle()` a second time.
+Added the guard to all four (`attemptParry` already had one). Covered by
+a new test: click Attack again right after a killing blow, confirm no
+second log line and `onBattleEnd` fires exactly once.
+
+**Same message, second half:** "make sure any battle related animations
+finish before running the whole dialog close animation so we don't have
+too much going on at once." The killing blow (or the hit that downs the
+player) has its own effects running independently of the pause - a
+floating damage number (`DAMAGE_NUMBER_DURATION_MS`, 1400ms, the longest
+of these), a death-spin/split (900ms) or the hero's revive-glow (1100ms),
+possibly a perfect-timing/parry badge (900ms). `endBattle()` now waits
+`DAMAGE_NUMBER_DURATION_MS` before starting `battle-screen-swirl-out`
+(skipped for a flee, which has no such hit to wait for), and pushes the
+final DOM teardown out to match so the exit animation still gets its full
+`EXIT_ANIM_MS` to play.
+
+**Follow-up, same day - the dialog itself was still resizing:** Timothy:
+"as you kill monsters that space goes away in the dialog. Can we have the
+space stay as you kill monsters so that the dialog size doesn't jump
+around as monsters die and at the end it's noticible too because the
+dialog goes smaller then animates away." Root cause: `.battle-monster-
+slot-dead` used `display: none`, which pulls a dead monster's slot fully
+out of `.battle-monster-row`'s flex layout (`justify-content: center`) -
+every death re-centered/reflowed the remaining monsters, and on the
+battle-ending kill specifically, the dialog's own width/height shrank
+right before `battle-screen-swirl-out` even started, so it visibly
+resized and *then* animated away as two separate motions. Switched to
+`visibility: hidden`, which still removes the slot from hit-testing (same
+as before for click purposes) but keeps its layout space reserved, so the
+dialog's size stays constant through every death in a fight and only
+moves once, via the exit animation.
+
+**Follow-up question, same day - a good one:** Timothy: "did monsters
+have death animations that are now going to not be visible because we
+hide them right away? do we need a timeout aligned with animation length
+and a robust setup so they share the same variables ... so that if we
+tune death animation/length we don't make a new bug by accident?" Checked
+carefully: no, the death-spin/split animation was never at risk from the
+`visibility: hidden` change above - `updateHpBars()` already deferred
+adding `.battle-monster-slot-dead` (the hide) behind its own
+`DEATH_HIDE_DELAY_MS` (900ms) `setTimeout`, specifically so the kill
+animation gets its full run before the slot hides either way. But the
+robustness question was real: that 900ms JS constant and the CSS
+`.battle-death-spin`/`.battle-death-split` animations' own `0.9s`
+duration were two independently hardcoded numbers that only happened to
+agree, with nothing stopping them from drifting apart if either got
+retuned later. Fixed by having `updateHpBars()` set a
+`--battle-death-anim-ms` custom property (driven straight from
+`DEATH_HIDE_DELAY_MS`) on the dying monster's emoji at the moment the
+death class is added, and having both CSS animation rules read their
+`animation-duration` from that property instead of a literal - a
+pseudo-element (`.battle-death-split::before/::after`) can't take an
+inline style directly from JS, which is exactly what a custom property is
+for. `DEATH_HIDE_DELAY_MS` is now the single number controlling both how
+long the kill visibly animates and when the slot hides after it, so
+retuning it can't silently desync the two again. Covered by a new test
+asserting the property actually gets set to `900ms` on a kill.
+
+**Related, not yet done:** the same "two hardcoded durations that must be
+kept in sync by hand" shape exists for a few other JS-timed CSS
+animations in this file - the floating damage number
+(`DAMAGE_NUMBER_DURATION_MS` / `battle-float-up`/`-crit`) and the
+perfect-timing/parry badge (`PERFECT_TIMING_BADGE_MS` /
+`battle-perfect-timing-pop`) both pair a JS cleanup timeout with a
+separately-hardcoded CSS animation duration, same shape as the death
+animation was. Not touched this session - flagged here in case it's worth
+the same treatment later, not raised by Timothy for these specifically.
+
+**Spun out of this clarification, new idea — a mid-battle pause,
+raised 2026-08-31:** Timothy, while discussing moving damage/combo
+details to a hover tooltip: "maybe if we had a combat pause button that
+would make it more helpful to use the tooltip mid battle so someone can
+see damage numbers and then unpause and keep playing. pause should have
+a keybind too so they can quickly pause/unpause." No pause mechanic
+exists anywhere in the battle screen today — ATB bars, cooldowns, and
+monster attack timers all run continuously. Explicitly floated as a
+"throw it in backlog" aside, not part of the icon-only redesign itself —
+raw idea only, not designed: what actually freezes (ATB fill, cooldown
+timers, monster AI ticks, animations in flight), what the keybind is,
+and whether it's available during every battle state (e.g. mid-parry
+window) are all open.
+
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
 through in a dedicated future combat pass rather than one-off adds.

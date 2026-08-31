@@ -116,7 +116,11 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#battle-log').textContent, /Perfect timing!/);
     const chopBtn = root.querySelector('#btn-ability-chop');
     assert.ok(chopBtn, 'Chop should be unlocked at level 4');
-    assert.match(chopBtn.textContent, /Combo Ready/);
+    // Combo status moved from the button's own text into its title tooltip
+    // as part of the icon-only redesign - the gold glow class is the
+    // always-visible signal now, the tooltip carries the wording.
+    assert.match(chopBtn.title, /Combo Ready/);
+    assert.ok(chopBtn.classList.contains('battle-ability-button-combo'));
     // playPerfectTimingEffect appends to <body> (same escape-the-dialog's-
     // overflow-hidden pattern as showDamageNumber's damage numbers), not
     // inside root - see battleScreen.js.
@@ -147,6 +151,17 @@ test('battleScreen DOM', async (t) => {
     keydown('s');
     assert.match(root.querySelector('#battle-log').textContent, /You parry/);
     assert.equal(fill.style.animation, '');
+  });
+
+  await t.test('clicking the Parry button lands a parry the same as the "s" shortcut', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    const parryBtn = root.querySelector('#btn-parry');
+    assert.ok(parryBtn, 'Parry button should always render, not gated on unlock level');
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    // Same real 80-100% zone timing as the keyboard-shortcut test above.
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    click(parryBtn);
+    assert.match(root.querySelector('#battle-log').textContent, /You parry/);
   });
 
   // Raised 2026-08-28: "that dialog moving for in battle stuff is too much" -
@@ -361,6 +376,43 @@ test('battleScreen DOM', async (t) => {
     } finally {
       Math.random = originalRandom;
     }
+  });
+
+  await t.test('a killing blow sets --battle-death-anim-ms, the value the death CSS animation actually runs on', async () => {
+    // Regression guard for the "two hardcoded durations that must agree"
+    // hazard raised 2026-08-31: css/styles.css's .battle-death-spin/-split
+    // no longer hardcode their own animation-duration - they read this
+    // custom property, set here from updateHpBars()'s own
+    // DEATH_HIDE_DELAY_MS (900ms as of this writing - update this literal
+    // alongside that constant if it's ever retuned). Without this wiring,
+    // the CSS falls back to its own 0.9s default silently - no visual or
+    // functional break today since that happens to match, but a future
+    // DEATH_HIDE_DELAY_MS change would then silently desync from the
+    // animation's real on-screen duration with nothing to catch it.
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ hp: 1 }] });
+    click(root.querySelector('#btn-attack'));
+    const emojiEl = root.querySelector('#battle-monster-emoji-0');
+    assert.equal(emojiEl.style.getPropertyValue('--battle-death-anim-ms'), '900ms');
+  });
+
+  await t.test('action buttons stay on screen but are inert during the post-battle pause', async () => {
+    // Raised 2026-08-31: buttons used to be cleared the instant the battle
+    // ended; now they're deliberately left in place (see updateMenu()) so
+    // the whole action bar fades away together with the dialog instead of
+    // vanishing early. That only works if every action function guards on
+    // `battleOver` - otherwise a still-visible-but-inert button could
+    // re-run a real attack and call endBattle() a second time.
+    const { root, battleEnds } = await mountBattle(['boar'], { monsterOverrides: [{ hp: 1 }] });
+    const attackBtn = root.querySelector('#btn-attack');
+    click(attackBtn); // the killing blow - triggers endBattle('won')
+    assert.ok(root.querySelector('#btn-attack'), 'Attack should still be in the DOM right after battle ends, not cleared');
+    const logAfterKill = root.querySelector('#battle-log').textContent;
+    click(attackBtn); // should be a no-op now, not a second attack
+    assert.equal(root.querySelector('#battle-log').textContent, logAfterKill, 'clicking Attack again after the battle ended should not log another hit');
+    // Battle-ending pause now waits out DAMAGE_NUMBER_DURATION_MS (1400ms)
+    // before the exit animation, plus EXIT_ANIM_MS (400ms) - see endBattle().
+    await new Promise((resolve) => setTimeout(resolve, 1900));
+    assert.equal(battleEnds.length, 1, 'onBattleEnd should fire exactly once, not twice from the extra click');
   });
 
   await t.test('unmount removes the keydown listener - a keypress after unmount is inert', async () => {

@@ -63,6 +63,11 @@ let comboState = {};
 let abilityActionInFlight = false;
 let attackStreak = 0;
 let attackCooldownMs = 0;
+// Denominator for Attack's cooldown-wipe button overlay - captured at the
+// moment the cooldown is set since attackCooldownMsForStreak's result (the
+// numerator's own max) varies with the current streak, unlike ability
+// cooldowns which have one fixed cooldownMs per ability.
+let attackCooldownTotalMs = 0;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
@@ -191,41 +196,54 @@ function monsterSlotHtml(mc, index) {
 
 function buildDom() {
   const envClass = isCaveBattle() ? 'battle-screen-cave' : 'battle-screen-forest';
-  // A dedicated class rather than baking the animation into the base
-  // .overlay-panel.battle-screen rule, so this `animation` shorthand can't
-  // collide with any other single-class rule on the same element. Fresh
-  // element every mount() (see buildDom's own rootEl.innerHTML= above this
-  // function's start), so this just plays once on creation - no JS
-  // toggling needed.
+  // The dialog and the action bar are two 100%-width panels stacked inside
+  // one outer .battle-screen-stack (raised 2026-08-31, redesigned same
+  // day: "one container around them all and both inner containers at 100%
+  // inside there and then animation ... can apply to all of it at once").
+  // battle-screen-swirl-in/out (a dedicated class, not baked into
+  // .overlay-panel.battle-screen, so this `animation` shorthand can't
+  // collide with any other single-class rule) lives on the STACK, not the
+  // dialog - so mount/unmount animates the dialog and the action bar
+  // together as one rigid unit, instead of the dialog swirling away while
+  // the action bar's own box sat there unanimated (the "small rectangle...
+  // a bit longer than the whole fight dialog" bug). Fresh element every
+  // mount() (see this function's own rootEl.innerHTML= just below), so
+  // this just plays once on creation - no JS toggling needed. Per-monster/
+  // hero hit-shake and lunge effects stay scoped to their own zone
+  // elements inside the dialog, same as before - only the *whole-panel*
+  // entrance/exit animation moved.
   rootEl.innerHTML = `
-    <div class="overlay-panel battle-screen ${envClass} battle-screen-swirl-in">
-      <div class="battle-main">
-        <div class="battle-combatants-row">
-          <div class="battle-decoration">${battleDecorationHtml()}</div>
-          <div class="battle-monster-row" id="battle-monster-row">
-            ${monsterCombatants.map((mc, i) => monsterSlotHtml(mc, i)).join('')}
+    <div class="battle-screen-stack battle-screen-swirl-in">
+      <div class="overlay-panel battle-screen ${envClass}">
+        <div class="battle-main">
+          <div class="battle-combatants-row">
+            <div class="battle-decoration">${battleDecorationHtml()}</div>
+            <div class="battle-monster-row" id="battle-monster-row">
+              ${monsterCombatants.map((mc, i) => monsterSlotHtml(mc, i)).join('')}
+            </div>
+            <div class="battle-divider">⚔️</div>
+            <div class="battle-combatant" id="battle-hero-zone">
+              <div class="battle-emoji" id="battle-hero-emoji">${playerCombatant.emoji}</div>
+              <div class="battle-name">You</div>
+              <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
+              <div class="battle-hp-text" id="battle-hero-hp-text"></div>
+              <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
+              <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
+            </div>
           </div>
-          <div class="battle-divider">⚔️</div>
-          <div class="battle-combatant" id="battle-hero-zone">
-            <div class="battle-emoji" id="battle-hero-emoji">${playerCombatant.emoji}</div>
-            <div class="battle-name">You</div>
-            <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
-            <div class="battle-hp-text" id="battle-hero-hp-text"></div>
-            <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
-            <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
-          </div>
+          ${timingMeterHtml()}
         </div>
-        ${timingMeterHtml()}
-        <div class="battle-menu" id="battle-menu"></div>
+        <div class="battle-sidebar">
+          <div class="battle-log-label">Battle Log</div>
+          <div class="battle-log" id="battle-log"></div>
+        </div>
       </div>
-      <div class="battle-sidebar">
-        <div class="battle-log-label">Battle Log</div>
-        <div class="battle-log" id="battle-log"></div>
-      </div>
+      <div class="battle-action-bar" id="battle-menu"></div>
     </div>
   `;
 
   elements = {
+    stack: rootEl.querySelector('.battle-screen-stack'),
     dialog: rootEl.querySelector('.overlay-panel.battle-screen'),
     decoration: rootEl.querySelector('.battle-decoration'),
     monsterRow: document.getElementById('battle-monster-row'),
@@ -342,11 +360,25 @@ function updateHpBars() {
         // the glyph back via attr(data-glyph) (see .battle-death-split in
         // css/styles.css), so it has to be stamped on before the class is
         // added.
+        const emojiEl = elements.monsterEmojis[i];
+        // --battle-death-anim-ms drives both .battle-death-spin's own
+        // animation-duration and .battle-death-split's ::before/::after
+        // pseudo-elements' (a real element's inline style can't reach a
+        // pseudo-element directly, a custom property can) - set from
+        // DEATH_HIDE_DELAY_MS itself rather than a second, separately-
+        // hardcoded CSS duration, so the two can't quietly drift apart if
+        // this gets retuned later (raised 2026-08-31, after the
+        // visibility:hidden fix above: "do we need a timeout aligned with
+        // animation length and a robust setup so they share the same
+        // variables ... so we don't make a new bug by accident"). This
+        // constant is the single source of truth for both how long the kill
+        // visibly animates AND how long the hide below waits for it.
+        emojiEl.style.setProperty('--battle-death-anim-ms', `${DEATH_HIDE_DELAY_MS}ms`);
         if (mc.deathStyle === 'split') {
-          elements.monsterEmojis[i].dataset.glyph = elements.monsterEmojis[i].textContent;
-          elements.monsterEmojis[i].classList.add('battle-death-split');
+          emojiEl.dataset.glyph = emojiEl.textContent;
+          emojiEl.classList.add('battle-death-split');
         } else {
-          elements.monsterEmojis[i].classList.add('battle-death-spin');
+          emojiEl.classList.add('battle-death-spin');
         }
         setTimeout(() => {
           delete zone.dataset.deathHidePending;
@@ -404,7 +436,27 @@ function updateBuffIndicator() {
     : '';
 }
 
-function abilityButtonsHtml() {
+// Icon-only battle action button: icon + a small keybind chip in the
+// corner, everything else (full name, cooldown seconds, combo status,
+// damage estimate) goes in the `title` tooltip instead - see the CSS
+// comment above .battle-action-bar in css/styles.css for why. `cooldownPct`
+// (0-100, remaining/total) drives the red conic-gradient "clock wipe"
+// overlay; omit/0 for buttons with no cooldown to show.
+function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', cooldownPct = 0 }) {
+  const wipe = cooldownPct > 0 ? `<div class="battle-ability-cooldown-wipe" style="--pct:${cooldownPct}"></div>` : '';
+  const safeTitle = title.replace(/"/g, '&quot;');
+  return `<button id="${id}" class="battle-ability-button${extraClass}" ${disabled ? 'disabled' : ''} title="${safeTitle}">${wipe}<span class="battle-ability-icon">${icon}</span><span class="battle-ability-key">${key}</span></button>`;
+}
+
+// One entry per unlocked ability: its rendered button HTML, plus whether
+// it belongs in the numbered row (raised 2026-08-31: "I'm used to having
+// my fingers on 1,2,3,4... and when I see that first row of buttons start
+// with letters it feels off" - keys the player actually counts up through
+// belong in their own row, separate from the lettered/Space actions
+// they're used to reaching for after). A buff ability (Super Scream today)
+// always keys to Space, never a number, so it sorts into the non-numbered
+// group same as Parry/Attack/Item/Flee.
+function abilityButtonEntries() {
   const ready = isReady(playerCombatant.atb);
   const target = monsterCombatants[selectedMonsterIndex];
   return getUnlockedAbilities(state.player.level).map((ability, index) => {
@@ -418,39 +470,97 @@ function abilityButtonsHtml() {
     const alwaysReady = ability.type === 'buff';
     const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole, alwaysReady });
     // A primed payoff bypasses its own cooldown (see canUseAbility) - don't
-    // show a stale countdown on a button that's actually already pressable.
+    // show a stale countdown/wipe on a button that's actually already
+    // pressable.
     const comboSkipsCooldown = comboPrimed && ability.comboRole === 'payoff';
-    const cooldownSuffix = cooldownRemaining > 0 && !comboSkipsCooldown ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
+    const cooldownActive = cooldownRemaining > 0 && !comboSkipsCooldown;
+    const cooldownPct = cooldownActive ? (cooldownRemaining / ability.cooldownMs) * 100 : 0;
+    const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
     const comboSuffix = comboPrimed
       ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
       : '';
-    const keyLabel = alwaysReady ? 'Space' : slot;
+    const keyLabel = alwaysReady ? 'Space' : String(slot);
+    const keyDisplay = alwaysReady ? 'Spc' : String(slot);
     // Excludes crit/timing luck (unknowable before pressing) - see estimateAbilityDamage.
     const damageSuffix = ability.type === 'damage' && target
-      ? ` ~${estimateAbilityDamage(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), ability, buffState.active, comboPrimed)}`
+      ? ` ~${estimateAbilityDamage(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), ability, buffState.active, comboPrimed)} dmg`
       : '';
-    const label = `${ability.icon} ${ability.name} (${keyLabel})${cooldownSuffix}${comboSuffix}${damageSuffix}`;
+    const title = `${ability.name} (${keyLabel})${cooldownSuffix}${comboSuffix}${damageSuffix}`;
     const comboClass = comboPrimed ? ' battle-ability-button-combo' : '';
-    return `<button id="btn-ability-${ability.id}" class="battle-ability-button${comboClass}" ${disabled ? 'disabled' : ''}>${label}</button>`;
-  }).join('');
+    const html = actionButtonHtml({
+      id: `btn-ability-${ability.id}`,
+      icon: ability.icon,
+      key: keyDisplay,
+      title,
+      disabled,
+      extraClass: comboClass,
+      cooldownPct,
+    });
+    return { html, numbered: !alwaysReady };
+  });
 }
 
 function updateMenu() {
-  if (battleOver) {
-    elements.menu.innerHTML = '';
-    return;
-  }
+  // Leave the buttons exactly as last rendered rather than clearing them -
+  // raised 2026-08-31: "have buttons stay there and just animate away
+  // after battle along with everything else just to keep it consistent
+  // and not so much stuff going away at once." They're inert regardless
+  // (every action function below guards on `battleOver`), and they fade
+  // away with the dialog when battle-screen-swirl-out plays on the shared
+  // .battle-screen-stack (see endBattle()).
+  if (battleOver) return;
   const ready = isReady(playerCombatant.atb);
   const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
   const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak, getUnlockedAbilities(state.player.level).length)) * 100);
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
+  const attackCooldownPct = attackCooldownMs > 0 && attackCooldownTotalMs > 0 ? (attackCooldownMs / attackCooldownTotalMs) * 100 : 0;
+  const abilityEntries = abilityButtonEntries();
+  const numberedAbilitiesHtml = abilityEntries.filter((entry) => entry.numbered).map((entry) => entry.html).join('');
+  const otherAbilitiesHtml = abilityEntries.filter((entry) => !entry.numbered).map((entry) => entry.html).join('');
+  // Omitted entirely (not just left empty) below level 2 - an empty row
+  // would still claim its share of the bar's row `gap`, showing as a thin
+  // dead strip above Parry/Attack until the first ability unlocks.
+  const numberedRowHtml = numberedAbilitiesHtml
+    ? `<div class="battle-action-row battle-action-row-numbered">${numberedAbilitiesHtml}</div>`
+    : '';
 
   elements.menu.innerHTML = `
-    <button id="btn-attack" ${attackCooldownMs > 0 ? 'disabled' : ''}>Attack (a)${attackDecaySuffix}</button>
-    ${abilityButtonsHtml()}
-    <button id="btn-item" ${hasPotion ? '' : 'disabled'}>Item (i)</button>
-    <button id="btn-flee" ${ready ? '' : 'disabled'}>Flee (f)</button>
+    ${numberedRowHtml}
+    <div class="battle-action-row battle-action-row-other">
+    ${actionButtonHtml({
+      id: 'btn-parry',
+      icon: '🛡️',
+      key: 'S',
+      title: "Parry (S) — time it while a monster's wind-up bar is in the red zone to reflect its attack",
+      disabled: false,
+      extraClass: ' battle-parry-button',
+    })}
+    ${actionButtonHtml({
+      id: 'btn-attack',
+      icon: '👊',
+      key: 'a',
+      title: `Attack (a)${attackDecaySuffix}`,
+      disabled: attackCooldownMs > 0,
+      cooldownPct: attackCooldownPct,
+    })}
+    ${otherAbilitiesHtml}
+    ${actionButtonHtml({
+      id: 'btn-item',
+      icon: '🧪',
+      key: 'i',
+      title: hasPotion ? 'Item (i)' : 'Item (i) — no potions',
+      disabled: !hasPotion,
+    })}
+    ${actionButtonHtml({
+      id: 'btn-flee',
+      icon: '🏃',
+      key: 'f',
+      title: 'Flee (f)',
+      disabled: !ready,
+    })}
+    </div>
   `;
+  document.getElementById('btn-parry').onclick = attemptParry;
   document.getElementById('btn-attack').onclick = playerAttack;
   document.getElementById('btn-flee').onclick = playerFlee;
   document.getElementById('btn-item').onclick = playerUseItem;
@@ -854,6 +964,24 @@ function playReviveEffect(emojiEl) {
   emojiEl.classList.add('battle-revive-glow');
 }
 
+// Global sweep, not a targeted parry: every monster currently sitting in
+// its own parry zone at this exact instant gets parried in one call,
+// regardless of which monster is selected. This is a deliberate design
+// choice (see docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md) -
+// clicking a specific monster's own ATB bar/hint stays scoped to just that
+// monster (see mount()'s per-monster onclick wiring). Shared by the 's'
+// keyboard shortcut and the action row's Parry button (added 2026-08-31)
+// so both trigger identical behavior rather than two slightly-different
+// parry paths.
+function attemptParry() {
+  if (battleOver) return;
+  for (const mc of monsterCombatants) {
+    if (mc.hp > 0 && mc.windup.active && resolveParryAttempt(windupElapsedPercent(mc.windup))) {
+      resolveMonsterWindup(mc, true);
+    }
+  }
+}
+
 function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
@@ -863,18 +991,7 @@ function handleKeydown(event) {
     // underlying screen, detaching its keydown listener while this overlay
     // is mounted. If a battle is ever shown without that pause, this would
     // also move the hero on the map underneath.
-    //
-    // Global sweep, not a targeted parry: every monster currently sitting in
-    // its own parry zone at this exact instant gets parried in one press,
-    // regardless of which monster is selected. This is a deliberate design
-    // choice (see docs/superpowers/specs/2026-08-21-multi-mob-encounters-design.md) -
-    // clicking a specific monster's own ATB bar/hint stays scoped to just
-    // that monster (see mount()'s per-monster onclick wiring).
-    for (const mc of monsterCombatants) {
-      if (mc.hp > 0 && mc.windup.active && resolveParryAttempt(windupElapsedPercent(mc.windup))) {
-        resolveMonsterWindup(mc, true);
-      }
-    }
+    attemptParry();
     return;
   }
   if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Tab') {
@@ -939,6 +1056,7 @@ function resolveOneAttack(countsTowardStreak) {
     attackStreak += 1;
     attackStreakIdleMs = 0;
     attackCooldownMs = attackCooldownMsForStreak(attackStreak);
+    attackCooldownTotalMs = attackCooldownMs;
   }
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
@@ -971,7 +1089,13 @@ function playerAttack() {
   // resolvePlayerAttack() here could end the battle (checkOutcome -> endBattle)
   // while the pending ability's await is still outstanding - see the
   // `if (battleOver) return;` added after that await below for the other half
-  // of this fix.
+  // of this fix. The plain `battleOver` check right here is a second,
+  // simpler hazard (added 2026-08-31, once battle-ending buttons stopped
+  // being cleared/torn down the instant the battle ends - see updateMenu()):
+  // without it, clicking a still-visible-but-inert button during the
+  // post-battle pause would re-run a real attack against an already-over
+  // battle and call checkOutcome() -> endBattle() a second time.
+  if (battleOver) return;
   if (abilityActionInFlight || attackCooldownMs > 0) return;
   resolveOneAttack(true);
   updateHpBars();
@@ -1001,6 +1125,8 @@ function playerAttack() {
 }
 
 async function playerUseAbility(abilityId) {
+  // See playerAttack's own comment on this same guard.
+  if (battleOver) return;
   // Guard against re-entrant activation: while a damage ability's timing meter is
   // awaited below, the player's ATB isn't reset yet (that only happens once the
   // await resolves), so a second click/keypress during that ~1s window would
@@ -1171,6 +1297,10 @@ async function playerUseAbility(abilityId) {
 }
 
 function playerUseItem() {
+  // See playerAttack's own comment on this same guard - Item stays
+  // rendered (but inert) through the post-battle pause now, so clicking it
+  // needs to be a real no-op, not just a currently-hidden button.
+  if (battleOver) return;
   const potionEntry = state.inventory.find((entry) => entry.itemId === 'potion' && entry.quantity > 0);
   if (!potionEntry) {
     log.push('No potions left.');
@@ -1189,6 +1319,8 @@ function playerUseItem() {
 }
 
 function playerFlee() {
+  // See playerAttack's own comment on this same guard.
+  if (battleOver) return;
   // Same re-entrancy hazard as playerAttack's guard above: block Flee (button
   // or Escape) while an ability's timing meter is still pending.
   if (abilityActionInFlight) return;
@@ -1363,12 +1495,24 @@ function endBattle(outcome) {
   }
   const killedMonsterIds = monsterCombatants.filter((mc) => mc.hp <= 0).map((mc) => mc.monsterId);
   updateMenu();
+  // The hit that just ended the battle (the killing blow, or the monster
+  // attack that downed the player) plays its own effects independently of
+  // this pause - a floating damage number (DAMAGE_NUMBER_DURATION_MS, the
+  // longest of these), a death-spin/split or the hero's revive-glow, and
+  // possibly a perfect-timing/parry badge. Don't start the whole dialog
+  // shrinking/rotating away until those have had time to finish, or the
+  // two visibly compete - raised 2026-08-31: "make sure any battle related
+  // animations finish before running the whole dialog close animation so
+  // we don't have too much going on at once." A flee has no such hit to
+  // wait for, so it keeps the original, faster pacing.
+  const battleEndHitAnimationMs = outcome === 'fled' ? 0 : DAMAGE_NUMBER_DURATION_MS;
+  const exitAnimDelayMs = Math.max(battleEndHitAnimationMs, VICTORY_PAUSE_MS - EXIT_ANIM_MS);
   exitAnimTimeoutId = setTimeout(() => {
-    elements.dialog?.classList.add('battle-screen-swirl-out');
-  }, Math.max(0, VICTORY_PAUSE_MS - EXIT_ANIM_MS));
+    elements.stack?.classList.add('battle-screen-swirl-out');
+  }, exitAnimDelayMs);
   endBattleTimeoutId = setTimeout(() => {
     callbacks.onBattleEnd(outcome, killedMonsterIds);
-  }, VICTORY_PAUSE_MS);
+  }, exitAnimDelayMs + EXIT_ANIM_MS);
 }
 
 export function mount(root, props) {
@@ -1397,6 +1541,7 @@ export function mount(root, props) {
   // 0 - self-healing within a second or two, so easy to miss live, but a
   // real bug.
   attackCooldownMs = 0;
+  attackCooldownTotalMs = 0;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
   // The elite gets an adaptive appear line based on estimated win chance
   // instead of a random pick from a fixed pool - needs the built combatant
