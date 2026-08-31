@@ -748,6 +748,26 @@ tiered-gear sell path shipped 2026-08-29, see BACKLOG_SHIPPED.md, already
 feeds some gold back out), or reduce gold income at higher levels. Not
 investigated yet.
 
+## Ability buttons: icon-only redesign, raised 2026-08-30
+
+Timothy's own words: "I want our abilities to just be icons and not all
+the text on them and on one line. the button should have a picture and
+the key on it. so let's spin up a few design options using mocks."
+
+Today's ability buttons (`js/screens/battleScreen.js`, `#btn-ability-*`)
+show the ability's icon/emoji plus its full name and other text, laid
+out however many fit rather than deliberately one row — Timothy wants a
+tighter, icon-first redesign: each button shows just the ability's
+picture and its keyboard shortcut, with the row of buttons kept to one
+line. **He explicitly asked for a few visual design options as mockups**
+before picking one — this wasn't just a raw idea to log, it was a
+request to actually produce comparison mockups (most naturally via the
+`design` skill's canvas, or an HTML/CSS mock in an Artifact) next
+session. Not started — got queued behind the NG+ gear progression work
+this same session and never picked back up. First step next time: build
+2-3 icon-only button layout options side by side for Timothy to compare,
+not a single guessed design.
+
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
 through in a dedicated future combat pass rather than one-off adds.
