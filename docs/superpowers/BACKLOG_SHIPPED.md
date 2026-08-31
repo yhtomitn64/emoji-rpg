@@ -1028,6 +1028,55 @@ running before the overlay ever mounts. A new `mapScreen.
 playMonsterFleeEffect(emoji)` shows the monster flying off the
 player's tile in a random direction. See CHANGELOG.
 
+### ~~Floating damage number and PERFECT!/PARRY! badge duration were a second hardcoded value that only happened to match their JS cleanup timeout~~ Shipped 2026-08-31 (0.12.1)
+Same "two numbers that only happen to agree" hazard the death animation's
+`--battle-death-anim-ms` fix (0.12.0) closed, applied to the other two
+spots in `battleScreen.js` with the identical shape - flagged as a
+follow-up in the ability-buttons icon-only redesign entry (see BACKLOG.md)
+rather than something Timothy asked for directly. Both now read their CSS
+animation duration straight from `DAMAGE_NUMBER_DURATION_MS`/
+`PERFECT_TIMING_BADGE_MS`, set inline instead of duplicated in
+`css/styles.css`. See CHANGELOG.
+
+### ~~Mythic gear tier's headroom is real but not enough at NG+2 hard-tier monsters~~ Resolved 2026-08-31 (0.12.2)
+Measured 2026-08-30 (see the `docs/superpowers/specs/2026-08-30-ng-plus-
+gear-progression-design.md` final task): a maxed-Mythic NG+2 build lost
+outright to 2 of 3 hard-tier NG+2 monsters and barely scraped a win against
+the third, with a known confound - the test build was missing both ring
+slots (Ember Ring, Windfury Ring), and `scripts/simulate-balance.js` never
+modeled any Rung-3 on-hit effect (crit%, extra-swing, lifesteal, elemental
+proc, thorns) at all, only flat stats. Two real fixes landed together:
+
+1. **Simulator now models the effects.** `makeBuild()` carries the effect
+   stats through from `getEquipmentBonuses` (previously discarded), and
+   `simulateBattle()` applies them the same way `battleScreen.js`'s
+   `playerEffectBonuses`/`applyOnHitEffects` does - crit% bonus threaded
+   into every `resolvePlayerAttack`/`resolveAbilityUse`/`resolvePotionUse`
+   call, one bonus extra-swing per real Attack, lifesteal/elemental proc
+   after every landed hit, thorns reflect on `resolveMonsterAttack` (which
+   also turned up a second real gap: the sim never applied
+   `resolveMonsterAttack`'s returned `monsterHp` at all, so thorns damage
+   was computed and silently discarded even before this fix). A second
+   "maxed Mythic L12 (NG+2, +rings)" build sits alongside the original
+   ringless one for direct comparison. Re-measuring with rings actually
+   equipped closed the reported shortfall entirely at the original 1.35
+   multiplier - the ringless build's 0-9% win rate against the three hard
+   monsters became 100% at ~50-53% HP left with both rings in.
+2. **`QUALITY_TIER_MULTIPLIERS.mythic` raised 1.35 → 1.5 anyway**, not to
+   close the measured gap (already closed) but toward Timothy's actual
+   stated goal for NG+2 - feeling genuinely strong, not just technically
+   winning. At 1.5, even the no-rings floor build goes from losing to a
+   real, winnable, potion-burning fight against every hard-tier NG+2
+   monster (96-100% win, 24-49% HP left), while the ringed ceiling clears
+   the same content with real margin and zero potions used. Does not
+   reach Timothy's literal "2-3 hits, sometimes a 1-shot" bar - a
+   throwaway hits-to-kill probe found even a 3.0x multiplier only gets
+   there to ~9-11 hits, so that's carried forward as its own, bigger open
+   item in BACKLOG.md rather than chased further with this same lever.
+
+All 660 tests pass (`tests/itemQuality.test.js`'s exact-value assertion
+updated to 1.5). See CHANGELOG 0.12.2.
+
 ## Balance / design gaps
 
 ### ~~Abilities have made the game too easy overall, raised 2026-08-22~~ Balance pass shipped 2026-08-22

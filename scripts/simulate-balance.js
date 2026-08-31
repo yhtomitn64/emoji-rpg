@@ -97,6 +97,17 @@ function makeBuild({ name, level, equipment, equipmentTiers = {}, upgrades = {},
     attack: player.attack + bonuses.attack,
     defense: player.defense + bonuses.defense,
     speed: player.speed + bonuses.speed,
+    // On-hit/proc effect stats (Rung-3 gear: lifesteal, extra-swing,
+    // elemental proc, crit%, thorns) - carried straight through from
+    // getEquipmentBonuses so simulateBattle() can model them the same way
+    // battleScreen.js's playerEffectBonuses does. 0 for any build that
+    // doesn't equip one of these, so every existing matchup is unaffected.
+    critChancePercent: bonuses.critChancePercent,
+    extraSwingChance: bonuses.extraSwingChance,
+    elementalProcChance: bonuses.elementalProcChance,
+    elementalProcDamage: bonuses.elementalProcDamage,
+    lifestealPercent: bonuses.lifestealPercent,
+    thornsPercent: bonuses.thornsPercent,
   };
 }
 
@@ -216,7 +227,31 @@ const BUILDS = [
     const equipment = { weapon: 'ironSword', head: 'ironHelm', body: 'ironArmor', legs: 'ironGreaves', accessory: 'powerRing' };
     const equipmentTiers = { weapon: 'mythic', head: 'mythic', body: 'mythic', legs: 'mythic', accessory: 'mythic' };
     return makeBuild({
-      name: 'maxed Mythic L12 (NG+2)',
+      name: 'maxed Mythic L12 (NG+2, no rings)',
+      level: 12,
+      equipment,
+      equipmentTiers,
+      upgrades: maxedUpgrades(equipment, equipmentTiers),
+      potions: 6,
+    });
+  })(),
+  // Same gear-ceiling build, but with both ring slots filled (Ember Ring,
+  // Windfury Ring - the two NG+-only unique-effect drops the original
+  // maxed-Mythic build above left empty). Added 2026-08-31 alongside the
+  // simulator's new on-hit-effect modeling specifically to answer whether
+  // "2 of 7 slots missing" was hiding real headroom, or whether the
+  // measured NG+2 shortfall holds up even once every slot is filled.
+  (() => {
+    const equipment = {
+      weapon: 'ironSword', head: 'ironHelm', body: 'ironArmor', legs: 'ironGreaves',
+      accessory: 'powerRing', ring1: 'emberRing', ring2: 'windfuryRing',
+    };
+    const equipmentTiers = {
+      weapon: 'mythic', head: 'mythic', body: 'mythic', legs: 'mythic',
+      accessory: 'mythic', ring1: 'mythic', ring2: 'mythic',
+    };
+    return makeBuild({
+      name: 'maxed Mythic L12 (NG+2, +rings)',
       level: 12,
       equipment,
       equipmentTiers,
@@ -261,6 +296,13 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
  *   - Defense debuff application and ticking (Sweep's shred effect)
  *   - Attack streak multiplier/knockback scaling
  *   - All potion and ability cooldown management
+ *   - Rung-3 gear on-hit effects (crit% bonus, extra-swing chance, lifesteal,
+ *     elemental proc, thorns reflect) - added 2026-08-31 so a build with
+ *     Vampiric Fang/Swift Strike Charm/Ember Ring/Keen Eye/Retribution
+ *     Charm/Windfury Ring can actually be measured instead of only its flat
+ *     stats. Mirrors battleScreen.js's playerEffectBonuses/
+ *     applyOnHitEffects exactly - see makeBuild() and applyOnHitEffects()
+ *     below.
  *
  * What's still hand-rolled here (AI policy layer, not combat math): the
  * "drink a potion when below 40% HP" decision and the potion cooldown loop
@@ -272,6 +314,23 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
  *   - The parry wind-up that monsters have before attacking (monsters still
  *     attack the instant their ATB is ready in this simulation)
  */
+// Mirrors battleScreen.js's applyOnHitEffects exactly: lifesteal heals the
+// player as a percent of the hit's real (already-decayed) damage; elemental
+// proc chip-damages the target at a flat amount scaled by the same
+// damageMultiplier the triggering hit used (so a decayed spammed Attack's
+// proc damage decays with it too, matching the 2026-08-29 fix that closed
+// that exact gap in the real game).
+function applyOnHitEffects(build, player, target, damage, damageMultiplier = 1) {
+  if (build.lifestealPercent > 0) {
+    const healAmount = Math.round(damage * build.lifestealPercent / 100);
+    player.hp = Math.min(player.maxHp, player.hp + healAmount);
+  }
+  if (build.elementalProcChance > 0 && Math.random() * 100 < build.elementalProcChance) {
+    const procDamage = Math.round(build.elementalProcDamage * damageMultiplier);
+    target.hp = Math.max(0, target.hp - procDamage);
+  }
+}
+
 function simulateBattle(build, monsterStats) {
   const player = {
     hp: build.maxHp, maxHp: build.maxHp,
@@ -316,15 +375,17 @@ function simulateBattle(build, monsterStats) {
     if (potions > 0 && player.hp < player.maxHp * POTION_THRESHOLD) {
       potions--;
       potionsUsed++;
-      player.hp = resolvePotionUse(player, ITEMS.potion.heal).playerHp;
+      player.hp = resolvePotionUse(player, ITEMS.potion.heal, Math.random, build.critChancePercent / 100).playerHp;
     }
 
     if (isReady(monster.atb)) {
-      const result = resolveMonsterAttack(monster, player);
+      const result = resolveMonsterAttack(monster, player, Math.random, build.thornsPercent);
       player.hp = result.playerHp;
       player.atb = result.playerAtb;
       monster.atb = result.monsterAtb;
+      monster.hp = result.monsterHp;
       if (player.hp <= 0) return { outcome: 'lost', hpLeft: 0, potionsUsed, ticks };
+      if (monster.hp <= 0) return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
     }
 
     const action = chooseAction({
@@ -346,10 +407,11 @@ function simulateBattle(build, monsterStats) {
       } else {
         const timingHit = ability.comboRole === 'setup' ? Math.random() < TIMING_HIT_RATE : false;
         const comboBonusActive = !!comboState[ability.id];
-        const result = resolveAbilityUse(player, applyDefenseDebuff(monster, monster.defenseDebuff), ability, buffState.active, timingHit, comboBonusActive);
+        const result = resolveAbilityUse(player, applyDefenseDebuff(monster, monster.defenseDebuff), ability, buffState.active, timingHit, comboBonusActive, Math.random, build.critChancePercent / 100);
         monster.hp = result.monsterHp;
         monster.atb = result.monsterAtb;
         player.atb = result.playerAtb;
+        applyOnHitEffects(build, player, monster, result.damage);
         abilityCooldowns[ability.id] = ability.cooldownMs;
         attackStreak = 0;
         attackStreakIdleMs = 0;
@@ -365,17 +427,36 @@ function simulateBattle(build, monsterStats) {
         }
       }
     } else if (action.kind === 'attack') {
+      const streakMultiplier = attackStreakMultiplier(attackStreak, unlockedAbilityCount);
       const result = resolvePlayerAttack(
         player, applyDefenseDebuff(monster, monster.defenseDebuff), Math.random,
-        attackStreakMultiplier(attackStreak, unlockedAbilityCount), attackKnockbackMultiplier(attackStreak)
+        streakMultiplier, attackKnockbackMultiplier(attackStreak), build.critChancePercent / 100
       );
       attackStreak += 1;
       attackCooldownMs = ATTACK_COOLDOWN_MS;
       monster.hp = result.monsterHp;
       monster.atb = result.monsterAtb;
       player.atb = result.playerAtb;
+      applyOnHitEffects(build, player, monster, result.damage, streakMultiplier);
       if (monster.hp <= 0) {
         return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
+      }
+      // Extra-swing chance (Swift Strike Charm / Windfury Ring): one bonus
+      // swing per real attack, exempt from the spam-decay streak - mirrors
+      // battleScreen.js's playerAttack() exactly (deliberately not
+      // recursive, so this can never chain into a second bonus swing).
+      if (build.extraSwingChance > 0 && Math.random() * 100 < build.extraSwingChance) {
+        const bonusResult = resolvePlayerAttack(
+          player, applyDefenseDebuff(monster, monster.defenseDebuff), Math.random,
+          1, 1, build.critChancePercent / 100
+        );
+        monster.hp = bonusResult.monsterHp;
+        monster.atb = bonusResult.monsterAtb;
+        player.atb = bonusResult.playerAtb;
+        applyOnHitEffects(build, player, monster, bonusResult.damage, 1);
+        if (monster.hp <= 0) {
+          return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
+        }
       }
     }
   }

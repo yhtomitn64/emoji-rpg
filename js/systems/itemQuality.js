@@ -16,12 +16,26 @@ export function monsterToughness(monster) {
 
 function lerp(min, max, t) { return min + (max - min) * t; }
 
-export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.35 };
+export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.5 };
 
-// Starting hypothesis, not a final balance number - verify with
-// scripts/simulate-balance.js before treating this as correct. A fully
-// maxed Mythic item (1.35 tier x 1.75 upgrade-level-3) tops out at 2.3625x
-// base, vs. Superior's current 2.1x ceiling.
+// Retuned 2026-08-31 from the original 1.35 launch value (see
+// docs/superpowers/BACKLOG.md's Mythic-tier entry for the full story):
+// scripts/simulate-balance.js was extended to actually model the Rung-3
+// on-hit effects (crit%, extra-swing, lifesteal, elemental proc, thorns)
+// that Ember Ring/Windfury Ring/Retribution Charm/etc. grant - the
+// maxed-Mythic-ceiling build was silently missing both ring slots before
+// that fix, understating its own real power. Measuring with rings
+// equipped already closed the previously-reported NG+2 hard-tier
+// shortfall at 1.35 with zero multiplier change. This 1.5 bump goes
+// further, aimed at Timothy's actual stated goal (feel genuinely strong
+// by the end of NG+2, not just barely surviving it): re-run at 1.5, even
+// the no-rings build - the unlucky-drops floor - goes from losing/
+// near-losing to a real, winnable, potion-burning fight against every
+// hard-tier NG+2 monster, while the ringed ceiling build clears the same
+// content with real HP margin and zero potions. A fully maxed Mythic item
+// (1.5 tier x 1.75 upgrade-level-3) now tops out at 2.625x base, vs.
+// Superior's 2.1x ceiling. Still not verified against real playtesting -
+// re-check with the simulator again if this stops feeling right.
 export const MYTHIC_TIER_CHANCE_MIN = 0.005;
 export const MYTHIC_TIER_CHANCE_MAX = 0.02;
 

@@ -24,6 +24,34 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-08-31
+
+### Changed
+- Mythic-tier gear now hits noticeably harder: `QUALITY_TIER_MULTIPLIERS.mythic`
+  raised from 1.35 to 1.5. A fully maxed Mythic item now tops out at 2.625x
+  its base stats (was 2.3625x). Aimed at NG+2 specifically feeling like a
+  real payoff for maxing gear out, not just barely survivable.
+- `scripts/simulate-balance.js` now models the Rung-3 gear on-hit effects
+  (crit% bonus, extra-swing chance, lifesteal, elemental proc, thorns
+  reflect) that only ever lived in `battleScreen.js`'s
+  `playerEffectBonuses`/`applyOnHitEffects` before — the simulator's
+  `makeBuild()` now carries those stats through and `simulateBattle()`
+  applies them the same way the real battle screen does. Added a second
+  "maxed Mythic L12 (NG+2, +rings)" build alongside the existing
+  ringless one so the two ring slots (Ember Ring, Windfury Ring) —
+  previously silently absent from the maxed-Mythic ceiling measurement —
+  are actually represented. This also surfaced and fixed a second,
+  unrelated gap: the simulator never applied `resolveMonsterAttack`'s
+  returned `monsterHp` at all, so a thorns reflect was computed but
+  silently discarded even before this session. No parry modeling added —
+  the simulator still assumes a player who never successfully parries a
+  single hit (a known, pre-existing, documented scope limit), which is a
+  conservative bias on measured player power, not an optimistic one — see
+  `docs/superpowers/BACKLOG.md`'s Multi-zone progression section for the
+  fuller story and what's still open (getting to genuinely one-to-three-
+  hit kills by end of NG+2 needs a different lever than this multiplier,
+  and the parry-rate gap is its own follow-up).
+
 ## [0.12.1] - 2026-08-31
 
 ### Fixed

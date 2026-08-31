@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.12.2',
+    date: '2026-08-31',
+    highlights: [
+      'Mythic-tier gear (New Game+) hits noticeably harder now.',
+    ],
+  },
+  {
     version: '0.12.1',
     date: '2026-08-31',
     highlights: [

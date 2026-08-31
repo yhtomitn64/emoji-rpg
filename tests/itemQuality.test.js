@@ -108,7 +108,7 @@ test('rollQualityTier only ever returns plain, fine, superior, or mythic at any 
 });
 
 test('QUALITY_TIER_MULTIPLIERS.mythic is greater than superior', () => {
-  assert.equal(QUALITY_TIER_MULTIPLIERS.mythic, 1.35);
+  assert.equal(QUALITY_TIER_MULTIPLIERS.mythic, 1.5);
   assert.ok(QUALITY_TIER_MULTIPLIERS.mythic > QUALITY_TIER_MULTIPLIERS.superior);
 });
 

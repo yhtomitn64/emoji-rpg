@@ -6,6 +6,51 @@ Shipped items have moved to
 [BACKLOG_SHIPPED.md](BACKLOG_SHIPPED.md) to keep this list to what's
 actually still open.
 
+## Index — read this section first
+
+One line per open thread, grouped by the section it lives in below. For
+a "what's open / what's next" check, read only this index — it's a small
+fraction of the file's token cost. Only open the linked section when a
+specific item needs its full context (history, code pointers, decisions
+already made). Keep this index in sync whenever an item ships or a new
+one is raised — that's the whole point of it.
+
+- **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
+- **Pacing / progression** — early ramp / dragon-fell-quickly thread: level-12 dragon kill reads as right pacing, but even 3-star dragon was too easy; Timothy's own read is gear, not level, is the driver. Ties to defense-scaling and Mythic-tier items below.
+- **Multi-zone progression** (big, needs its own design pass) — zone 2/3/4 identity, spatial difficulty gradient, healing-enemies zone-2 idea, tool-gated zone unlocks, NG+ state carry-over into zone 2, town south-exit/expand/signage, town NPC hints (needs landmarks first). NG+ tools-reset piece already shipped.
+  - **NG+ loot stale at the gear ceiling** — reiterated repeatedly; needs an item-design pass for NG+-scoped headroom past today's max tier/upgrade.
+  - **Dragon NG+ better drops** — not designed.
+  - **NG+ monsters appearing "out of place"** — raw idea, not designed.
+  - **Boss tier / NG+ cycle ceiling** — confirmed fine as-is for now, revisit later.
+  - ~~Mythic gear tier NG+2 shortfall~~ — **resolved 2026-08-31 (0.12.2)**: simulator now models ring/on-hit effects, `mythic` multiplier moved 1.35→1.5.
+  - **Real goal is "feel powerful by end of NG+2" (2-3 hit kills), still open** — a flat multiplier doesn't get there; needs its own design pass with a different lever.
+  - New: NG+ cycle should raise axe/pick/canoe drop chance from regular mobs (raw idea); possibly ties to roaming enemies gated to NG+2+ (raw idea).
+  - **Parry window/simulator-trust gap, sharpened** — simulator models parry at 0% (never modeled at all), narrow the window + add a parry-rate assumption to the sim. Good next-session candidate.
+  - Terrain painter: zone-switcher (deliberately deferred), dungeon-interior painting (in progress/done, check session history).
+  - Staged/tool-sequence-aware reachability checker — still open, algorithm not designed.
+  - Non-store zone-1 loot (unique finds outside the shop) — open.
+- **Painter tool: paint monster placement** (big idea, not designed) — per-tile/region monster tables as paintable layers.
+- **Roaming visible enemies + dragon difficulty scaling** (big, needs design pass) — visible overworld entities, cross-screen movement, opt-in power-scaling dragon mode (standard dragon fight stays fixed). Possible dependency on a scrolling/camera rendering rewrite (also raised independently for mobile-responsive viewport).
+- **Fog-of-war reveal map** (`m` keypress) — raw idea, not scoped.
+- **New terrain: sand/tarpit/water enemies** — raw idea; needs per-tile-kind monster tables + a move-speed-modifier mechanic, neither exists today.
+- **Tool-pickup celebration animation isn't anchored to the player** — concrete bug, two fix directions identified (anchor to player tile, or center viewport first), plus wants the orbit slowed ~2x. Ready to just fix.
+- **Hand-placed zone-1 loot + shop rebalance** (big, needs design pass) — weaker shop gear, a placement-dropdown system for world loot, possibly tied to hand-placed mini-dungeons.
+- **In-game tutorials / mechanic explainers** — general onboarding idea, sharper combat-specific version (explain abilities/synergies/attack-falloff at unlock, explicit dismiss required). Timothy wants to talk through design when picked up.
+- **Ability buttons: icon-only redesign** — implemented 2026-08-31 (0.12.0/0.12.1) with several live-feedback follow-ups already shipped; only remaining gap is Timothy actually playing a battle with it before this moves to shipped. Spun off: **mid-battle pause** idea, raw, not designed.
+- **Combat pass ideas** — several independent threads, none scheduled:
+  - Slower combat / reconsider the timing-minigame layer entirely — raw, Timothy wants to think it through more.
+  - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
+  - Rung-3 gear effects: parry window trade-offs (undecided direction), plus known un-fixed side effects from the v1 ship (tooltip not tier-aware, AOE lifesteal/proc stacking per target, raw camelCase stat keys in UI, ±1 delta display rounding, redundant `getEquipmentBonuses` calls) — small cleanup items.
+  - Rhythm-style multi-hit parry, hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
+  - Research: alternatives to raw stat-number power creep — rough research question, unblocked but unstarted.
+  - **Defense scaling needs work** (player outpaces near-town content thread) — Timothy flagged it again 2026-08-28, not yet run through the balance simulator.
+- **Mobile/touch combat should be turn-based** — raw idea, explicitly scoped to touch input only.
+- **Open question: faster battle timer against weaker enemies?** — needs a decision (is it a speed problem or a power problem), not just an implementation.
+- **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass).
+- **Discoverability / monetization** — AdSense (blocked on Google review; placement plan already decided); Cloudflare traffic analytics (waiting on a token from Timothy); opt-in gameplay analytics + local play-data export (not designed, tied to the same difficulty-by-tool-gate tuning question).
+- **Input / accessibility** — controller support, raw idea, not investigated.
+- **Quests / economy** — manual sell-materials path (deferred, no real pain yet); **excess-gold sink** — revisit condition already hit (3k+ gold, nothing to spend it on), direction undecided (more sinks vs. reduced income).
+
 ## Story / narrative
 
 ### The game needs an actual story
@@ -274,37 +319,91 @@ one-off task.
     end-state for now - "I think we are good with this ceiling for now" -
     but flagged as something to revisit later (raise either cap further)
     once there's a reason to. Not designed, not scheduled.
-  - **Mythic gear tier's headroom is real but not enough at NG+2 hard-tier
-    monsters — measured, 2026-08-30, needs a retune decision.** Shipped:
-    `docs/superpowers/specs/2026-08-30-ng-plus-gear-progression-design.md`
-    (Mythic tier, smith reforge, ring slots, Retribution
-    Charm/Windfury Ring — see `CHANGELOG.md` 0.11.0). Its own final task
-    added a maxed-Mythic NG+2 baseline to `scripts/simulate-balance.js`
-    (level 12, all 5 pre-existing slots at Mythic tier + max smith
-    upgrade, 6 potions) and ran it: that build **loses outright (0% win)**
-    to 2 of the 3 hard-tier NG+2-scaled monsters (Super Mean Meatloaf,
-    Ghost Apple Supreme) and wins only 9% of the time against the third
-    (Jurassic Jerky) — while the pre-existing best non-Mythic build
-    ('veteran L11 (full iron)') wins the NG+0 equivalents of all three
-    comfortably. `QUALITY_TIER_MULTIPLIERS.mythic = 1.35`
-    (`js/systems/itemQuality.js`) is explicitly documented as a "starting
-    hypothesis, not a final balance number" and was deliberately left
-    untouched per the plan — this is a real, measured shortfall, not a
-    hunch, and the decision to retune it (or not) is Timothy's. Confound
-    the final whole-branch review flagged: the simulated build doesn't
-    model the two new ring slots or either new NG+ unique item (neither
-    Retribution Charm's thorns nor Windfury Ring's extra-swing/crit are in
-    `scripts/simulate-balance.js`'s stat model at all, a pre-existing
-    limitation the file's own docblock already calls out for
-    lifesteal/elemental-proc) — so the shortfall may partly reflect
-    "missing 2 of 7 possible equipment slots from the test build" rather
-    than purely an undertuned multiplier. Options, none chosen yet: raise
-    `QUALITY_TIER_MULTIPLIERS.mythic`; extend the simulator to model ring
-    stats/unique effects so the real headroom (including rings) can be
-    measured before deciding; or leave it and let real NG+2 playtesting
-    settle it, since the feature still leaves every player strictly
-    better off than before it shipped (the gap it's closing already
-    existed).
+  - ~~**Mythic gear tier's headroom is real but not enough at NG+2
+    hard-tier monsters — measured, 2026-08-30, needed a retune
+    decision.**~~ **Resolved 2026-08-31 (0.12.2) — see BACKLOG_SHIPPED.md.**
+    The simulator's missing-2-of-7-slots confound is fixed and
+    `QUALITY_TIER_MULTIPLIERS.mythic` moved 1.35 → 1.5.
+  - **The real goal is "feel powerful by the end of NG+2," and a
+    multiplier alone doesn't get there — raised 2026-08-31, still open.**
+    Timothy, walking through his own playthrough arc: slow start (fine),
+    picked up fast once abilities landed (felt a little too strong), NG+
+    still felt strong, but by the end of NG+2 he "wasn't quite as strong
+    as I wanted and enemies took longer than I wanted" - his actual bar is
+    fights resolving in 2-3 hits, sometimes a one-shot, not a competent
+    win. Explicitly: "we don't need to go wild with tuning right now."
+    Checked against the resolved item just above with a throwaway
+    hits-to-kill probe (not committed - an always-Attack policy, cruder
+    than the real ability-rotation policy `scripts/simulate-balance.js`
+    actually uses): even pushing the mythic multiplier all the way to
+    3.0x (double the shipped 1.5) only brought average hits-to-kill on
+    NG+2 hard-tier monsters down from ~33 to ~9-11, nowhere near 2-3. A
+    flat tier-multiplier is the wrong lever for this specific ask - it
+    moves win-margin/HP-left a lot (which is what closed the item above)
+    but barely dents hit-count, because attack streak decay, ability
+    cooldowns, and monster HP pools all bound how fast a kill can happen
+    regardless of raw attack stat. Getting to "2-3 hits, sometimes a
+    1-shot" by end-of-NG+2 needs its own design pass with a real lever in
+    mind - candidates nobody's picked yet: a late-NG+-cycle player-power
+    multiplier separate from gear tiers, an execute/overkill mechanic
+    past some HP threshold, trimming monster HP scaling at high NG+
+    instead of only ever raising it, or armor-piercing crits. Ties
+    directly into the still-open "research: how do other games avoid pure
+    exponential stat inflation" idea in Combat pass ideas below - same
+    underlying question, now with a concrete target number attached.
+  - **Increase axe/pick/canoe drop chance from regular mobs as the NG+
+    cycle climbs, raised 2026-08-31.** Timothy's own words: "maybe we
+    could extend NG+ and/or starting with NG+ and moving through NG+2, 3
+    and so on there is more and more of a chance of getting the axe,
+    pick, canoe from mobs or somewhere else then the defined locations on
+    the map to spice things up so folks can move through it quicker."
+    Today tools only ever come from their one fixed guardian per
+    playthrough cycle (see the shipped "tool-dungeon guardian drops
+    undermine the 'no chance, find it' design intent" fix in
+    BACKLOG_SHIPPED.md, which deliberately went the other direction -
+    removed stray chance-drops so tools stayed guardian-only). This asks
+    for that to loosen specifically at higher NG+ cycles, once a player
+    has already proven they can do the guardian-hunt the intended way
+    once - a returning-player convenience, not a change to a first
+    playthrough. Raw idea, not designed: what chance curve, whether it's
+    per-monster-kill or a distinct drop table, and how it avoids
+    re-contradicting the guardian-only fix's own stated intent for a
+    fresh NG+0 save.
+  - **Tie roaming enemies to NG+2+ specifically, raised 2026-08-31 in the
+    same note as the item above.** Timothy's own tentative link: "also
+    maybe this ties into making roaming monsters as part of NG+2 and
+    above or something like that." Connects two already-separate open
+    ideas (the big "Roaming visible enemies" section further below, and
+    NG+ cycle-gated content generally) rather than proposing new
+    mechanics of its own - explicitly a "maybe," not a decision. Needs
+    both dependencies (roaming enemies existing at all, and a real
+    zone/cycle-gating shape) before this is more than a raw idea.
+  - **Parry window trade-offs — sharpened 2026-08-31 with a real,
+    demonstrated concern, not just two abstract directions.** Original
+    ask (2026-08-26) floated (a) wider window/less reflected damage vs.
+    (b) narrower window/more reflected damage, undecided. Timothy's new
+    concern is more specific and worth reading as its own thing: "if you
+    do parries correctly you can win almost anything. So I think we
+    should probably shorten the parry window as well as update the
+    simulator to have some sort of math about how often someone might
+    parry. I don't have a ton of faith in our simulator besides like raw
+    numbers perhaps but even then not sure." Confirmed why the simulator
+    can't currently speak to this either way: `scripts/simulate-balance.js`
+    doesn't model parry **at all** - `resolveMonsterAttack` fires the
+    instant a monster's ATB is ready, no parry-interrupt exists in the
+    sim's tick loop (this was already flagged in the file's own docblock
+    as a known scope limit, not new). Every number that file has ever
+    produced already assumes a player who never lands a single parry -
+    a conservative bias on measured player power, not an optimistic one,
+    which is why the mythic-multiplier decision just above shipped
+    anyway rather than waiting on this. Two real, separable pieces of
+    work here: (1) actually narrow the parry window (a balance tweak to
+    `js/systems/parry.js`), and (2) add a "how often does a skilled
+    player actually land a parry" assumption to the simulator's tick
+    loop, the same way `TIMING_HIT_RATE = 0.7` already stands in for
+    ability-timing skill - needed before the simulator's numbers can be
+    trusted for anything parry-adjacent, not just this specific window
+    question. Good candidate for a dedicated future session; not started.
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
@@ -917,15 +1016,13 @@ long the kill visibly animates and when the slot hides after it, so
 retuning it can't silently desync the two again. Covered by a new test
 asserting the property actually gets set to `900ms` on a kill.
 
-**Related, not yet done:** the same "two hardcoded durations that must be
-kept in sync by hand" shape exists for a few other JS-timed CSS
-animations in this file - the floating damage number
-(`DAMAGE_NUMBER_DURATION_MS` / `battle-float-up`/`-crit`) and the
-perfect-timing/parry badge (`PERFECT_TIMING_BADGE_MS` /
-`battle-perfect-timing-pop`) both pair a JS cleanup timeout with a
-separately-hardcoded CSS animation duration, same shape as the death
-animation was. Not touched this session - flagged here in case it's worth
-the same treatment later, not raised by Timothy for these specifically.
+~~**Related:** the same "two hardcoded durations that must be kept in
+sync by hand" shape existed for a few other JS-timed CSS animations in
+this file.~~ **Shipped 2026-08-31 (0.12.1).** The floating damage number
+and the PERFECT!/PARRY! badge now read their CSS animation duration from
+the same `DAMAGE_NUMBER_DURATION_MS`/`PERFECT_TIMING_BADGE_MS` constants
+that drive their removal timeout, same fix shape as the death animation
+got in 0.12.0. See BACKLOG_SHIPPED.md.
 
 **Spun out of this clarification, new idea — a mid-battle pause,
 raised 2026-08-31:** Timothy, while discussing moving damage/combo
