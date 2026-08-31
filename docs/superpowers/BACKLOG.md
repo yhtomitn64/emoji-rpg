@@ -274,6 +274,37 @@ one-off task.
     end-state for now - "I think we are good with this ceiling for now" -
     but flagged as something to revisit later (raise either cap further)
     once there's a reason to. Not designed, not scheduled.
+  - **Mythic gear tier's headroom is real but not enough at NG+2 hard-tier
+    monsters — measured, 2026-08-30, needs a retune decision.** Shipped:
+    `docs/superpowers/specs/2026-08-30-ng-plus-gear-progression-design.md`
+    (Mythic tier, smith reforge, ring slots, Retribution
+    Charm/Windfury Ring — see `CHANGELOG.md` 0.11.0). Its own final task
+    added a maxed-Mythic NG+2 baseline to `scripts/simulate-balance.js`
+    (level 12, all 5 pre-existing slots at Mythic tier + max smith
+    upgrade, 6 potions) and ran it: that build **loses outright (0% win)**
+    to 2 of the 3 hard-tier NG+2-scaled monsters (Super Mean Meatloaf,
+    Ghost Apple Supreme) and wins only 9% of the time against the third
+    (Jurassic Jerky) — while the pre-existing best non-Mythic build
+    ('veteran L11 (full iron)') wins the NG+0 equivalents of all three
+    comfortably. `QUALITY_TIER_MULTIPLIERS.mythic = 1.35`
+    (`js/systems/itemQuality.js`) is explicitly documented as a "starting
+    hypothesis, not a final balance number" and was deliberately left
+    untouched per the plan — this is a real, measured shortfall, not a
+    hunch, and the decision to retune it (or not) is Timothy's. Confound
+    the final whole-branch review flagged: the simulated build doesn't
+    model the two new ring slots or either new NG+ unique item (neither
+    Retribution Charm's thorns nor Windfury Ring's extra-swing/crit are in
+    `scripts/simulate-balance.js`'s stat model at all, a pre-existing
+    limitation the file's own docblock already calls out for
+    lifesteal/elemental-proc) — so the shortfall may partly reflect
+    "missing 2 of 7 possible equipment slots from the test build" rather
+    than purely an undertuned multiplier. Options, none chosen yet: raise
+    `QUALITY_TIER_MULTIPLIERS.mythic`; extend the simulator to model ring
+    stats/unique effects so the real headroom (including rings) can be
+    measured before deciding; or leave it and let real NG+2 playtesting
+    settle it, since the feature still leaves every player strictly
+    better off than before it shipped (the gap it's closing already
+    existed).
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
