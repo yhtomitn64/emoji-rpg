@@ -62,13 +62,19 @@ test('windupElapsedPercent clamps at 100', () => {
 });
 
 test('a press between 300ms ticks reads the true in-between percentage, not the last tick value', () => {
-  // The bug this fixed: the old tick-accumulator only ever produced
-  // 0/30/60/90/100%, so a press at the real 85% mark (inside the parry
-  // zone) would have read the stale 60% tick value and failed. With real
-  // elapsed time, a press at any wall-clock moment reads its true percent.
+  // The bug this fixed: the old tick-accumulator only advanced in 300ms
+  // steps (whatever phase those ticks happened to fall at relative to this
+  // windup's own start - battleScreen.js's tick loop isn't re-synced per
+  // windup), so a press at a real in-between moment could still read a
+  // stale, not-yet-advanced value instead of its true percent. This asserts
+  // windupElapsedPercent always returns the real continuous value (95 here,
+  // not rounded to any tick step) and that it correctly resolves as a landed
+  // parry under the current zone (PARRY_ZONE_START_PERCENT below) - not tied
+  // to reproducing one specific stale-tick number, since the zone's own
+  // width/position has changed since this test was written and may again.
   const state = startWindup(0);
-  assert.equal(windupElapsedPercent(state, 850), 85);
-  assert.equal(resolveParryAttempt(windupElapsedPercent(state, 850)), true);
+  assert.equal(windupElapsedPercent(state, 950), 95);
+  assert.equal(resolveParryAttempt(windupElapsedPercent(state, 950)), true);
 });
 
 test('resolveParryAttempt is true at the zone start boundary', () => {
@@ -80,7 +86,7 @@ test('resolveParryAttempt is true at the zone end boundary', () => {
 });
 
 test('resolveParryAttempt is true inside the zone', () => {
-  assert.equal(resolveParryAttempt(90), true);
+  assert.equal(resolveParryAttempt(95), true);
 });
 
 test('resolveParryAttempt is false just below the zone', () => {

@@ -11,8 +11,10 @@ import { calculateDamage, rollCrit, applyCritMultiplier } from './combat.js';
 // a correctly-timed parry. Found from Timothy's 2026-08-25 report ("enemies
 // are still hitting me when I parry") plus his own follow-up question about
 // whether the bar's graphic was lying - it was, just not in its own
-// position (the static 80-100% zone markup is correct); the moving fill's
-// displayed position could outrun the value being checked against it.
+// position (the static zone markup - `.battle-parry-zone` in css/
+// styles.css, kept in sync by hand with PARRY_ZONE_START/END_PERCENT below
+// - was correct); the moving fill's displayed position could outrun the
+// value being checked against it.
 // Recomputing elapsed time from the clock at the exact moment of the
 // keypress/click (rather than trusting the last poll) closes that gap:
 // whatever the player is looking at when they press is what gets checked.
@@ -20,7 +22,25 @@ import { calculateDamage, rollCrit, applyCritMultiplier } from './combat.js';
 // when nothing was pressed, but that's just a poll now, not the source of
 // truth. See docs/superpowers/specs/2026-08-18-parry-mechanic-design.md.
 export const PARRY_WINDUP_DURATION_MS = 1000;
-export const PARRY_ZONE_START_PERCENT = 80;
+// Narrowed from 80 (a 200ms window) 2026-09-01, per Timothy's own concern
+// ("if you do parries correctly you can win almost anything"). 200ms was the
+// same size as the ability-timing meter's sweet spot
+// (TIMING_SWEET_SPOT_START in battleScreen.js), which assumes a 70% landing
+// rate for a reasonably-attentive player (TIMING_HIT_RATE in
+// scripts/simulate-balance.js) - but parry's payoff (full damage negation +
+// 50% reflected damage + resetting the monster's attack timer entirely) is
+// far more valuable per landing than the timing meter's +30% damage bonus,
+// so an equal window size let a good parrier win fights that should stay
+// hard. Confirmed with the balance simulator's new --parry-rate flag: at a
+// 0.7 landing rate (this window's old size), several dragon-tier and NG+2
+// matchups that are unwinnable at 0 parries flip to 84-100% win rate. Halved
+// to 100ms so landing one reliably takes real skill rather than a generous
+// anticipation window - see the "Parry window trade-offs" backlog entry in
+// docs/superpowers/BACKLOG.md for the full history. This is a feel-tuning
+// call the simulator can't fully validate on its own (it has no reaction-
+// timing model) - re-check against actual play and retune if it reads as
+// too easy or too punishing.
+export const PARRY_ZONE_START_PERCENT = 90;
 export const PARRY_ZONE_END_PERCENT = 100;
 export const PARRY_REFLECT_FRACTION = 0.5;
 

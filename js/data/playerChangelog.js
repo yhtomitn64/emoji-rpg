@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.16.2',
+    date: '2026-09-01',
+    highlights: [
+      'Changed: parry timing window narrowed - the wind-up bar now only counts as a successful parry in its last 10%, down from the last 20%. Parry still fully blocks the hit and reflects damage back when you land it.',
+    ],
+  },
+  {
     version: '0.16.1',
     date: '2026-09-01',
     highlights: [

@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-09-01
+
+### Changed
+- Halved the parry timing window (last 10% of the wind-up bar instead of
+  the last 20%) - landing one reliably was letting a skilled player win
+  fights that should stay hard, since a parry fully negates the incoming
+  hit, reflects half its damage back, and resets the attacker's timer.
+
+### Fixed
+- `scripts/simulate-balance.js` now models a chance to actually land a
+  parry (`--parry-rate`, default 0.3) instead of assuming every player
+  takes every hit - every balance number the simulator has ever produced
+  was quietly biased conservative on this. No gameplay change, but future
+  balance decisions from this tool will account for it.
+
 ## [0.16.1] - 2026-09-01
 
 ### Fixed

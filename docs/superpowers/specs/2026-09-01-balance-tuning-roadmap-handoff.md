@@ -19,7 +19,11 @@ duplicate their full history, just enough to open each session cold.
 
 ---
 
-## Session 1 — Parry window + simulator parry-rate (do this one first)
+## Session 1 — Parry window + simulator parry-rate — SHIPPED 2026-09-01
+
+See BACKLOG_SHIPPED.md's Multi-zone progression section ("Parry window
+narrowing + simulator parry-rate modeling") and CHANGELOG.md's 0.16.2
+entry for what actually shipped. Kept below for historical record.
 
 Paste this in as the opening message of a new session:
 

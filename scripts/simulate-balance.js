@@ -16,6 +16,7 @@
  *   node scripts/simulate-balance.js
  *   node scripts/simulate-balance.js --trials 5000
  *   node scripts/simulate-balance.js --set orc.attack=20 --set wraith.hp=32
+ *   node scripts/simulate-balance.js --parry-rate 0.5
  *
  * `--set` applies a temporary in-memory stat override, which is how candidate
  * retunes were explored before being written into `js/data/monsters.js`.
@@ -41,6 +42,7 @@
 
 import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier, ATTACK_STREAK_RECOVERY_MS } from '../js/systems/combat.js';
 import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, getUnlockedAbilities } from '../js/systems/abilities.js';
+import { rollIncomingDamage, resolveParrySuccess } from '../js/systems/parry.js';
 import { chooseAction } from './simulateAbilityPolicy.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
@@ -52,11 +54,36 @@ import { getNgPlusCombatOverrides } from '../js/systems/ngPlus.js';
 
 // --- CLI ---------------------------------------------------------------
 
+// Stands in for a human's real parry-timing skill, since the simulator has
+// no windup/keypress to model (monsters still attack the instant their ATB
+// is ready - simulateBattle rolls this chance instead, see its
+// isReady(monster.atb) branch below). Every number this file produced before
+// 2026-09-01 assumed a player who never lands a single parry, which is a
+// known conservative bias, not just an oversight - see the 2026-08-31/
+// 2026-09-01 backlog entry ("Parry window trade-offs") in
+// docs/superpowers/BACKLOG.md for why this was finally added. 0.3, not
+// TIMING_HIT_RATE's 0.7, because the parry window (js/systems/parry.js) was
+// narrowed the same session specifically so landing one takes real skill -
+// at 0.7 (the old window's implied rate) several dragon-tier/NG+2 matchups
+// that are unwinnable at 0 parries flip to 84-100% win rate; at 0.3 the
+// hardest fights barely move while easier ones still burn fewer potions.
+// Override via --parry-rate on the CLI to explore other assumptions - this
+// default is a judgment call to recheck against real play, same as
+// TIMING_HIT_RATE's own commentary above. Threaded explicitly through
+// runMatchup/simulateBattle rather than a shared mutable module variable, so
+// a future report run could compare two rates side by side in one process.
+const PARRY_LAND_RATE_DEFAULT = 0.3;
+
 function parseArgs(argv) {
-  const opts = { trials: 2000, overrides: {} };
+  const opts = { trials: 2000, parryRate: PARRY_LAND_RATE_DEFAULT, overrides: {} };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--trials') {
       opts.trials = Number(argv[++i]);
+    } else if (argv[i] === '--parry-rate') {
+      opts.parryRate = Number(argv[++i]);
+      if (!Number.isFinite(opts.parryRate)) {
+        throw new Error(`--parry-rate expects a number, got ${JSON.stringify(argv[i])}`);
+      }
     } else if (argv[i] === '--set') {
       const [path, rawValue] = argv[++i].split('=');
       const [monsterId, stat] = path.split('.');
@@ -311,8 +338,12 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
  *
  * What's deliberately NOT modeled (known scope limits):
  *   - Slash's delayed bleed tick from its buff state
- *   - The parry wind-up that monsters have before attacking (monsters still
- *     attack the instant their ATB is ready in this simulation)
+ *   - The parry wind-up itself (monsters still attack the instant their ATB
+ *     is ready in this simulation) - but a landed parry's outcome IS now
+ *     modeled as a flat parryLandRate chance per monster attack, standing
+ *     in for a human's windup-timing skill the same way TIMING_HIT_RATE
+ *     stands in for ability-timing skill (see PARRY_LAND_RATE_DEFAULT below
+ *     and --parry-rate in parseArgs).
  */
 // Mirrors battleScreen.js's applyOnHitEffects exactly: lifesteal heals the
 // player as a percent of the hit's real (already-decayed) damage; elemental
@@ -331,7 +362,7 @@ function applyOnHitEffects(build, player, target, damage, damageMultiplier = 1) 
   }
 }
 
-function simulateBattle(build, monsterStats) {
+function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEFAULT) {
   const player = {
     hp: build.maxHp, maxHp: build.maxHp,
     attack: build.attack, defense: build.defense, speed: build.speed, atb: 0,
@@ -379,9 +410,21 @@ function simulateBattle(build, monsterStats) {
     }
 
     if (isReady(monster.atb)) {
-      const result = resolveMonsterAttack(monster, player, Math.random, build.thornsPercent);
-      player.hp = result.playerHp;
-      player.atb = result.playerAtb;
+      // A landed parry never touches player.hp/atb at all - mirrors
+      // battleScreen.js's resolveMonsterWindup, which only ever writes
+      // monster.hp/monster.atb on the parried branch (the windup clock is
+      // decoupled from the ATB gauge in the real game too). Both branches'
+      // result objects share the same monsterHp/monsterAtb field names, so
+      // that assignment is written once below regardless of which fired.
+      let result;
+      if (Math.random() < parryLandRate) {
+        const { damage } = rollIncomingDamage(monster, player, Math.random);
+        result = resolveParrySuccess(monster, damage);
+      } else {
+        result = resolveMonsterAttack(monster, player, Math.random, build.thornsPercent);
+        player.hp = result.playerHp;
+        player.atb = result.playerAtb;
+      }
       monster.atb = result.monsterAtb;
       monster.hp = result.monsterHp;
       if (player.hp <= 0) return { outcome: 'lost', hpLeft: 0, potionsUsed, ticks };
@@ -463,14 +506,14 @@ function simulateBattle(build, monsterStats) {
   return { outcome: 'stalemate', hpLeft: player.hp / player.maxHp, potionsUsed, ticks: MAX_TICKS };
 }
 
-function runMatchup(build, monsterStats, trials) {
+function runMatchup(build, monsterStats, trials, parryLandRate) {
   let wins = 0;
   let stalemates = 0;
   let hpLeftOnWin = 0;
   let potionsUsed = 0;
 
   for (let i = 0; i < trials; i++) {
-    const result = simulateBattle(build, monsterStats);
+    const result = simulateBattle(build, monsterStats, parryLandRate);
     if (result.outcome === 'won') {
       wins++;
       hpLeftOnWin += result.hpLeft;
@@ -495,7 +538,7 @@ function pct(value) {
 }
 
 function main() {
-  const { trials, overrides } = parseArgs(process.argv.slice(2));
+  const { trials, overrides, parryRate } = parseArgs(process.argv.slice(2));
 
   const monsters = {};
   for (const id of MATCHUPS) {
@@ -517,7 +560,7 @@ function main() {
     };
   }
 
-  console.log(`Balance simulation — ${trials} trials per matchup\n`);
+  console.log(`Balance simulation — ${trials} trials per matchup, parry land rate ${parryRate}\n`);
 
   console.log('Monster stats under test:');
   for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
@@ -534,7 +577,7 @@ function main() {
   console.log('-'.repeat(88));
   for (const build of BUILDS) {
     for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
-      const r = runMatchup(build, monsters[id], trials);
+      const r = runMatchup(build, monsters[id], trials, parryRate);
       const stalemateNote = r.stalemateRate > 0 ? `  (stalemate ${pct(r.stalemateRate)})` : '';
       console.log(
         build.name.padEnd(38) +

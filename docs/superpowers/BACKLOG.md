@@ -15,11 +15,12 @@ specific item needs its full context (history, code pointers, decisions
 already made). Keep this index in sync whenever an item ships or a new
 one is raised — that's the whole point of it.
 
-**Next up, decided 2026-09-01:** a queue of three sessions, one item
-each, in order — parry window + simulator parry-rate, then NG+ loot
+**Next up, decided 2026-09-01:** a queue of three sessions — parry
+window + simulator parry-rate (session 1, shipped 2026-09-01, see
+BACKLOG_SHIPPED.md's Multi-zone progression section), then NG+ loot
 ceiling (+ NG+/zone-2 direction questions), then defense
-scaling/near-town pacing. Paste-in opening prompts for each, plus
-shared context, live in
+scaling/near-town pacing. Paste-in opening prompts for the remaining two,
+plus shared context, live in
 `docs/superpowers/specs/2026-09-01-balance-tuning-roadmap-handoff.md` —
 start there rather than re-deriving the queue from the index below.
 
@@ -406,32 +407,24 @@ one-off task.
     mechanics of its own - explicitly a "maybe," not a decision. Needs
     both dependencies (roaming enemies existing at all, and a real
     zone/cycle-gating shape) before this is more than a raw idea.
-  - **Parry window trade-offs — sharpened 2026-08-31 with a real,
-    demonstrated concern, not just two abstract directions.** Original
-    ask (2026-08-26) floated (a) wider window/less reflected damage vs.
-    (b) narrower window/more reflected damage, undecided. Timothy's new
-    concern is more specific and worth reading as its own thing: "if you
-    do parries correctly you can win almost anything. So I think we
-    should probably shorten the parry window as well as update the
-    simulator to have some sort of math about how often someone might
-    parry. I don't have a ton of faith in our simulator besides like raw
-    numbers perhaps but even then not sure." Confirmed why the simulator
-    can't currently speak to this either way: `scripts/simulate-balance.js`
-    doesn't model parry **at all** - `resolveMonsterAttack` fires the
-    instant a monster's ATB is ready, no parry-interrupt exists in the
-    sim's tick loop (this was already flagged in the file's own docblock
-    as a known scope limit, not new). Every number that file has ever
-    produced already assumes a player who never lands a single parry -
-    a conservative bias on measured player power, not an optimistic one,
-    which is why the mythic-multiplier decision just above shipped
-    anyway rather than waiting on this. Two real, separable pieces of
-    work here: (1) actually narrow the parry window (a balance tweak to
-    `js/systems/parry.js`), and (2) add a "how often does a skilled
-    player actually land a parry" assumption to the simulator's tick
-    loop, the same way `TIMING_HIT_RATE = 0.7` already stands in for
-    ability-timing skill - needed before the simulator's numbers can be
-    trusted for anything parry-adjacent, not just this specific window
-    question. Good candidate for a dedicated future session; not started.
+  - **Parry window narrowing + simulator parry-rate modeling — shipped
+    2026-09-01.** See BACKLOG_SHIPPED.md for the full history (original
+    2026-08-26 ask, the 2026-08-31 sharpened concern) and CHANGELOG.md's
+    0.16.2 entry for the shipped detail. Two remaining open threads below
+    weren't part of that session's scope.
+  - **Third candidate lever, raised 2026-09-01, explicitly unsure:**
+    "I'm thinking parry maybe turns into a cooldown thing so you can't
+    just do all the damage all the time or something. not sure yet."
+    A cooldown after a landed parry (or after any parry attempt) is a
+    different shape of fix than narrowing the timing window — it caps
+    how *often* the "win almost anything" pattern can fire rather than
+    how *hard* each individual parry is to land, and the two aren't
+    mutually exclusive. Not designed - no cooldown duration, no
+    decision on whether it gates the button entirely or just the
+    reflect/no-damage payoff, and no read yet on how it'd interact with
+    the multi-mob global-sweep parry (see "Rhythm-style multi-hit parry"
+    in Combat pass ideas below, which has its own 2026-09-01 addendum on
+    exactly this).
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
@@ -1028,6 +1021,16 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   Floated as possibly its own special encounter type rather than a
   change to normal combat. Not designed at all — raw idea only, capture
   only per his explicit "maybe backlog for the future."
+  - **Reiterated 2026-09-01, now a concrete complaint rather than a
+    tentative idea:** "parrying does feel clunky with multi mob also so
+    I'd like to revisit that at some point as well." Today's actual
+    behavior (`battleScreen.js`'s `attemptParry`, ~line 1288) is a
+    global sweep — one keypress parries *every* monster currently
+    sitting in its own zone at that instant, each with its own
+    independent wind-up bar (per the 2026-08-21 multi-mob-encounters
+    design) — which is the "today's model" the single-shared-bar idea
+    above was proposed as an alternative to. Still not designed; this
+    just confirms the clunkiness is real, not hypothetical.
 - **Hold-to-block shield, a damage-reduction alternative to parry,
   raised 2026-08-26.** Timothy's own words, explicitly unsure of the
   exact motivation ("not sure why you would want that over parry"):

@@ -127,6 +127,53 @@ here. No new work was needed.
   distinct item under Feature requests) was already independently
   marked shipped 2026-08-22.
 
+### ~~Parry window narrowing + simulator parry-rate modeling~~ Shipped 2026-09-01
+Original ask (2026-08-26) floated (a) wider window/less reflected damage
+vs. (b) narrower window/more reflected damage, undecided. Sharpened
+2026-08-31 with a real, demonstrated concern: "if you do parries
+correctly you can win almost anything. So I think we should probably
+shorten the parry window as well as update the simulator to have some
+sort of math about how often someone might parry." Confirmed why the
+simulator couldn't speak to this either way: `scripts/simulate-balance.js`
+didn't model parry at all - `resolveMonsterAttack` fired the instant a
+monster's ATB was ready, no parry-interrupt existed in the sim's tick
+loop. Every number that file had ever produced assumed a player who never
+lands a single parry - a conservative bias on measured player power, not
+an optimistic one.
+
+Two pieces shipped together:
+- **Narrowed the parry window** (`PARRY_ZONE_START_PERCENT` in
+  `js/systems/parry.js`) from the last 20% of the 1-second wind-up to the
+  last 10% - a parry fully negates the incoming hit, reflects 50% of it
+  back, and resets the attacker's timer, so an equal-size window to the
+  ability-timing meter's (which assumes a 70% landing rate for an
+  attentive player) let a good parrier trivialize fights that should stay
+  hard. Also updated the matching CSS zone overlay
+  (`.battle-parry-zone` in `css/styles.css`, hand-synced to the JS
+  constants, not derived from them) and the stale-window regression test
+  in `tests/parry.test.js`.
+- **Added parry modeling to the balance simulator**: a `--parry-rate`
+  CLI flag (default 0.3, threaded explicitly through
+  `runMatchup`/`simulateBattle` rather than a shared mutable module
+  variable) rolls a landed-parry chance on each monster attack in the
+  sim's tick loop, mirroring how `TIMING_HIT_RATE = 0.7` already stands
+  in for ability-timing skill. Confirmed the concern quantitatively before
+  picking numbers: at a 0.7 rate (the old window's implied skill level),
+  several dragon-tier/NG+2 matchups that are unwinnable at 0 parries flip
+  to 84-100% win rate; at 0.3 (the new default, matched to the narrower
+  window) the hardest fights barely move while easier fights still see
+  reduced potion consumption. Every future balance decision from this
+  tool now accounts for parries landing at least sometimes, closing a gap
+  that biased every past simulator-informed decision conservative.
+
+Two related threads raised the same session stayed open, not part of this
+work: a possible parry-cooldown as a third lever, and multi-mob parry
+feeling clunky (global-sweep parrying every monster in its own zone at
+once) - see BACKLOG.md's "Parry window narrowing + simulator parry-rate
+modeling" pointer entry (Multi-zone progression section) and "Rhythm-style
+multi-hit parry" entry (Combat pass ideas section). See CHANGELOG.md's
+`0.16.2` entry for the code-level detail.
+
 ## ~~Terrain painter: small UX polish items~~ All three shipped 2026-08-26
 
 Raised 2026-08-24 while Timothy was actively painting. Small, independent

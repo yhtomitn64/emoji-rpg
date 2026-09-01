@@ -485,11 +485,17 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   transition: width 0.3s linear;
 }
 .battle-parry-zone {
+  /* left/width must match PARRY_ZONE_START_PERCENT/PARRY_ZONE_END_PERCENT
+     in js/systems/parry.js - CSS can't reference those constants directly,
+     so this has to be kept in sync by hand whenever the parry window
+     changes. (Narrowed from 80%/20% to 90%/10% 2026-09-01 alongside that
+     window's own narrowing - see js/systems/parry.js and
+     docs/superpowers/BACKLOG.md's "Parry window trade-offs" entry.) */
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 80%;
-  width: 20%;
+  left: 90%;
+  width: 10%;
   background: rgba(231, 76, 60, 0.5);
   opacity: 0;
   pointer-events: none;
