@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rollDrop, getItemSources, EQUIPMENT_DROP_CHANCE, EQUIPMENT_DROP_POOL, UNIQUE_EFFECT_ITEM_IDS } from '../js/systems/loot.js';
+import { rollDrop, getItemSources, EQUIPMENT_DROP_CHANCE, EQUIPMENT_DROP_POOL, UNIQUE_EFFECT_ITEM_IDS, POTION_DROP_CHANCE, POTION_DROP_POOL } from '../js/systems/loot.js';
 import { ITEMS } from '../js/data/items.js';
 
 // A sequence-mock rng: returns each value in order, then repeats the last
@@ -245,4 +245,39 @@ test('rollDrop never tags a boss drop mythic when ngPlusCycle is 0', () => {
 
 test('getItemSources gives mythicEssence a real source instead of falling through to Unknown source', () => {
   assert.ok(getItemSources('mythicEssence').length > 0);
+});
+
+test('rollDrop never grants a potion when the roll misses POTION_DROP_CHANCE', () => {
+  // sequence: [gold, unique-effect check miss, ordinary-gear gate miss,
+  //            dropTable roll miss (0.9 >= leatherScrap's 0.3), potion-chance miss (0.99 >= 0.08)]
+  const drop = rollDrop(monster, sequence(0.5, 0.5, 0.5, 0.9, 0.99));
+  assert.equal(drop.item, null);
+  assert.equal(drop.potionId, null);
+});
+
+test('rollDrop grants a potion from POTION_DROP_POOL when the roll lands inside POTION_DROP_CHANCE', () => {
+  // sequence: [gold, unique-effect check miss, ordinary-gear gate miss,
+  //            dropTable roll miss, potion-chance hit (0.01 < 0.08), pool pick index 0]
+  const drop = rollDrop(monster, sequence(0.5, 0.5, 0.5, 0.9, 0.01, 0));
+  assert.equal(drop.item, null);
+  assert.equal(drop.potionId, POTION_DROP_POOL[0]);
+});
+
+test('a potion drop can happen alongside a regular item drop from the same kill', () => {
+  // sequence: [gold, unique-effect check miss, ordinary-gear gate miss,
+  //            dropTable roll hit (0.1 < leatherScrap's 0.3), potion-chance hit, pool pick index 0]
+  const drop = rollDrop(monster, sequence(0.5, 0.5, 0.5, 0.1, 0.01, 0));
+  assert.equal(drop.item, 'leatherScrap');
+  assert.equal(drop.potionId, POTION_DROP_POOL[0]);
+});
+
+test('POTION_DROP_POOL only contains real potion item ids', () => {
+  for (const itemId of POTION_DROP_POOL) {
+    assert.ok(ITEMS[itemId], `${itemId} is not a real item`);
+    assert.equal(ITEMS[itemId].type, 'consumable');
+  }
+});
+
+test('POTION_DROP_CHANCE is a small positive fraction', () => {
+  assert.ok(POTION_DROP_CHANCE > 0 && POTION_DROP_CHANCE < 1);
 });

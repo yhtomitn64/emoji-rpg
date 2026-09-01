@@ -755,6 +755,9 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       if (drop.item) {
         grantDropItem(drop.item, drop.tier);
       }
+      if (drop.potionId) {
+        grantDropItem(drop.potionId);
+      }
       if (monster.isBoss) {
         state.flags.dungeonBossDefeated = true;
         if (bossTierAttempt !== null) {
@@ -811,6 +814,9 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     if (drop.item) {
       grantDropItem(drop.item, drop.tier);
     }
+    if (drop.potionId) {
+      grantDropItem(drop.potionId);
+    }
     persist();
     renderHud();
   } else if (outcome === 'fled') {
@@ -827,6 +833,9 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       Object.assign(state, addGold(state, gold));
       if (drop.item) {
         grantDropItem(drop.item, drop.tier);
+      }
+      if (drop.potionId) {
+        grantDropItem(drop.potionId);
       }
       Object.assign(state, incrementQuestProgress(state, monsterId));
       Object.assign(state, { monsterKillCounts: incrementKillCount(state.monsterKillCounts, monsterId) });

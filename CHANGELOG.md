@@ -36,6 +36,9 @@ public API, no formal release process — commits land straight on
   assigning a potion to a battle quick-select slot (not yet usable in
   battle - see follow-up commits).
 
+- Monster kills now have an 8% independent chance to also drop a random
+  buff potion, on top of the existing gold/item roll.
+
 ### Fixed
 - Inventory screen's potion "Use" button no longer renders for non-heal
   consumables, which would have corrupted player HP to NaN.

@@ -12,6 +12,22 @@ export const EQUIPMENT_DROP_CHANCE = 0.10; // flat - toughness already drives
 export const EQUIPMENT_DROP_POOL = SHOP_CATALOG.filter((id) => ITEMS[id].slot);
 export const UNIQUE_EFFECT_ITEM_IDS = ['vampiricFang', 'swiftStrikeCharm', 'emberRing', 'keenEye', 'retributionCharm', 'windfuryRing'];
 
+export const POTION_DROP_CHANCE = 0.08;
+// Repeated entries weight the pick toward the cheaper timed buffs and
+// rarer for the two pricier one-shots.
+export const POTION_DROP_POOL = [
+  'strengthDraught', 'strengthDraught', 'strengthDraught',
+  'ironSkinTonic', 'ironSkinTonic', 'ironSkinTonic',
+  'swiftElixir', 'swiftElixir', 'swiftElixir',
+  'vampiricTonic', 'vampiricTonic', 'vampiricTonic',
+  'momentumElixir', 'momentumElixir',
+  'emberVial', 'emberVial',
+  'thornbarkDraught', 'thornbarkDraught',
+  'focusTonic', 'focusTonic',
+  'berserkerTonic',
+  'secondWind',
+];
+
 function pickRandom(pool, rng) {
   return pool[Math.floor(rng() * pool.length)];
 }
@@ -99,5 +115,13 @@ export function rollDrop(monster, rng = Math.random, ngPlusCycle = 0) {
     }
   }
 
-  return { gold, item, tier };
+  // Independent of the item/tier roll above (not competing for the "one
+  // bonus item per kill" slot) - a kill can grant both a regular item AND
+  // a potion in the same roll.
+  let potionId = null;
+  if (rng() < POTION_DROP_CHANCE) {
+    potionId = pickRandom(POTION_DROP_POOL, rng);
+  }
+
+  return { gold, item, tier, potionId };
 }
