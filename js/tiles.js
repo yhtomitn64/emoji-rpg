@@ -44,5 +44,7 @@ export const TILES = {
   pickDungeonEntrance: { emoji: '⛏️', walkable: true, encounter: false, action: 'enterPickDungeon', description: 'A guarded passage — the mining pick lies beyond' },
   canoeDungeonEntrance: { emoji: '🛶', walkable: true, encounter: false, action: 'enterCanoeDungeon', description: 'A guarded passage — the boat lies beyond' },
   portalDungeonEntrance: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalDungeon', description: 'A guarded passage — a portal lies beyond' },
+  portalOrigin: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToTown', description: 'A swirling portal — steps through to town' },
+  portalReturn: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToOrigin', description: 'A swirling portal — steps through back where you left it' },
   guardian: { emoji: '⚔️', walkable: true, encounter: false, action: 'guardianBattle', description: 'A guardian blocks the way — defeat it to claim its tool' },
 };

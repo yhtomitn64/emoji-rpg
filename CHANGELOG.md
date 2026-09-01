@@ -28,20 +28,20 @@ public API, no formal release process — commits land straight on
 - A Settings screen (new HUD button) with one adjustable option so far:
   how long the battle item quick-select menu waits before auto-closing.
   Saved per save-slot, not as a single global browser setting.
-- Data for a fourth guardian-gated tool, the Circle of Ultimate
-  Portaling (`portalCircle`) and its `portalGuardian` - not yet
-  reachable in-game (dungeon/entrance land in later commits this
-  session).
-- The Circle of Ultimate Portaling's guardian dungeon (`portalDungeon`)
-  and its `TOOL_DUNGEON_ENTRANCES.portal` registration - entrance
-  position is still a placeholder until Timothy hand-places it with the
-  terrain painter.
-- Terrain painter: registered the portal dungeon as the 4th tool
-  dungeon (dropdown, marker color, progression-reachability check and
-  its status message/help text).
-- Internal: `state.portal` save-state field and `js/systems/portal.js`'s
-  pure drop/return-pending rules for the Circle of Ultimate Portaling -
-  not yet wired into any screen (next commit).
+- The Circle of Ultimate Portaling is now fully playable: press `P`
+  while exploring to drop a portal at your feet, walk into it to warp
+  to a fixed spot in town, walk into the paired portal there to warp
+  back to exactly where you left. The pair vanishes once you've made
+  the full round trip. Guarded by a new `portalGuardian` fight in its
+  own dungeon, matching the existing axe/pick/boat tool pattern
+  exactly (terrain painter updated to support a 4th tool dungeon too)
+  - Timothy still needs to hand-place the guardian's dungeon entrance
+  with the terrain painter before it's reachable.
+- The town well's free healing is now blocked while a portal round
+  trip is pending (outbound leg used, return leg not yet taken) - stops
+  the portal from turning the well into a free heal reachable from
+  anywhere. Dropping a new portal always clears this, at the cost of
+  losing the old portal's return trip.
 
 ### Changed
 - The battle item quick-select menu no longer closes after each potion

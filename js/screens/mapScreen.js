@@ -12,6 +12,7 @@ import { rollEncounterGroup } from '../systems/groupEncounters.js';
 import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.js';
 import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
 import { hasAnyQuestReady } from '../systems/quests.js';
+import { TOWN_PORTAL_POSITION } from '../systems/portal.js';
 
 // Raised 2026-08-29: random encounters had no memory of the last one, so
 // two fights on consecutive steps was always possible (just rare per-pair -
@@ -233,6 +234,12 @@ function tileAt(screenConfig, x, y) {
     if (screenConfig.id === toolEntrance.screenId && x === toolEntrance.x && y === toolEntrance.y) {
       return TILES[toolEntrance.tileKind];
     }
+  }
+  if (state.portal && screenConfig.id === state.portal.originScreenId && x === state.portal.originX && y === state.portal.originY) {
+    return TILES.portalOrigin;
+  }
+  if (state.portal && state.portal.returnPending && screenConfig.id === 'town' && x === TOWN_PORTAL_POSITION.x && y === TOWN_PORTAL_POSITION.y) {
+    return TILES.portalReturn;
   }
   if (isSealedWorldEdge(screenConfig, x, y)) return TILES.mountainWall;
   const row = screenConfig.rows[y];
@@ -491,7 +498,9 @@ function render() {
         // Visible from a distance so a completed quest doesn't only turn up
         // by walking in and checking - see docs/superpowers/BACKLOG.md's
         // "Quest board should glow..." item.
-        + (tile === TILES.questBoard && hasAnyQuestReady(state) ? ' map-tile-quest-ready' : '');
+        + (tile === TILES.questBoard && hasAnyQuestReady(state) ? ' map-tile-quest-ready' : '')
+        + (tile === TILES.portalOrigin ? ' map-tile-portal-origin' : '')
+        + (tile === TILES.portalReturn ? ' map-tile-portal-return' : '');
       // A tile's own worn-path trail: dirt strokes reaching toward whichever
       // directions the player has actually walked across at this exact tile
       // (getVisitDirs - never inferred from a neighbor's own state, see
@@ -725,8 +734,19 @@ function tryMove(dx, dy) {
 
 function handleKeydown(event) {
   const delta = KEY_TO_DELTA[event.key];
-  if (!delta) return;
-  tryMove(delta[0], delta[1]);
+  if (delta) {
+    tryMove(delta[0], delta[1]);
+    return;
+  }
+  // 'p'/'P' for the Circle of Ultimate Portaling - not part of
+  // KEY_TO_DELTA since it's an action, not a move. Confirmed
+  // non-colliding with battleScreen.js's own p/P (pause): that screen's
+  // keydown listener is detached (screenManager.js pause()) whenever this
+  // one is active, same reasoning as the documented 's'/parry collision
+  // there.
+  if (event.key === 'p' || event.key === 'P') {
+    callbacks.onAction('usePortalTool');
+  }
 }
 
 // Window resize can change how many tiles fit in the viewport (see

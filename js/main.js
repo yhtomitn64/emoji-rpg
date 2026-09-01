@@ -71,6 +71,7 @@ import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, sc
 import { pickMonsterVariant } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
+import { TOWN_PORTAL_POSITION, hasPortalTool, dropPortal, markReturnPending } from './systems/portal.js';
 import { incrementKillCount } from './systems/groupEncounters.js';
 import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWarpCost } from './systems/comeback.js';
 import * as questBoardScreen from './screens/questBoardScreen.js';
@@ -450,6 +451,9 @@ function handleTileAction(action) {
   if (action === 'enterPickDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.pick.mapId);
   if (action === 'enterCanoeDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.canoe.mapId);
   if (action === 'enterPortalDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.portal.mapId);
+  if (action === 'usePortalTool') return handleUsePortalTool();
+  if (action === 'enterPortalToTown') return handleEnterPortalToTown();
+  if (action === 'enterPortalToOrigin') return handleEnterPortalToOrigin();
   if (action === 'exitMap') {
     if (state.map === 'town') return enterMap('center');
     // Land back on the exact entrance tile, not the destination screen's
@@ -485,6 +489,10 @@ function handleTileAction(action) {
 }
 
 function handleUseWell() {
+  if (state.portal && state.portal.returnPending) {
+    showFlavorBanner("The well's waters seem out of reach — you're not fully returned to this world.");
+    return;
+  }
   const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
   if (state.player.hp >= effectiveMaxHp) {
     showFlavorBanner('You are already at full health.');
@@ -494,6 +502,32 @@ function handleUseWell() {
   persist();
   renderHud();
   showFlavorBanner('You rest at the well and feel fully restored.');
+}
+
+function handleUsePortalTool() {
+  if (!hasPortalTool(state.inventory)) return;
+  // Unconditional overwrite, not a check-and-block - "only one portal
+  // pair ever" means dropping a new one always silently replaces
+  // whatever was there, per docs/superpowers/specs/2026-09-01-portal-
+  // scroll-design.md.
+  state.portal = dropPortal(state.map, state.position.x, state.position.y);
+  persist();
+  goToMap(state.map);
+}
+
+function handleEnterPortalToTown() {
+  if (!state.portal) return;
+  state.portal = markReturnPending(state.portal);
+  persist();
+  enterMap('town', { x: TOWN_PORTAL_POSITION.x, y: TOWN_PORTAL_POSITION.y });
+}
+
+function handleEnterPortalToOrigin() {
+  if (!state.portal) return;
+  const { originScreenId, originX, originY } = state.portal;
+  state.portal = null;
+  persist();
+  enterMap(originScreenId, { x: originX, y: originY });
 }
 
 function enterMap(mapId, position) {

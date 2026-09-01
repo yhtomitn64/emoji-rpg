@@ -61,6 +61,85 @@ test('mapScreen DOM - quest board glow', async (t) => {
   });
 });
 
+test('mapScreen DOM - portal tiles', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('origin portal tile renders (and no return tile yet) when state.portal exists with returnPending false', async () => {
+    // originX/Y (2,2) deliberately differs from baseState()'s player
+    // position (townMap.startPosition, 7,9) - a tile the player is
+    // standing on renders the hero emoji instead of the tile's own (see
+    // render()'s isPlayer branch), so testing at the player's own position
+    // would hide the very thing this test checks for.
+    const state = baseState({ portal: { originScreenId: 'town', originX: 2, originY: 2, returnPending: false } });
+    const root = await mountTown(state);
+    const originCell = root.querySelector('.map-tile-portal-origin');
+    assert.ok(originCell, 'expected the origin portal tile to render');
+    assert.ok(originCell.textContent.includes('🌌'), 'expected the portal emoji on the origin tile');
+    assert.equal(root.querySelector('.map-tile-portal-return'), null, 'return portal should not render until returnPending is true');
+  });
+
+  await t.test('return portal tile renders at the fixed town spot once returnPending is true, origin tile is on a different screen so does not render here', async () => {
+    const state = baseState({ portal: { originScreenId: 'north', originX: 3, originY: 3, returnPending: true } });
+    const root = await mountTown(state);
+    const returnCell = root.querySelector('.map-tile-portal-return');
+    assert.ok(returnCell, 'expected the return portal tile to render');
+    assert.ok(returnCell.textContent.includes('🌌'), 'expected the portal emoji on the return tile');
+    assert.equal(root.querySelector('.map-tile-portal-origin'), null, "origin tile is on 'north', not 'town' - should not render in this mount");
+  });
+
+  await t.test('no portal tile anywhere when state.portal is null', async () => {
+    const root = await mountTown(baseState({ portal: null }));
+    assert.equal(root.querySelector('.map-tile-portal-origin'), null);
+    assert.equal(root.querySelector('.map-tile-portal-return'), null);
+  });
+});
+
+test('mapScreen DOM - portal hotkey', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('pressing P dispatches the usePortalTool action', async () => {
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    const maps = { town: townMap };
+    const seenActions = [];
+    mount(root, {
+      state: baseState(),
+      mapConfig: townMap,
+      maps,
+      worldGrid: buildWorldGrid(maps),
+      callbacks: { onFirstVisit: () => {}, onAction: (action) => seenActions.push(action) },
+    });
+    keydown('p');
+    assert.deepEqual(seenActions, ['usePortalTool']);
+  });
+
+  await t.test('pressing shift+P (uppercase P) also dispatches the usePortalTool action', async () => {
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    const maps = { town: townMap };
+    const seenActions = [];
+    mount(root, {
+      state: baseState(),
+      mapConfig: townMap,
+      maps,
+      worldGrid: buildWorldGrid(maps),
+      callbacks: { onFirstVisit: () => {}, onAction: (action) => seenActions.push(action) },
+    });
+    keydown('P');
+    assert.deepEqual(seenActions, ['usePortalTool']);
+  });
+});
+
 // Old Safari-specific bug: a CSS Grid whose tracks size aspect-ratio
 // children (.map-grid / .map-tile) didn't reliably re-run its track-sizing
 // pass on a live window resize. The grid is fixed-pixel-sized now (not
