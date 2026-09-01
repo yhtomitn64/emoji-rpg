@@ -24,6 +24,18 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-09-01
+
+### Fixed
+- The post-battle/event flavor banner (e.g. battle outcome summaries,
+  well/treasure/gate messages) no longer overlaps the header - it used
+  to sit at a hardcoded `top: 12px` regardless of the header's real
+  height. Moved to a side panel under the header (JS measures `#hud`'s
+  actual bottom edge on every show, so it stays clear even if the
+  header's height changes later), with a close (✕) button, and hovering
+  it now pauses the auto-hide countdown - it only starts counting down
+  again once the mouse leaves.
+
 ## [0.16.0] - 2026-09-01
 
 ### Added

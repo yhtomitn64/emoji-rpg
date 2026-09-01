@@ -1362,19 +1362,27 @@ button:focus-visible {
   100% { transform: rotate(0deg); }
 }
 
+/* Side panel under the header rather than centered over the map - the
+   centered/top-12px version used to overlap #hud since it never accounted
+   for the header's real height. `top` here is a fallback only; JS
+   (showFlavorBanner) overwrites it with #hud's actual measured bottom edge
+   on every call, so it stays clear of the header even if the header's
+   height ever changes (e.g. more HUD buttons added later). */
 #flavor-banner {
   position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 56px;
+  right: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   background: rgba(17, 17, 17, 0.92);
   border: 1px solid #444;
   border-radius: 6px;
-  padding: 8px 16px;
+  padding: 8px 10px 8px 16px;
   font-size: 0.9rem;
   color: #ddd;
-  max-width: 90%;
-  text-align: center;
+  max-width: min(320px, calc(100% - 24px));
+  text-align: left;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s;
@@ -1382,6 +1390,23 @@ button:focus-visible {
 }
 #flavor-banner.visible {
   opacity: 1;
+  pointer-events: auto;
+}
+.flavor-banner-text {
+  flex: 1 1 auto;
+}
+.flavor-banner-close {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.flavor-banner-close:hover {
+  color: #eee;
 }
 
 #celebration-burst {

@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.16.1',
+    date: '2026-09-01',
+    highlights: [
+      'Fixed: the pop-up message banner (battle results, well/treasure/gate messages) no longer overlaps the header - it now shows as a small box on the side, with a close button, and hovering it keeps it open.',
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-09-01',
     highlights: [
