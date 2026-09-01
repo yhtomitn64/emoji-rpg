@@ -89,6 +89,7 @@ let playerEffectBonuses = null;
 // payoff and they don't resolve into anything a pause could get wrong.
 let battlePaused = false;
 let pauseStartedAt = 0;
+let pauseTimeScale = 0;
 // Set by runTimingMeter() while its promise is pending, cleared once it
 // resolves - lets pauseBattle()/resumeBattle() reach into that otherwise-
 // local closure without a bigger refactor.
@@ -1599,36 +1600,66 @@ function tick() {
 // fill, cooldowns, buff duration), every monster's windup/parry clock, and
 // the ability timing-meter. Cosmetic effects already in flight are left
 // alone - see the battlePaused declaration's own comment.
-function pauseBattle() {
+//
+// timeScale: 0 = hard stop (today's P-key pause). A fractional value like
+// 0.25 keeps combat ticking at a reduced real-time rate instead of
+// freezing it outright - used by the item quick-select menu, which wants
+// some ongoing urgency rather than a full freeze. Everything driven
+// purely off tick()'s own fixed per-call deltas (ATB gauges, cooldowns,
+// buffs, defense debuffs) speeds/slows for free just by changing how
+// often tick() itself fires - only the real-clock-driven windup/parry-
+// zone CSS animations need their own explicit scaling below.
+// getAnimations() is the Web Animations API - guarded with `?.()` since
+// jsdom (this file's own test environment) doesn't implement it; the
+// slow-mo visual is a no-op there, tick()'s own scaled interval still
+// works fine.
+function pauseBattle(timeScale = 0) {
   if (battlePaused || battleOver) return;
   battlePaused = true;
+  pauseTimeScale = timeScale;
   pauseStartedAt = Date.now();
   clearInterval(intervalId);
-  intervalId = null;
+  intervalId = timeScale > 0 ? setInterval(tick, 300 / timeScale) : null;
   monsterCombatants.forEach((mc, i) => {
     if (mc.windup.active) {
-      elements.monsterAtbFills[i].style.animationPlayState = 'paused';
-      elements.monsterParryZones[i].style.animationPlayState = 'paused';
+      if (timeScale > 0) {
+        (elements.monsterAtbFills[i].getAnimations?.() || []).forEach((anim) => { anim.playbackRate = timeScale; });
+        (elements.monsterParryZones[i].getAnimations?.() || []).forEach((anim) => { anim.playbackRate = timeScale; });
+      } else {
+        elements.monsterAtbFills[i].style.animationPlayState = 'paused';
+        elements.monsterParryZones[i].style.animationPlayState = 'paused';
+      }
     }
   });
   if (activeTimingMeterHandle) activeTimingMeterHandle.pause();
-  elements.pauseBtn.textContent = '▶️';
-  elements.pauseBtn.title = 'Resume battle (P)';
-  elements.pausedOverlay.hidden = false;
+  if (timeScale === 0) {
+    elements.pauseBtn.textContent = '▶️';
+    elements.pauseBtn.title = 'Resume battle (P)';
+    elements.pausedOverlay.hidden = false;
+  }
 }
 
 function resumeBattle() {
   if (!battlePaused) return;
   const pausedForMs = Date.now() - pauseStartedAt;
+  const timeScale = pauseTimeScale;
   battlePaused = false;
+  pauseTimeScale = 0;
+  // Only (1 - timeScale) of the elapsed real time should be hidden from
+  // windup's real-clock progress - at timeScale 0 (hard stop) that's the
+  // full elapsed duration, exactly matching this function's behavior
+  // before it took a scale factor at all.
+  const offsetMs = pausedForMs * (1 - timeScale);
   monsterCombatants.forEach((mc, i) => {
     if (mc.windup.active) {
       // Shift the windup's wall-clock start forward by the paused duration
       // so the time spent paused doesn't count as elapsed windup time - see
       // shiftWindupStart's own comment in js/systems/parry.js.
-      mc.windup = shiftWindupStart(mc.windup, pausedForMs);
+      mc.windup = shiftWindupStart(mc.windup, offsetMs);
       elements.monsterAtbFills[i].style.animationPlayState = 'running';
       elements.monsterParryZones[i].style.animationPlayState = 'running';
+      (elements.monsterAtbFills[i].getAnimations?.() || []).forEach((anim) => { anim.playbackRate = 1; });
+      (elements.monsterParryZones[i].getAnimations?.() || []).forEach((anim) => { anim.playbackRate = 1; });
     }
   });
   if (activeTimingMeterHandle) activeTimingMeterHandle.resume();

@@ -39,6 +39,12 @@ public API, no formal release process — commits land straight on
 - Monster kills now have an 8% independent chance to also drop a random
   buff potion, on top of the existing gold/item roll.
 
+### Changed
+- Internal: `pauseBattle()`/`resumeBattle()` now take an optional
+  `timeScale` (default 0, today's exact hard-stop behavior) so a future
+  caller can ask for a slowed-not-frozen pause. No player-visible change
+  yet - the P-key pause still always uses the default.
+
 ### Fixed
 - Inventory screen's potion "Use" button no longer renders for non-heal
   consumables, which would have corrupted player HP to NaN.
