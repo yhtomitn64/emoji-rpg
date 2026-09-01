@@ -47,8 +47,8 @@ one is raised — that's the whole point of it.
 - **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass).
 - **Discoverability / monetization** — AdSense (blocked on Google review; placement plan already decided); Cloudflare traffic analytics (waiting on a token from Timothy); opt-in gameplay analytics + local play-data export (not designed, tied to the same difficulty-by-tool-gate tuning question).
 - **Input / accessibility** — controller support, raw idea, not investigated.
-- **Feature requests** — item selection menu for the Item button (raw idea, waits on a second consumable item type existing, possibly ties to pause); "New Max damage!" progression callouts + a DPS meter (raw idea, raised in passing).
-- **Quests / economy** — manual sell-materials path (deferred, no real pain yet); **excess-gold sink** — revisit condition already hit (3k+ gold, nothing to spend it on), direction undecided (more sinks vs. reduced income).
+- **Feature requests** — "New Max damage!" progression callouts + a DPS meter (raw idea, raised in passing).
+- **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first).
 
 ## Story / narrative
 
@@ -777,23 +777,6 @@ monster emoji to match their silly food names — Timothy likes them as
 they are, e.g. "Slippery Breadstick" for the snake. Not tracked anywhere;
 revisit only if it comes up again for a future zone.)*
 
-### Portal scroll — drop a portal to warp to town and back, raised 2026-09-01
-Timothy's idea, live during a testing session: a reusable tool item
-(found via a guardian-monster fight, matching the existing axe/pick/boat
-pattern) that drops a portal at your current position; walking into it
-warps you to town, where a paired portal appears; walking into that one
-returns you exactly where you dropped the first. The pair disappears
-after that one round trip. Only one portal can ever exist at a time
-(deliberately, to avoid old portals littering the map). Brainstorming is
-in progress but not finished — several open questions (item name/flavor,
-the activation hotkey, where it can/can't be used, guardian difficulty,
-how a dropped portal actually renders on the map) still need answers
-before a design can be written. Full context, decisions already locked
-in, and relevant existing-code pointers are captured in
-`docs/superpowers/specs/2026-09-01-portal-scroll-brainstorm-handoff.md`
-(written as a paste-in prompt for picking the brainstorm back up in a
-fresh session) rather than repeated here.
-
 ### "New Max damage!" progression feedback + a DPS meter, raised 2026-08-31
 Timothy's own words: "New Max damage for ability!!! and things like that
 so you know you are progressing. Also maybe a DPS meter somewhere!" Raw
@@ -838,25 +821,13 @@ sinks gold or materials fast enough to make this a real gap yet, just a
 few extra tidy-up rows in the inventory. Revisit if that changes (e.g.
 materials pile up faster, or a future economy pass tightens gold flow).
 
-**Revisit condition hit, 2026-08-28:** Timothy: "I'm getting tons of
-gold and way more than I need so gotta figure that out too. not sure if
-more things to buy or potion buffs to buy or something else but my gold
-is like 3k!" This is exactly the "future economy pass tightens gold
-flow" trigger named above, now real — 3k gold with shop gear topping
-out around 45g and upgrades at ~120g total means there's nothing left
-to spend on well past the early game.
-
-**Direction decided, 2026-08-31 (brainstorming session):** add more gold
-sinks, income unchanged. Landed on buff potions specifically — a
-10-potion roster (8 timed stat/effect buffs + 2 one-shots: guaranteed
-crit, Second Wind) usable mid-battle via a new item quick-select menu (4
-loadout slots set from the Inventory screen's Potions tab, `1`-`4` /
-arrows / click to pick, battle slows to ~25% speed while the menu is
-open). This is also the trigger condition named in "Item selection menu
-for the Item button" above — a second consumable type now exists.
-Design doc: see `docs/superpowers/specs/` for the dated design written
-this session. Higher-tier purchasable gear was considered and explicitly
-**not** chosen for this pass — see the new entries below.
+**The "gold way more than I need" thread that grew out of this entry
+(revisit condition hit 2026-08-28) was resolved separately — buff
+potions shipped 2026-08-31 as 0.15.0 as the gold sink.** See
+BACKLOG_SHIPPED.md's "Quests / economy" section for that full history.
+This entry itself (offloading *surplus materials* specifically, not
+gold) is still open/deferred as originally scoped above — a different
+problem than gold having somewhere to go.
 
 ### NG+-scaled purchasable store gear — deferred 2026-08-31
 Raised as a gold-sink option alongside buff potions: extend the shop

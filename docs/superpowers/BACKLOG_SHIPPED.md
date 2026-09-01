@@ -357,6 +357,28 @@ e.g. "Slippery Breadstick" for the snake. Not tracked anywhere; revisit
 only if it comes up again for a future zone. Items below were raised
 mid-combat-pass, later than that original batch.)*
 
+### ~~Portal scroll — drop a portal to warp to town and back~~ Shipped 2026-09-01 (0.16.0)
+Timothy's idea, raised live during a testing session 2026-09-01. Brainstormed
+to completion, then a full design + plan + TDD implementation. Shipped as
+"Circle of Ultimate Portaling" (`portalCircle`), a reusable tool matching
+axe/pick/boat exactly — found via a guarded fight (`portalGuardian`, a
+step tougher than boatGuardian, meant to sit behind axe+pick+boat).
+Press `P` while exploring to drop a portal at your current position;
+walking into it warps to a fixed spot in town; walking into the paired
+portal there warps back to exactly where you left; the pair vanishes
+once you've made the round trip. Only one portal pair can ever exist —
+dropping a new one silently replaces whatever was there. Also fixed a
+balance gap surfaced mid-brainstorm: the town well's free healing is
+now blocked while a portal round trip is pending, closing a "free heal
+reachable from anywhere" exploit the tool would otherwise open (no
+timeout on this block — dropping a fresh portal is the only reset, and
+it always costs the old portal's return trip). Design:
+`docs/superpowers/specs/2026-09-01-portal-scroll-design.md`. Plan:
+`docs/superpowers/plans/2026-09-01-portal-scroll.md`. See CHANGELOG.
+The guardian's dungeon entrance still needs hand-placing via the
+terrain painter before it's reachable in a real save — tracked as a
+loose end, not a backlog item (Timothy's own to do when placing it).
+
 ### ~~Random mini-dungeon marker reuses the mining pick's own emoji~~ Shipped 2026-08-29 (as part of 0.7.1)
 Raised 2026-08-28: "using the pick for our random dungeons and for the
 actual pick you get is confusing." `MINI_DUNGEON_MARKER_EMOJI`
@@ -545,6 +567,25 @@ slowing to 25% speed while it's open rather than fully pausing. See
 `docs/superpowers/plans/2026-08-31-buff-potions.md`, and CHANGELOG.
 
 ## Quests / economy
+
+### ~~Excess gold, nothing to spend it on~~ Shipped 2026-08-31 (0.15.0)
+Raised 2026-08-28, growing out of the still-open "Sell unneeded crafting
+materials" entry in BACKLOG.md: "I'm getting tons of gold and way more
+than I need so gotta figure that out too... my gold is like 3k!" — shop
+gear topping out ~45g and the full smith-upgrade path at ~120g total
+meant nothing left to spend on well past the early game. Direction
+decided 2026-08-31 (brainstorming session): add more gold sinks, income
+unchanged. Landed on buff potions — a 10-potion roster (8 timed
+stat/effect buffs + 2 one-shots: guaranteed crit, Second Wind) usable
+mid-battle via a new item quick-select menu (4 loadout slots set from
+the Inventory screen's Potions tab, `1`-`4`/arrows/click to pick, battle
+slows to ~25% speed while the menu is open). Higher-tier purchasable
+gear was considered and explicitly **not** chosen for this pass — see
+BACKLOG.md's still-open "NG+-scaled purchasable store gear" entry
+(deferred pending a rule for staying below earned/reforged gear).
+Design: `docs/superpowers/specs/2026-08-31-buff-potions-design.md`.
+Plan: `docs/superpowers/plans/2026-08-31-buff-potions.md`. See
+CHANGELOG (0.15.0).
 
 ### ~~Quest turn-in scaling: more kills required each level, rewards scale up but with diminishing returns~~ Shipped 2026-08-22
 Each monster now has its own `questLevel` (starts at 1, uncapped);
