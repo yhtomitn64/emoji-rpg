@@ -206,7 +206,7 @@ test('tools are only ever a guaranteed guardian drop, never a stray chance-drop 
   // "grind for it" instead of "find it", contradicting the tool-gating
   // design's whole point. orc/wraith both had exactly this leftover stray
   // drop at one point; assert it never comes back on any non-guardian monster.
-  const guardianIds = new Set(['axeGuardian', 'pickGuardian', 'boatGuardian']);
+  const guardianIds = new Set(['axeGuardian', 'pickGuardian', 'boatGuardian', 'portalGuardian']);
   for (const [monsterId, monster] of Object.entries(MONSTERS)) {
     if (guardianIds.has(monsterId)) continue;
     const strayToolDrops = (monster.dropTable || []).filter((entry) => ITEMS[entry.itemId].type === 'tool');

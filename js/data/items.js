@@ -99,4 +99,7 @@ export const ITEMS = {
   miningPick: { id: 'miningPick', name: 'Mining Pick', emoji: '⛏️', type: 'tool', price: 0, description: 'Clears mountain gates blocking the way' },
   axe: { id: 'axe', name: 'Axe', emoji: '🪓', type: 'tool', price: 0, description: 'Clears thicket gates blocking the way' },
   boat: { id: 'boat', name: 'Boat', emoji: '🛶', type: 'tool', price: 0, description: 'Lets you cross open water' },
+  // 🌌 not 🌀 - 🌀 is already momentumElixir's icon (see this file's buff
+  // potions section) and item/tile icons should stay unique.
+  portalCircle: { id: 'portalCircle', name: 'Circle of Ultimate Portaling', emoji: '🌌', type: 'tool', price: 0, description: 'Drops a portal to town at your feet' },
 };

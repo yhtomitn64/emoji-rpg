@@ -97,6 +97,19 @@ export const MONSTERS = {
     forceFullBattle: true,
     attackStyle: 'melee',
   },
+  // Sits behind a gate meant to require axe + pick + boat already
+  // (Timothy's map design, not enforced in code) - a step tougher than
+  // boatGuardian, since "free repeatable trip to/from town from
+  // anywhere" is the strongest of the four tools. See
+  // docs/superpowers/specs/2026-09-01-portal-scroll-design.md.
+  portalGuardian: {
+    id: 'portalGuardian', name: 'Portal Guardian', emoji: '🌌',
+    hp: 210, attack: 28, defense: 9, speed: 9,
+    xp: 65, goldRange: [22, 32],
+    dropTable: [{ itemId: 'portalCircle', chance: 1 }],
+    forceFullBattle: true,
+    attackStyle: 'melee',
+  },
   dragon: {
     id: 'dragon', name: 'Dragon', emoji: '🐉',
     hp: 150, attack: 34, defense: 12, speed: 11,

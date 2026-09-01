@@ -28,6 +28,10 @@ public API, no formal release process — commits land straight on
 - A Settings screen (new HUD button) with one adjustable option so far:
   how long the battle item quick-select menu waits before auto-closing.
   Saved per save-slot, not as a single global browser setting.
+- Data for a fourth guardian-gated tool, the Circle of Ultimate
+  Portaling (`portalCircle`) and its `portalGuardian` - not yet
+  reachable in-game (dungeon/entrance land in later commits this
+  session).
 
 ### Changed
 - The battle item quick-select menu no longer closes after each potion
