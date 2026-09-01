@@ -24,6 +24,10 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- 10 new buff-potion items (data only, not yet purchasable/usable in a
+  battle - see follow-up commits) as part of the excess-gold-sink work.
+
 ## [0.14.3] - 2026-09-01
 
 ### Changed
