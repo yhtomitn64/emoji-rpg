@@ -65,6 +65,11 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     caches: {},
     miniDungeons: {},
     activeMiniDungeon: null,
+    // The Circle of Ultimate Portaling's current drop, or null if none is
+    // out. No migration function needed for existing saves: a save made
+    // before this field existed simply lacks the key, and `undefined`
+    // reads exactly like `null` everywhere this feature checks it.
+    portal: null,
     bossTier: 0,
     ngPlusCycle: 0,
     questProgress: {

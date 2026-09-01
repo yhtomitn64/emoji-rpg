@@ -39,6 +39,9 @@ public API, no formal release process — commits land straight on
 - Terrain painter: registered the portal dungeon as the 4th tool
   dungeon (dropdown, marker color, progression-reachability check and
   its status message/help text).
+- Internal: `state.portal` save-state field and `js/systems/portal.js`'s
+  pure drop/return-pending rules for the Circle of Ultimate Portaling -
+  not yet wired into any screen (next commit).
 
 ### Changed
 - The battle item quick-select menu no longer closes after each potion
