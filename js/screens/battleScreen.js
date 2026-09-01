@@ -95,6 +95,7 @@ let guaranteedCritNextHit = false;
 let secondWindAvailable = false;
 let itemMenuOpen = false;
 let itemMenuSelectedIndex = 0;
+let itemMenuAutoCloseTimeoutId = null;
 // Only game-state-affecting timers freeze on pause (the 300ms tick, a
 // monster's windup/parry clock, the ability timing-meter's rAF loop) - see
 // pauseBattle()/resumeBattle(). Already-committed cosmetic effects (damage
@@ -256,6 +257,7 @@ function buildDom() {
         <div class="battle-paused-label">⏸️ PAUSED</div>
       </div>
       <div class="battle-item-menu-overlay" id="battle-item-menu-overlay" hidden>
+        <div class="battle-item-menu-timer"><div class="battle-item-menu-timer-fill" id="battle-item-menu-timer-fill"></div></div>
         <div class="battle-item-menu-slots" id="battle-item-menu-slots"></div>
       </div>
       <div class="overlay-panel battle-screen ${envClass}">
@@ -296,6 +298,7 @@ function buildDom() {
     dpsDisplay: document.getElementById('battle-dps'),
     pausedOverlay: document.getElementById('battle-paused-overlay'),
     itemMenuOverlay: document.getElementById('battle-item-menu-overlay'),
+    itemMenuTimerFill: document.getElementById('battle-item-menu-timer-fill'),
     itemMenuSlots: document.getElementById('battle-item-menu-slots'),
     monsterRow: document.getElementById('battle-monster-row'),
     monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
@@ -582,6 +585,28 @@ function renderItemMenu() {
   });
 }
 
+// Real wall-clock time, deliberately NOT scaled by ITEM_MENU_TIME_SCALE -
+// combat's own slow-mo exists to give the player a fair reaction window
+// against the monster; this is a separate, snappier UI countdown for the
+// menu itself and should feel like the actual duration the player set,
+// not 4x longer. Raised live during testing: close automatically a short
+// beat after the last pick (or after opening, if nothing's picked yet),
+// with a visible countdown bar - resets on every pick so a quick run of
+// loadout keys never gets cut off mid-sequence.
+function startItemMenuAutoCloseTimer() {
+  clearTimeout(itemMenuAutoCloseTimeoutId);
+  const durationMs = state.settings.itemMenuAutoCloseMs;
+  itemMenuAutoCloseTimeoutId = setTimeout(closeItemMenu, durationMs);
+  elements.itemMenuTimerFill.style.animation = 'none';
+  void elements.itemMenuTimerFill.offsetWidth; // force reflow so re-triggering restarts the animation
+  elements.itemMenuTimerFill.style.animation = `battle-item-menu-timer-shrink ${durationMs}ms linear forwards`;
+}
+
+function clearItemMenuAutoCloseTimer() {
+  clearTimeout(itemMenuAutoCloseTimeoutId);
+  itemMenuAutoCloseTimeoutId = null;
+}
+
 function openItemMenu() {
   if (battleOver || battlePaused || itemMenuOpen) return;
   if (!hasUsableLoadoutItem()) {
@@ -594,10 +619,12 @@ function openItemMenu() {
   pauseBattle(ITEM_MENU_TIME_SCALE);
   renderItemMenu();
   elements.itemMenuOverlay.hidden = false;
+  startItemMenuAutoCloseTimer();
 }
 
 function closeItemMenu() {
   if (!itemMenuOpen) return;
+  clearItemMenuAutoCloseTimer();
   itemMenuOpen = false;
   elements.itemMenuOverlay.hidden = true;
   resumeBattle();
@@ -618,6 +645,7 @@ function selectItemMenuSlot(index) {
   itemMenuSelectedIndex = index;
   drinkPotion(itemId);
   renderItemMenu();
+  startItemMenuAutoCloseTimer();
 }
 
 function handleItemMenuKeydown(event) {
@@ -1886,6 +1914,7 @@ function endBattle(outcome) {
   if (itemMenuOpen) {
     itemMenuOpen = false;
     elements.itemMenuOverlay.hidden = true;
+    clearItemMenuAutoCloseTimer();
   }
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
@@ -1925,6 +1954,7 @@ export function mount(root, props) {
   battlePaused = false;
   itemMenuOpen = false;
   itemMenuSelectedIndex = 0;
+  itemMenuAutoCloseTimeoutId = null;
   activeTimingMeterHandle = null;
   equipmentBonuses = getEquipmentBonuses(state);
   activeBuffs = createActiveBuffs();
@@ -1992,6 +2022,7 @@ export function unmount() {
   clearInterval(intervalId);
   clearTimeout(endBattleTimeoutId);
   clearTimeout(exitAnimTimeoutId);
+  clearTimeout(itemMenuAutoCloseTimeoutId);
   window.removeEventListener('keydown', handleKeydown);
   liveDamageNumbers.forEach(({ el, timeoutId }) => {
     clearTimeout(timeoutId);

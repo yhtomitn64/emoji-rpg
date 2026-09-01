@@ -42,6 +42,8 @@ export function applySkinTone(emoji, modifier) {
 // exact { screenId, x, y } value here.
 export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'farNorthwest', x: 8, y: 7 };
 
+export const DEFAULT_ITEM_MENU_AUTO_CLOSE_MS = 1000;
+
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
@@ -84,6 +86,11 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     encounterCooldown: 0,
     zone1Steps: 0,
     dungeonEntrancePosition,
+    // Per-save (not a single global browser setting) since different
+    // people playing on the same device/save-slot list want their own
+    // preference - raised live during testing: "a settings menu to adjust
+    // this time for different users."
+    settings: { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS },
   };
 }
 
@@ -164,6 +171,13 @@ export function migrateBestDamage(state) {
 export function migrateLoadout(state) {
   if ('loadout' in state) return state;
   return { ...state, loadout: ['potion', null, null, null] };
+}
+
+// One-time migration for saves from before per-save settings existed -
+// same default createNewGame() gives a fresh save.
+export function migrateSettings(state) {
+  if ('settings' in state) return state;
+  return { ...state, settings: { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } };
 }
 
 export function serializeState(state) {

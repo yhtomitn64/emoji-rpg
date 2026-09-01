@@ -1,10 +1,11 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings } from './state.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
 import * as shopScreen from './screens/shopScreen.js';
 import * as smithScreen from './screens/smithScreen.js';
 import * as statsPanel from './screens/statsPanel.js';
+import * as settingsScreen from './screens/settingsScreen.js';
 import * as inventoryScreen from './screens/inventoryScreen.js';
 import * as messageLogScreen from './screens/messageLogScreen.js';
 import * as lootReferenceScreen from './screens/lootReferenceScreen.js';
@@ -125,6 +126,7 @@ function startGame(loadedState, slotId) {
   state = migratePowerRingSlot(state);
   state = migrateBestDamage(state);
   state = migrateLoadout(state);
+  state = migrateSettings(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';
@@ -273,6 +275,10 @@ function setHudButtonsEnabled(enabled) {
   if (changelogButton) {
     changelogButton.disabled = !enabled;
   }
+  const settingsButton = document.getElementById('btn-open-settings');
+  if (settingsButton) {
+    settingsButton.disabled = !enabled;
+  }
 }
 
 function renderHud() {
@@ -307,6 +313,12 @@ function renderHud() {
   lootButton.disabled = battleActive;
   lootButton.onclick = openLootReference;
 
+  const settingsButton = document.createElement('button');
+  settingsButton.id = 'btn-open-settings';
+  settingsButton.textContent = '⚙️ Settings';
+  settingsButton.disabled = battleActive;
+  settingsButton.onclick = openSettings;
+
   const logoutButton = document.createElement('button');
   logoutButton.id = 'btn-logout';
   logoutButton.textContent = '🚪 Switch Character';
@@ -318,6 +330,7 @@ function renderHud() {
   hud.appendChild(inventoryButton);
   hud.appendChild(logButton);
   hud.appendChild(lootButton);
+  hud.appendChild(settingsButton);
   hud.appendChild(logoutButton);
 }
 
@@ -326,6 +339,17 @@ function openStats() {
   mountOverlay(statsPanel, {
     state,
     callbacks: { onClose: () => unmountOverlay() },
+  });
+}
+
+function openSettings() {
+  if (battleActive) return;
+  mountOverlay(settingsScreen, {
+    state,
+    callbacks: {
+      onChange: () => persist(),
+      onClose: () => unmountOverlay(),
+    },
   });
 }
 

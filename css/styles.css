@@ -323,6 +323,32 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 .battle-item-menu-overlay[hidden] {
   display: none;
 }
+/* Anchored to .battle-item-menu-overlay's own position: absolute box, so
+   it sits pinned to the top of the menu regardless of the slots grid's
+   own centered layout below it. The fill's width is driven by a real CSS
+   animation (battle-item-menu-timer-shrink, restarted via the same
+   remove/reflow/reapply trick this file already uses for the parry-zone
+   pulse) rather than a JS tick loop - see startItemMenuAutoCloseTimer()
+   in battleScreen.js. */
+.battle-item-menu-timer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+}
+.battle-item-menu-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: #ffd54a;
+}
+@keyframes battle-item-menu-timer-shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
 .battle-item-menu-slots {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1057,6 +1083,18 @@ button:focus-visible {
 .stats-slot {
   padding: 4px 0;
   border-bottom: 1px solid #333;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+}
+.settings-row input[type="number"] {
+  width: 80px;
 }
 
 .ngplus-badge {

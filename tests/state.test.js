@@ -17,6 +17,8 @@ import {
   migratePowerRingSlot,
   migrateBestDamage,
   migrateLoadout,
+  migrateSettings,
+  DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
 } from '../js/state.js';
 
 function createFakeStorage() {
@@ -286,4 +288,22 @@ test('migrateLoadout is a no-op once loadout already exists', () => {
   const state = { ...createNewGame(), loadout: ['strengthDraught', null, null, null] };
   const migrated = migrateLoadout(state);
   assert.deepEqual(migrated.loadout, ['strengthDraught', null, null, null]);
+});
+
+test('createNewGame defaults itemMenuAutoCloseMs to DEFAULT_ITEM_MENU_AUTO_CLOSE_MS', () => {
+  const state = createNewGame();
+  assert.equal(state.settings.itemMenuAutoCloseMs, DEFAULT_ITEM_MENU_AUTO_CLOSE_MS);
+});
+
+test('migrateSettings adds the default settings to a save from before they existed', () => {
+  const legacy = createNewGame();
+  delete legacy.settings;
+  const migrated = migrateSettings(legacy);
+  assert.deepEqual(migrated.settings, { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS });
+});
+
+test('migrateSettings is a no-op once settings already exist', () => {
+  const state = { ...createNewGame(), settings: { itemMenuAutoCloseMs: 2500 } };
+  const migrated = migrateSettings(state);
+  assert.deepEqual(migrated.settings, { itemMenuAutoCloseMs: 2500 });
 });

@@ -24,11 +24,18 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- A Settings screen (new HUD button) with one adjustable option so far:
+  how long the battle item quick-select menu waits before auto-closing.
+  Saved per save-slot, not as a single global browser setting.
+
 ### Changed
 - The battle item quick-select menu no longer closes after each potion
   picked - raised live during testing, so a run of loadout keys (e.g. `i`
   then `2`, `3`, `4`) drinks each one in a row instead of needing the menu
-  reopened between picks. Escape closes it now.
+  reopened between picks. Instead it auto-closes on its own a short beat
+  (1s by default, adjustable in Settings) after your last pick, with a
+  countdown bar - Escape still closes it immediately.
 
 ### Fixed
 - Power Ring now equips into a ring slot instead of the accessory slot

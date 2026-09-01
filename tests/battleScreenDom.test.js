@@ -155,6 +155,41 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#battle-log').textContent, /Swift Elixir/);
   });
 
+  await t.test('the item menu auto-closes on its own after settings.itemMenuAutoCloseMs with nothing picked', async () => {
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ inventory: [{ itemId: 'potion', quantity: 1 }], settings: { itemMenuAutoCloseMs: 100 } }),
+    });
+    keydown('i');
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
+  });
+
+  await t.test('picking a potion resets the auto-close timer instead of letting it expire mid-sequence', async () => {
+    const { root, state } = await mountBattle(['boar'], {
+      state: baseState({
+        inventory: [
+          { itemId: 'strengthDraught', quantity: 1 },
+          { itemId: 'swiftElixir', quantity: 1 },
+        ],
+        loadout: ['strengthDraught', 'swiftElixir', null, null],
+        settings: { itemMenuAutoCloseMs: 150 },
+      }),
+    });
+    keydown('i');
+    keydown('1');
+    // Wait past half the window, then pick again - if the timer weren't
+    // reset on pick, the original 150ms deadline would already be close
+    // to firing by the time this second pick lands.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    keydown('2');
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
+    assert.equal(state.inventory.find((e) => e.itemId === 'swiftElixir'), undefined);
+    // Now let the (reset) timer actually run out.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
+  });
+
   await t.test('pressing Escape while the item menu is open cancels without consuming anything', async () => {
     const { root, state } = await mountBattle(['boar'], {
       state: baseState({ inventory: [{ itemId: 'potion', quantity: 1 }] }),
