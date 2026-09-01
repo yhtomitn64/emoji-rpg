@@ -27,6 +27,8 @@ public API, no formal release process — commits land straight on
 ### Added
 - 10 new buff-potion items (data only, not yet purchasable/usable in a
   battle - see follow-up commits) as part of the excess-gold-sink work.
+- `js/systems/buffPotions.js`: pure logic for stacking timed potion buffs
+  and identifying one-shot potions (not yet wired into battle).
 
 ## [0.14.3] - 2026-09-01
 
