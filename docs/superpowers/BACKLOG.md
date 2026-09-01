@@ -841,11 +841,54 @@ more things to buy or potion buffs to buy or something else but my gold
 is like 3k!" This is exactly the "future economy pass tightens gold
 flow" trigger named above, now real — 3k gold with shop gear topping
 out around 45g and upgrades at ~120g total means there's nothing left
-to spend on well past the early game. Two directions, neither decided:
-add more/higher-tier gold sinks (more expensive gear, potion buffs — the
-tiered-gear sell path shipped 2026-08-29, see BACKLOG_SHIPPED.md, already
-feeds some gold back out), or reduce gold income at higher levels. Not
-investigated yet.
+to spend on well past the early game.
+
+**Direction decided, 2026-08-31 (brainstorming session):** add more gold
+sinks, income unchanged. Landed on buff potions specifically — a
+10-potion roster (8 timed stat/effect buffs + 2 one-shots: guaranteed
+crit, Second Wind) usable mid-battle via a new item quick-select menu (4
+loadout slots set from the Inventory screen's Potions tab, `1`-`4` /
+arrows / click to pick, battle slows to ~25% speed while the menu is
+open). This is also the trigger condition named in "Item selection menu
+for the Item button" above — a second consumable type now exists.
+Design doc: see `docs/superpowers/specs/` for the dated design written
+this session. Higher-tier purchasable gear was considered and explicitly
+**not** chosen for this pass — see the new entries below.
+
+### NG+-scaled purchasable store gear — deferred 2026-08-31
+Raised as a gold-sink option alongside buff potions: extend the shop
+catalog with a gear tier that scales with the player's current NG+
+level, giving high-NG+ gold somewhere to go directly on stats. Deferred
+in the same session it was raised — Timothy's concern, verbatim-adjacent:
+purchasable gear needs a rule for staying below what you "work hard to
+get in the world" (reforged Mythic-tier gear, boss/unique drops), and
+that rule isn't designed yet. Buff potions were chosen instead for this
+pass specifically because they carry no such power-creep risk (temporary,
+not permanent stats). Revisit as its own brainstorming session once
+there's an answer for how a buyable tier avoids outclassing earned gear.
+
+### NG+ gear pass — every dropped item scales with NG+ level, raised 2026-08-31
+Bigger idea, raised in passing while discussing the store-gear idea above:
+have each NG+ level affect all dropped items (not just a purchasable
+tier), so there's always a fresh upgrade to chase and max out at every
+NG+ level rather than gear topping out early. Explicitly deferred to its
+own future session — not investigated: how this interacts with the
+existing tiered-gear/reforge-to-Mythic system (`js/systems/itemQuality.js`,
+"Rung-3 gear cleanup" work from `b8a5d33`), whether it replaces or layers
+on top of NG+-only unique effects (`ngPlusOnly` items), and how it avoids
+just being a bigger-number treadmill.
+
+### Materials feel like clutter, not a resource — raised 2026-08-31
+Raised in the same session, alongside the gold-sink discussion, then
+explicitly set aside by Timothy for later ("we already have waaaay too
+many materials so that should be adjusted later"). Two rough shapes
+floated, neither designed: materials could grant extra/different stats
+on already-maxed gear, or be spent to reroll an item's rolled stats.
+Related to — but a different problem than — the still-deferred "sell
+unneeded materials" entry above this one; that one is about offloading
+surplus, this one is about giving materials a use past the smith-upgrade
+path in the first place. Revisit together, since a "materials do more"
+answer could change whether the sell-path problem still exists at all.
 
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
