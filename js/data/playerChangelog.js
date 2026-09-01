@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.14.2',
+    date: '2026-09-01',
+    highlights: [
+      'Behind-the-scenes: a small deploy-pipeline safeguard so version numbers can\'t silently fall behind - nothing to see here.',
+    ],
+  },
+  {
     version: '0.14.1',
     date: '2026-08-31',
     highlights: [

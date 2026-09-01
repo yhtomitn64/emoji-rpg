@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-09-01
+
+### Added
+- A third CI check in `.github/workflows/deploy.yml`: for any push that
+  changes non-doc files, `## [Unreleased]` in `CHANGELOG.md` must be
+  empty (i.e. actually bumped into a dated section), not just present -
+  closes the last gap in this repo's versioning checklist enforcement.
+  The existing "CHANGELOG.md was touched" check only required *some*
+  entry to exist somewhere in the file; it didn't catch a push landing
+  with real content still sitting under `Unreleased` instead of bumped,
+  which is exactly the drift class from the `0.7.2` postmortem (the
+  in-game footer reads `PLAYER_CHANGELOG[0]` directly, so an un-bumped
+  `Unreleased` block means the footer silently falls behind). Raised
+  2026-09-01 while confirming the `0.14.1` deploy landed correctly.
+
 ## [0.14.1] - 2026-08-31
 
 ### Fixed

@@ -42,6 +42,36 @@ jobs:
           fi
           echo "CHANGELOG.md was updated in this push - OK."
 
+      # Raised 2026-09-01: the check above only requires that CHANGELOG.md
+      # was touched somewhere - it doesn't catch a push landing with real
+      # content still sitting under ## [Unreleased] instead of bumped into
+      # a dated ## [x.y.z] section, which is exactly the drift class from
+      # the 0.7.2 postmortem (js/data/playerChangelog.js's footer reads
+      # PLAYER_CHANGELOG[0], which never updates from an un-bumped
+      # Unreleased block - see the repo's own versioning checklist).
+      # Doesn't contradict the previous step's own comment about Unreleased
+      # being *allowed* to go empty - this is the other half: for a push
+      # that changed non-doc files, it must.
+      - name: Check CHANGELOG.md's Unreleased section was bumped, not left pending
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No previous commit to diff against (new branch or force-push) - skipping."
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+          CHANGED_NON_DOCS=$(echo "$CHANGED" | grep -v '\.md$' || true)
+          if [ -z "$CHANGED_NON_DOCS" ]; then
+            echo "Only docs changed - no version bump required."
+            exit 0
+          fi
+          UNRELEASED_BODY=$(awk '/^## \[Unreleased\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md)
+          if [ -n "$(echo "$UNRELEASED_BODY" | tr -d '[:space:]')" ]; then
+            echo "::error::CHANGELOG.md's ## [Unreleased] section still has content, but this push changed non-doc files. Bump it into a new dated ## [x.y.z] section (and add the matching js/data/playerChangelog.js entry) before this can deploy."
+            exit 1
+          fi
+          echo "## [Unreleased] is empty - version was bumped. OK."
+
       # Catches this mechanically rather than relying on anyone remembering:
       # the maintainer's local machine routes npm through a private registry
       # mirror on purpose (a real supply-chain safeguard for local dev), but
