@@ -777,19 +777,22 @@ monster emoji to match their silly food names — Timothy likes them as
 they are, e.g. "Slippery Breadstick" for the snake. Not tracked anywhere;
 revisit only if it comes up again for a future zone.)*
 
-### Item selection menu for the Item button, raised 2026-08-31
-Raised while reviewing the new action-button tooltip descriptions: right
-now Item (`i`) always drinks the one potion type in `ITEMS` — there's no
-menu because there's nothing to choose between yet. Timothy's own words,
-flagging it as forward-looking rather than needed today: "Item is
-interesting because at some point you will choose from a number of items.
-That might tie into pause where if you hit i a ring of stuff comes up and
-you choose from the one you want. that's a future backlog thing." Raw
-idea only — not designed: what a multi-item inventory in battle even
-looks like (a radial picker was Timothy's own mental image), whether it
-auto-pauses the battle while open, and what triggers it existing at all
-(more consumable item types don't exist yet either). Revisit once/if a
-second consumable item type is added.
+### Portal scroll — drop a portal to warp to town and back, raised 2026-09-01
+Timothy's idea, live during a testing session: a reusable tool item
+(found via a guardian-monster fight, matching the existing axe/pick/boat
+pattern) that drops a portal at your current position; walking into it
+warps you to town, where a paired portal appears; walking into that one
+returns you exactly where you dropped the first. The pair disappears
+after that one round trip. Only one portal can ever exist at a time
+(deliberately, to avoid old portals littering the map). Brainstorming is
+in progress but not finished — several open questions (item name/flavor,
+the activation hotkey, where it can/can't be used, guardian difficulty,
+how a dropped portal actually renders on the map) still need answers
+before a design can be written. Full context, decisions already locked
+in, and relevant existing-code pointers are captured in
+`docs/superpowers/specs/2026-09-01-portal-scroll-brainstorm-handoff.md`
+(written as a paste-in prompt for picking the brainstorm back up in a
+fresh session) rather than repeated here.
 
 ### "New Max damage!" progression feedback + a DPS meter, raised 2026-08-31
 Timothy's own words: "New Max damage for ability!!! and things like that

@@ -533,6 +533,17 @@ callout`) states the capability just unlocked, timed to land as the
 orbit finishes. Flagged as a design judgment rather than assumed
 silently. See CHANGELOG.
 
+### ~~Item selection menu for the Item button~~ Shipped 2026-09-01 (as part of 0.15.0)
+Landed as part of the buff-potions gold-sink work, once a second
+consumable item type (the 10 new buff potions) actually existed - the
+trigger condition this entry itself named. Not a radial picker as
+Timothy's original mental image sketched, but the same core idea: a
+4-slot loadout (set from the Inventory screen's Potions tab) and an
+in-battle quick-select menu (`i`, then 1-4/arrows/click), with battle
+slowing to 25% speed while it's open rather than fully pausing. See
+`docs/superpowers/specs/2026-08-31-buff-potions-design.md` and
+`docs/superpowers/plans/2026-08-31-buff-potions.md`, and CHANGELOG.
+
 ## Quests / economy
 
 ### ~~Quest turn-in scaling: more kills required each level, rewards scale up but with diminishing returns~~ Shipped 2026-08-22
