@@ -25,7 +25,7 @@ consumable connotation entirely.
 
 ```js
 portalCircle: {
-  id: 'portalCircle', name: 'Circle of Ultimate Portaling', emoji: '🌀',
+  id: 'portalCircle', name: 'Circle of Ultimate Portaling', emoji: '🌌',
   type: 'tool', price: 0,
   description: 'Drops a portal to town at your feet',
 },
@@ -47,7 +47,7 @@ Exact axe/pick/boat template, one new instance of each:
   // boatGuardian, since "free repeatable trip to/from town from
   // anywhere" is the strongest of the four tools.
   portalGuardian: {
-    id: 'portalGuardian', name: 'Portal Guardian', emoji: '🌀',
+    id: 'portalGuardian', name: 'Portal Guardian', emoji: '🌌',
     hp: 210, attack: 28, defense: 9, speed: 9,
     xp: 65, goldRange: [22, 32],
     dropTable: [{ itemId: 'portalCircle', chance: 1 }],
@@ -113,7 +113,7 @@ Exact axe/pick/boat template, one new instance of each:
 - **Entrance tile**, `js/tiles.js`:
 
   ```js
-  portalDungeonEntrance: { emoji: '🌀', walkable: true, encounter: false, action: 'enterPortalDungeon', description: 'A guarded passage — a portal lies beyond' },
+  portalDungeonEntrance: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalDungeon', description: 'A guarded passage — a portal lies beyond' },
   ```
 
 - **`js/main.js` wiring**: import + register `portalDungeonMap` in
@@ -225,8 +225,8 @@ function tileAt(screenConfig, x, y) {
 Two new `js/tiles.js` entries:
 
 ```js
-portalOrigin: { emoji: '🌀', walkable: true, encounter: false, action: 'enterPortalToTown', description: 'A swirling portal — steps through to town' },
-portalReturn: { emoji: '🌀', walkable: true, encounter: false, action: 'enterPortalToOrigin', description: 'A swirling portal — steps through back where you left it' },
+portalOrigin: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToTown', description: 'A swirling portal — steps through to town' },
+portalReturn: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToOrigin', description: 'A swirling portal — steps through back where you left it' },
 ```
 
 Once `state.portal` is cleared, both checks stop matching and `tileAt()`
