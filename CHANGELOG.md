@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), with a
 lightweight versioning scheme suited to a solo personal project (no
 public API, no formal release process — commits land straight on
-`master`):
+`main`):
 
 - **Versions are `MAJOR.MINOR.PATCH`.** Stay in `0.x` during early
   development.
@@ -36,6 +36,10 @@ public API, no formal release process — commits land straight on
   reopened between picks. Instead it auto-closes on its own a short beat
   (1s by default, adjustable in Settings) after your last pick, with a
   countdown bar - Escape still closes it immediately.
+- Internal: default branch renamed `master` → `main` (local rename +
+  `.github/workflows/deploy.yml`'s trigger updated to match; the actual
+  push/GitHub default-branch switch is a separate, deliberately
+  unpushed step).
 
 ### Fixed
 - Power Ring now equips into a ring slot instead of the accessory slot

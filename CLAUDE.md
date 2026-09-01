@@ -1,6 +1,6 @@
 # emoji-rpg — project instructions
 
-Solo personal project. A push to `master` **is** the release — CI
+Solo personal project. A push to `main` **is** the release — CI
 (`.github/workflows/deploy.yml`) deploys straight to
 `rpg.burghertime.com` on every push, no separate release step. See
 `CHANGELOG.md`'s own header for the MAJOR.MINOR.PATCH versioning rules
