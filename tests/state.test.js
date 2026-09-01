@@ -14,6 +14,7 @@ import {
   isToneCapableEmoji,
   applySkinTone,
   migrateRingSlots,
+  migratePowerRingSlot,
   migrateBestDamage,
   migrateLoadout,
 } from '../js/state.js';
@@ -198,6 +199,56 @@ test('migrateRingSlots leaves a non-Ember-Ring accessory item untouched', () => 
   const migrated = migrateRingSlots(legacy);
   assert.equal(migrated.equipment.accessory, 'luckyCharm');
   assert.equal(migrated.equipment.ring1, null);
+});
+
+test('migratePowerRingSlot relocates an accessory-equipped Power Ring into ring1', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'powerRing';
+  const migrated = migratePowerRingSlot(legacy);
+  assert.equal(migrated.equipment.ring1, 'powerRing');
+  assert.equal(migrated.equipment.accessory, null);
+});
+
+test('migratePowerRingSlot uses ring2 when ring1 is already occupied', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'powerRing';
+  legacy.equipment.ring1 = 'emberRing';
+  const migrated = migratePowerRingSlot(legacy);
+  assert.equal(migrated.equipment.ring1, 'emberRing');
+  assert.equal(migrated.equipment.ring2, 'powerRing');
+  assert.equal(migrated.equipment.accessory, null);
+});
+
+test('migratePowerRingSlot returns Power Ring to inventory when both ring slots are already taken', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'powerRing';
+  legacy.equipment.ring1 = 'emberRing';
+  legacy.equipment.ring2 = 'windfuryRing';
+  const migrated = migratePowerRingSlot(legacy);
+  assert.equal(migrated.equipment.accessory, null);
+  assert.equal(migrated.equipment.ring1, 'emberRing');
+  assert.equal(migrated.equipment.ring2, 'windfuryRing');
+  assert.equal(migrated.inventory.find((entry) => entry.itemId === 'powerRing')?.quantity, 1);
+});
+
+test('migratePowerRingSlot stacks onto an existing Power Ring inventory entry rather than duplicating it', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'powerRing';
+  legacy.equipment.ring1 = 'emberRing';
+  legacy.equipment.ring2 = 'windfuryRing';
+  legacy.inventory.push({ itemId: 'powerRing', quantity: 1 });
+  const migrated = migratePowerRingSlot(legacy);
+  const entries = migrated.inventory.filter((entry) => entry.itemId === 'powerRing');
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].quantity, 2);
+});
+
+test('migratePowerRingSlot is a no-op when Power Ring is not in the accessory slot', () => {
+  const state = createNewGame();
+  state.equipment.accessory = 'luckyCharm';
+  const migrated = migratePowerRingSlot(state);
+  assert.equal(migrated.equipment.accessory, 'luckyCharm');
+  assert.equal(migrated, state);
 });
 
 test('createNewGame includes an empty bestDamage object', () => {

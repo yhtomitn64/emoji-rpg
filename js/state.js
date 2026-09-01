@@ -118,6 +118,35 @@ export function migrateRingSlots(state) {
   };
 }
 
+// One-time migration for saves with Power Ring stuck in the accessory
+// slot from before it was reclassified as a ring-slot item (2026-09-01
+// bug fix, reported live: "when I equip power ring it goes in accessory
+// slot and not rings"). Same "legacy item found in the wrong slot" fix
+// migrateRingSlots above already does for Ember Ring, but not gated on
+// ring1/ring2 existing yet - every save reaching this point already has
+// them, since this bug is about this one item's own slot, not the
+// ring-slot feature's rollout.
+export function migratePowerRingSlot(state) {
+  if (state.equipment.accessory !== 'powerRing') return state;
+  const equipment = { ...state.equipment, accessory: null };
+  if (!equipment.ring1) {
+    equipment.ring1 = 'powerRing';
+    return { ...state, equipment };
+  }
+  if (!equipment.ring2) {
+    equipment.ring2 = 'powerRing';
+    return { ...state, equipment };
+  }
+  // Both ring slots already taken by something else - can't equip it
+  // anywhere, so return it to inventory instead of overwriting a ring the
+  // player chose on purpose.
+  const existing = state.inventory.find((entry) => entry.itemId === 'powerRing' && !entry.tier);
+  const inventory = existing
+    ? state.inventory.map((entry) => (entry === existing ? { ...entry, quantity: entry.quantity + 1 } : entry))
+    : [...state.inventory, { itemId: 'powerRing', quantity: 1 }];
+  return { ...state, equipment, inventory };
+}
+
 // One-time migration for saves from before per-move best-damage tracking
 // existed ("New Max damage!" progression callout, added 2026-08-31) -
 // nothing carries over (no move has ever recorded a best hit before this),

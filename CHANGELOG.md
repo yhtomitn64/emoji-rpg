@@ -24,6 +24,17 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Changed
+- The battle item quick-select menu no longer closes after each potion
+  picked - raised live during testing, so a run of loadout keys (e.g. `i`
+  then `2`, `3`, `4`) drinks each one in a row instead of needing the menu
+  reopened between picks. Escape closes it now.
+
+### Fixed
+- Power Ring now equips into a ring slot instead of the accessory slot
+  (it was misclassified as `slot: 'accessory'` in the item data) - a
+  migration relocates any already-equipped copy on existing saves.
+
 ## [0.15.0] - 2026-09-01
 
 ### Added

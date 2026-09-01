@@ -102,7 +102,7 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#btn-item').disabled, true);
   });
 
-  await t.test('Item button opens the quick-select menu, and selecting the heal potion heals', async () => {
+  await t.test('Item button opens the quick-select menu, and selecting the heal potion heals without closing the menu', async () => {
     const { root } = await mountBattle(['boar'], {
       state: baseState({ player: { ...createNewGame().player, hp: 5 }, inventory: [{ itemId: 'potion', quantity: 1 }] }),
     });
@@ -110,8 +110,13 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-item'));
     assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
     click(root.querySelector('button[data-slot="0"]'));
-    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
+    // Stays open - raised live during testing: chaining several potion
+    // picks (e.g. 2, 3, 4 in a row) shouldn't require reopening the menu
+    // each time. Escape is the only way to close it now.
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
     assert.match(root.querySelector('#battle-log').textContent, /drink Potion and heal/);
+    keydown('Escape');
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
   });
 
   await t.test('Item button is disabled when the loadout has nothing usable', async () => {
@@ -119,15 +124,35 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#btn-item').disabled, true);
   });
 
-  await t.test('pressing "i" opens the item menu, and pressing "1" selects slot 1', async () => {
+  await t.test('pressing "i" opens the item menu, and pressing "1" selects slot 1 without closing it', async () => {
     const { root } = await mountBattle(['boar'], {
       state: baseState({ inventory: [{ itemId: 'potion', quantity: 1 }] }),
     });
     keydown('i');
     assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
     keydown('1');
-    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
     assert.match(root.querySelector('#battle-log').textContent, /drink Potion and heal/);
+  });
+
+  await t.test('quickly pressing several loadout number keys in a row drinks each one without reopening the menu', async () => {
+    const { root, state } = await mountBattle(['boar'], {
+      state: baseState({
+        inventory: [
+          { itemId: 'strengthDraught', quantity: 1 },
+          { itemId: 'swiftElixir', quantity: 1 },
+        ],
+        loadout: ['strengthDraught', 'swiftElixir', null, null],
+      }),
+    });
+    keydown('i');
+    keydown('1');
+    keydown('2');
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
+    assert.equal(state.inventory.find((e) => e.itemId === 'strengthDraught'), undefined);
+    assert.equal(state.inventory.find((e) => e.itemId === 'swiftElixir'), undefined);
+    assert.match(root.querySelector('#battle-log').textContent, /Strength Draught/);
+    assert.match(root.querySelector('#battle-log').textContent, /Swift Elixir/);
   });
 
   await t.test('pressing Escape while the item menu is open cancels without consuming anything', async () => {
@@ -636,6 +661,7 @@ test('battleScreen DOM', async (t) => {
       });
       click(buffedRoot.querySelector('#btn-item'));
       click(buffedRoot.querySelector('button[data-slot="0"]'));
+      keydown('Escape'); // menu stays open after a pick now - close it before attacking
       click(buffedRoot.querySelector('#btn-attack'));
       // Only the Attack line contains "for <N>" - the drink confirmation
       // line above it doesn't - so the same simple match used for the
@@ -656,6 +682,7 @@ test('battleScreen DOM', async (t) => {
       });
       click(root.querySelector('#btn-item'));
       click(root.querySelector('button[data-slot="0"]'));
+      keydown('Escape'); // menu stays open after a pick now - close it before attacking
       click(root.querySelector('#btn-attack'));
       assert.match(root.querySelector('#battle-log').textContent, /Critical! You hit/);
     } finally {
@@ -672,6 +699,7 @@ test('battleScreen DOM', async (t) => {
       });
       click(root.querySelector('#btn-item'));
       click(root.querySelector('button[data-slot="0"]'));
+      keydown('Escape'); // menu stays open after a pick now - close it before attacking
       click(root.querySelector('#btn-attack')); // consumes the guaranteed crit
       const logAfterFirst = root.querySelector('#battle-log').textContent;
       assert.match(logAfterFirst, /Critical! You hit/);
@@ -703,6 +731,10 @@ test('battleScreen DOM', async (t) => {
     });
     click(root.querySelector('#btn-item'));
     click(root.querySelector('button[data-slot="0"]'));
+    // Menu stays open after a pick now - close it so combat resumes at
+    // full speed (300ms ticks) before the real-time waits below, which
+    // are tuned for that cadence, not the item menu's 25% slow-mo.
+    keydown('Escape');
     // Same unparried-hit forcing pattern as the existing "a Retribution
     // Charm reflects damage..." test above: wait past the first tick
     // (windup starts, ~300ms), then past the full PARRY_WINDUP_DURATION_MS

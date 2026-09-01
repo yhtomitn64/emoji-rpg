@@ -36,7 +36,7 @@ export const ITEMS = {
 
   // Accessory
   luckyCharm: { id: 'luckyCharm', name: 'Lucky Charm', emoji: '🍀', slot: 'accessory', price: 25, stats: { speed: 2 } },
-  powerRing: { id: 'powerRing', name: 'Power Ring', emoji: '💍', slot: 'accessory', price: 40, stats: { attack: 2 } },
+  powerRing: { id: 'powerRing', name: 'Power Ring', emoji: '💍', slot: 'ring', price: 40, stats: { attack: 2 } },
   frostCharm: { id: 'frostCharm', name: 'Frost Charm', emoji: '❄️', slot: 'accessory', price: 40, stats: { enemySlowPercent: 15 }, description: "Slows the enemy's attack timer by 15%" },
 
   // Unique-effect drops (found only, never sold - see js/systems/loot.js's

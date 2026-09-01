@@ -603,14 +603,21 @@ function closeItemMenu() {
   resumeBattle();
 }
 
+// Deliberately does NOT close the menu - raised live during testing:
+// "hitting hotkey for item and then quickly hitting 2, 3, 4 to get all
+// potions at once quick instead of open menu, 2, open again 3, open again
+// 4." The menu stays open (re-rendered so owned counts/disabled slots
+// stay current) across as many picks as the player wants; Escape is the
+// only way to close it now.
 function selectItemMenuSlot(index) {
   const itemId = state.loadout[index];
   if (!itemId) return;
   const owned = state.inventory.find((entry) => entry.itemId === itemId)?.quantity || 0;
   if (owned === 0) return;
   if (itemId === 'secondWind' && secondWindAvailable) return;
-  closeItemMenu();
+  itemMenuSelectedIndex = index;
   drinkPotion(itemId);
+  renderItemMenu();
 }
 
 function handleItemMenuKeydown(event) {

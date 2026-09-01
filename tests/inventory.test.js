@@ -130,8 +130,8 @@ test('getEquipmentBonuses sums fractional per-item bonuses before rounding once 
   let state = createNewGame();
   state.upgrades[upgradeKey('starterSword', undefined)] = 1; // weapon, equipped by default: base attack 3 -> 3 + 3*0.25*1 = 3.75
   state = addItem(state, 'powerRing', 1);
-  state = equipItem(state, 'powerRing', 'accessory');
-  state.upgrades[upgradeKey('powerRing', undefined)] = 1; // accessory: base attack 2 -> 2 + 2*0.25*1 = 2.5
+  state = equipItem(state, 'powerRing', 'ring1');
+  state.upgrades[upgradeKey('powerRing', undefined)] = 1; // ring1: base attack 2 -> 2 + 2*0.25*1 = 2.5
   const bonuses = getEquipmentBonuses(state);
   // Correct (sum-then-round-once): 3.75 + 2.5 = 6.25 -> 6.
   // A regression that rounds each item's contribution before summing would instead
