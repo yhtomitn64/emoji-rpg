@@ -32,6 +32,13 @@ public API, no formal release process — commits land straight on
 - Potion loadout state (`state.loadout`, 4 slots, defaults to the heal
   potion in slot 1) and `js/systems/loadout.js` for assigning slots - not
   yet exposed in any screen.
+- Inventory screen: Potions tab rows now show 4 loadout toggle buttons for
+  assigning a potion to a battle quick-select slot (not yet usable in
+  battle - see follow-up commits).
+
+### Fixed
+- Inventory screen's potion "Use" button no longer renders for non-heal
+  consumables, which would have corrupted player HP to NaN.
 
 ## [0.14.3] - 2026-09-01
 

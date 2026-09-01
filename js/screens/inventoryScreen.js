@@ -4,6 +4,7 @@ import {
   describeItem, getUpgradeLevel, resolveRingEquipSlot, formatStatDelta,
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
+import { LOADOUT_SIZE, setLoadoutSlot, clearLoadoutSlot } from '../systems/loadout.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
 const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
@@ -95,15 +96,29 @@ function renderMaterialRows(entries) {
   }).join('');
 }
 
+function loadoutToggleButtonsHtml(itemId) {
+  return Array.from({ length: LOADOUT_SIZE }, (_, index) => {
+    const active = state.loadout[index] === itemId;
+    return `<button class="inventory-loadout-slot-btn${active ? ' active' : ''}" data-loadout-slot="${index}" data-loadout-item="${itemId}" title="Loadout slot ${index + 1}">${index + 1}</button>`;
+  }).join('');
+}
+
 function renderConsumableRows(entries) {
   if (entries.length === 0) return '<div class="inventory-empty">No potions.</div>';
   const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
   const atFullHp = state.player.hp >= effectiveMaxHp;
   return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
+    // Only the heal potion has a `heal` field - the Use button drinks it
+    // outside of battle. The 10 buff potions are battle-only (see the
+    // loadout + item quick-select menu in battleScreen.js) - rendering a
+    // Use button for one of those used to call applyHeal() with an
+    // undefined heal amount, corrupting player HP to NaN.
+    const useButton = item.heal ? `<button data-use="${entry.itemId}" ${atFullHp ? 'disabled' : ''}>Use</button>` : '';
     return `<div class="inventory-row">
       <span title="${describeItem(state, entry.itemId)}">${item.emoji} ${item.name} x${entry.quantity}</span>
-      <button data-use="${entry.itemId}" ${atFullHp ? 'disabled' : ''}>Use</button>
+      <span class="inventory-loadout-slots">${loadoutToggleButtonsHtml(entry.itemId)}</span>
+      ${useButton}
     </div>`;
   }).join('');
 }
@@ -185,6 +200,16 @@ function render() {
       const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
       Object.assign(state, removeItem(state, itemId, 1));
       state.player.hp = applyHeal(state.player.hp, effectiveMaxHp, item.heal);
+      callbacks.onChange();
+      render();
+    };
+  });
+  rootEl.querySelectorAll('button[data-loadout-slot]').forEach((btn) => {
+    btn.onclick = () => {
+      const slotIndex = Number(btn.dataset.loadoutSlot);
+      const itemId = btn.dataset.loadoutItem;
+      const alreadyInSlot = state.loadout[slotIndex] === itemId;
+      state.loadout = alreadyInSlot ? clearLoadoutSlot(state.loadout, slotIndex) : setLoadoutSlot(state.loadout, slotIndex, itemId);
       callbacks.onChange();
       render();
     };

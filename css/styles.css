@@ -854,6 +854,26 @@ button:focus-visible {
   padding: 6px 0; border-bottom: 1px solid #444;
 }
 .inventory-empty { color: #888; padding: 6px 0; font-size: 0.85rem; }
+.inventory-loadout-slots {
+  display: flex;
+  gap: 4px;
+}
+.inventory-loadout-slot-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 0.75rem;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #888;
+  cursor: pointer;
+}
+.inventory-loadout-slot-btn.active {
+  background: #4a7a4a;
+  color: #fff;
+  border-color: #7bbf7b;
+}
 .inventory-tab-buttons {
   display: flex;
   gap: 6px;

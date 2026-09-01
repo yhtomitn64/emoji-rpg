@@ -13,6 +13,7 @@ function buildState() {
     equipment: { weapon: null, head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
     equipmentTiers: {},
     upgrades: {},
+    loadout: [null, null, null, null],
     inventory: [
       { itemId: 'ironSword', quantity: 1 },
       { itemId: 'clothCap', quantity: 1, tier: 'superior' },
@@ -21,6 +22,7 @@ function buildState() {
       { itemId: 'ironScrap', quantity: 2 },
       { itemId: 'batWing', quantity: 9 },
       { itemId: 'potion', quantity: 3 },
+      { itemId: 'strengthDraught', quantity: 2 },
       { itemId: 'miningPick', quantity: 1 },
       { itemId: 'axe', quantity: 1 },
     ],
@@ -131,5 +133,44 @@ test('inventoryScreen DOM', async (t) => {
     assert.ok(ring2Btn);
     click(ring2Btn);
     assert.equal(state.equipment.ring2, 'emberRing');
+  });
+
+  await t.test('Potions tab rows show 4 loadout toggle buttons, and only the heal potion shows a Use button', async () => {
+    const root = await mountInventory(buildState());
+    click(root.querySelector('[data-tab="consumable"]'));
+    const rows = [...root.querySelectorAll('.inventory-tab-content .inventory-row')];
+    const potionRow = rows.find((row) => row.textContent.includes('Potion'));
+    const draughtRow = rows.find((row) => row.textContent.includes('Strength Draught'));
+    assert.equal(potionRow.querySelectorAll('button[data-loadout-slot]').length, 4);
+    assert.ok(potionRow.querySelector('button[data-use]'));
+    assert.equal(draughtRow.querySelectorAll('button[data-loadout-slot]').length, 4);
+    assert.equal(draughtRow.querySelector('button[data-use]'), null);
+  });
+
+  await t.test('clicking a loadout slot button assigns the item, bumping out any previous occupant', async () => {
+    const state = buildState();
+    const root = await mountInventory(state);
+    click(root.querySelector('[data-tab="consumable"]'));
+    const potionSlot1 = [...root.querySelectorAll('.inventory-row')]
+      .find((row) => row.textContent.includes('Potion x'))
+      .querySelector('button[data-loadout-slot="0"]');
+    click(potionSlot1);
+    assert.deepEqual(state.loadout, ['potion', null, null, null]);
+    const draughtSlot1 = [...root.querySelectorAll('.inventory-row')]
+      .find((row) => row.textContent.includes('Strength Draught'))
+      .querySelector('button[data-loadout-slot="0"]');
+    click(draughtSlot1);
+    assert.deepEqual(state.loadout, ['strengthDraught', null, null, null]);
+  });
+
+  await t.test('clicking an already-assigned loadout slot button unassigns it', async () => {
+    const state = { ...buildState(), loadout: ['potion', null, null, null] };
+    const root = await mountInventory(state);
+    click(root.querySelector('[data-tab="consumable"]'));
+    const potionSlot1 = [...root.querySelectorAll('.inventory-row')]
+      .find((row) => row.textContent.includes('Potion x'))
+      .querySelector('button[data-loadout-slot="0"]');
+    click(potionSlot1);
+    assert.deepEqual(state.loadout, [null, null, null, null]);
   });
 });
