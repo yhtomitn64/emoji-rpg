@@ -17,6 +17,7 @@ import { dungeonMap } from './maps/dungeonMap.js';
 import { axeDungeonMap } from './maps/toolDungeons/axeDungeon.js';
 import { pickDungeonMap } from './maps/toolDungeons/pickDungeon.js';
 import { canoeDungeonMap } from './maps/toolDungeons/canoeDungeon.js';
+import { portalDungeonMap } from './maps/toolDungeons/portalDungeon.js';
 import { TOOL_DUNGEON_ENTRANCES } from './data/toolDungeons.js';
 import { centerMap } from './maps/wilderness/center.js';
 import { northMap } from './maps/wilderness/north.js';
@@ -112,6 +113,7 @@ const MAPS = {
   axeDungeon: axeDungeonMap,
   pickDungeon: pickDungeonMap,
   canoeDungeon: canoeDungeonMap,
+  portalDungeon: portalDungeonMap,
 };
 
 const WORLD_GRID = buildWorldGrid(MAPS);
@@ -447,6 +449,7 @@ function handleTileAction(action) {
   if (action === 'enterAxeDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.axe.mapId);
   if (action === 'enterPickDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.pick.mapId);
   if (action === 'enterCanoeDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.canoe.mapId);
+  if (action === 'enterPortalDungeon') return enterMap(TOOL_DUNGEON_ENTRANCES.portal.mapId);
   if (action === 'exitMap') {
     if (state.map === 'town') return enterMap('center');
     // Land back on the exact entrance tile, not the destination screen's

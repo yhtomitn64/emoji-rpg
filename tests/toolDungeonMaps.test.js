@@ -7,15 +7,17 @@ import { TOOL_DUNGEON_ENTRANCES } from '../js/data/toolDungeons.js';
 import { axeDungeonMap } from '../js/maps/toolDungeons/axeDungeon.js';
 import { pickDungeonMap } from '../js/maps/toolDungeons/pickDungeon.js';
 import { canoeDungeonMap } from '../js/maps/toolDungeons/canoeDungeon.js';
+import { portalDungeonMap } from '../js/maps/toolDungeons/portalDungeon.js';
 import { isWalkableAt } from '../js/systems/world.js';
 
 const TOOL_DUNGEONS = {
   axe: axeDungeonMap,
   pick: pickDungeonMap,
   canoe: canoeDungeonMap,
+  portal: portalDungeonMap,
 };
 
-const ITEM_ID_FOR_TOOL = { axe: 'axe', pick: 'miningPick', canoe: 'boat' };
+const ITEM_ID_FOR_TOOL = { axe: 'axe', pick: 'miningPick', canoe: 'boat', portal: 'portalCircle' };
 
 function assertValidMap(map) {
   const width = map.rows[0].length;
@@ -119,6 +121,9 @@ test('TOOL_DUNGEON_ENTRANCES positions are in-bounds and resolve to a walkable e
   // beneath it - only in-bounds placement and the tile kind's own
   // walkability actually matter.
   for (const [toolId, entry] of Object.entries(TOOL_DUNGEON_ENTRANCES)) {
+    // A not-yet-hand-placed entrance (screenId: null) has nothing to check
+    // yet - covered separately below instead of crashing this import.
+    if (entry.screenId === null) continue;
     const wildernessMap = (await import(`../js/maps/wilderness/${entry.screenId}.js`))[`${entry.screenId}Map`];
     const height = wildernessMap.rows.length;
     const width = wildernessMap.rows[0].length;
@@ -127,5 +132,17 @@ test('TOOL_DUNGEON_ENTRANCES positions are in-bounds and resolve to a walkable e
       `TOOL_DUNGEON_ENTRANCES.${toolId} position (${entry.x}, ${entry.y}) is out of bounds on '${entry.screenId}' (${width}x${height})`
     );
     assert.ok(TILES[entry.tileKind].walkable, `TOOL_DUNGEON_ENTRANCES.${toolId}'s tileKind '${entry.tileKind}' must be walkable`);
+  }
+});
+
+test("a not-yet-placed TOOL_DUNGEON_ENTRANCES entry (null screenId) is inert everywhere that matches on screenId", () => {
+  const placeholders = Object.entries(TOOL_DUNGEON_ENTRANCES).filter(([, entry]) => entry.screenId === null);
+  assert.ok(placeholders.length > 0, 'expected at least one not-yet-placed entrance to exist for this test to mean anything');
+  for (const [toolId, entry] of placeholders) {
+    // Every real screenId is a non-empty string, so `screenConfig.id ===
+    // entry.screenId` (js/screens/mapScreen.js's tileAt()) can never match
+    // null - this just pins that invariant down explicitly.
+    assert.equal(entry.screenId, null, `${toolId} placeholder`);
+    assert.notEqual(typeof 'anyRealScreenId', typeof entry.screenId);
   }
 });

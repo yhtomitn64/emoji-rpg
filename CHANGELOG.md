@@ -32,6 +32,10 @@ public API, no formal release process — commits land straight on
   Portaling (`portalCircle`) and its `portalGuardian` - not yet
   reachable in-game (dungeon/entrance land in later commits this
   session).
+- The Circle of Ultimate Portaling's guardian dungeon (`portalDungeon`)
+  and its `TOOL_DUNGEON_ENTRANCES.portal` registration - entrance
+  position is still a placeholder until Timothy hand-places it with the
+  terrain painter.
 
 ### Changed
 - The battle item quick-select menu no longer closes after each potion

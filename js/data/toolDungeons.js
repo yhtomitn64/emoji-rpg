@@ -16,4 +16,14 @@ export const TOOL_DUNGEON_ENTRANCES = {
   canoe: {
     screenId: 'west', x: 18, y: 13, mapId: 'canoeDungeon', tileKind: 'canoeDungeonEntrance',
   },
+  // screenId/x/y are placeholders - Timothy hand-places the real spot via
+  // the terrain painter's "Place Tool Dungeon Entrance" mode, same as the
+  // other three (see docs/superpowers/specs/2026-09-01-portal-scroll-
+  // design.md). Every place that reads TOOL_DUNGEON_ENTRANCES compares a
+  // real screenId string against this null, which is always false, so a
+  // null entry here is inert until it's filled in - never reachable, never
+  // a crash (see tests/toolDungeonMaps.test.js's null-placeholder test).
+  portal: {
+    screenId: null, x: null, y: null, mapId: 'portalDungeon', tileKind: 'portalDungeonEntrance',
+  },
 };
