@@ -24,6 +24,28 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-09-01
+
+### Changed
+- Bumped the three GitHub Actions in `.github/workflows/deploy.yml` to
+  their latest major versions - `actions/checkout` v4→v7,
+  `actions/setup-node` v4→v7, `cloudflare/wrangler-action` v3→v4 -
+  clearing the "forced to run on Node.js 24" deprecation warning GitHub
+  had started attaching to every deploy run (those actions still
+  targeted Node 20 internally). Checked each project's own
+  changelog/release notes first: `actions/checkout` v5-v7 are
+  Node-24-runtime bumps with no input changes; `actions/setup-node`
+  v5/v6's breaking changes (auto package-manager cache detection,
+  auto-caching limited to npm) don't affect this workflow, which already
+  passes `cache: npm` explicitly and has no `packageManager` field in
+  `package.json`; `wrangler-action` v4's only breaking change is
+  defaulting the installed Wrangler CLI to v4 instead of v3 - accepted
+  as-is (not pinned back to v3) since `wrangler pages deploy`'s basic
+  command syntax is unchanged, and verified by watching the next real
+  deploy run through to a successful, live result. This repo's own
+  `node-version: 20` input (the Node version used to run `npm ci`/`npm
+  run test`, unrelated to the actions' own runtime) is untouched.
+
 ## [0.14.2] - 2026-09-01
 
 ### Added
