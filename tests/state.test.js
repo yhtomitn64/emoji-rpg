@@ -15,6 +15,7 @@ import {
   applySkinTone,
   migrateRingSlots,
   migrateBestDamage,
+  migrateLoadout,
 } from '../js/state.js';
 
 function createFakeStorage() {
@@ -216,4 +217,22 @@ test('migrateBestDamage is a no-op on a save that already has bestDamage', () =>
   state.bestDamage = { attack: 12 };
   const migrated = migrateBestDamage(state);
   assert.deepEqual(migrated.bestDamage, { attack: 12 });
+});
+
+test('createNewGame starts with the heal potion loaded into loadout slot 1', () => {
+  const state = createNewGame();
+  assert.deepEqual(state.loadout, ['potion', null, null, null]);
+});
+
+test('migrateLoadout adds the default loadout to a save from before it existed', () => {
+  const legacy = createNewGame();
+  delete legacy.loadout;
+  const migrated = migrateLoadout(legacy);
+  assert.deepEqual(migrated.loadout, ['potion', null, null, null]);
+});
+
+test('migrateLoadout is a no-op once loadout already exists', () => {
+  const state = { ...createNewGame(), loadout: ['strengthDraught', null, null, null] };
+  const migrated = migrateLoadout(state);
+  assert.deepEqual(migrated.loadout, ['strengthDraught', null, null, null]);
 });

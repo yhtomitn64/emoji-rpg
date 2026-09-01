@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migrateBestDamage } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migrateBestDamage, migrateLoadout } from './state.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
@@ -123,6 +123,7 @@ function startGame(loadedState, slotId) {
   state = migrateNgPlusToolCarryover(state);
   state = migrateRingSlots(state);
   state = migrateBestDamage(state);
+  state = migrateLoadout(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';

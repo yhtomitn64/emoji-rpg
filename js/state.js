@@ -49,6 +49,12 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     upgrades: {},
     equipmentTiers: {},
     inventory: [{ itemId: 'potion', quantity: 2 }],
+    // The heal potion starts pre-loaded into slot 1 so the existing "press
+    // i to heal" battle habit keeps working with zero setup - the other 3
+    // slots are for the player to fill in from the Inventory screen's
+    // Potions tab. See docs/superpowers/specs/2026-08-31-buff-potions-
+    // design.md.
+    loadout: ['potion', null, null, null],
     map: 'center',
     position: null,
     flags: { dungeonBossDefeated: false, firstKillCelebrated: false },
@@ -120,6 +126,15 @@ export function migrateRingSlots(state) {
 export function migrateBestDamage(state) {
   if ('bestDamage' in state) return state;
   return { ...state, bestDamage: {} };
+}
+
+// One-time migration for saves from before the potion loadout existed -
+// defaults to the same starting loadout createNewGame() gives a fresh
+// save (heal potion in slot 1, rest empty), so an existing player's Item
+// button keeps healing exactly as before with no extra setup needed.
+export function migrateLoadout(state) {
+  if ('loadout' in state) return state;
+  return { ...state, loadout: ['potion', null, null, null] };
 }
 
 export function serializeState(state) {

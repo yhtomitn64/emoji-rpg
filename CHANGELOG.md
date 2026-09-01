@@ -29,6 +29,9 @@ public API, no formal release process — commits land straight on
   battle - see follow-up commits) as part of the excess-gold-sink work.
 - `js/systems/buffPotions.js`: pure logic for stacking timed potion buffs
   and identifying one-shot potions (not yet wired into battle).
+- Potion loadout state (`state.loadout`, 4 slots, defaults to the heal
+  potion in slot 1) and `js/systems/loadout.js` for assigning slots - not
+  yet exposed in any screen.
 
 ## [0.14.3] - 2026-09-01
 
