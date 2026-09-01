@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.15.0',
+    date: '2026-09-01',
+    highlights: [
+      'New: 10 buff potions in the shop - 8 give a temporary combat boost (attack, defense, speed, lifesteal, extra swing chance, elemental damage, thorns, or crit chance) and 2 are one-shots (a guaranteed critical hit, or a Second Wind that saves you from a killing blow once per fight).',
+      'New: set up a 4-potion loadout from the Inventory screen\'s Potions tab, then press the Item button (i) in battle to pick one mid-fight - battle slows down instead of pausing while you choose.',
+      'New: monster kills now have a small chance to also drop a bonus potion.',
+    ],
+  },
+  {
     version: '0.14.3',
     date: '2026-09-01',
     highlights: [

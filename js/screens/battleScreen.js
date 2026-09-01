@@ -5,8 +5,11 @@ import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
+import { LOADOUT_SIZE } from '../systems/loadout.js';
+import { isTimedBuffPotion, createActiveBuffs, activateTimedBuff, tickActiveBuffs, getActiveBuffBonuses, combineBonuses } from '../systems/buffPotions.js';
 
 const VICTORY_PAUSE_MS = 1200;
+const ITEM_MENU_TIME_SCALE = 0.25;
 // Timed to *finish* right as the VICTORY_PAUSE_MS pause ends, not to start
 // at the top of it - screenManager.js's unmountOverlay() clears the DOM
 // synchronously the instant the pause's own setTimeout fires, so there's no
@@ -81,6 +84,17 @@ let livePerfectBadges = [];
 let battleDamageDealt = 0;
 let battleElapsedMs = 0;
 let playerEffectBonuses = null;
+// The equipment-only half of playerEffectBonuses, computed once per battle
+// - recomputeEffectBonuses() keeps playerEffectBonuses equal to this plus
+// whatever's currently in activeBuffs, so every existing combat call site
+// that already reads playerEffectBonuses.* picks up active potion buffs
+// automatically with no changes of its own.
+let equipmentBonuses = null;
+let activeBuffs = [];
+let guaranteedCritNextHit = false;
+let secondWindAvailable = false;
+let itemMenuOpen = false;
+let itemMenuSelectedIndex = 0;
 // Only game-state-affecting timers freeze on pause (the 300ms tick, a
 // monster's windup/parry clock, the ability timing-meter's rAF loop) - see
 // pauseBattle()/resumeBattle(). Already-committed cosmetic effects (damage
@@ -241,6 +255,9 @@ function buildDom() {
       <div class="battle-paused-overlay" id="battle-paused-overlay" hidden>
         <div class="battle-paused-label">⏸️ PAUSED</div>
       </div>
+      <div class="battle-item-menu-overlay" id="battle-item-menu-overlay" hidden>
+        <div class="battle-item-menu-slots" id="battle-item-menu-slots"></div>
+      </div>
       <div class="overlay-panel battle-screen ${envClass}">
         <div class="battle-main">
           <div class="battle-combatants-row">
@@ -256,6 +273,7 @@ function buildDom() {
               <div class="battle-hp-text" id="battle-hero-hp-text"></div>
               <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
               <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
+              <div class="battle-potion-buff-indicator" id="battle-potion-buff-indicator"></div>
             </div>
           </div>
           ${timingMeterHtml()}
@@ -277,6 +295,8 @@ function buildDom() {
     pauseBtn: document.getElementById('battle-pause-btn'),
     dpsDisplay: document.getElementById('battle-dps'),
     pausedOverlay: document.getElementById('battle-paused-overlay'),
+    itemMenuOverlay: document.getElementById('battle-item-menu-overlay'),
+    itemMenuSlots: document.getElementById('battle-item-menu-slots'),
     monsterRow: document.getElementById('battle-monster-row'),
     monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
     monsterEmojis: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-emoji-${i}`)),
@@ -292,6 +312,7 @@ function buildDom() {
     heroHpText: document.getElementById('battle-hero-hp-text'),
     heroAtbFill: document.getElementById('battle-hero-atb-fill'),
     buffIndicator: document.getElementById('battle-buff-indicator'),
+    potionBuffIndicator: document.getElementById('battle-potion-buff-indicator'),
     menu: document.getElementById('battle-menu'),
     log: document.getElementById('battle-log'),
     timingMeter: document.getElementById('battle-timing-meter'),
@@ -494,6 +515,176 @@ function updateBuffIndicator() {
     : '';
 }
 
+// The single place playerEffectBonuses is ever assigned after mount() -
+// every existing combat call site already reads playerEffectBonuses.*
+// directly (lifesteal/elemental proc in applyOnHitEffects, crit/extra-
+// swing/thorns at their own resolve*() call sites), so keeping it always
+// equal to equipment + active potion buffs means none of those call sites
+// need to change at all.
+function recomputeEffectBonuses() {
+  playerEffectBonuses = combineBonuses(equipmentBonuses, getActiveBuffBonuses(activeBuffs));
+  // attack/defense/speed/maxHp are baked into playerCombatant once by
+  // buildPlayerCombatant() at mount - combat math (calculateDamage,
+  // resolvePlayerAttack, etc.) reads them straight off the combatant
+  // object, not playerEffectBonuses, so a buff to one of those stats needs
+  // this refresh too. Only the percentage-effect stats (crit/lifesteal/
+  // extraSwing/elementalProc/thorns) are read live from playerEffectBonuses
+  // at their own resolve*() call sites and don't need this. Guarded for
+  // the first call during mount(), before playerCombatant exists yet -
+  // buildPlayerCombatant() runs right after and does the equivalent
+  // construction fresh anyway.
+  if (playerCombatant) {
+    playerCombatant.attack = state.player.attack + playerEffectBonuses.attack;
+    playerCombatant.defense = state.player.defense + playerEffectBonuses.defense;
+    playerCombatant.speed = state.player.speed + playerEffectBonuses.speed;
+    playerCombatant.maxHp = state.player.maxHp + playerEffectBonuses.maxHp;
+  }
+}
+
+function updatePotionBuffIndicator() {
+  elements.potionBuffIndicator.textContent = activeBuffs
+    .map((buff) => `${ITEMS[buff.itemId].emoji} ${Math.ceil(buff.remainingMs / 1000)}s`)
+    .join(' ');
+}
+
+// Shared by the Item button's disabled state and openItemMenu()'s own
+// guard, so the two can't drift apart. Deliberately just "is anything
+// owned", not "is anything currently selectable" - an armed-but-not-yet-
+// triggered Second Wind still owns a slot, and the menu should still open
+// to show that slot as disabled (renderItemMenu()/selectItemMenuSlot()'s
+// own job) rather than refuse to open at all.
+function hasUsableLoadoutItem() {
+  return state.loadout.some((itemId) => {
+    if (!itemId) return false;
+    const owned = state.inventory.find((entry) => entry.itemId === itemId)?.quantity || 0;
+    return owned > 0;
+  });
+}
+
+function renderItemMenu() {
+  const slotsHtml = state.loadout.map((itemId, index) => {
+    if (!itemId) {
+      return `<div class="battle-item-menu-slot battle-item-menu-slot-empty">${index + 1}</div>`;
+    }
+    const item = ITEMS[itemId];
+    const owned = state.inventory.find((entry) => entry.itemId === itemId)?.quantity || 0;
+    const disabled = owned === 0 || (itemId === 'secondWind' && secondWindAvailable);
+    const selectedClass = index === itemMenuSelectedIndex ? ' battle-item-menu-slot-selected' : '';
+    return `<button class="battle-item-menu-slot${selectedClass}" data-slot="${index}" ${disabled ? 'disabled' : ''}>
+      <span class="battle-item-menu-slot-key">${index + 1}</span>
+      <span class="battle-item-menu-slot-icon">${item.emoji}</span>
+      <span class="battle-item-menu-slot-name">${item.name}${owned > 1 ? ` x${owned}` : ''}</span>
+    </button>`;
+  }).join('');
+  elements.itemMenuSlots.innerHTML = slotsHtml;
+  elements.itemMenuSlots.querySelectorAll('button[data-slot]').forEach((btn) => {
+    btn.onclick = () => selectItemMenuSlot(Number(btn.dataset.slot));
+  });
+}
+
+function openItemMenu() {
+  if (battleOver || battlePaused || itemMenuOpen) return;
+  if (!hasUsableLoadoutItem()) {
+    log.push('No usable items loaded.');
+    updateLog();
+    return;
+  }
+  itemMenuOpen = true;
+  itemMenuSelectedIndex = Math.max(0, state.loadout.findIndex((itemId) => itemId));
+  pauseBattle(ITEM_MENU_TIME_SCALE);
+  renderItemMenu();
+  elements.itemMenuOverlay.hidden = false;
+}
+
+function closeItemMenu() {
+  if (!itemMenuOpen) return;
+  itemMenuOpen = false;
+  elements.itemMenuOverlay.hidden = true;
+  resumeBattle();
+}
+
+function selectItemMenuSlot(index) {
+  const itemId = state.loadout[index];
+  if (!itemId) return;
+  const owned = state.inventory.find((entry) => entry.itemId === itemId)?.quantity || 0;
+  if (owned === 0) return;
+  if (itemId === 'secondWind' && secondWindAvailable) return;
+  closeItemMenu();
+  drinkPotion(itemId);
+}
+
+function handleItemMenuKeydown(event) {
+  const key = event.key;
+  if (key === 'Escape') {
+    event.preventDefault();
+    closeItemMenu();
+    return;
+  }
+  if (key >= '1' && key <= '4') {
+    event.preventDefault();
+    selectItemMenuSlot(Number(key) - 1);
+    return;
+  }
+  if (key === 'ArrowLeft' || key === 'ArrowUp') {
+    event.preventDefault();
+    itemMenuSelectedIndex = (itemMenuSelectedIndex + LOADOUT_SIZE - 1) % LOADOUT_SIZE;
+    renderItemMenu();
+    return;
+  }
+  if (key === 'ArrowRight' || key === 'ArrowDown') {
+    event.preventDefault();
+    itemMenuSelectedIndex = (itemMenuSelectedIndex + 1) % LOADOUT_SIZE;
+    renderItemMenu();
+    return;
+  }
+  if (key === 'Enter') {
+    event.preventDefault();
+    selectItemMenuSlot(itemMenuSelectedIndex);
+  }
+}
+
+// "Next hit" is consumed by the very next crit-chance roll, whether that's
+// Attack or an ability - clears itself immediately so an AOE ability
+// (Sweep) only guarantees the crit on the first monster it hits in that
+// same swing, not every monster.
+function consumeGuaranteedCritBonus() {
+  if (guaranteedCritNextHit) {
+    guaranteedCritNextHit = false;
+    return 1;
+  }
+  return playerEffectBonuses.critChancePercent / 100;
+}
+
+// The real dispatch: heal (the only item with `.heal`), a timed buff
+// (anything with `buffDurationMs`), or a one-shot flag (berserkerTonic/
+// secondWind, consumed elsewhere - see consumeGuaranteedCritBonus() above
+// and the Second Wind check inside monsterAttack()).
+function drinkPotion(itemId) {
+  Object.assign(state, removeItem(state, itemId, 1));
+  const item = ITEMS[itemId];
+  if (item.heal) {
+    const result = resolvePotionUse(playerCombatant, item.heal, Math.random, playerEffectBonuses.critChancePercent / 100);
+    playerCombatant.hp = result.playerHp;
+    log.push(result.isCrit
+      ? `Critical! You drink ${item.name} and heal ${result.heal}!`
+      : `You drink ${item.name} and heal ${result.heal}.`);
+    updateHpBars();
+  } else if (isTimedBuffPotion(itemId)) {
+    activeBuffs = activateTimedBuff(activeBuffs, itemId);
+    recomputeEffectBonuses();
+    log.push(`You drink ${item.name}! It surges through you.`);
+  } else if (itemId === 'berserkerTonic') {
+    guaranteedCritNextHit = true;
+    log.push(`You drink ${item.name}! Your next hit is guaranteed to crit.`);
+  } else if (itemId === 'secondWind') {
+    secondWindAvailable = true;
+    log.push(`You drink ${item.name}! You'll survive a killing blow once this fight.`);
+  }
+  updatePotionBuffIndicator();
+  updateLog();
+  updateMenu();
+}
+
 // Icon-only battle action button: icon + a small keybind chip in the
 // corner, everything else (full name, cooldown seconds, combo status,
 // damage estimate) goes in the `title` tooltip instead - see the CSS
@@ -575,7 +766,7 @@ function updateMenu() {
   // .battle-screen-stack (see endBattle()).
   if (battleOver) return;
   const ready = isReady(playerCombatant.atb);
-  const hasPotion = state.inventory.some((entry) => entry.itemId === 'potion' && entry.quantity > 0);
+  const hasUsableItem = hasUsableLoadoutItem();
   const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak, getUnlockedAbilities(state.player.level).length)) * 100);
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
   const attackCooldownPct = attackCooldownMs > 0 && attackCooldownTotalMs > 0 ? (attackCooldownMs / attackCooldownTotalMs) * 100 : 0;
@@ -613,8 +804,8 @@ function updateMenu() {
       id: 'btn-item',
       icon: '🧪',
       key: 'i',
-      title: hasPotion ? `Item (i) — drink a potion to heal ${ITEMS.potion.heal} HP` : `Item (i) — drink a potion to heal ${ITEMS.potion.heal} HP (no potions left)`,
-      disabled: !hasPotion,
+      title: hasUsableItem ? 'Item (i) — choose a potion from your loadout' : 'Item (i) — no usable items loaded (set a loadout in Inventory)',
+      disabled: !hasUsableItem,
     })}
     ${actionButtonHtml({
       id: 'btn-flee',
@@ -628,7 +819,7 @@ function updateMenu() {
   document.getElementById('btn-parry').onclick = attemptParry;
   document.getElementById('btn-attack').onclick = playerAttack;
   document.getElementById('btn-flee').onclick = playerFlee;
-  document.getElementById('btn-item').onclick = playerUseItem;
+  document.getElementById('btn-item').onclick = openItemMenu;
   for (const ability of ABILITIES) {
     const btn = document.getElementById(`btn-ability-${ability.id}`);
     if (btn) {
@@ -1080,6 +1271,10 @@ function attemptParry() {
 function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
+  if (itemMenuOpen) {
+    handleItemMenuKeydown(event);
+    return;
+  }
   if (key === 'p' || key === 'P') {
     toggleBattlePause();
     return;
@@ -1104,7 +1299,7 @@ function handleKeydown(event) {
     return;
   }
   if (key === 'i' || key === 'I') {
-    playerUseItem();
+    openItemMenu();
     return;
   }
   if (event.code === 'Space') {
@@ -1155,7 +1350,7 @@ function resolveOneAttack(countsTowardStreak) {
   // the streak/cooldown state.
   const streakMultiplier = countsTowardStreak ? attackStreakMultiplier(attackStreak, unlockedAbilityCount) : 1;
   const knockbackMultiplier = countsTowardStreak ? attackKnockbackMultiplier(attackStreak) : 1;
-  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, knockbackMultiplier, playerEffectBonuses.critChancePercent / 100);
+  const result = resolvePlayerAttack(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), Math.random, streakMultiplier, knockbackMultiplier, consumeGuaranteedCritBonus());
   if (countsTowardStreak) {
     attackStreak += 1;
     attackStreakIdleMs = 0;
@@ -1328,7 +1523,7 @@ async function playerUseAbility(abilityId) {
         if (battleOver || unmounted) return;
         const mc = monsterCombatants[monsterIndex];
         if (mc.hp <= 0) continue; // died before its own turn in the sequence
-        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, playerEffectBonuses.critChancePercent / 100);
+        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, consumeGuaranteedCritBonus());
         mc.hp = result.monsterHp;
         mc.atb = result.monsterAtb;
         playerCombatant.atb = result.playerAtb;
@@ -1363,7 +1558,7 @@ async function playerUseAbility(abilityId) {
     // did, don't resolve this ability's damage or call checkOutcome()/endBattle()
     // a second time.
     if (battleOver) return;
-    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, playerEffectBonuses.critChancePercent / 100);
+    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, consumeGuaranteedCritBonus());
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
@@ -1403,28 +1598,6 @@ async function playerUseAbility(abilityId) {
   }
 }
 
-function playerUseItem() {
-  // See playerAttack's own comment on this same guard - Item stays
-  // rendered (but inert) through the post-battle pause now, so clicking it
-  // needs to be a real no-op, not just a currently-hidden button.
-  if (battleOver || battlePaused) return;
-  const potionEntry = state.inventory.find((entry) => entry.itemId === 'potion' && entry.quantity > 0);
-  if (!potionEntry) {
-    log.push('No potions left.');
-    updateLog();
-    return;
-  }
-  Object.assign(state, removeItem(state, 'potion', 1));
-  const result = resolvePotionUse(playerCombatant, ITEMS.potion.heal, Math.random, playerEffectBonuses.critChancePercent / 100);
-  playerCombatant.hp = result.playerHp;
-  log.push(result.isCrit
-    ? `Critical! You drink a potion and heal ${result.heal}!`
-    : `You drink a potion and heal ${result.heal}.`);
-  updateHpBars();
-  updateLog();
-  updateMenu();
-}
-
 function playerFlee() {
   // See playerAttack's own comment on this same guard.
   if (battleOver || battlePaused) return;
@@ -1462,6 +1635,11 @@ function applyMonsterAttackImpact(monster, result) {
 function monsterAttack(monster) {
   const result = resolveMonsterAttack(monster, playerCombatant, Math.random, playerEffectBonuses.thornsPercent);
   playerCombatant.hp = result.playerHp;
+  if (playerCombatant.hp <= 0 && secondWindAvailable) {
+    secondWindAvailable = false;
+    playerCombatant.hp = 1;
+    log.push('Second Wind kicks in! You survive with 1 HP.');
+  }
   playerCombatant.atb = result.playerAtb;
   monster.atb = result.monsterAtb;
   monster.hp = result.monsterHp;
@@ -1539,6 +1717,8 @@ function tick() {
   attackCooldownMs = Math.max(0, attackCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
+  activeBuffs = tickActiveBuffs(activeBuffs, 300);
+  recomputeEffectBonuses();
 
   for (const mc of monsterCombatants) {
     if (mc.hp <= 0) continue;
@@ -1594,6 +1774,7 @@ function tick() {
   updateAtbBars();
   updateMenu();
   updateBuffIndicator();
+  updatePotionBuffIndicator();
 }
 
 // Freezes everything that decides a battle outcome: the 300ms tick (ATB
@@ -1663,6 +1844,13 @@ function resumeBattle() {
     }
   });
   if (activeTimingMeterHandle) activeTimingMeterHandle.resume();
+  // Clear before reassigning: at timeScale 0 (P-key pause) pauseBattle()
+  // already set intervalId to null, so this was previously a no-op - but
+  // at a fractional timeScale, pauseBattle() leaves a *live* slow interval
+  // running in intervalId, which this would otherwise orphan (never
+  // cleared, ticking forever) by overwriting the variable without
+  // stopping it first.
+  clearInterval(intervalId);
   intervalId = setInterval(tick, 300);
   elements.pauseBtn.textContent = '⏸️';
   elements.pauseBtn.title = 'Pause battle (P)';
@@ -1670,6 +1858,7 @@ function resumeBattle() {
 }
 
 function toggleBattlePause() {
+  if (itemMenuOpen) return;
   if (battlePaused) resumeBattle();
   else pauseBattle();
 }
@@ -1679,10 +1868,17 @@ function endBattle(outcome) {
   // A still-resolving ability sequence (e.g. an AOE stagger) can end the
   // battle while paused - see the battlePaused declaration's own comment on
   // why those aren't frozen. Drop the pause rather than let its dim overlay
-  // and inert pause button sit on top of the win/loss sequence.
+  // and inert pause button sit on top of the win/loss sequence. Same
+  // reasoning for the item quick-select menu: its slow-mo (not a full
+  // freeze) still lets a monster complete a windup and land a killing
+  // blow while it's open.
   if (battlePaused) {
     battlePaused = false;
     elements.pausedOverlay.hidden = true;
+  }
+  if (itemMenuOpen) {
+    itemMenuOpen = false;
+    elements.itemMenuOverlay.hidden = true;
   }
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
@@ -1720,8 +1916,14 @@ export function mount(root, props) {
   battleOver = false;
   unmounted = false;
   battlePaused = false;
+  itemMenuOpen = false;
+  itemMenuSelectedIndex = 0;
   activeTimingMeterHandle = null;
-  playerEffectBonuses = getEquipmentBonuses(state);
+  equipmentBonuses = getEquipmentBonuses(state);
+  activeBuffs = createActiveBuffs();
+  guaranteedCritNextHit = false;
+  secondWindAvailable = false;
+  recomputeEffectBonuses();
   playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();

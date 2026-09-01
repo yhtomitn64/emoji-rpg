@@ -310,6 +310,51 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   color: #fff;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
+.battle-item-menu-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+}
+.battle-item-menu-overlay[hidden] {
+  display: none;
+}
+.battle-item-menu-slots {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 12px;
+}
+.battle-item-menu-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 90px;
+  padding: 8px 4px;
+  background: rgba(17, 17, 17, 0.92);
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #eee;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.battle-item-menu-slot-selected {
+  border-color: #ffd54a;
+  box-shadow: 0 0 6px rgba(255, 213, 74, 0.6);
+}
+.battle-item-menu-slot:disabled,
+.battle-item-menu-slot-empty {
+  opacity: 0.4;
+  cursor: default;
+}
+.battle-item-menu-slot-key {
+  font-weight: 700;
+}
 @keyframes battle-screen-swirl-in {
   0% { opacity: 0; transform: scale(0.4) rotate(-25deg); }
   60% { opacity: 1; transform: scale(1.05) rotate(4deg); }
@@ -520,6 +565,10 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   color: #f5b942;
   min-height: 1.2em;
   margin-top: 4px;
+}
+.battle-potion-buff-indicator {
+  font-size: 0.75rem;
+  color: #9be69b;
 }
 .battle-timing-meter {
   width: 280px;

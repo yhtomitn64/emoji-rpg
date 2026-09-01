@@ -65,7 +65,7 @@ test('battleScreen DOM', async (t) => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
     assert.match(root.querySelector('#btn-parry').title, /reflect its attack/);
     assert.match(root.querySelector('#btn-attack').title, /decays/);
-    assert.match(root.querySelector('#btn-item').title, /heal/);
+    assert.match(root.querySelector('#btn-item').title, /potion/i);
     assert.match(root.querySelector('#btn-flee').title, /retreat|escape/);
     assert.match(root.querySelector('#btn-ability-stab').title, /prime/);
     assert.match(root.querySelector('#btn-ability-chop').title, /bonus damage/);
@@ -102,13 +102,61 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#btn-item').disabled, true);
   });
 
-  await t.test('Item button heals when a potion is used', async () => {
+  await t.test('Item button opens the quick-select menu, and selecting the heal potion heals', async () => {
     const { root } = await mountBattle(['boar'], {
       state: baseState({ player: { ...createNewGame().player, hp: 5 }, inventory: [{ itemId: 'potion', quantity: 1 }] }),
     });
     assert.equal(root.querySelector('#btn-item').disabled, false);
     click(root.querySelector('#btn-item'));
-    assert.match(root.querySelector('#battle-log').textContent, /drink a potion and heal/);
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
+    click(root.querySelector('button[data-slot="0"]'));
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
+    assert.match(root.querySelector('#battle-log').textContent, /drink Potion and heal/);
+  });
+
+  await t.test('Item button is disabled when the loadout has nothing usable', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ inventory: [], loadout: [null, null, null, null] }) });
+    assert.equal(root.querySelector('#btn-item').disabled, true);
+  });
+
+  await t.test('pressing "i" opens the item menu, and pressing "1" selects slot 1', async () => {
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ inventory: [{ itemId: 'potion', quantity: 1 }] }),
+    });
+    keydown('i');
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, false);
+    keydown('1');
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
+    assert.match(root.querySelector('#battle-log').textContent, /drink Potion and heal/);
+  });
+
+  await t.test('pressing Escape while the item menu is open cancels without consuming anything', async () => {
+    const { root, state } = await mountBattle(['boar'], {
+      state: baseState({ inventory: [{ itemId: 'potion', quantity: 1 }] }),
+    });
+    keydown('i');
+    keydown('Escape');
+    assert.equal(root.querySelector('#battle-item-menu-overlay').hidden, true);
+    assert.equal(state.inventory.find((e) => e.itemId === 'potion').quantity, 1);
+  });
+
+  await t.test('drinking a timed buff potion logs a confirmation and shows it on the potion buff indicator', async () => {
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ inventory: [{ itemId: 'strengthDraught', quantity: 1 }], loadout: ['strengthDraught', null, null, null] }),
+    });
+    click(root.querySelector('#btn-item'));
+    click(root.querySelector('button[data-slot="0"]'));
+    assert.match(root.querySelector('#battle-log').textContent, /Strength Draught/);
+    assert.match(root.querySelector('#battle-potion-buff-indicator').textContent, /12s/);
+  });
+
+  await t.test('drinking a one-shot potion logs a confirmation', async () => {
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ inventory: [{ itemId: 'berserkerTonic', quantity: 1 }], loadout: ['berserkerTonic', null, null, null] }),
+    });
+    click(root.querySelector('#btn-item'));
+    click(root.querySelector('button[data-slot="0"]'));
+    assert.match(root.querySelector('#battle-log').textContent, /guaranteed to crit/);
   });
 
   await t.test('a locked ability (below its unlock level) never renders, and its key press is a no-op', async () => {
@@ -565,5 +613,118 @@ test('battleScreen DOM', async (t) => {
     const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
     click(root.querySelector('#btn-attack'));
     assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
+  });
+
+  await t.test('an active Strength Draught increases Attack damage over the unbuffed baseline', async () => {
+    const originalRandom = Math.random;
+    Math.random = () => 0.5; // fixed variance roll, no crit (rollCrit needs < 0.1)
+    try {
+      const { root: unbuffedRoot } = await mountBattle(['boar'], { state: baseState() });
+      click(unbuffedRoot.querySelector('#btn-attack'));
+      const unbuffedDamage = Number(unbuffedRoot.querySelector('#battle-log').textContent.match(/for (\d+)/)[1]);
+      const { unmount } = await import('../js/screens/battleScreen.js');
+      unmount();
+      // buildDom()/updateMenu() look elements up via document.getElementById,
+      // not scoped to a specific root - removing the first root's DOM (not
+      // just unmounting its listeners/timers) avoids duplicate ids
+      // resolving to the wrong (stale) battle's elements once a second
+      // battle mounts below.
+      unbuffedRoot.remove();
+
+      const { root: buffedRoot } = await mountBattle(['boar'], {
+        state: baseState({ inventory: [{ itemId: 'strengthDraught', quantity: 1 }], loadout: ['strengthDraught', null, null, null] }),
+      });
+      click(buffedRoot.querySelector('#btn-item'));
+      click(buffedRoot.querySelector('button[data-slot="0"]'));
+      click(buffedRoot.querySelector('#btn-attack'));
+      // Only the Attack line contains "for <N>" - the drink confirmation
+      // line above it doesn't - so the same simple match used for the
+      // unbuffed case works here too.
+      const buffedDamage = Number(buffedRoot.querySelector('#battle-log').textContent.match(/for (\d+)/)[1]);
+      assert.ok(buffedDamage > unbuffedDamage, `expected buffed damage ${buffedDamage} > unbuffed ${unbuffedDamage}`);
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  await t.test('Berserker Tonic guarantees the next Attack is a crit even when the crit roll would miss', async () => {
+    const originalRandom = Math.random;
+    Math.random = () => 0.99; // never satisfies rollCrit()'s own < 0.1 check on its own
+    try {
+      const { root } = await mountBattle(['boar'], {
+        state: baseState({ inventory: [{ itemId: 'berserkerTonic', quantity: 1 }], loadout: ['berserkerTonic', null, null, null] }),
+      });
+      click(root.querySelector('#btn-item'));
+      click(root.querySelector('button[data-slot="0"]'));
+      click(root.querySelector('#btn-attack'));
+      assert.match(root.querySelector('#battle-log').textContent, /Critical! You hit/);
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  await t.test('Berserker Tonic\'s guaranteed crit only applies to the next hit, not the one after', async () => {
+    const originalRandom = Math.random;
+    Math.random = () => 0.99;
+    try {
+      const { root } = await mountBattle(['boar'], {
+        state: baseState({ inventory: [{ itemId: 'berserkerTonic', quantity: 1 }], loadout: ['berserkerTonic', null, null, null] }),
+      });
+      click(root.querySelector('#btn-item'));
+      click(root.querySelector('button[data-slot="0"]'));
+      click(root.querySelector('#btn-attack')); // consumes the guaranteed crit
+      const logAfterFirst = root.querySelector('#battle-log').textContent;
+      assert.match(logAfterFirst, /Critical! You hit/);
+      const linesAfterFirst = root.querySelectorAll('#battle-log div').length;
+      // Attack's own spam-cooldown (attackCooldownMsForStreak, streak 1 =
+      // 700ms) blocks a same-tick second click - a disabled button doesn't
+      // fire click handlers even via a dispatched event, matching real
+      // browser behavior. Wait past 3 ticks (900ms) so tick()'s own
+      // `attackCooldownMs -= 300` decays it back to 0 first.
+      await new Promise((resolve) => setTimeout(resolve, 950));
+      click(root.querySelector('#btn-attack')); // should NOT be a crit (0.99 never satisfies rollCrit on its own)
+      const linesAfterSecond = root.querySelectorAll('#battle-log div').length;
+      assert.equal(linesAfterSecond, linesAfterFirst + 1, 'second Attack should have logged exactly one new line');
+      const secondLine = [...root.querySelectorAll('#battle-log div')].pop().textContent;
+      assert.doesNotMatch(secondLine, /Critical!/);
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  await t.test('Second Wind survives a lethal hit at 1 HP', async () => {
+    const { root, state } = await mountBattle(['boar'], {
+      state: baseState({
+        player: { ...createNewGame().player, hp: 1 },
+        inventory: [{ itemId: 'secondWind', quantity: 1 }],
+        loadout: ['secondWind', null, null, null],
+      }),
+      monsterOverrides: [{ speed: 1000 }], // ready to wind up on the first tick
+    });
+    click(root.querySelector('#btn-item'));
+    click(root.querySelector('button[data-slot="0"]'));
+    // Same unparried-hit forcing pattern as the existing "a Retribution
+    // Charm reflects damage..." test above: wait past the first tick
+    // (windup starts, ~300ms), then past the full PARRY_WINDUP_DURATION_MS
+    // without pressing parry, then one more tick so tick()'s own
+    // isWindupComplete poll resolves the attack.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, PARRY_WINDUP_DURATION_MS));
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    assert.equal(state.player.hp, 1);
+    assert.match(root.querySelector('#battle-log').textContent, /Second Wind kicks in/);
+  });
+
+  await t.test('a second Second Wind can\'t be drunk while one is already armed', async () => {
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({
+        inventory: [{ itemId: 'secondWind', quantity: 2 }],
+        loadout: ['secondWind', null, null, null],
+      }),
+    });
+    click(root.querySelector('#btn-item'));
+    click(root.querySelector('button[data-slot="0"]')); // arms it - 1 copy left in inventory
+    click(root.querySelector('#btn-item'));
+    assert.equal(root.querySelector('button[data-slot="0"]').disabled, true);
   });
 });

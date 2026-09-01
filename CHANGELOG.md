@@ -24,30 +24,37 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
-### Added
-- 10 new buff-potion items (data only, not yet purchasable/usable in a
-  battle - see follow-up commits) as part of the excess-gold-sink work.
-- `js/systems/buffPotions.js`: pure logic for stacking timed potion buffs
-  and identifying one-shot potions (not yet wired into battle).
-- Potion loadout state (`state.loadout`, 4 slots, defaults to the heal
-  potion in slot 1) and `js/systems/loadout.js` for assigning slots - not
-  yet exposed in any screen.
-- Inventory screen: Potions tab rows now show 4 loadout toggle buttons for
-  assigning a potion to a battle quick-select slot (not yet usable in
-  battle - see follow-up commits).
+## [0.15.0] - 2026-09-01
 
+### Added
+- 10 new buff potions, purchasable in the shop: 8 timed stat/effect buffs
+  (attack, defense, speed, lifesteal, extra swing chance, elemental proc,
+  thorns, crit chance - each a 12s boost) and 2 one-shots (guaranteed
+  crit on your next hit, and a Second Wind that saves you from one
+  lethal hit per battle).
+- A 4-slot potion loadout, set up from the Inventory screen's Potions
+  tab - pick which potions to carry into battle. Defaults to the heal
+  potion in slot 1, so existing muscle memory keeps working with zero
+  setup.
+- A new in-battle item quick-select menu (press `i`, pick 1-4/arrows/
+  click) that drinks from your loadout - battle slows to 25% speed
+  while it's open instead of fully pausing, so there's still some
+  urgency.
 - Monster kills now have an 8% independent chance to also drop a random
   buff potion, on top of the existing gold/item roll.
 
 ### Changed
 - Internal: `pauseBattle()`/`resumeBattle()` now take an optional
-  `timeScale` (default 0, today's exact hard-stop behavior) so a future
-  caller can ask for a slowed-not-frozen pause. No player-visible change
-  yet - the P-key pause still always uses the default.
+  `timeScale` (default 0, today's exact hard-stop behavior) used by the
+  item quick-select menu's slow-mo above.
 
 ### Fixed
 - Inventory screen's potion "Use" button no longer renders for non-heal
   consumables, which would have corrupted player HP to NaN.
+- A slow-mo pause (the item quick-select menu) left its interval running
+  forever if the menu was closed by drinking/cancelling rather than the
+  P-key pause - a real background CPU leak on every potion drunk
+  mid-battle, not just a test artifact (found via a hanging test suite).
 
 ## [0.14.3] - 2026-09-01
 
