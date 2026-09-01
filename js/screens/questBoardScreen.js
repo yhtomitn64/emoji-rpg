@@ -19,7 +19,7 @@ function render() {
     const complete = canTurnInQuest(state, monsterId);
 
     return `<div class="quest-row">
-      <span title="${describeItem(rewardItemId)}">${monster.emoji} ${monster.name} Lv.${level}: ${progress}/${required} killed — reward: ${rewardItem.emoji} ${rewardItem.name} ×${rewardQuantity}</span>
+      <span title="${describeItem(state, rewardItemId)}">${monster.emoji} ${monster.name} Lv.${level}: ${progress}/${required} killed — reward: ${rewardItem.emoji} ${rewardItem.name} ×${rewardQuantity}</span>
       <button data-monster="${monsterId}" ${complete ? '' : 'disabled'}>Turn In</button>
     </div>`;
   }).join('');

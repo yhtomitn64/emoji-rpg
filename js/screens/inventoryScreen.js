@@ -1,7 +1,7 @@
 import { ITEMS } from '../data/items.js';
 import {
   getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses,
-  describeItem, getUpgradeLevel, resolveRingEquipSlot,
+  describeItem, getUpgradeLevel, resolveRingEquipSlot, formatStatDelta,
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
@@ -46,13 +46,6 @@ function sortEntries(entries, sortOrder) {
   return sorted;
 }
 
-function formatDelta(delta) {
-  return Object.entries(delta)
-    .filter(([, value]) => value !== 0)
-    .map(([stat, value]) => `${stat} ${value > 0 ? '+' : ''}${value}`)
-    .join(', ');
-}
-
 function renderEquippedRows() {
   return SLOTS.map((slot) => {
     const itemId = state.equipment[slot];
@@ -62,7 +55,7 @@ function renderEquippedRows() {
     const tier = state.equipmentTiers?.[slot];
     const level = getUpgradeLevel(state, itemId, tier);
     return `<div class="inventory-row">
-      <span title="${describeItem(itemId, tier)}">${label}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span title="${describeItem(state, itemId, tier)}">${label}: ${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <button data-unequip="${slot}">Unequip</button>
     </div>`;
   }).join('');
@@ -85,10 +78,10 @@ function renderGearRows(entries) {
   return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
     const delta = getItemStatDelta(state, entry.itemId, entry.tier);
-    const deltaText = formatDelta(delta);
+    const deltaText = formatStatDelta(delta);
     const qtyText = entry.quantity > 1 ? ` x${entry.quantity}` : '';
     return `<div class="inventory-row">
-      <span title="${describeItem(entry.itemId, entry.tier)}">${item.emoji} ${tierLabel(entry.tier)}${item.name}${qtyText}${deltaText ? ` (${deltaText})` : ''}</span>
+      <span title="${describeItem(state, entry.itemId, entry.tier)}">${item.emoji} ${tierLabel(entry.tier)}${item.name}${qtyText}${deltaText ? ` (${deltaText})` : ''}</span>
       ${equipButtonsFor(entry, item)}
     </div>`;
   }).join('');
@@ -98,7 +91,7 @@ function renderMaterialRows(entries) {
   if (entries.length === 0) return '<div class="inventory-empty">No materials.</div>';
   return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
-    return `<div class="inventory-row" title="${describeItem(entry.itemId)}">${item.emoji} ${item.name} x${entry.quantity}</div>`;
+    return `<div class="inventory-row" title="${describeItem(state, entry.itemId)}">${item.emoji} ${item.name} x${entry.quantity}</div>`;
   }).join('');
 }
 
@@ -109,7 +102,7 @@ function renderConsumableRows(entries) {
   return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
     return `<div class="inventory-row">
-      <span title="${describeItem(entry.itemId)}">${item.emoji} ${item.name} x${entry.quantity}</span>
+      <span title="${describeItem(state, entry.itemId)}">${item.emoji} ${item.name} x${entry.quantity}</span>
       <button data-use="${entry.itemId}" ${atFullHp ? 'disabled' : ''}>Use</button>
     </div>`;
   }).join('');
@@ -119,7 +112,7 @@ function renderToolRows(entries) {
   if (entries.length === 0) return '<div class="inventory-empty">No tools.</div>';
   return entries.map((entry) => {
     const item = ITEMS[entry.itemId];
-    return `<div class="inventory-row" title="${describeItem(entry.itemId)}">${item.emoji} ${item.name}</div>`;
+    return `<div class="inventory-row" title="${describeItem(state, entry.itemId)}">${item.emoji} ${item.name}</div>`;
   }).join('');
 }
 

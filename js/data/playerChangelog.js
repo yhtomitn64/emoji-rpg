@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.14.1',
+    date: '2026-08-31',
+    highlights: [
+      'Fixed: gear tooltips now show your item\'s real stats including smith upgrades, not just its rarity tier.',
+      'Fixed: stat effects in tooltips and equip prompts (lifesteal, extra swing chance, elemental proc, crit chance, thorns) now show readable labels instead of raw code names.',
+    ],
+  },
+  {
     version: '0.14.0',
     date: '2026-08-31',
     highlights: [

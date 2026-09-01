@@ -94,8 +94,12 @@ let pauseStartedAt = 0;
 // local closure without a bigger refactor.
 let activeTimingMeterHandle = null;
 
-function buildPlayerCombatant() {
-  const bonuses = getEquipmentBonuses(state);
+// Both take the equipment bonuses as a parameter, computed once by the
+// caller (mount()), rather than each calling getEquipmentBonuses(state)
+// itself - the three call sites on the mount path (this, buildMonsterCombatant,
+// and playerEffectBonuses) all derived the exact same value from the same
+// unchanged state, so mount() now computes it once and reuses it.
+function buildPlayerCombatant(bonuses) {
   return {
     emoji: state.player.emoji,
     hp: state.player.hp,
@@ -107,10 +111,9 @@ function buildPlayerCombatant() {
   };
 }
 
-function buildMonsterCombatant(monsterId, overrides) {
+function buildMonsterCombatant(monsterId, overrides, bonuses) {
   const monster = { ...MONSTERS[monsterId], ...(overrides || {}) };
-  const enemySlowPercent = getEquipmentBonuses(state).enemySlowPercent;
-  const speed = applyEnemySlow(monster.speed, enemySlowPercent);
+  const speed = applyEnemySlow(monster.speed, bonuses.enemySlowPercent);
   return {
     monsterId,
     name: monster.name, emoji: monster.emoji,
@@ -1687,8 +1690,8 @@ export function mount(root, props) {
   unmounted = false;
   battlePaused = false;
   activeTimingMeterHandle = null;
-  playerCombatant = buildPlayerCombatant();
   playerEffectBonuses = getEquipmentBonuses(state);
+  playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
   comboState = {};
@@ -1708,7 +1711,7 @@ export function mount(root, props) {
   attackCooldownTotalMs = 0;
   battleDamageDealt = 0;
   battleElapsedMs = 0;
-  monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i]));
+  monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i], playerEffectBonuses));
   // The elite gets an adaptive appear line based on estimated win chance
   // instead of a random pick from a fixed pool - needs the built combatant
   // stats (equipment bonuses, NG+ scaling), not the raw MONSTERS entry, so

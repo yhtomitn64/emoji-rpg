@@ -37,7 +37,7 @@ function render() {
 
     if (level >= MAX_UPGRADE_LEVEL) {
       return `<div class="smith-row">
-      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
+      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
       ${reforgeButton}
     </div>`;
     }
@@ -50,7 +50,7 @@ function render() {
       // upgrade path here, ever, so skip the select/button entirely rather
       // than show a control that can never work.
       return `<div class="smith-row">
-      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       ${reforgeButton}
     </div>`;
     }
@@ -59,11 +59,11 @@ function render() {
     const materials = materialOptionsForSlot(slot);
     const canAfford = state.player.gold >= cost;
     const options = materials
-      .map((m) => `<option value="${m.itemId}" title="${describeItem(m.itemId)}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)
+      .map((m) => `<option value="${m.itemId}" title="${describeItem(state, m.itemId)}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)
       .join('');
 
     return `<div class="smith-row">
-      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
       <button data-slot="${slot}" ${materials.length === 0 || !canAfford ? 'disabled' : ''}>Upgrade (${cost}g)</button>
       ${reforgeButton}

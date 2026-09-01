@@ -14,6 +14,34 @@ function zeroStats() {
   return Object.fromEntries(STAT_KEYS.map((key) => [key, 0]));
 }
 
+// Raised 2026-08-31 (Rung-3 gear cleanup follow-up): formatDelta used to be
+// duplicated identically in inventoryScreen.js and shopScreen.js, printing
+// raw camelCase stat keys straight into the UI once an effect stat was
+// nonzero (e.g. "lifestealPercent +15"). One shared label map fixes the
+// display and the duplication in the same move - also reused by
+// describeItem below, which had the same underlying bug for any
+// unique-effect item's tooltip.
+export const STAT_LABELS = {
+  attack: 'Attack',
+  defense: 'Defense',
+  maxHp: 'Max HP',
+  speed: 'Speed',
+  enemySlowPercent: 'Enemy Slow %',
+  lifestealPercent: 'Lifesteal %',
+  extraSwingChance: 'Extra Swing Chance %',
+  elementalProcChance: 'Elemental Proc Chance %',
+  elementalProcDamage: 'Elemental Proc Damage',
+  critChancePercent: 'Crit Chance %',
+  thornsPercent: 'Thorns %',
+};
+
+export function formatStatDelta(delta) {
+  return Object.entries(delta)
+    .filter(([, value]) => value !== 0)
+    .map(([stat, value]) => `${STAT_LABELS[stat] || stat} ${value > 0 ? '+' : ''}${value}`)
+    .join(', ');
+}
+
 // Raised 2026-08-29: state.upgrades used to be keyed by bare itemId, so a
 // Fine/Superior copy of an item silently inherited whatever smith-upgrade
 // level a Plain (or any) copy had already reached - equipping a freshly
@@ -170,13 +198,17 @@ export function maxAffordableQuantity(gold, price, requested) {
   return Math.min(requested, Math.floor(gold / price));
 }
 
-export function describeItem(itemId, tier) {
+// Takes state (not just tier) so the tooltip can factor in the item's own
+// smith-upgrade level, not just its tier - see the "describeItem factors in
+// the item's own smith-upgrade level" test for the bug this used to be.
+export function describeItem(state, itemId, tier) {
   const item = ITEMS[itemId];
   if (item.description) return `${item.name}: ${item.description}`;
   if (item.stats) {
-    const tierMultiplier = tier ? QUALITY_TIER_MULTIPLIERS[tier] : 1;
-    const statsText = Object.entries(item.stats)
-      .map(([stat, value]) => `${stat} +${Math.round(value * tierMultiplier)}`)
+    const upgradeLevel = getUpgradeLevel(state, itemId, tier);
+    const effectiveStats = getItemEffectiveStats(itemId, upgradeLevel, tier);
+    const statsText = Object.keys(item.stats)
+      .map((stat) => `${STAT_LABELS[stat] || stat} +${Math.round(effectiveStats[stat])}`)
       .join(', ');
     if (statsText) return `${item.name}: ${statsText}`;
   }

@@ -24,6 +24,31 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-08-31
+
+### Fixed
+- Rung-3 gear cleanup (three of the five known follow-ups from the
+  2026-08-28 item-quality-tiers review, per Timothy's own scoping - the
+  other two, AOE lifesteal/proc stacking per target and the ±1 rounding
+  drift on displayed deltas, are deliberate/accepted and left alone):
+  - `describeItem` (`js/systems/inventory.js`) now takes `state` and
+    factors in the item's own smith-upgrade level via
+    `getItemEffectiveStats`, not just its tier - a Superior sword
+    upgraded to +2 previously showed the same tooltip stat as a fresh,
+    unupgraded one.
+  - Added a shared `STAT_LABELS` map + `formatStatDelta` (also in
+    `inventory.js`), replacing the two duplicated `formatDelta`
+    functions in `inventoryScreen.js`/`shopScreen.js` that printed raw
+    camelCase stat keys (`lifestealPercent +15`) whenever an effect stat
+    was nonzero. Also applied inside `describeItem`'s own stat listing,
+    which had the same underlying bug for any unique-effect item's
+    tooltip (Vampiric Fang, Ember Ring, etc.) - not the specific site
+    the backlog named, but the same fix.
+  - Consolidated the three separate `getEquipmentBonuses(state)` calls
+    on `battleScreen.js`'s mount path into one, computed in `mount()`
+    and passed into `buildPlayerCombatant`/`buildMonsterCombatant` -
+    pure refactor, no behavior change.
+
 ## [0.14.0] - 2026-08-31
 
 ### Added

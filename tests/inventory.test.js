@@ -5,6 +5,7 @@ import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
   maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier, sellDuplicateGear,
+  formatStatDelta,
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
   resolveRingEquipSlot,
 } from '../js/systems/inventory.js';
@@ -222,26 +223,58 @@ test('maxAffordableQuantity caps the requested quantity to what gold can afford'
 });
 
 test('describeItem summarizes stat-bearing gear', () => {
-  assert.equal(describeItem('ironSword'), 'Iron Sword: attack +6');
-  assert.equal(describeItem('clothTunic'), 'Cloth Tunic: defense +2, maxHp +4');
+  const state = createNewGame();
+  assert.equal(describeItem(state, 'ironSword'), 'Iron Sword: Attack +6');
+  assert.equal(describeItem(state, 'clothTunic'), 'Cloth Tunic: Defense +2, Max HP +4');
 });
 
 test('describeItem summarizes a heal-type consumable', () => {
-  assert.equal(describeItem('potion'), 'Potion: heals 15 HP');
+  const state = createNewGame();
+  assert.equal(describeItem(state, 'potion'), 'Potion: heals 15 HP');
 });
 
 test('describeItem summarizes an upgrade material by its slot', () => {
-  assert.equal(describeItem('ironScrap'), 'Iron Scrap: upgrade material for weapon gear');
+  const state = createNewGame();
+  assert.equal(describeItem(state, 'ironScrap'), 'Iron Scrap: upgrade material for weapon gear');
 });
 
 test('describeItem prefers an explicit description field over inferred text', () => {
-  assert.equal(describeItem('miningPick'), 'Mining Pick: Clears mountain gates blocking the way');
+  const state = createNewGame();
+  assert.equal(describeItem(state, 'miningPick'), 'Mining Pick: Clears mountain gates blocking the way');
 });
 
 test('describeItem applies the tier multiplier to displayed stats, and treats undefined as Plain', () => {
   // ironSword base attack 6. Superior (1.20): round(6 * 1.20) = 7.
-  assert.equal(describeItem('ironSword', 'superior'), 'Iron Sword: attack +7');
-  assert.equal(describeItem('ironSword', undefined), 'Iron Sword: attack +6');
+  const state = createNewGame();
+  assert.equal(describeItem(state, 'ironSword', 'superior'), 'Iron Sword: Attack +7');
+  assert.equal(describeItem(state, 'ironSword', undefined), 'Iron Sword: Attack +6');
+});
+
+// Raised 2026-08-31 (Rung-3 gear cleanup): describeItem's tooltip already
+// applied the tier multiplier above, but never factored in the item's own
+// smith-upgrade level - a Superior sword upgraded to +2 showed the same
+// tooltip number as a fresh, unupgraded one.
+test('describeItem factors in the item\'s own smith-upgrade level, not just its tier', () => {
+  let state = createNewGame();
+  state = { ...state, upgrades: { ...state.upgrades, [upgradeKey('ironSword', undefined)]: 2 } };
+  // base 6, +25% of base per upgrade level: 6 + 6*0.25*2 = 9.
+  assert.equal(describeItem(state, 'ironSword'), 'Iron Sword: Attack +9');
+});
+
+// Same underlying bug as formatStatDelta's raw-camelCase leak below, just
+// not the specific site the backlog happened to name - describeItem's own
+// stat listing has always used the raw stat key for any effect stat.
+test('describeItem uses a friendly label for a unique-effect stat key, not the raw camelCase field name', () => {
+  const state = createNewGame();
+  assert.equal(describeItem(state, 'vampiricFang'), 'Vampiric Fang: Attack +7, Lifesteal % +15');
+});
+
+test('formatStatDelta uses friendly labels for stat keys, not raw camelCase', () => {
+  assert.equal(formatStatDelta({ attack: 7, lifestealPercent: 15, defense: 0 }), 'Attack +7, Lifesteal % +15');
+});
+
+test('formatStatDelta shows a bare minus (no double sign) for a negative delta', () => {
+  assert.equal(formatStatDelta({ attack: -2 }), 'Attack -2');
 });
 
 test('addItem keeps a Plain and a Fine copy of the same base item as two separate stacks', () => {

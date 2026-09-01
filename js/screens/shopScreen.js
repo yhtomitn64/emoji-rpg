@@ -1,5 +1,5 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
-import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear, formatStatDelta } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 
 // Raised 2026-08-29: "you never really need to buy more than 1 equipment
@@ -18,17 +18,10 @@ let callbacks = null;
 let pendingEquip = null;
 let sellDuplicatesMessage = null;
 
-function formatDelta(delta) {
-  return Object.entries(delta)
-    .filter(([, value]) => value !== 0)
-    .map(([stat, value]) => `${stat} ${value > 0 ? '+' : ''}${value}`)
-    .join(', ');
-}
-
 function renderEquipPrompt() {
   if (!pendingEquip) return '';
   const item = ITEMS[pendingEquip];
-  const deltaText = formatDelta(getItemStatDelta(state, pendingEquip));
+  const deltaText = formatStatDelta(getItemStatDelta(state, pendingEquip));
   return `<div class="shop-equip-prompt">
     <span>Equip ${item.emoji} ${item.name} now?${deltaText ? ` (${deltaText})` : ''}</span>
     <button id="btn-equip-prompt-yes">Equip</button>
@@ -61,7 +54,7 @@ function tieredSellRowsHtml(itemId) {
     const entry = state.inventory.find((e) => e.itemId === itemId && e.tier === tier);
     if (!entry || entry.quantity === 0) return '';
     return `<div class="shop-row">
-      <span title="${describeItem(itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} (own ${entry.quantity})</span>
+      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} (own ${entry.quantity})</span>
       <span class="shop-row-buttons">
         <button data-sell="${itemId}" data-tier="${tier}">Sell (${sellPrice(item.price)}g)</button>
       </span>
@@ -84,7 +77,7 @@ function render() {
       return `<button data-item="${itemId}" data-qty="${qty}" ${affordable ? '' : 'disabled'}>${label}</button>`;
     }).join('');
     return `<div class="shop-row">
-      <span title="${describeItem(itemId)}">${item.emoji} ${item.name} — ${item.price}g${ownedQty > 0 ? ` (own ${ownedQty})` : ''}${isEquipped ? ' ✓ Equipped' : ''}</span>
+      <span title="${describeItem(state, itemId)}">${item.emoji} ${item.name} — ${item.price}g${ownedQty > 0 ? ` (own ${ownedQty})` : ''}${isEquipped ? ' ✓ Equipped' : ''}</span>
       <span class="shop-row-buttons">
         ${buyButtons}
         <button data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
