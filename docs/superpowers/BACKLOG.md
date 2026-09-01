@@ -1200,6 +1200,16 @@ in-game performance problem to fix. If it recurs or gets more specific
 (which screen, browser, whether it's the new continuous-camera map
 rendering specifically), worth profiling then rather than guessing now.
 
+**Second report, 2026-09-01:** Timothy noticed slowdown himself this
+session, live-testing the buff-potions/item-menu work. Self-diagnosed
+moments later as his own machine being in low-power mode, not a game
+issue — but asked to keep it on the list regardless ("but maybe we
+should still take a look"). Still no profiling, no specific screen/
+action pinned down, both reports now explained by something outside the
+game (Windows issues; low-power mode) — but two independent "felt slow"
+reports is enough to warrant an actual profiling pass next time it's
+worth the time, rather than a third round of guessing.
+
 ### Pixel-level visual regression test for the worn-path trail (and similar rendering bugs) — raised 2026-08-26
 Timothy, after several rounds of "there's a seam" reports that turned out
 real but took multiple live-browser screenshot/zoom cycles each to pin
