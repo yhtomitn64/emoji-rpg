@@ -15,6 +15,14 @@ specific item needs its full context (history, code pointers, decisions
 already made). Keep this index in sync whenever an item ships or a new
 one is raised — that's the whole point of it.
 
+**Next up, decided 2026-09-01:** a queue of three sessions, one item
+each, in order — parry window + simulator parry-rate, then NG+ loot
+ceiling (+ NG+/zone-2 direction questions), then defense
+scaling/near-town pacing. Paste-in opening prompts for each, plus
+shared context, live in
+`docs/superpowers/specs/2026-09-01-balance-tuning-roadmap-handoff.md` —
+start there rather than re-deriving the queue from the index below.
+
 - **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
 - **Pacing / progression** — early ramp / dragon-fell-quickly thread: level-12 dragon kill reads as right pacing, but even 3-star dragon was too easy; Timothy's own read is gear, not level, is the driver. Ties to defense-scaling and Mythic-tier items below.
 - **Multi-zone progression** (big, needs its own design pass) — zone 2/3/4 identity, spatial difficulty gradient, healing-enemies zone-2 idea, tool-gated zone unlocks, NG+ state carry-over into zone 2, town south-exit/expand/signage, town NPC hints (needs landmarks first). NG+ tools-reset piece already shipped.
@@ -251,6 +259,27 @@ one-off task.
     not in isolation. No mechanism exists today for snapshotting
     pre-NG+ state at all (`js/systems/ngPlus.js`'s `resetWorldForNgPlus`
     only ever resets forward, never stores what it overwrote).
+    - **Restated and extended, 2026-09-01, still the same three
+      undecided directions above plus two genuinely new pieces:**
+      Timothy, thinking out loud: NG+ should "keep going" as an ongoing
+      concept rather than a one-off; he still likes the idea of
+      resetting/reverting before zone 2 so you have to earn zone 2 the
+      way you earned zone 1, unless the rest of the game just scales to
+      NG+ instead, or — as the game grows past zone 1 — "NG+" itself
+      comes to mean having finished the *whole* game once, not just
+      zone 1's dragon. New: he does like the idea of **each zone having
+      its own NG+** (rather than one global NG+ cycle spanning every
+      zone). Also new, and a real divergence from this section's own
+      framing so far (which has generally assumed zone 2 is new map
+      screens with its own identity): zone 2 might not be new screens
+      at all — "it's just an extension of existing map and maybe
+      changes to existing map like mountains move, new stream appears,
+      need an updated canoe, stronger axe, etc." — i.e. zone 2 as zone
+      1's *same* map reshaped/escalated, with upgraded versions of the
+      existing tools required to cross the changed terrain, rather than
+      a separate zone-2 map+tool set. None of this is decided — still
+      needs the "own design pass" this whole section has always been
+      waiting on, now with more shape to work from.
   - ~~**NG+ doesn't reset the player's tools.**~~ **Shipped 2026-08-29 —
     see BACKLOG_SHIPPED.md.** `resetWorldForNgPlus` now strips tool items
     and resets `clearedGates` each cycle, plus a one-time migration for
@@ -942,12 +971,11 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   elemental proc) shipped 2026-08-28** — Vampiric Fang, Swift Strike
   Charm, Ember Ring; see CHANGELOG. Still open, not scoped for any
   version yet:
-  - **Parry window trade-offs, two directions floated:** (a) a wider
-    parry window but the successful parry deals less reflected damage,
-    or (b) a narrower window that rewards good timing with more
-    reflected damage than the current fixed 50% (`js/systems/parry.js`).
-    Not designed — which direction (or both, as two separate items) is
-    undecided.
+  - **Parry window trade-offs** — original 2026-08-26 framing here
+    (wider window/less reflected damage vs. narrower window/more
+    reflected damage) superseded by the sharper, more specific
+    2026-08-31 entry under "Multi-zone progression" above (flagged there
+    as a good next-session candidate) — see that entry, not this one.
   - **Known follow-ups from the item-quality-tiers final review,
     2026-08-28** (each a real, deliberately-accepted consequence of the
     v1 shipped design, not a bug — recorded rather than silently
