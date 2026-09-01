@@ -113,6 +113,10 @@ const SINGLE_MAPS = {
     label: 'Canoe Dungeon', modulePath: '../../js/maps/toolDungeons/canoeDungeon.js',
     exportName: 'canoeDungeonMap', palette: DUNGEON_PALETTE, defaultKind: 'grass',
   },
+  portalDungeon: {
+    label: 'Portal Dungeon', modulePath: '../../js/maps/toolDungeons/portalDungeon.js',
+    exportName: 'portalDungeonMap', palette: DUNGEON_PALETTE, defaultKind: 'grass',
+  },
 };
 
 const AUTOSAVE_KEY = 'terrain-painter-autosave-v1';
@@ -140,8 +144,8 @@ let checkOverlay = null; // { toollessReached, tooledReached, frontier: Set<stri
 let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers } snapshots, oldest first
 const UNDO_LIMIT = 30;
 
-const TOOL_DUNGEON_IDS = ['axe', 'pick', 'canoe'];
-const TOOL_DUNGEON_MARKER_COLORS = { axe: '#5cb85c', pick: '#5bc0de', canoe: '#e0a83a' };
+const TOOL_DUNGEON_IDS = ['axe', 'pick', 'canoe', 'portal'];
+const TOOL_DUNGEON_MARKER_COLORS = { axe: '#5cb85c', pick: '#5bc0de', canoe: '#e0a83a', portal: '#b06fd6' };
 
 function cloneGrid(g) {
   return g.map((row) => row.slice());
@@ -270,7 +274,7 @@ function renderWilderness(ctx) {
         const key = `${x},${y}`;
         if (checkOverlay.frontier.has(key)) {
           // The blocking boundary of the first broken stage in the progression
-          // (town -> axe -> pick -> canoe -> dragon) - takes priority over the
+          // (town -> axe -> pick -> canoe -> portal -> dragon) - takes priority over the
           // general tint below since this is specifically "the player gets
           // stuck right here," not just "unreachable somewhere."
           ctx.fillStyle = 'rgba(230,30,200,0.65)';
@@ -654,6 +658,7 @@ function checkMap() {
     { id: 'axe', label: 'axe dungeon', pos: worldKeyFor(toolDungeonMarkers.axe), unlocks: TOOL_UNLOCK_KINDS.axe },
     { id: 'pick', label: 'pick dungeon', pos: worldKeyFor(toolDungeonMarkers.pick), unlocks: TOOL_UNLOCK_KINDS.pick },
     { id: 'canoe', label: 'canoe dungeon (boat)', pos: worldKeyFor(toolDungeonMarkers.canoe), unlocks: TOOL_UNLOCK_KINDS.canoe },
+    { id: 'portal', label: 'portal dungeon', pos: worldKeyFor(toolDungeonMarkers.portal), unlocks: [] },
     { id: null, label: 'dragon dungeon', pos: worldKeyFor(dungeonMarker), unlocks: [] },
   ];
 
@@ -681,7 +686,7 @@ function checkMap() {
   // real check; isolated pockets elsewhere are still visibly tinted red on
   // the map (nothing hidden) but aren't treated as a failure here unless
   // something is actually placed there.
-  status.textContent = '✅ Full progression is soundly gated: town → axe → pick → canoe (boat) → dragon dungeon, each reachable in order.';
+  status.textContent = '✅ Full progression is soundly gated: town → axe → pick → canoe (boat) → portal → dragon dungeon, each reachable in order.';
   status.className = 'ok';
 }
 

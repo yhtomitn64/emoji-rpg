@@ -36,6 +36,9 @@ public API, no formal release process — commits land straight on
   and its `TOOL_DUNGEON_ENTRANCES.portal` registration - entrance
   position is still a placeholder until Timothy hand-places it with the
   terrain painter.
+- Terrain painter: registered the portal dungeon as the 4th tool
+  dungeon (dropdown, marker color, progression-reachability check and
+  its status message/help text).
 
 ### Changed
 - The battle item quick-select menu no longer closes after each potion
