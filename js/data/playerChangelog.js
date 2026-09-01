@@ -6,6 +6,17 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.16.0',
+    date: '2026-09-01',
+    highlights: [
+      'New: a fourth guardian-gated tool, the Circle of Ultimate Portaling - drop a portal wherever you\'re standing, warp to town, then warp right back to exactly where you left. The pair disappears once you\'ve made the round trip.',
+      'Changed: the town well won\'t heal you while a portal trip back to town is still open - finish the round trip (or drop a fresh portal) first.',
+      'New: a Settings screen, with an adjustable option for how long the battle item quick-select menu waits before auto-closing.',
+      'Changed: the battle item quick-select menu no longer closes after each potion picked - it now stays open for a short beat (adjustable in Settings) so you can pick several in a row.',
+      'Fixed: Power Ring now equips into a ring slot instead of taking up your accessory slot.',
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-09-01',
     highlights: [

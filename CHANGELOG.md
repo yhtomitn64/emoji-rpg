@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-01
+
 ### Added
 - A Settings screen (new HUD button) with one adjustable option so far:
   how long the battle item quick-select menu waits before auto-closing.
