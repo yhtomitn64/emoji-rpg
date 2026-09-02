@@ -1,43 +1,38 @@
 import { rollCrit, calculateDamage, applyCritMultiplier, applySpeedDamageBonus, applyKnockback, ATB_KNOCKBACK } from './combat.js';
 
 // Powers the damage number shown next to each ability button. Deliberately
-// excludes crit (rollCrit) and the timing-minigame bonus - those are luck/skill
-// at press-time, not something the player can know before pressing. Buff and
-// combo state ARE known in advance (visible from the button's own combo-ready
-// glow / the buff indicator), so those bonuses are included for accuracy.
+// excludes crit (rollCrit) - luck at press-time, not something the player
+// can know before pressing. Buff state IS known in advance (visible from
+// the buff indicator), so it's included for accuracy.
 
 export const ROTATION_BONUS_MULTIPLIER = 1.25;
-export const TIMING_BONUS_MULTIPLIER = 1.30;
-export const COMBO_PAYOFF_BONUS_MULTIPLIER = 1.5;
-export const COMBO_RETURN_BONUS_MULTIPLIER = 1.15;
 
 export const ABILITIES = [
   {
-    id: 'stab', name: 'Stab', icon: '🗡️', unlockLevel: 2, type: 'damage',
+    id: 'stab', name: 'Impale', icon: '🗡️', unlockLevel: 2, type: 'damage',
     damageMultiplier: 0.8, cooldownMs: 4000,
-    description: "a quick, lighter jab — land it in the timing window to prime Chop's bonus",
-    comboRole: 'setup', comboPartnerId: 'chop', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
+    description: 'a strong, precise single-target thrust',
   },
   {
-    id: 'chop', name: 'Chop', icon: '🪓', unlockLevel: 4, type: 'damage',
+    id: 'chop', name: 'Sever', icon: '🪓', unlockLevel: 4, type: 'damage',
     damageMultiplier: 1.1, cooldownMs: 10000,
-    description: 'a heavy payoff swing — deals bonus damage right after a well-timed Stab',
-    comboRole: 'payoff', comboPartnerId: 'stab', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,
+    extraTargetCount: 1,
+    description: 'cuts through the target and into one random enemy beside it - still fine to use one-on-one',
   },
   {
-    id: 'slash', name: 'Slash', icon: '⚔️', unlockLevel: 6, type: 'damage',
+    id: 'slash', name: 'Lacerate', icon: '⚔️', unlockLevel: 6, type: 'damage',
     damageMultiplier: 0.85, cooldownMs: 6000,
     delayedHitMultiplier: 0.2, delayedHitDelayMs: 900,
-    description: 'a cut that also bleeds for extra damage a moment later — land it in the timing window to prime Sweep\'s bonus',
-    comboRole: 'setup', comboPartnerId: 'sweep', comboBonusMultiplier: COMBO_RETURN_BONUS_MULTIPLIER,
+    retrigger: { windowMs: 1200, sweetSpotStartPercent: 80, sweetSpotEndPercent: 100, buffDurationMs: 9000 },
+    description: 'a cut that bleeds for extra damage a moment later - press it again right after landing to buff your other abilities for a while',
   },
   {
-    id: 'sweep', name: 'Sweep', icon: '🌪️', unlockLevel: 8, type: 'damage',
+    id: 'sweep', name: 'Faultline', icon: '🪨', unlockLevel: 8, type: 'damage',
     damageMultiplier: 1.3, cooldownMs: 12000,
     defenseShredMultiplier: 0.85, defenseShredDurationMs: 6000,
+    widenBonusTargets: 1,
     aoe: true,
-    description: 'a spinning hit on every living enemy that also weakens their defense for a few seconds — deals bonus damage right after a well-timed Slash',
-    comboRole: 'payoff', comboPartnerId: 'slash', comboBonusMultiplier: COMBO_PAYOFF_BONUS_MULTIPLIER,
+    description: 'a weak hit on every living enemy that weakens their defense and widens what your other abilities can hit for a few seconds',
   },
   {
     id: 'superScream', name: 'Super Scream', icon: '📢', unlockLevel: 10, type: 'buff',
@@ -50,29 +45,12 @@ export function getUnlockedAbilities(level) {
   return ABILITIES.filter((ability) => ability.unlockLevel <= level);
 }
 
-// Whether the timing-meter's bonus zone means anything yet for this ability.
-// A setup ability's (Stab/Slash) timing window only exists to prime its
-// combo partner (Chop/Sweep) - if that partner isn't unlocked yet (e.g.
-// Stab unlocks at level 2, Chop not until level 4), showing the green zone
-// for two levels before it can do anything is misleading (raised
-// 2026-08-28: "don't show the green section until you get the next ability
-// which actually benefits from that timing"). An ability with no combo
-// partner at all (nothing to prime) always shows its hint normally.
-export function comboTimingHintUnlocked(ability, playerLevel) {
-  if (!ability.comboPartnerId) return true;
-  const partner = ABILITIES.find((a) => a.id === ability.comboPartnerId);
-  return !partner || partner.unlockLevel <= playerLevel;
-}
-
-export function canUseAbility({ locked, onCooldown, ready, comboPrimed, comboRole, alwaysReady }) {
+export function canUseAbility({ locked, onCooldown, ready, alwaysReady, retriggerWindowOpen }) {
   if (locked) return false;
-  // A primed payoff (e.g. Chop right after a timing-hit Stab) fires
-  // instantly - bypassing both the swing-timer/ready gate AND its own
-  // real-time cooldown, not just the former, so priming it always means
-  // "usable right away" rather than "usable once its cooldown happens to
-  // also be up."
-  const comboSkipsGates = comboPrimed && comboRole === 'payoff';
-  if (comboSkipsGates) return true;
+  // Lacerate's own self-retrigger window (see js/screens/battleScreen.js)
+  // makes its button clickable again despite still being on cooldown - a
+  // deliberately different input than a normal reuse.
+  if (retriggerWindowOpen) return true;
   return !onCooldown && !!(ready || alwaysReady);
 }
 
@@ -102,13 +80,11 @@ export function resolveTimingHit(actedAtPercent, sweetSpotStartPercent, sweetSpo
   return actedAtPercent >= sweetSpotStartPercent && actedAtPercent <= sweetSpotEndPercent;
 }
 
-export function resolveAbilityUse(player, monster, ability, buffActive, timingHit, comboBonusActive, rng = Math.random, critChanceBonus = 0) {
+export function resolveAbilityUse(player, monster, ability, buffActive, rng = Math.random, critChanceBonus = 0) {
   const isCrit = rollCrit(rng, critChanceBonus);
   let damage = calculateDamage(player, monster, rng);
   damage = Math.round(damage * ability.damageMultiplier);
   if (buffActive) damage = Math.round(damage * ROTATION_BONUS_MULTIPLIER);
-  if (timingHit) damage = Math.round(damage * TIMING_BONUS_MULTIPLIER);
-  if (comboBonusActive) damage = Math.round(damage * ability.comboBonusMultiplier);
   damage = applyCritMultiplier(damage, isCrit);
   damage = applySpeedDamageBonus(damage, player.speed);
   return {
@@ -120,11 +96,10 @@ export function resolveAbilityUse(player, monster, ability, buffActive, timingHi
   };
 }
 
-export function estimateAbilityDamage(player, monster, ability, buffActive, comboBonusActive, rng = () => 0.5) {
+export function estimateAbilityDamage(player, monster, ability, buffActive, rng = () => 0.5) {
   let damage = calculateDamage(player, monster, rng);
   damage = Math.round(damage * ability.damageMultiplier);
   if (buffActive) damage = Math.round(damage * ROTATION_BONUS_MULTIPLIER);
-  if (comboBonusActive) damage = Math.round(damage * ability.comboBonusMultiplier);
   return applySpeedDamageBonus(damage, player.speed);
 }
 

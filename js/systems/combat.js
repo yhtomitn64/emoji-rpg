@@ -75,7 +75,7 @@ export function applyCritMultiplier(damage, isCrit) {
 export const ATTACK_STREAK_DECAY = 0.35;
 export const ATTACK_STREAK_FLOOR = 0.4;
 
-// Each unlocked ability (Stab/Chop/Slash/Sweep/Super Scream) drags the floor
+// Each unlocked ability (Impale/Sever/Lacerate/Faultline/Super Scream) drags the floor
 // down further - Attack has to stay usable at level 1 when it's the only
 // option, but should matter less and less once there's a real rotation to
 // lean on, bottoming out at a 0% floor once all 5 are unlocked (level 10).
