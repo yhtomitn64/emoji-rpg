@@ -72,7 +72,7 @@ of the three-session balance queue above — separate initiative):**
   - ~~Mythic gear tier NG+2 shortfall~~ — **resolved 2026-08-31 (0.12.2)**: simulator now models ring/on-hit effects, `mythic` multiplier moved 1.35→1.5.
   - **Real goal is "feel powerful by end of NG+2" (2-3 hit kills), still open** — a flat multiplier doesn't get there; needs its own design pass with a different lever.
   - New: NG+ cycle should raise axe/pick/canoe drop chance from regular mobs (raw idea); possibly ties to roaming enemies gated to NG+2+ (raw idea).
-  - **Parry window/simulator-trust gap, sharpened** — simulator models parry at 0% (never modeled at all), narrow the window + add a parry-rate assumption to the sim. Good next-session candidate.
+  - ~~**Parry window/simulator-trust gap, sharpened**~~ — **Shipped 2026-09-01 as session 1 of the balance-tuning queue (see the top summary above).** Duplicate leftover index line, never removed when that shipped.
   - Terrain painter: zone-switcher (deliberately deferred), dungeon-interior painting (in progress/done, check session history).
   - Staged/tool-sequence-aware reachability checker — still open, algorithm not designed.
   - Non-store zone-1 loot (unique finds outside the shop) — open.
@@ -87,7 +87,7 @@ of the three-session balance queue above — separate initiative):**
   - **Ability rotation v2** (raised 2026-09-02) — AOE-widening attack chains, timing-buff trigger moved onto the ability's own re-press, a buildable big hit, new Stab/Chop/Slash names from Timothy's own candidate list. Needs its own dedicated brainstorm, not started.
   - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
   - Rung-3 gear effects: parry window trade-offs (undecided direction), plus known un-fixed side effects from the v1 ship (tooltip not tier-aware, AOE lifesteal/proc stacking per target, raw camelCase stat keys in UI, ±1 delta display rounding, redundant `getEquipmentBonuses` calls) — small cleanup items.
-  - Rhythm-style multi-hit parry, hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
+  - Hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
   - Research: alternatives to raw stat-number power creep — rough research question, unblocked but unstarted.
   - ~~**Defense scaling needs work** (player outpaces near-town content thread)~~ — **investigated 2026-09-02, damage-floor half shipped as 0.17.3; the rest is a documented structural dead end, not an open task.** See "The player outpaces near-town/far-corner content" section below for the full writeup.
 - **Mobile/touch combat should be turn-based** — raw idea, explicitly scoped to touch input only.
@@ -436,19 +436,13 @@ one-off task.
     2026-08-26 ask, the 2026-08-31 sharpened concern) and CHANGELOG.md's
     0.16.2 entry for the shipped detail. Two remaining open threads below
     weren't part of that session's scope.
-  - **Third candidate lever, raised 2026-09-01, explicitly unsure:**
-    "I'm thinking parry maybe turns into a cooldown thing so you can't
-    just do all the damage all the time or something. not sure yet."
-    A cooldown after a landed parry (or after any parry attempt) is a
-    different shape of fix than narrowing the timing window — it caps
-    how *often* the "win almost anything" pattern can fire rather than
-    how *hard* each individual parry is to land, and the two aren't
-    mutually exclusive. Not designed - no cooldown duration, no
-    decision on whether it gates the button entirely or just the
-    reflect/no-damage payoff, and no read yet on how it'd interact with
-    the multi-mob global-sweep parry (see "Rhythm-style multi-hit parry"
-    in Combat pass ideas below, which has its own 2026-09-01 addendum on
-    exactly this).
+  - ~~**Third candidate lever, raised 2026-09-01:** a cooldown after a
+    parry attempt, so you "can't just do all the damage all the time."~~
+    **Shipped 2026-09-02 (0.18.0) — see BACKLOG_SHIPPED.md's Multi-zone
+    progression section.** A shared 10s cooldown now gates every parry
+    input, solo and multi-mob alike, starting whether or not the attempt
+    lands — resolves this and the multi-mob-clunky thread together (see
+    "Rhythm-style multi-hit parry" in Combat pass ideas below).
 - **The terrain painter tool should be able to grow into new zones'
   editors too, raised 2026-08-24.** Timothy wants the tool
   (`tools/terrain-painter/`) built so it's not permanently zone-1-only —
@@ -1072,28 +1066,17 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
       `playerEffectBonuses`) — cheap and correct, just worth
       consolidating into one call reused for all three next time this
       file gets touched.
-- **Rhythm-style multi-hit parry / synchronized multi-mob parry bar,
-  raised 2026-08-26.** Timothy's own words, explicitly tentative
-  ("seems a little funky," "not sure"): enemies that land multiple
-  hits per attack, each needing its own parry in sequence — "almost
-  like a rhythm game" — rather than today's single wind-up-then-one-
-  parry-window per attack (`js/systems/parry.js`). For multi-mob
-  fights, floated a single larger shared bar appearing when several
-  monsters attack at once instead of each monster's own independent
-  wind-up bar (today's model, see the multi-mob encounters design).
-  Floated as possibly its own special encounter type rather than a
-  change to normal combat. Not designed at all — raw idea only, capture
-  only per his explicit "maybe backlog for the future."
-  - **Reiterated 2026-09-01, now a concrete complaint rather than a
-    tentative idea:** "parrying does feel clunky with multi mob also so
-    I'd like to revisit that at some point as well." Today's actual
-    behavior (`battleScreen.js`'s `attemptParry`, ~line 1288) is a
-    global sweep — one keypress parries *every* monster currently
-    sitting in its own zone at that instant, each with its own
-    independent wind-up bar (per the 2026-08-21 multi-mob-encounters
-    design) — which is the "today's model" the single-shared-bar idea
-    above was proposed as an alternative to. Still not designed; this
-    just confirms the clunkiness is real, not hypothetical.
+- ~~**Rhythm-style multi-hit parry / synchronized multi-mob parry bar,
+  raised 2026-08-26; reiterated 2026-09-01 as a concrete "clunky"
+  complaint** rather than a tentative idea.~~ **Shipped 2026-09-02
+  (0.18.0) — see BACKLOG_SHIPPED.md's Multi-zone progression section.**
+  Multi-mob parry now runs on a shared cooldown that catches every
+  monster mid-windup regardless of timing, instead of requiring each
+  monster's own narrow 90-100% zone to line up. Neither the rhythm-
+  sequential-hits mechanic nor the single-shared-bar idea originally
+  floated here is what got built — see
+  `docs/superpowers/specs/2026-09-02-multimob-parry-cooldown-design.md`
+  for why a cooldown was the simpler, chosen direction instead.
 - **Hold-to-block shield, a damage-reduction alternative to parry,
   raised 2026-08-26.** Timothy's own words, explicitly unsure of the
   exact motivation ("not sure why you would want that over parry"):

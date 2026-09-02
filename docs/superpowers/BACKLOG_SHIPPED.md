@@ -172,7 +172,47 @@ feeling clunky (global-sweep parrying every monster in its own zone at
 once) - see BACKLOG.md's "Parry window narrowing + simulator parry-rate
 modeling" pointer entry (Multi-zone progression section) and "Rhythm-style
 multi-hit parry" entry (Combat pass ideas section). See CHANGELOG.md's
-`0.16.2` entry for the code-level detail.
+`0.16.2` entry for the code-level detail. **Both threads resolved
+together the next session - see the entry immediately below.**
+
+### ~~Multi-mob parry feeling clunky, and a parry cooldown as a third balance lever~~ Shipped 2026-09-02 (0.18.0)
+Closes both threads the entry above left open: the "third candidate
+lever" idea (a cooldown after any parry attempt, raised 2026-09-01,
+`docs/superpowers/BACKLOG.md`'s Multi-zone progression section) and
+"Rhythm-style multi-hit parry / synchronized multi-mob parry bar"
+(`docs/superpowers/BACKLOG.md`'s Combat pass ideas section - reiterated
+2026-09-01 as a concrete "clunky" complaint, not just a raw idea).
+
+What shipped: a shared 10-second cooldown (`PARRY_COOLDOWN_MS`,
+`js/systems/parry.js`) gates every parry input - the `s` key, the Parry
+button, and the per-monster ATB-bar/parry-hint click shortcuts - solo
+and multi-mob alike. Pressing it starts the cooldown whether or not it
+lands, which is the entire anti-spam mechanism (no separate miss-penalty
+needed) - Timothy's own call: "the penalty being you use the ability and
+have to wait 10 seconds or whatever." In multi-mob fights specifically,
+landing it off cooldown now catches *every* monster currently
+mid-windup regardless of how far into its windup it is, instead of
+requiring each monster's own narrow 90-100% zone to line up - which is
+what made multi-mob parry play out as repeated solo parries with more
+visual noise rather than its own thing. Solo fights keep the existing
+90-100% zone unchanged, just now cooldown-gated - which is also what
+closes the separate "if you do parries correctly you can win almost
+anything" balance concern, since a skilled player can no longer chain
+solo parries back to back either.
+
+Notably **not** what got built: the rhythm-style sequential-multi-hit-
+per-attack mechanic and the single-shared-windup-bar idea originally
+floated for multi-mob - both considered and explicitly set aside during
+design in favor of the simpler cooldown-plus-catch-everyone-mid-windup
+mechanism. `scripts/simulate-balance.js`'s parry modeling was updated to
+match (cooldown-gated instead of a flat per-attack chance) - existing
+dragon/NG+2-tier matchup numbers were tuned against the old assumption
+and haven't been re-validated against the new one yet, flagged for a
+real playtest pass rather than re-tuned blind.
+
+See `docs/superpowers/specs/2026-09-02-multimob-parry-cooldown-
+design.md` for the full design and CHANGELOG.md's `0.18.0` entry for the
+shipped diff.
 
 ### ~~NG+ loot ceiling — the hard cap half~~ Shipped 2026-09-01 (0.16.3)
 Session 2 of the 2026-09-01 balance-tuning queue (see
