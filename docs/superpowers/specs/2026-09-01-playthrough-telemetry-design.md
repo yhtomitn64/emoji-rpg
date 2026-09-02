@@ -71,7 +71,7 @@ vary:
 | `session_start` | `{ continuing, level, ngPlusCycle }` | a new game is created or an existing slot is loaded |
 | `level_up` | `{ level, ngPlusCycle, elapsedMsSincePreviousLevel }` | the player's level increases |
 | `tool_acquired` | `{ toolId, level, ngPlusCycle, elapsedMsSincePreviousTool }` | axe/pick/canoe/portal scroll first picked up |
-| `battle_end` | `{ outcome, monsterIds, ngPlusCycle, playerLevel, hpPercentRemaining, durationMs }` | a battle resolves; `outcome` is `'win' \| 'loss' \| 'fled'` |
+| `battle_end` | `{ outcome, monsterIds, ngPlusCycle, playerLevel, hpPercentRemaining, durationMs }` | a battle resolves; `outcome` is `main.js`'s own literal strings: `'won' \| 'surrender' \| 'lost' \| 'fled-with-loot' \| 'fled'` (checked against `handleBattleEnd`'s actual callers during planning — richer than a plain win/loss/fled split) |
 | `ability_used` | `{ abilityId, inBattle }` | any of the 5 unlockable abilities is triggered |
 | `potion_used` | `{ itemId, inBattle }` | any consumable (heal potion or buff potion) is drunk, in battle or from a menu |
 | `item_drop` | `{ itemId, tier, sourceMonsterId, ngPlusCycle }` | `rollDrop` produces a non-null `item` |
