@@ -174,6 +174,44 @@ modeling" pointer entry (Multi-zone progression section) and "Rhythm-style
 multi-hit parry" entry (Combat pass ideas section). See CHANGELOG.md's
 `0.16.2` entry for the code-level detail.
 
+### ~~NG+ loot ceiling — the hard cap half~~ Shipped 2026-09-01 (0.16.3)
+Session 2 of the 2026-09-01 balance-tuning queue (see
+`docs/superpowers/specs/2026-09-01-balance-tuning-roadmap-handoff.md`).
+Timothy, mid-NG+2 having hit the wall: "I can't upgrade any more and
+that's no fun. So I can't really tear apart enemies as fast as I want."
+Deliberately the narrowest possible fix, chosen over the fuller
+item-design pass the backlog had been assuming this thread needed: "let's
+start with just uncapping gear upgrades and then if I find that boring
+down the road we will work with making gear drops interesting again."
+
+`MAX_NG_PLUS_CYCLE` (`js/systems/ngPlus.js`, was 2) and `MAX_UPGRADE_LEVEL`
+(`js/systems/inventory.js`, was 3) are no longer enforced anywhere -
+`canStartNgPlus` only checks the boss-defeated flag, `upgradeItem` no
+longer rejects past the old ceiling, and `resetWorldForNgPlus` increments
+the cycle with no clamp. Both numbers were already pure formulas with no
+cap logic of their own on either side - monster hp/attack/defense scaling
+(`getNgPlusCombatOverrides`), reward scaling (`getNgPlusRewardMultiplier`),
+and the upgrade cost/stat-bonus formulas (`upgradeCost`,
+`getItemEffectiveStats`) - so removing the two enforcement checks was
+sufficient; nothing else needed to change to make both axes climb forever.
+`MAX_UPGRADE_LEVEL` stays defined as a plain constant purely because
+`scripts/simulate-balance.js` still measures its "maxed ceiling" test
+builds at that number - it's just not read as an in-game limit anymore.
+`js/screens/smithScreen.js`'s "(MAX)" display branch was removed to match
+(it was silently still hiding the upgrade button at level 3 even after
+the enforcement was gone).
+
+Checked the actual grind math before shipping, since a runaway upgrade
+treadmill was Timothy's explicit worry: `upgradeCost` is linear
+(`20g * (level+1)`, e.g. 220g at level 10, 2,020g at level 100), not
+exponential, and untouched by this change. Meanwhile NG+ gold *rewards*
+already compound 1.5x per cycle (existing, untouched code) - so relative
+to income, upgrading gets cheaper over cycles, not more punishing. See
+CHANGELOG's `0.16.3` entry for the full diff. Still open: making the
+drops themselves (new items, higher tiers) more interesting, and the
+NG+/zone-2 relationship questions - see BACKLOG.md and the handoff doc's
+Session 2 section, both explicitly not touched by this ship.
+
 ## ~~Terrain painter: small UX polish items~~ All three shipped 2026-08-26
 
 Raised 2026-08-24 while Timothy was actively painting. Small, independent

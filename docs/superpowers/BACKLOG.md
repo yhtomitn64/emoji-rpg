@@ -18,16 +18,53 @@ one is raised — that's the whole point of it.
 **Next up, decided 2026-09-01:** a queue of three sessions — parry
 window + simulator parry-rate (session 1, shipped 2026-09-01, see
 BACKLOG_SHIPPED.md's Multi-zone progression section), then NG+ loot
-ceiling (+ NG+/zone-2 direction questions), then defense
-scaling/near-town pacing. Paste-in opening prompts for the remaining two,
-plus shared context, live in
+ceiling (session 2, **numeric-cap half shipped 2026-09-01 as 0.16.3** —
+item-design half + NG+/zone-2 direction questions still open, see the
+handoff doc's Session 2 section for the split), then defense
+scaling/near-town pacing (session 3, still queued). Paste-in opening
+prompt for session 3, plus shared context, lives in
 `docs/superpowers/specs/2026-09-01-balance-tuning-roadmap-handoff.md` —
 start there rather than re-deriving the queue from the index below.
+
+**New threads raised 2026-09-01, same session as the NG+ uncap (not part
+of the three-session balance queue above — separate initiative):**
+- **Local + live playthrough telemetry logging** — in design (brainstorm
+  converged, spec doc about to be written) — event catalog (level-ups,
+  tool pickups, battle outcomes, ability/potion use, gear-equip behavior,
+  drops, upgrades, NG+ transitions) plus a small zero-dependency local dev
+  server (`tools/dev-server.mjs`, replaces `python3 -m http.server`) that
+  auto-writes to a gitignored `analytics/events.jsonl`, with an
+  always-available copy-to-clipboard fallback in Settings for the live
+  site (no backend there). Explicitly chose Node built-ins over any
+  npm dependency, and skipped Google Analytics entirely (wrong tool for
+  structured gameplay events; adds a third-party/network dependency and
+  consent-banner obligations for no real benefit here).
+- **Dev-facing tunable balance-config layer** — expose the constants we
+  keep hand-editing (NG+ multipliers, upgrade cost curve, drop-tier
+  chances) as live-adjustable rather than source-edit-and-redeploy.
+  Scoped to the constants actually iterated on, not literally everything.
+  Not started.
+- **Player-facing Easy/Normal/Hard difficulty presets** — named bundles
+  of the config-layer knobs above. Depends on that layer existing first;
+  don't build before it. Not started.
+- **De-addiction settings** — Timothy's own idea (bike ride, 2026-09-01):
+  let players dial down flashy buttons/CTAs/notifications if they notice
+  themselves overplaying. Distinct concern from balance tuning (UX/ethics
+  design, not numbers) — deserves its own brainstorm when picked up. Not
+  started.
+- **Google Analytics + consent/opt-out banner** — if GA4 (or ads) is ever
+  added, Timothy wants an explicit banner explaining what it's for and a
+  no-strings-attached full opt-out. Back-burner, tied to whenever GA4
+  itself gets revisited (see telemetry thread above — GA4 was explicitly
+  passed over for now).
+- **Querying GA4 via connectors** — sounds doable in principle (Timothy's
+  own assessment) but back-burner, same as the GA4 line above — only
+  relevant if GA4 actually gets added later.
 
 - **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
 - **Pacing / progression** — early ramp / dragon-fell-quickly thread: level-12 dragon kill reads as right pacing, but even 3-star dragon was too easy; Timothy's own read is gear, not level, is the driver. Ties to defense-scaling and Mythic-tier items below.
 - **Multi-zone progression** (big, needs its own design pass) — zone 2/3/4 identity, spatial difficulty gradient, healing-enemies zone-2 idea, tool-gated zone unlocks, NG+ state carry-over into zone 2, town south-exit/expand/signage, town NPC hints (needs landmarks first). NG+ tools-reset piece already shipped.
-  - **NG+ loot stale at the gear ceiling** — reiterated repeatedly; needs an item-design pass for NG+-scoped headroom past today's max tier/upgrade.
+  - ~~**NG+ loot stale at the gear ceiling — the hard cap half.**~~ **Shipped 2026-09-01 (0.16.3).** See the detailed bullet lower in this section for the still-open item-design half.
   - **Dragon NG+ better drops** — not designed.
   - **NG+ monsters appearing "out of place"** — raw idea, not designed.
   - **Boss tier / NG+ cycle ceiling** — confirmed fine as-is for now, revisit later.
@@ -285,35 +322,20 @@ one-off task.
     see BACKLOG_SHIPPED.md.** `resetWorldForNgPlus` now strips tool items
     and resets `clearedGates` each cycle, plus a one-time migration for
     saves already mid-cycle.
-  - **NG+ loot feels stale without new/better items — reiterated
-    2026-08-29, reiterated again 2026-08-30.** Same underlying gap as
-    "Should the dragon drop better items in NG+?" just below, restated
-    more bluntly: Timothy, after being reminded how NG+ loot scaling
-    actually works today (chance-only, via
-    `NG_PLUS_DROP_CHANCE_MULTIPLIER` — no new items, no higher tiers):
-    "I think we need to make the loot better in NG+... right now NG+ feels
-    pretty stale w/o new loot." Explicitly deferred to backlog rather than
-    tackled immediately — this is real item-design work (what the new
-    items are, their stats, which tier they'd sit at), not a quick
-    mechanical change, so it wasn't done in the same session as the ask.
-    **Sharper 2026-08-30 reiteration, with a concrete cause identified:**
-    Timothy, mid-NG+2 having just hit the boss-tier/NG+ ceiling (see "Boss
-    tier / NG+ cycle ceiling" below): "I do think we should have better
-    loot and gear from NG+ though because I can't upgrade any more and
-    that's no fun. So I can't really tear apart enemies as fast as I want."
-    This is a hard, verifiable wall, not just a vibe: gear progression caps
-    at `MAX_UPGRADE_LEVEL = 3` per item/tier
-    (`js/systems/inventory.js`) and the Fine/Superior quality tiers
-    (`QUALITY_TIER_MULTIPLIERS`, `js/systems/itemQuality.js`) — once every
-    slot is Superior + upgrade level 3, there is no further gear power
-    available at all, while `getNgPlusCombatOverrides`
-    (`js/systems/ngPlus.js`) keeps scaling monster hp/attack/defense up
-    every NG+ cycle regardless. A maxed-out player actually gets
-    *relatively* weaker each cycle, the opposite of "tear apart enemies
-    faster." Still not designed - needs the same item-design pass as
-    above, now with an explicit design goal: player power should have
-    *some* NG+-scoped headroom past today's absolute gear ceiling, not
-    just better odds at the same finite item pool.
+  - ~~**NG+ loot ceiling — the hard upgrade-level/cycle cap.**~~ **Shipped
+    2026-09-01 (0.16.3) — see BACKLOG_SHIPPED.md.** `MAX_NG_PLUS_CYCLE`
+    and `MAX_UPGRADE_LEVEL` are no longer enforced; both climb forever.
+    Deliberately the narrowest fix, not the item-design pass below - kept
+    open for exactly that reason.
+  - **NG+ loot still feels stale without new/better *items*, just numbers
+    now — the item-design half of the above, still not done.** Same
+    underlying gap as "Should the dragon drop better items in NG+?" just
+    below: today's drop tables, quality tiers, and unique-effect items are
+    completely unchanged by the 2026-09-01 uncap - only how high a smith
+    can push a given item's level, and how many NG+ cycles exist, changed.
+    Timothy's own call 2026-09-01: start with the plain numeric uncap
+    alone and only invest in new/better items if the endless upgrade climb
+    on its own turns out boring. Revisit this bullet if/when that happens.
   - **Should the dragon drop better items in NG+? Raised 2026-08-29.**
     Timothy: "can we make the dragon drop better items in NG+?"
     `scaleDropTable` (`js/systems/ngPlus.js`) already scales

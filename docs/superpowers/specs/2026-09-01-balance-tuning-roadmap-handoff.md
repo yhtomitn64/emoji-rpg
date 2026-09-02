@@ -61,7 +61,22 @@ Paste this in as the opening message of a new session:
 
 ---
 
-## Session 2 — NG+ loot ceiling (and the NG+/zone-2 direction questions)
+## Session 2 — NG+ loot ceiling (and the NG+/zone-2 direction questions) — PARTIALLY SHIPPED 2026-09-01
+
+**What shipped (0.16.3):** the narrowest possible fix to Thread A below —
+`MAX_NG_PLUS_CYCLE` and `MAX_UPGRADE_LEVEL` are gone as enforced ceilings.
+NG+ cycles and smith upgrade levels now climb with no cap at all; nothing
+else changed (drop tables, quality-tier odds, and item design are exactly
+as they were). Deliberately the smallest lever, not the full item-design
+pass — see BACKLOG_SHIPPED.md's Multi-zone progression section for the
+mechanism and CHANGELOG's 0.16.3 entry for the diff.
+
+**Still open, unstarted:** everything below this point remains exactly as
+undecided as it was — "make gear drops interesting again" (new/better
+items past today's tiers) was explicitly deferred until the endless
+numeric climb alone proves boring, and Thread B (how NG+ should relate to
+zone 2+) was never picked up since zone 2 doesn't exist yet. Read the rest
+of this section fresh whichever session actually tackles either of those.
 
 This one's genuinely bigger and has more undecided surface area than
 session 1 — treat it as architectural (brainstorm → design doc → plan),
