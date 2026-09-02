@@ -440,6 +440,44 @@ object.
 
 ## Bugs
 
+### ~~UI consistency: universal Escape-to-close + aligned dialog chrome~~ Shipped 2026-09-02 (0.18.1)
+Raised 2026-09-01 (Timothy, via a friend's suggestion): every menu/dialog
+should close on Escape, and all dialogs should share the same close
+affordance (an X button in the same corner) and matching look/feel.
+Extended 2026-09-02, same session: also add click-outside-to-close like a
+well-designed regular web page. Audit found the inconsistency was real:
+of the 8 backdrop-dimmed overlays (`mountOverlay` in `js/main.js` —
+Settings, Inventory, Message Log, Loot Reference, Changelog, Stats Panel,
+Logout Confirm, Boss Prompt), none had Escape, an X button, or
+click-outside — only a text "Close"/"Cancel" button. Of the 3 full-page
+screens (`mountScreen` — Shop, Smith, Quest Board), Shop/Smith already
+had a corner `✕` (`.screen-close-x`, raised 2026-08-28) but no Escape;
+Quest Board had neither. The battle screen's item quick-select sub-menu
+already closed on Escape and was left as the reference pattern.
+
+Shipped as a new shared `js/screens/dialogChrome.js` helper
+(`bindEscapeClose`, `bindBackdropClose`), wired into all 11 screens above.
+Click-outside only applies to the 8 backdrop overlays — the 3 full-page
+screens have no backdrop, so they got Escape only (aliased to their
+existing `'l'`/`'L'` leave key), plus Quest Board gained the same
+`.screen-close-x` button Shop/Smith already had. Logout Confirm and Boss
+Prompt (confirm-style dialogs) map all three affordances to their cancel
+path (`onCancel`/`onWalkAway`), never the destructive confirm action;
+Boss Prompt's NG+ confirm sub-step backs out one level (to the main
+tier-select state) rather than exiting the whole prompt. Battle screen
+itself and the forced Post-Death Travel prompt were deliberately left
+untouched — the former isn't a dismissable dialog, the latter has no
+cancel action to fall back to (it's a forced choice). CSS: base
+`.overlay-panel` gained `position: relative` (so each overlay's `✕`
+anchors to the dialog card, not the full-viewport backdrop) and
+`padding-right` on its `h2` to clear the button; `.quest-board-screen`
+joined the existing `.shop-screen, .smith-screen { position: relative; }`
+rule. New DOM test coverage: `tests/dialogChrome.test.js` for the helper
+itself, plus close-affordance cases added to every affected screen's
+`tests/*ScreenDom.test.js` (five of those — Message Log, Stats Panel,
+Logout Confirm, Boss Prompt, Quest Board — had no prior DOM coverage at
+all and got new files).
+
 ### ~~Tool-pickup celebration animation isn't anchored to the player~~ Shipped 2026-08-29 (0.7.1)
 Timothy's own words (getting the boat/canoe): "my character was in the
 corner of the screen but the boat went in the middle of the screen and
