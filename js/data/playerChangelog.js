@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.17.0',
+    date: '2026-09-01',
+    highlights: [
+      'New: a "Copy Play Log" button in Settings - copies a record of your current session (levels, fights, drops, gear equipped, upgrades) to your clipboard so it can be shared for balance feedback.',
+    ],
+  },
+  {
     version: '0.16.3',
     date: '2026-09-01',
     highlights: [

@@ -24,6 +24,23 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-01
+
+### Added
+- Playthrough telemetry logging (`js/systems/telemetry.js`): the game now
+  records level-ups, tool pickups, battle outcomes, ability/potion use,
+  gear-equip choices, item drops, smith upgrades, and NG+ transitions to
+  an in-memory/localStorage-backed session buffer. `tools/dev-server.mjs`
+  (a new zero-dependency Node static server, replacing `python3 -m
+  http.server` for local dev - see README) accepts `POST /__telemetry`
+  and appends events as newline-delimited JSON to a gitignored
+  `analytics/events.jsonl`. The Settings screen's new "Copy Play Log"
+  button copies the current session's buffered events (via the
+  Clipboard API, falling back to a selectable textarea) regardless of
+  whether the dev server is running - the only delivery path on the
+  live site, which has no backend. See
+  `docs/superpowers/specs/2026-09-01-playthrough-telemetry-design.md`.
+
 ## [0.16.3] - 2026-09-01
 
 ### Changed
