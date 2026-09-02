@@ -60,6 +60,7 @@ let endBattleTimeoutId = null;
 let exitAnimTimeoutId = null;
 let abilityCooldowns = {};
 let buffState = createBuffState();
+let widenBuffState = null;
 let abilityActionInFlight = false;
 let attackStreak = 0;
 let attackCooldownMs = 0;
@@ -274,6 +275,7 @@ function buildDom() {
               <div class="battle-hp-text" id="battle-hero-hp-text"></div>
               <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
               <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
+              <div class="battle-widen-indicator" id="battle-widen-indicator"></div>
               <div class="battle-potion-buff-indicator" id="battle-potion-buff-indicator"></div>
             </div>
           </div>
@@ -313,6 +315,7 @@ function buildDom() {
     heroHpText: document.getElementById('battle-hero-hp-text'),
     heroAtbFill: document.getElementById('battle-hero-atb-fill'),
     buffIndicator: document.getElementById('battle-buff-indicator'),
+    widenIndicator: document.getElementById('battle-widen-indicator'),
     potionBuffIndicator: document.getElementById('battle-potion-buff-indicator'),
     menu: document.getElementById('battle-menu'),
     log: document.getElementById('battle-log'),
@@ -410,6 +413,12 @@ function updateLog() {
 function updateBuffIndicator() {
   elements.buffIndicator.textContent = buffState.active
     ? `💪 Super Scream: ${Math.ceil(buffState.remainingMs / 1000)}s`
+    : '';
+}
+
+function updateWidenIndicator() {
+  elements.widenIndicator.textContent = widenBuffState?.active
+    ? `🪨 Widened: ${Math.ceil(widenBuffState.remainingMs / 1000)}s`
     : '';
 }
 
@@ -1415,6 +1424,10 @@ async function playerUseAbility(abilityId) {
         updateAtbBars();
         updateLog();
       }
+      if (ability.widenBonusTargets) {
+        widenBuffState = { active: true, remainingMs: ability.defenseShredDurationMs };
+        updateWidenIndicator();
+      }
       checkOutcome();
       updateMenu();
       return;
@@ -1423,7 +1436,9 @@ async function playerUseAbility(abilityId) {
     const targetIndex = selectedMonsterIndex;
     const target = monsterCombatants[targetIndex];
     const defenseDebuffAtPress = target.defenseDebuff;
-    const extraTargetIndices = pickRandomOtherLivingIndices(targetIndex, ability.extraTargetCount || 0);
+    const widenActive = !!widenBuffState?.active;
+    const extraTargetCount = (ability.extraTargetCount || 0) + (widenActive ? 1 : 0);
+    const extraTargetIndices = pickRandomOtherLivingIndices(targetIndex, extraTargetCount);
     const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
@@ -1586,6 +1601,7 @@ function tick() {
   parryCooldownMs = Math.max(0, parryCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
+  widenBuffState = tickDefenseDebuff(widenBuffState, 300);
   activeBuffs = tickActiveBuffs(activeBuffs, 300);
   recomputeEffectBonuses();
 
@@ -1643,6 +1659,7 @@ function tick() {
   updateAtbBars();
   updateMenu();
   updateBuffIndicator();
+  updateWidenIndicator();
   updatePotionBuffIndicator();
 }
 
@@ -1795,6 +1812,7 @@ export function mount(root, props) {
   playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
+  widenBuffState = null;
   abilityActionInFlight = false;
   attackStreak = 0;
   attackStreakIdleMs = 0;

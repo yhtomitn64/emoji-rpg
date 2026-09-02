@@ -599,6 +599,10 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   min-height: 1.2em;
   margin-top: 4px;
 }
+.battle-widen-indicator {
+  font-size: 0.75rem;
+  color: #c9a876;
+}
 .battle-potion-buff-indicator {
   font-size: 0.75rem;
   color: #9be69b;

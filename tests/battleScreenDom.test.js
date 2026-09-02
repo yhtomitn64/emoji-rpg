@@ -314,6 +314,26 @@ test('battleScreen DOM', async (t) => {
     assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, before);
   });
 
+  await t.test('Faultline\'s widen buff makes Impale also hit one extra random enemy for 6s', async () => {
+    const { root } = await mountBattle(['boar', 'boar', 'boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    const hpText = (i) => root.querySelector(`#battle-monster-hp-text-${i}`).textContent;
+    click(root.querySelector('#btn-ability-sweep'));
+    // Let Faultline's own staggered all-enemies sequence finish.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    assert.match(root.querySelector('#battle-widen-indicator').textContent, /Widened/);
+
+    const before = [hpText(0), hpText(1), hpText(2)];
+    click(root.querySelector('#btn-ability-stab'));
+    const after = [hpText(0), hpText(1), hpText(2)];
+    const hitCount = after.filter((text, i) => text !== before[i]).length;
+    assert.equal(hitCount, 2, 'Impale should hit its target plus one extra while the widen buff is active');
+  });
+
+  await t.test('the widen buff indicator is empty when no widen buff is active', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    assert.equal(root.querySelector('#battle-widen-indicator').textContent, '');
+  });
+
   await t.test('parry windup fill drives from a real-time CSS animation, not a stale JS width snapshot', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     // speed: 1000 saturates the monster's ATB gauge on the very first
