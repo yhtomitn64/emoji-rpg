@@ -4,6 +4,7 @@ import {
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
+import { logEvent } from '../systems/telemetry.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
 const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
@@ -107,6 +108,7 @@ function tryUpgrade(slot) {
   try {
     const next = upgradeItem(state, slot, materialId, cost);
     Object.assign(state, next);
+    logEvent('upgrade_purchased', { itemId, slot, tier: tier || null, newLevel: level + 1, goldSpent: cost });
     callbacks.onUpgrade();
   } catch {
     // Not enough gold or missing material — button availability already reflects this

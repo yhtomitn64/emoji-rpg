@@ -69,4 +69,20 @@ test('smithScreen reforge DOM', async (t) => {
     assert.ok(root.textContent.includes('Ring 1: (empty)'));
     assert.ok(root.textContent.includes('Ring 2: (empty)'));
   });
+
+  await t.test('a successful upgrade logs an upgrade_purchased telemetry event', async () => {
+    const { startSession, getBufferAsJsonl } = await import('../js/systems/telemetry.js');
+    startSession();
+    const root = await mountSmith(buildState({ inventory: [{ itemId: 'ironScrap', quantity: 1 }] }));
+    const select = root.querySelector('select[data-slot="weapon"]');
+    select.value = 'ironScrap';
+    click(root.querySelector('button[data-slot="weapon"]'));
+    const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const upgradeEvent = events.find((e) => e.type === 'upgrade_purchased');
+    assert.ok(upgradeEvent);
+    assert.equal(upgradeEvent.itemId, 'ironSword');
+    assert.equal(upgradeEvent.slot, 'weapon');
+    assert.equal(upgradeEvent.newLevel, 1);
+    assert.equal(upgradeEvent.goldSpent, 20);
+  });
 });
