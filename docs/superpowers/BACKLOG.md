@@ -84,7 +84,8 @@ of the three-session balance queue above — separate initiative):**
 - **In-game tutorials / mechanic explainers** — general onboarding idea, sharper combat-specific version (explain abilities/synergies/attack-falloff at unlock, explicit dismiss required). Timothy wants to talk through design when picked up.
 - **Combat pass ideas** — several independent threads, none scheduled:
   - Slower combat / reconsider the timing-minigame layer entirely — raw, Timothy wants to think it through more.
-  - **Ability rotation v2** (raised 2026-09-02) — AOE-widening attack chains, timing-buff trigger moved onto the ability's own re-press, a buildable big hit, new Stab/Chop/Slash names from Timothy's own candidate list. Needs its own dedicated brainstorm, not started.
+  - **Ability rotation v2** (raised 2026-09-02) — **brainstormed to completion 2026-09-02**, design at `docs/superpowers/specs/2026-09-02-ability-rotation-v2-design.md`; not yet implemented.
+  - **Debuff visual effects** (raised 2026-09-02) — a bleed tick should show a falling blood droplet, every enemy debuff deserves its own distinct effect rather than just a status bar. Raw idea, not designed.
   - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
   - Rung-3 gear effects: parry window trade-offs (undecided direction), plus known un-fixed side effects from the v1 ship (tooltip not tier-aware, AOE lifesteal/proc stacking per target, raw camelCase stat keys in UI, ±1 delta display rounding, redundant `getEquipmentBonuses` calls) — small cleanup items.
   - Hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
@@ -961,12 +962,46 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   AI-authored naming - consistent with the standing "no unprompted
   AI-generated narrative" boundary (see "The game needs an actual
   story," Story / narrative section) since these are ability/UI labels
-  he's curating, not story/lore/dialogue. Nothing here is designed yet -
-  which of the 4 slots maps to which new role, the AOE-widen mechanic's
-  actual numbers, how the re-timed buff trigger feels without a
-  dedicated key, and the final ability names are all open. Needs its own
-  dedicated brainstorm - deliberately not tackled in the same session as
-  the multi-mob-parry-clunky fix it was raised alongside.
+  he's curating, not story/lore/dialogue. **Brainstormed to completion
+  2026-09-02** - full design at `docs/superpowers/specs/2026-09-02-
+  ability-rotation-v2-design.md` (slot mapping, AOE-widen numbers,
+  retrigger-window mechanic, and names all decided; the "buildable big
+  hit" piece stayed deferred to the slower-combat thread above). Not
+  yet implemented - next step is an implementation plan
+  (`superpowers:writing-plans`).
+
+- **Debuff visual effects - a bleed should show a falling blood
+  droplet, and every enemy debuff deserves its own distinct effect, not
+  just a status bar, raised 2026-09-02** (same session as the ability
+  rotation v2 brainstorm, prompted by Lacerate keeping its bleed tick).
+  Timothy's own words: "when something is bleeding we need a blood
+  droplet falling out animation or something to indicate something
+  exciting is happening. Any time an enemy has a debuff I want to try
+  something interesting to see and not just a debuff bar but actual
+  cool effect." Today's debuffs (defense-shred from Sweep, the bleed
+  tick from Slash/Lacerate) show no per-effect visual at all beyond
+  whatever generic damage-number/badge already fires - this is about
+  giving each debuff type its own small distinct animation (bleed =
+  falling droplet was the one concrete example given). Raw idea, not
+  designed - needs its own pass once there's a settled list of which
+  debuffs exist post-ability-rotation-v2.
+
+  Extended same session: Timothy also wants a ground-crack-opening
+  effect under the enemies when Faultline (the renamed Sweep, see
+  above) is used - his own words: "Can we do an effect under the
+  enemies of like a crack opening up? So it might not be an emoji and
+  not sure how we would make this look and this could be a future
+  animation pass where we download a tool to make images/effects or
+  whatever." Flags a real question this backlog hasn't had to answer
+  yet: everything shipped so far (weapon-swing animations, celebration
+  bursts, the parry/crit flash effects) is built from emoji + CSS
+  animation, no image/sprite assets or an actual animation/effects
+  tool in the pipeline. A crack-opening-ground effect is a plausible
+  first case that emoji-only can't really deliver well. Explicitly
+  parked as a future animation pass, not part of ability rotation v2's
+  implementation - that build's own design doc
+  (`docs/superpowers/specs/2026-09-02-ability-rotation-v2-design.md`)
+  keeps Faultline's visual to existing emoji + CSS only.
 
 - **Bigger, mixed, synergistic monster groups + battle-screen visual
   overhaul, raised 2026-08-29.** Timothy's own words: "when multiple
