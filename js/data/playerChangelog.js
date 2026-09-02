@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.16.3',
+    date: '2026-09-01',
+    highlights: [
+      'Changed: New Game+ no longer stops at NG+2, and smith upgrades no longer cap at +3 - both keep climbing forever, so there\'s always another cycle and another upgrade to chase.',
+    ],
+  },
+  {
     version: '0.16.2',
     date: '2026-09-01',
     highlights: [

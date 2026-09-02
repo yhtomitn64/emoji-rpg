@@ -1,6 +1,6 @@
 import { ITEMS } from '../data/items.js';
 import {
-  upgradeCost, upgradeItem, MAX_UPGRADE_LEVEL, describeItem, getUpgradeLevel,
+  upgradeCost, upgradeItem, describeItem, getUpgradeLevel,
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
@@ -34,13 +34,6 @@ function render() {
     const reforgeButton = reforgeEligible
       ? `<button data-reforge="${slot}" ${canAffordReforge ? '' : 'disabled'}>Reforge to Mythic (${REFORGE_GOLD_COST}g + ${REFORGE_ESSENCE_COST} Essence)</button>`
       : '';
-
-    if (level >= MAX_UPGRADE_LEVEL) {
-      return `<div class="smith-row">
-      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level} (MAX)</span>
-      ${reforgeButton}
-    </div>`;
-    }
 
     const hasUpgradePath = Object.values(ITEMS).some((candidate) => candidate.type === 'material' && candidate.upgradeSlot === slot);
     if (!hasUpgradePath) {

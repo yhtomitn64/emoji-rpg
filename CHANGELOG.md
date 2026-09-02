@@ -24,6 +24,30 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-09-01
+
+### Changed
+- Removed the hard ceilings on NG+ cycles (`MAX_NG_PLUS_CYCLE`, was 2) and
+  smith upgrade levels (`MAX_UPGRADE_LEVEL`, was 3) - both `canStartNgPlus`
+  and `upgradeItem` no longer reject past those numbers. Monster
+  hp/attack/defense scaling (`getNgPlusCombatOverrides`), reward scaling
+  (`getNgPlusRewardMultiplier`), and upgrade cost/stat-bonus formulas
+  (`upgradeCost`, `getItemEffectiveStats`) were already unbounded formulas
+  with no cap logic of their own, so no other code needed to change to make
+  both axes climb indefinitely. `MAX_UPGRADE_LEVEL` stays defined as a plain
+  constant - `scripts/simulate-balance.js` still uses it as the fixed level
+  its "maxed ceiling" test builds are measured at, it's just no longer read
+  as an in-game limit. First half of the NG+-loot-ceiling backlog item
+  (`docs/superpowers/specs/2026-09-01-balance-tuning-roadmap-handoff.md`,
+  Session 2) - deliberately the smallest fix that removes the wall, before
+  spending effort on making drops themselves more interesting again.
+
+### Fixed
+- `js/screens/smithScreen.js` no longer stops offering the upgrade button at
+  level 3 (the removed "(MAX)" display branch) - upgrading kept working past
+  the old cap once `upgradeItem` stopped rejecting it, but the UI hadn't
+  caught up.
+
 ## [0.16.2] - 2026-09-01
 
 ### Changed

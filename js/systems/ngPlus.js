@@ -1,13 +1,17 @@
 import { ITEMS } from '../data/items.js';
 
-export const MAX_NG_PLUS_CYCLE = 2;
 export const NG_PLUS_HP_MULTIPLIER = 2;
 export const NG_PLUS_COMBAT_MULTIPLIER = 1.25;
 export const NG_PLUS_REWARD_MULTIPLIER = 1.5;
 export const NG_PLUS_DROP_CHANCE_MULTIPLIER = 1.5;
 
+// Uncapped 2026-09-01: NG+ used to stop offering at cycle 2 (MAX_NG_PLUS_CYCLE)
+// while getNgPlusCombatOverrides/getNgPlusRewardMultiplier/scaleDropTable below
+// kept scaling forever regardless - a maxed-gear player hit a wall with nothing
+// left to chase. There's no ceiling check left anywhere in this file now; the
+// climb is intentionally endless.
 export function canStartNgPlus(state) {
-  return Boolean(state.flags.dungeonBossDefeated) && state.ngPlusCycle < MAX_NG_PLUS_CYCLE;
+  return Boolean(state.flags.dungeonBossDefeated);
 }
 
 export function getNgPlusCombatOverrides(baseMonster, cycle) {
@@ -77,7 +81,7 @@ export function resetWorldForNgPlus(state) {
     position: null,
     lossStreak: 0,
     zone1Steps: 0,
-    ngPlusCycle: Math.min(state.ngPlusCycle + 1, MAX_NG_PLUS_CYCLE),
+    ngPlusCycle: state.ngPlusCycle + 1,
   };
 }
 

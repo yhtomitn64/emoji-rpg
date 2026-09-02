@@ -2,6 +2,12 @@ import { ITEMS } from '../data/items.js';
 import { QUALITY_TIER_MULTIPLIERS } from './itemQuality.js';
 
 export const UPGRADE_BASE_COST = 20;
+// Uncapped 2026-09-01: this used to be an enforced ceiling (upgradeItem threw
+// past it). It's kept only as the fixed upgrade level scripts/simulate-balance.js
+// tests its "maxed ceiling" builds at - not read anywhere as an in-game limit
+// anymore. Upgrade cost (upgradeCost below) and the stat bonus it buys
+// (getItemEffectiveStats below) are both already unbounded formulas, so
+// there's nothing else to change to let upgrading continue past this number.
 export const MAX_UPGRADE_LEVEL = 3;
 
 const STAT_KEYS = [
@@ -225,8 +231,6 @@ export function upgradeItem(state, slot, materialId, cost) {
   const itemId = state.equipment[slot];
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
   const tier = state.equipmentTiers?.[slot];
-
-  if (getUpgradeLevel(state, itemId, tier) >= MAX_UPGRADE_LEVEL) throw new Error(`${itemId} is already at max upgrade level`);
 
   if (ITEMS[materialId].upgradeSlot !== slot) throw new Error(`${materialId} cannot upgrade the ${slot} slot`);
 

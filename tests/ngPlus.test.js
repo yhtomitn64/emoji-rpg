@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_NG_PLUS_CYCLE,
   canStartNgPlus,
   getNgPlusCombatOverrides,
   getNgPlusRewardMultiplier,
@@ -16,10 +15,6 @@ function assertClose(actual, expected, epsilon = 1e-6) {
   assert.ok(Math.abs(actual - expected) < epsilon, `expected ${actual} to be close to ${expected}`);
 }
 
-test('MAX_NG_PLUS_CYCLE is 2', () => {
-  assert.equal(MAX_NG_PLUS_CYCLE, 2);
-});
-
 test('getNgPlusCombatOverrides at cycle 0 matches the base monster exactly', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 0);
   assert.deepEqual(stats, { hp: 150, attack: 34, defense: 12, speed: 11 });
@@ -30,9 +25,14 @@ test('getNgPlusCombatOverrides at cycle 1 doubles hp and raises attack/defense ~
   assert.deepEqual(stats, { hp: 300, attack: 43, defense: 15, speed: 11 });
 });
 
-test('getNgPlusCombatOverrides at cycle 2 (max) compounds correctly', () => {
+test('getNgPlusCombatOverrides at cycle 2 compounds correctly', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 2);
   assert.deepEqual(stats, { hp: 600, attack: 53, defense: 19, speed: 11 });
+});
+
+test('getNgPlusCombatOverrides keeps compounding with no ceiling past cycle 2', () => {
+  const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 5);
+  assert.deepEqual(stats, { hp: 4800, attack: 104, defense: 37, speed: 11 });
 });
 
 test('getNgPlusRewardMultiplier compounds 1.5x per cycle', () => {
@@ -92,11 +92,12 @@ test('scaleDropTable preserves entry order and does not mutate the original tabl
   assert.deepEqual(table, original);
 });
 
-test('canStartNgPlus requires the boss defeated at least once and below the cap', () => {
+test('canStartNgPlus requires the boss defeated at least once, with no cycle ceiling', () => {
   assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: false }, ngPlusCycle: 0 }), false);
   assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: true }, ngPlusCycle: 0 }), true);
   assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: true }, ngPlusCycle: 1 }), true);
-  assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: true }, ngPlusCycle: 2 }), false);
+  assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: true }, ngPlusCycle: 2 }), true);
+  assert.equal(canStartNgPlus({ flags: { dungeonBossDefeated: true }, ngPlusCycle: 50 }), true);
 });
 
 test('resetWorldForNgPlus preserves player power and resets world state', () => {
@@ -222,10 +223,13 @@ test('resetWorldForNgPlus keeps worn-path trail data across cycles, unlike other
   assert.deepEqual(reset.visited, state.visited);
 });
 
-test('resetWorldForNgPlus caps ngPlusCycle at MAX_NG_PLUS_CYCLE', () => {
+test('resetWorldForNgPlus keeps incrementing ngPlusCycle with no ceiling', () => {
   const state = createNewGame();
   state.flags.dungeonBossDefeated = true;
   state.ngPlusCycle = 2;
   const reset = resetWorldForNgPlus(state);
-  assert.equal(reset.ngPlusCycle, 2);
+  assert.equal(reset.ngPlusCycle, 3);
+
+  const furtherState = { ...state, ngPlusCycle: 50 };
+  assert.equal(resetWorldForNgPlus(furtherState).ngPlusCycle, 51);
 });
