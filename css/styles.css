@@ -532,18 +532,19 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   to { width: 100%; }
 }
 /* A quick one-shot flash the instant a timing bar's moving fill crosses
-   into its actionable zone (parry's red zone, the ability timing meter's
-   green sweet spot) - applied to the zone's own static marker element via
-   an `animation` set inline in battleScreen.js with a delay computed from
-   that zone's start percent, so it fires in real time without any extra
-   JS polling. Makes the actionable instant more readable at a glance
-   instead of only a static color change. Raised 2026-08-28 - see
-   docs/superpowers/BACKLOG.md's "Pulse/glow on timing bars..." item.
-   filter: brightness() rather than box-shadow - both zone markers live
-   inside an `overflow: hidden` track (.battle-atb-bar, .battle-timing-
-   track), which would clip a box-shadow's glow at the track's own edge;
-   brightness() only affects pixels already inside the element's own box,
-   so it isn't clipped. */
+   into its actionable zone - currently parry's red zone marker (Lacerate's
+   own retrigger window uses a separate static glow instead, see
+   .battle-ability-button-retrigger below). Applied to the zone's own
+   static marker element via an `animation` set inline in battleScreen.js
+   with a delay computed from that zone's start percent, so it fires in
+   real time without any extra JS polling. Makes the actionable instant
+   more readable at a glance instead of only a static color change. Raised
+   2026-08-28 - see docs/superpowers/BACKLOG.md's "Pulse/glow on timing
+   bars..." item.
+   filter: brightness() rather than box-shadow - the zone marker lives
+   inside an `overflow: hidden` track (.battle-atb-bar), which would clip
+   a box-shadow's glow at the track's own edge; brightness() only affects
+   pixels already inside the element's own box, so it isn't clipped. */
 @keyframes battle-zone-pulse {
   0% { filter: brightness(1); }
   30% { filter: brightness(2.8); }
@@ -664,9 +665,9 @@ button:disabled {
    compared 2026-08-31: "Option A", a radial clock-wipe cooldown). Every
    button (Parry, Attack, the unlocked abilities, Item, Flee) shares this
    fixed-size square chrome so the row stays one line; name, cooldown
-   seconds, combo status and the damage estimate that used to sit in the
-   button's own text now live in its `title` tooltip instead - see
-   actionButtonHtml() in battleScreen.js.
+   seconds, and the damage estimate that used to sit in the button's own
+   text now live in its `title` tooltip instead - see actionButtonHtml()
+   in battleScreen.js.
 
    Docked as its own panel directly under the battle dialog (raised
    2026-08-31) rather than living inside it - background/border match

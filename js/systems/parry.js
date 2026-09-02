@@ -24,18 +24,18 @@ import { calculateDamage, rollCrit, applyCritMultiplier } from './combat.js';
 export const PARRY_WINDUP_DURATION_MS = 1000;
 // Narrowed from 80 (a 200ms window) 2026-09-01, per Timothy's own concern
 // ("if you do parries correctly you can win almost anything"). 200ms was the
-// same size as the ability-timing meter's sweet spot
-// (TIMING_SWEET_SPOT_START in battleScreen.js), which assumes a 70% landing
-// rate for a reasonably-attentive player (TIMING_HIT_RATE in
-// scripts/simulate-balance.js) - but parry's payoff (full damage negation +
-// 50% reflected damage + resetting the monster's attack timer entirely) is
-// far more valuable per landing than the timing meter's +30% damage bonus,
-// so an equal window size let a good parrier win fights that should stay
-// hard. Confirmed with the balance simulator's new --parry-rate flag: at a
-// 0.7 landing rate (this window's old size), several dragon-tier and NG+2
-// matchups that are unwinnable at 0 parries flip to 84-100% win rate. Halved
-// to 100ms so landing one reliably takes real skill rather than a generous
-// anticipation window - see the "Parry window trade-offs" backlog entry in
+// same size as the (since-removed) ability-timing meter's sweet spot,
+// which assumed a 70% landing rate for a reasonably-attentive player
+// (TIMING_HIT_RATE in scripts/simulate-balance.js) - but parry's payoff
+// (full damage negation + 50% reflected damage + resetting the monster's
+// attack timer entirely) is far more valuable per landing than the timing
+// meter's +30% damage bonus, so an equal window size let a good parrier
+// win fights that should stay hard. Confirmed with the balance
+// simulator's new --parry-rate flag: at a 0.7 landing rate (this window's
+// old size), several dragon-tier and NG+2 matchups that are unwinnable at
+// 0 parries flip to 84-100% win rate. Halved to 100ms so landing one
+// reliably takes real skill rather than a generous anticipation window -
+// see the "Parry window trade-offs" backlog entry in
 // docs/superpowers/BACKLOG.md for the full history. This is a feel-tuning
 // call the simulator can't fully validate on its own (it has no reaction-
 // timing model) - re-check against actual play and retune if it reads as

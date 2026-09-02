@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.19.0',
+    date: '2026-09-02',
+    highlights: [
+      'Changed: your 4 combat abilities got new names and new jobs. Impale (was Stab) is your strong single hit. Sever (was Chop) always hits your target plus one random enemy beside it. Lacerate (was Slash) keeps its bleed - press it again right after landing for a damage buff. Faultline (was Sweep) is a weak hit on every enemy that also widens what your other 3 abilities can hit for a few seconds.',
+      'Changed: every ability now hits instantly - no more timing-meter bar to wait through or watch for a green zone.',
+    ],
+  },
+  {
     version: '0.18.1',
     date: '2026-09-02',
     highlights: [

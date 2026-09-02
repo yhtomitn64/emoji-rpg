@@ -98,9 +98,9 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#btn-attack').title, /decays/);
     assert.match(root.querySelector('#btn-item').title, /potion/i);
     assert.match(root.querySelector('#btn-flee').title, /retreat|escape/);
-    assert.match(root.querySelector('#btn-ability-stab').title, /prime/);
-    assert.match(root.querySelector('#btn-ability-chop').title, /bonus damage/);
-    assert.match(root.querySelector('#btn-ability-slash').title, /prime/);
+    assert.match(root.querySelector('#btn-ability-stab').title, /strong, precise single-target thrust/);
+    assert.match(root.querySelector('#btn-ability-chop').title, /one random enemy beside it/);
+    assert.match(root.querySelector('#btn-ability-slash').title, /bleeds for extra damage/);
     assert.match(root.querySelector('#btn-ability-sweep').title, /every living enemy/);
     assert.match(root.querySelector('#btn-ability-superScream').title, /boosts all your damage/);
   });
@@ -486,15 +486,6 @@ test('battleScreen DOM', async (t) => {
     const log = root.querySelector('#battle-log').textContent;
     assert.match(log, /hits you for/);
     assert.match(log, /Retribution Charm reflects/);
-  });
-
-  await t.test('ability timing meter sweet spot is scheduled to pulse via a real-time-delayed CSS animation', async () => {
-    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
-    click(root.querySelector('#btn-ability-stab'));
-    const sweetSpot = root.querySelector('#battle-timing-sweet-spot');
-    // TIMING_SWEET_SPOT_START (80) / TIMING_METER_DURATION_MS (1000) in
-    // battleScreen.js - not exported, so asserted by value here.
-    assert.equal(sweetSpot.style.animation, 'battle-zone-pulse 0.35s ease-out 800ms');
   });
 
   await t.test('clicking Attack spawns a swing sprite carrying the equipped weapon\'s emoji', async () => {

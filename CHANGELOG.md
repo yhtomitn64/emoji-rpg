@@ -24,6 +24,30 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-09-02
+
+### Changed
+- Rewrote the 4 damage abilities' rotation (`js/systems/abilities.js`,
+  `js/screens/battleScreen.js`) around distinct roles instead of a flat
+  power ramp, and renamed three of them: Stab → **Impale** (strong
+  single-target hit), Chop → **Sever** (hits its target plus one random
+  other living enemy, still fine 1-on-1), Slash → **Lacerate** (keeps its
+  delayed bleed tick, and re-pressing it right after landing buffs the
+  rest of your abilities for a while), Sweep → **Faultline** (icon
+  🌪️ → 🪨; keeps its weak all-enemies hit and defense-shred, and now
+  also widens what Impale/Sever/Lacerate can hit for 6s after use).
+  Every ability now resolves instantly - the live wind-up timing meter
+  and the old Stab→Chop/Slash→Sweep combo-priming system are both gone
+  entirely, replaced by each ability's own mechanic above. Super Scream
+  is unchanged. See `docs/superpowers/specs/2026-09-02-ability-rotation-
+  v2-design.md` for the full design and
+  `docs/superpowers/plans/2026-09-02-ability-rotation-v2.md` for the
+  implementation.
+- `scripts/simulate-balance.js`/`scripts/simulateAbilityPolicy.js`
+  updated to match: no more combo-primer priority in the simulated
+  player's action policy, Lacerate's retrigger buff modeled with the
+  same stand-in timing-skill rate the old combo system used.
+
 ## [0.18.1] - 2026-09-02
 
 ### Added

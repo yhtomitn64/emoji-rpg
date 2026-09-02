@@ -1539,6 +1539,31 @@ real fix:
 directly and while testing mid-battle pause/tooltips): "I did try it and
 it looks good. So satisfied on my part!" See CHANGELOG 0.12.0/0.12.1.
 
+### ~~Ability rotation v2 — AOE-widening chains, a re-timed buff trigger, and a buildable "big hit"~~ Shipped 2026-09-02 (0.19.0)
+The 4 damage abilities (`js/systems/abilities.js`, `js/screens/battleScreen.js`)
+now resolve instantly and each play a distinct rotation role instead of a
+flat power ramp, with three of them renamed per Timothy's own candidate
+word list: Stab → **Impale** (strong single-target hit), Chop → **Sever**
+(hits its target plus one random other living enemy, still fine 1-on-1),
+Slash → **Lacerate** (keeps its delayed bleed tick; re-pressing it right
+after landing buffs the rest of the rotation for a while - the old
+timing-game payoff moved onto Lacerate's own re-trigger window instead
+of a separate combo-primer), Sweep → **Faultline** (icon 🌪️ → 🪨; keeps
+its weak all-enemies hit and defense-shred, and now also widens what
+Impale/Sever/Lacerate can hit for 6s). Super Scream is unchanged. The
+live wind-up timing meter and the old Stab→Chop/Slash→Sweep combo-priming
+system are both gone entirely. `scripts/simulate-balance.js`/
+`scripts/simulateAbilityPolicy.js` updated to match.
+
+Notably **not** what got built: the "buildable big hit" piece floated in
+the same brainstorm stayed deferred to the still-open "slower combat,
+fewer harder-hitting swings" thread in `docs/superpowers/BACKLOG.md`'s
+Combat pass ideas section.
+
+See `docs/superpowers/specs/2026-09-02-ability-rotation-v2-design.md` for
+the full design and `docs/superpowers/plans/2026-09-02-ability-rotation-
+v2.md` for the implementation plan and task breakdown.
+
 ## Balance / design gaps
 
 ### ~~Abilities have made the game too easy overall, raised 2026-08-22~~ Balance pass shipped 2026-08-22
