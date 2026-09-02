@@ -765,6 +765,12 @@ button:disabled {
   35% { transform: scale(1.14); filter: brightness(1.6); }
   100% { transform: scale(1); filter: brightness(1); }
 }
+/* Lacerate's own self-retrigger window: a short glow on its own button
+   after it lands, inviting a well-timed re-press for the shared buff. */
+.battle-ability-button-retrigger {
+  border-color: #f5b942;
+  box-shadow: 0 0 8px rgba(245, 185, 66, 0.6);
+}
 /* Parry is a standalone reaction, not one of the ATB-gated actions beside
    it - a distinct blue border (matches the existing water/ATB blue used
    elsewhere, #2b6cb0) sets it apart from the combat buttons rather than

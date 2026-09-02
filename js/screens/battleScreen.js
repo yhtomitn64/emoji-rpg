@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
@@ -61,6 +61,8 @@ let exitAnimTimeoutId = null;
 let abilityCooldowns = {};
 let buffState = createBuffState();
 let widenBuffState = null;
+let lacerateRetriggerOpen = false;
+let lacerateRetriggerStartedAt = null;
 let abilityActionInFlight = false;
 let attackStreak = 0;
 let attackCooldownMs = 0;
@@ -188,6 +190,34 @@ function pickRandomOtherLivingIndices(excludeIndex, count) {
     pool.splice(poolIndex, 1);
   }
   return picked;
+}
+
+function openLacerateRetriggerWindow() {
+  lacerateRetriggerOpen = true;
+  lacerateRetriggerStartedAt = performance.now();
+}
+
+function closeLacerateRetriggerWindow() {
+  lacerateRetriggerOpen = false;
+  lacerateRetriggerStartedAt = null;
+}
+
+// Reads the elapsed time since the window opened against Lacerate's own
+// sweet spot, exactly like resolveTimingHit reads a live meter's elapsed
+// percent - landing it activates the shared buff state at Lacerate's own
+// duration; missing it (early, late, or already expired) does nothing.
+function handleLacerateRetriggerPress() {
+  const lacerate = ABILITIES.find((a) => a.id === 'slash');
+  const elapsedMs = performance.now() - lacerateRetriggerStartedAt;
+  const elapsedPercent = Math.min(100, (elapsedMs / lacerate.retrigger.windowMs) * 100);
+  closeLacerateRetriggerWindow();
+  if (resolveTimingHit(elapsedPercent, lacerate.retrigger.sweetSpotStartPercent, lacerate.retrigger.sweetSpotEndPercent)) {
+    buffState = activateBuff({ buffDurationMs: lacerate.retrigger.buffDurationMs });
+    log.push('Lacerate\'s follow-through lands! Your attacks hit harder for a while.');
+    updateBuffIndicator();
+    updateLog();
+  }
+  updateMenu();
 }
 
 function cycleTarget(direction) {
@@ -412,7 +442,7 @@ function updateLog() {
 
 function updateBuffIndicator() {
   elements.buffIndicator.textContent = buffState.active
-    ? `💪 Super Scream: ${Math.ceil(buffState.remainingMs / 1000)}s`
+    ? `💪 Buffed: ${Math.ceil(buffState.remainingMs / 1000)}s`
     : '';
 }
 
@@ -652,7 +682,8 @@ function abilityButtonEntries() {
     const slot = index + 1;
     const cooldownRemaining = abilityCooldowns[ability.id] || 0;
     const alwaysReady = ability.type === 'buff';
-    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, alwaysReady });
+    const retriggerWindowOpen = ability.id === 'slash' && lacerateRetriggerOpen;
+    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, alwaysReady, retriggerWindowOpen });
     const cooldownActive = cooldownRemaining > 0;
     const cooldownPct = cooldownActive ? (cooldownRemaining / ability.cooldownMs) * 100 : 0;
     const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
@@ -664,13 +695,16 @@ function abilityButtonEntries() {
     const buffEffectSuffix = ability.type === 'buff'
       ? ` (+${Math.round((ROTATION_BONUS_MULTIPLIER - 1) * 100)}% for ${ability.buffDurationMs / 1000}s)`
       : '';
-    const title = `${ability.name} (${keyLabel}) — ${ability.description}${buffEffectSuffix}${cooldownSuffix}${damageSuffix}`;
+    const retriggerSuffix = retriggerWindowOpen ? ' ⚡ Re-press for buff!' : '';
+    const title = `${ability.name} (${keyLabel}) — ${ability.description}${buffEffectSuffix}${cooldownSuffix}${damageSuffix}${retriggerSuffix}`;
+    const retriggerClass = retriggerWindowOpen ? ' battle-ability-button-retrigger' : '';
     const html = actionButtonHtml({
       id: `btn-ability-${ability.id}`,
       icon: ability.icon,
       key: keyDisplay,
       title,
       disabled,
+      extraClass: retriggerClass,
       cooldownPct,
     });
     return { html, numbered: !alwaysReady };
@@ -1267,7 +1301,8 @@ function handleKeydown(event) {
     const ability = getUnlockedAbilities(state.player.level)[Number(key) - 1];
     if (!ability) return;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
-    if (canUseAbility({ locked: false, onCooldown, ready: isReady(playerCombatant.atb) })) {
+    const retriggerWindowOpen = ability.id === 'slash' && lacerateRetriggerOpen;
+    if (canUseAbility({ locked: false, onCooldown, ready: isReady(playerCombatant.atb), retriggerWindowOpen })) {
       playerUseAbility(ability.id);
     }
   }
@@ -1366,6 +1401,10 @@ function playerAttack() {
 async function playerUseAbility(abilityId) {
   // See playerAttack's own comment on this same guard.
   if (battleOver || battlePaused) return;
+  if (abilityId === 'slash' && lacerateRetriggerOpen) {
+    handleLacerateRetriggerPress();
+    return;
+  }
   if (abilityActionInFlight) return;
   abilityActionInFlight = true;
   // Fired once here rather than removed later: this button is about to be
@@ -1449,6 +1488,7 @@ async function playerUseAbility(abilityId) {
     attackStreakIdleMs = 0;
     if (ability.id === 'slash') {
       target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
+      openLacerateRetriggerWindow();
     }
     log.push(result.isCrit
       ? `Critical! You use ${ability.name} on ${target.name} for ${result.damage}!`
@@ -1601,6 +1641,12 @@ function tick() {
   parryCooldownMs = Math.max(0, parryCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
+  if (lacerateRetriggerOpen) {
+    const lacerate = ABILITIES.find((a) => a.id === 'slash');
+    if (performance.now() - lacerateRetriggerStartedAt >= lacerate.retrigger.windowMs) {
+      closeLacerateRetriggerWindow();
+    }
+  }
   widenBuffState = tickDefenseDebuff(widenBuffState, 300);
   activeBuffs = tickActiveBuffs(activeBuffs, 300);
   recomputeEffectBonuses();
@@ -1813,6 +1859,8 @@ export function mount(root, props) {
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
   widenBuffState = null;
+  lacerateRetriggerOpen = false;
+  lacerateRetriggerStartedAt = null;
   abilityActionInFlight = false;
   attackStreak = 0;
   attackStreakIdleMs = 0;

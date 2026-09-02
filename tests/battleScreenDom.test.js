@@ -932,4 +932,80 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-item'));
     assert.equal(root.querySelector('button[data-slot="0"]').disabled, true);
   });
+
+  await t.test('Lacerate opens a re-press window after landing, shown as a glow class on its own button', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
+    click(root.querySelector('#btn-ability-slash'));
+    // Re-query rather than reuse a pre-click reference - updateMenu() fully
+    // rebuilds the button bar's innerHTML at the end of every ability
+    // resolution (including the one that opens this window), so a button
+    // reference captured before the click goes stale/detached the instant
+    // it fires.
+    const lacerateBtn = root.querySelector('#btn-ability-slash');
+    assert.ok(lacerateBtn.classList.contains('battle-ability-button-retrigger'), 'Lacerate\'s button should glow while its retrigger window is open');
+    assert.equal(lacerateBtn.disabled, false, 'Lacerate should stay clickable during its own retrigger window, despite being on cooldown');
+  });
+
+  await t.test('landing the re-press inside the sweet spot buffs the other abilities', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
+    click(root.querySelector('#btn-ability-slash'));
+    // The retrigger window is 1200ms with an 80-100% sweet spot - wait to 1100ms in.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    // Same live-button caveat as above: this re-press still lands correctly
+    // even on a stale reference (the click handler's closure over the
+    // ability id doesn't depend on DOM attachment), but re-query for the
+    // button-state assertion below since updateMenu() has rebuilt it since.
+    click(root.querySelector('#btn-ability-slash'));
+    assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
+    assert.equal(root.querySelector('#btn-ability-slash').classList.contains('battle-ability-button-retrigger'), false, 'the glow should clear once the window is resolved');
+  });
+
+  await t.test('the "3" key also lands the re-press during Lacerate\'s window, not just clicking its button', async () => {
+    // speed: 999 is a test-only override, not part of the brief's literal
+    // setup - see the comment just below for why it's needed. Unrelated to
+    // retrigger mechanics themselves.
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6, speed: 999 } }) });
+    // Level 6 unlocks stab(1)/chop(2)/slash(3) - Lacerate is slot 3.
+    // Unlike click() (a plain .onclick handler with no readiness gate - a
+    // pre-existing jsdom quirk the click-based ability tests elsewhere in
+    // this file already lean on, confirmed: dispatching a synthetic click
+    // on a genuinely `disabled` button still fires its handler here),
+    // handleKeydown's digit-key branch explicitly requires
+    // isReady(playerCombatant.atb) before calling playerUseAbility. ATB
+    // starts at 0 at mount and only fills at `speed` per 300ms tick, so the
+    // very first "3" press needs at least one real tick to land - bump
+    // speed so a single tick is enough and wait past it first. This is
+    // about the ability landing at all, not about the retrigger window.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    keydown('3');
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    keydown('3');
+    assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
+  });
+
+  await t.test('missing the re-press window entirely (letting it lapse) grants no buff', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
+    click(root.querySelector('#btn-ability-slash'));
+    await new Promise((resolve) => setTimeout(resolve, 1500)); // past the 1200ms window, tick() polls it closed
+    assert.equal(root.querySelector('#battle-buff-indicator').textContent, '');
+    // Re-query rather than reuse a pre-click reference - see the comment on
+    // the first retrigger test above for why.
+    assert.equal(root.querySelector('#btn-ability-slash').classList.contains('battle-ability-button-retrigger'), false);
+  });
+
+  await t.test('landing the re-press while Super Scream\'s buff is already active refreshes it instead of stacking', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
+    click(root.querySelector('#btn-ability-superScream'));
+    const buffTextAfterScream = root.querySelector('#battle-buff-indicator').textContent;
+    assert.match(buffTextAfterScream, /12s/);
+
+    const lacerateBtn = root.querySelector('#btn-ability-slash');
+    click(lacerateBtn);
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    click(lacerateBtn);
+    // Lacerate's own buffDurationMs (9s) is shorter than Super Scream's
+    // remaining ~12s at this point, so a real stack would show >12s and a
+    // refresh would show exactly 9s (the single shared buffState replaced).
+    assert.match(root.querySelector('#battle-buff-indicator').textContent, /9s/);
+  });
 });
