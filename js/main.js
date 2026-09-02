@@ -651,7 +651,7 @@ function handleTreasureFound() {
 
 function logInventorySnapshot() {
   const unequippedGear = state.inventory
-    .filter((entry) => ITEMS[entry.itemId].slot)
+    .filter((entry) => ITEMS[entry.itemId]?.slot)
     .map((entry) => ({ itemId: entry.itemId, tier: entry.tier || null, upgradeLevel: getUpgradeLevel(state, entry.itemId, entry.tier) }));
   const equipment = Object.fromEntries(
     Object.keys(state.equipment).map((slot) => {

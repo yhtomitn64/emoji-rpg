@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.17.1',
+    date: '2026-09-01',
+    highlights: [
+      'Behind-the-scenes: a few stability fixes and a missed telemetry log spot for the shop\'s equip prompt - nothing to see here.',
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-09-01',
     highlights: [

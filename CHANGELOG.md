@@ -24,6 +24,24 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-09-01
+
+### Fixed
+- Final whole-branch review fixes for the playthrough telemetry plan
+  (`docs/superpowers/plans/2026-09-01-playthrough-telemetry.md`): a
+  malformed percent-escape in a request URL (e.g. `/%`) no longer
+  crashes `tools/dev-server.mjs` - `resolveStaticFilePath` now catches
+  the `decodeURIComponent` throw and treats it as a 404 instead of
+  taking down the whole dev server process. The shop's post-purchase
+  "Equip this?" prompt (`js/screens/shopScreen.js`) now logs
+  `gear_equipped` the same way `js/screens/inventoryScreen.js`'s equip
+  button already does - it was the one `equipItem()` call site Task 5
+  missed. `js/main.js`'s `logInventorySnapshot` no longer throws if
+  `state.inventory` contains a stale item id no longer present in
+  `ITEMS` (e.g. from an old save after an item was renamed/removed) -
+  that used to abort the rest of `handleBattleEnd`'s level-up block,
+  including the real `persist()`/`renderHud()` calls right after it.
+
 ## [0.17.0] - 2026-09-01
 
 ### Added

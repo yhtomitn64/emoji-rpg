@@ -1,6 +1,7 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
-import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear, formatStatDelta } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear, formatStatDelta, getUpgradeLevel } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
+import { logEvent } from '../systems/telemetry.js';
 
 // Raised 2026-08-29: "you never really need to buy more than 1 equipment
 // item, the only thing that really needs multiples is the potions." Bulk
@@ -117,7 +118,10 @@ function render() {
   }
   if (pendingEquip) {
     document.getElementById('btn-equip-prompt-yes').onclick = () => {
-      Object.assign(state, equipItem(state, pendingEquip, ITEMS[pendingEquip].slot));
+      const slot = ITEMS[pendingEquip].slot;
+      const replacedItemId = state.equipment[slot] || null;
+      Object.assign(state, equipItem(state, pendingEquip, slot));
+      logEvent('gear_equipped', { itemId: pendingEquip, slot, tier: null, upgradeLevel: getUpgradeLevel(state, pendingEquip, undefined), replacedItemId });
       pendingEquip = null;
       callbacks.onPurchase();
       render();

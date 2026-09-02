@@ -58,6 +58,11 @@ test('resolveStaticFilePath blocks path traversal via sibling directory name col
   assert.equal(resolved, null);
 });
 
+test('resolveStaticFilePath returns null (not a throw) for a malformed percent-escape', () => {
+  assert.equal(resolveStaticFilePath('/%', '/repo/root'), null);
+  assert.equal(resolveStaticFilePath('/%zz', '/repo/root'), null);
+});
+
 test('appendTelemetryEvents rejects a bare JSON null without crashing', () => {
   const { analyticsDir, analyticsFile } = tempAnalyticsPaths();
   const result = appendTelemetryEvents('null', { analyticsFile, analyticsDir });

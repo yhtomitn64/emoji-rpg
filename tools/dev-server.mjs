@@ -33,7 +33,12 @@ export function appendTelemetryEvents(body, { analyticsFile = ANALYTICS_FILE, an
 
 export function resolveStaticFilePath(requestUrl, rootDir = ROOT_DIR) {
   const urlPath = requestUrl.split('?')[0];
-  const relativePath = urlPath === '/' ? '/index.html' : decodeURIComponent(urlPath);
+  let relativePath;
+  try {
+    relativePath = urlPath === '/' ? '/index.html' : decodeURIComponent(urlPath);
+  } catch {
+    return null; // malformed percent-escape - treat as not found, don't crash
+  }
   const resolved = path.normalize(path.join(rootDir, relativePath));
   if (resolved !== rootDir && !resolved.startsWith(rootDir + path.sep)) return null; // blocks path traversal (../)
   return resolved;

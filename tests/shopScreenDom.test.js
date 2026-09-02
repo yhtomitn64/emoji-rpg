@@ -155,3 +155,37 @@ test('shopScreen DOM - buy quantity buttons', async (t) => {
     assert.deepEqual(quantities, ['1', '5', '10', '100']);
   });
 });
+
+// Raised in the playthrough-telemetry plan's final whole-branch review: the
+// post-purchase equip prompt (accepted via "Equip") is a second equipItem()
+// call site that Task 5 (inventoryScreen.js) never wired up for gear_equipped.
+test('shopScreen DOM - equip prompt telemetry', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/shopScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('accepting the post-purchase equip prompt logs a gear_equipped telemetry event', async () => {
+    const { startSession, getBufferAsJsonl } = await import('../js/systems/telemetry.js');
+    startSession();
+    const state = buildState();
+    const root = await mountShop(state);
+
+    const buyBtn = root.querySelector('button[data-item="ironSword"][data-qty="1"]');
+    click(buyBtn);
+    const equipYesBtn = root.querySelector('#btn-equip-prompt-yes');
+    assert.ok(equipYesBtn, 'expected the equip prompt to appear after buying an unequipped gear item');
+    click(equipYesBtn);
+
+    assert.equal(state.equipment.weapon, 'ironSword');
+    const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const equipEvent = events.find((e) => e.type === 'gear_equipped');
+    assert.ok(equipEvent);
+    assert.equal(equipEvent.itemId, 'ironSword');
+    assert.equal(equipEvent.slot, 'weapon');
+    assert.equal(equipEvent.tier, null);
+    assert.equal(equipEvent.replacedItemId, null);
+  });
+});
