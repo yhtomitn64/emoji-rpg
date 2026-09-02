@@ -108,3 +108,18 @@ test('persistBuffer mirrors the buffer to the injected storage', () => {
   assert.equal(stored.length, 1);
   assert.equal(stored[0].itemId, 'ironSword');
 });
+
+test('envelope fields cannot be clobbered by payload', () => {
+  const storage = createFakeStorage();
+  const sessionId = startSession({ storage });
+  const event = logEvent('some_type', { type: 'fake', sessionId: 'fake', ts: 'fake', elapsedMs: -1 }, { storage, fetchImpl: fakeFetch([{ ok: true }]) });
+  assert.equal(event.type, 'some_type');
+  assert.notEqual(event.type, 'fake');
+  assert.equal(event.sessionId, sessionId);
+  assert.notEqual(event.sessionId, 'fake');
+  assert.equal(typeof event.ts, 'string');
+  assert.notEqual(event.ts, 'fake');
+  assert.equal(typeof event.elapsedMs, 'number');
+  assert(event.elapsedMs >= 0);
+  assert.notEqual(event.elapsedMs, -1);
+});

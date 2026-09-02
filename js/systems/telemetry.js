@@ -52,11 +52,11 @@ export function getElapsedMs() {
 export function logEvent(type, payload = {}, { storage = globalThis.localStorage, fetchImpl = globalThis.fetch } = {}) {
   if (sessionId === null) startSession({ storage });
   const event = {
+    ...payload,
     ts: new Date().toISOString(),
     elapsedMs: getElapsedMs(),
     sessionId,
     type,
-    ...payload,
   };
   sessionBuffer.push(event);
   if (sessionBuffer.length > MAX_BUFFERED_EVENTS) {
