@@ -216,12 +216,16 @@ function mountStartScreen() {
       onContinue: (slotId) => {
         const loaded = loadState(slotId);
         startSession();
+        lastToolElapsedMs = 0;
+        lastLevelUpElapsedMs = 0;
         logEvent('session_start', { continuing: true, level: loaded.player.level, ngPlusCycle: loaded.ngPlusCycle });
         startGame(loaded, slotId);
       },
       onNewGame: (name, heroEmoji) => {
         const created = createSlot(name, heroEmoji);
         startSession();
+        lastToolElapsedMs = 0;
+        lastLevelUpElapsedMs = 0;
         logEvent('session_start', { continuing: false, level: created.state.player.level, ngPlusCycle: created.state.ngPlusCycle });
         startGame(created.state, created.id);
       },
