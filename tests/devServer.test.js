@@ -52,3 +52,14 @@ test('resolveStaticFilePath blocks path traversal outside the root', () => {
   const resolved = resolveStaticFilePath('/../../etc/passwd', '/repo/root');
   assert.equal(resolved, null);
 });
+
+test('resolveStaticFilePath blocks path traversal via sibling directory name collision', () => {
+  const resolved = resolveStaticFilePath('/../root-evil/secret.txt', '/repo/root');
+  assert.equal(resolved, null);
+});
+
+test('appendTelemetryEvents rejects a bare JSON null without crashing', () => {
+  const { analyticsDir, analyticsFile } = tempAnalyticsPaths();
+  const result = appendTelemetryEvents('null', { analyticsFile, analyticsDir });
+  assert.equal(result.ok, false);
+});

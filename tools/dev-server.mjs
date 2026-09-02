@@ -22,7 +22,7 @@ export function appendTelemetryEvents(body, { analyticsFile = ANALYTICS_FILE, an
   } catch {
     return { ok: false, error: 'Invalid JSON body' };
   }
-  if (!Array.isArray(parsed.events)) {
+  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.events)) {
     return { ok: false, error: 'Missing events array' };
   }
   fs.mkdirSync(analyticsDir, { recursive: true });
@@ -35,7 +35,7 @@ export function resolveStaticFilePath(requestUrl, rootDir = ROOT_DIR) {
   const urlPath = requestUrl.split('?')[0];
   const relativePath = urlPath === '/' ? '/index.html' : decodeURIComponent(urlPath);
   const resolved = path.normalize(path.join(rootDir, relativePath));
-  if (!resolved.startsWith(rootDir)) return null; // blocks path traversal (../)
+  if (resolved !== rootDir && !resolved.startsWith(rootDir + path.sep)) return null; // blocks path traversal (../)
   return resolved;
 }
 
