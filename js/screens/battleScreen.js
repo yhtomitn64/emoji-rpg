@@ -7,6 +7,7 @@ import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent,
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
 import { isTimedBuffPotion, createActiveBuffs, activateTimedBuff, tickActiveBuffs, getActiveBuffBonuses, combineBonuses } from '../systems/buffPotions.js';
+import { logEvent } from '../systems/telemetry.js';
 
 const VICTORY_PAUSE_MS = 1200;
 const ITEM_MENU_TIME_SCALE = 0.25;
@@ -695,6 +696,7 @@ function consumeGuaranteedCritBonus() {
 // secondWind, consumed elsewhere - see consumeGuaranteedCritBonus() above
 // and the Second Wind check inside monsterAttack()).
 function drinkPotion(itemId) {
+  logEvent('potion_used', { itemId, inBattle: true });
   Object.assign(state, removeItem(state, itemId, 1));
   const item = ITEMS[itemId];
   if (item.heal) {
@@ -1480,6 +1482,7 @@ async function playerUseAbility(abilityId) {
   document.getElementById(`btn-ability-${abilityId}`)?.classList.add('battle-ability-button-pressed');
   try {
     const ability = ABILITIES.find((a) => a.id === abilityId);
+    logEvent('ability_used', { abilityId, inBattle: true });
     if (ability.type === 'buff') {
       buffState = activateBuff(ability);
       abilityCooldowns[abilityId] = ability.cooldownMs;

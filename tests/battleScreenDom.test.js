@@ -219,6 +219,35 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#battle-log').textContent, /guaranteed to crit/);
   });
 
+  await t.test('drinking a potion logs a potion_used telemetry event with inBattle true', async () => {
+    const { startSession, getBufferAsJsonl } = await import('../js/systems/telemetry.js');
+    startSession();
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ inventory: [{ itemId: 'potion', quantity: 1 }] }),
+    });
+    click(root.querySelector('#btn-item'));
+    click(root.querySelector('button[data-slot="0"]'));
+    const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const potionEvent = events.find((e) => e.type === 'potion_used');
+    assert.ok(potionEvent);
+    assert.equal(potionEvent.itemId, 'potion');
+    assert.equal(potionEvent.inBattle, true);
+  });
+
+  await t.test('using an ability logs an ability_used telemetry event', async () => {
+    const { startSession, getBufferAsJsonl } = await import('../js/systems/telemetry.js');
+    startSession();
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ player: { ...createNewGame().player, level: 10 } }),
+    });
+    click(root.querySelector('#btn-ability-superScream'));
+    const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const abilityEvent = events.find((e) => e.type === 'ability_used');
+    assert.ok(abilityEvent);
+    assert.equal(abilityEvent.abilityId, 'superScream');
+    assert.equal(abilityEvent.inBattle, true);
+  });
+
   await t.test('a locked ability (below its unlock level) never renders, and its key press is a no-op', async () => {
     const { root, state } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 1 } }) });
     assert.equal(root.querySelector('#btn-ability-stab'), null);
