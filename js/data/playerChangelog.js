@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.17.4',
+    date: '2026-09-02',
+    highlights: [
+      'Behind-the-scenes: fixed a flaky test that was blocking deploys - nothing to see here.',
+    ],
+  },
+  {
     version: '0.17.3',
     date: '2026-09-02',
     highlights: [

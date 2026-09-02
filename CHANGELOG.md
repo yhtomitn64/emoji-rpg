@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.17.4] - 2026-09-02
+
+### Fixed
+- `tests/battleScreenDom.test.js`'s three real-time parry-timing tests
+  (windup-animation persistence, click-vs-keydown parry parity, and the
+  PARRY! badge test) were flaking in CI (not locally) since `d67cf27`
+  narrowed the parry sweet spot from an 80-100%-of-windup zone (200ms) to
+  90-100% (100ms) without updating these tests' hardcoded real-time waits,
+  which had been tuned to land mid-zone under the old, wider window and
+  were now sitting right on the new zone's lower edge with zero margin -
+  any scheduling jitter on the GitHub Actions runner could push the press
+  past the window's close. Replaced the fixed waits with a poll for the
+  windup animation's actual real start time, then a wait computed to the
+  live zone's real midpoint (derived from `PARRY_ZONE_START/END_PERCENT`
+  and `PARRY_WINDUP_DURATION_MS`), so a future window resize can't
+  silently reintroduce the same gap. 0.17.2 and 0.17.3 both had this
+  block their Cloudflare Pages deploy (`npm run test` gates the deploy
+  step) - this is what actually gets them live.
+
 ## [0.17.3] - 2026-09-02
 
 ### Changed

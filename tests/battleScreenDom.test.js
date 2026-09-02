@@ -12,10 +12,41 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 import { createNewGame } from '../js/state.js';
-import { PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../js/systems/parry.js';
+import { PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_ZONE_END_PERCENT } from '../js/systems/parry.js';
 
 function baseState(overrides = {}) {
   return { ...createNewGame(), ...overrides };
+}
+
+// Root-cause fix for a CI-only flake (2026-09-02): these tests need to press
+// during the real-time parry sweet spot, so a wall-clock wait is legitimate
+// here (this IS the timing behavior under test) - but the wait used to be a
+// single hardcoded guess (350ms + 850ms = 1200ms from mount) aimed at the
+// *old* 80-100% zone. d67cf27 narrowed the zone to 90-100% (a 100ms window,
+// half the old one) without updating these waits, which left the guess
+// sitting exactly on the new zone's lower edge with zero margin - any
+// scheduling jitter (the GitHub Actions runner, not this machine) could push
+// the real elapsed time just past 1000ms and land after the window closes
+// entirely. Fixed properly rather than just re-guessing a new constant: poll
+// for the fill's animation to actually appear (replacing the "windup starts
+// ~300ms after mount" assumption with a measured real start time), then wait
+// for the *actual* midpoint of the current zone - derived from the real
+// exported constants, so a future window resize can't silently reintroduce
+// this same gap.
+async function waitForWindupStart(fill) {
+  const pollStart = Date.now();
+  while (!fill.style.animation) {
+    if (Date.now() - pollStart > 2000) throw new Error('windup animation never started');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return Date.now();
+}
+
+async function waitUntilZoneMidpoint(windupStart) {
+  const midpointPercent = (PARRY_ZONE_START_PERCENT + PARRY_ZONE_END_PERCENT) / 2;
+  const targetElapsedMs = (midpointPercent / 100) * PARRY_WINDUP_DURATION_MS;
+  const remaining = windupStart + targetElapsedMs - Date.now();
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
 async function mountBattle(monsterIds, { state = baseState(), callbacks = {}, monsterOverrides } = {}) {
@@ -289,8 +320,8 @@ test('battleScreen DOM', async (t) => {
     // speed: 1000 saturates the monster's ATB gauge on the very first
     // 300ms tick (tickGauge clamps to 100), so windup starts right away
     // instead of waiting out boar's real speed (4, ~7.5s to fill from 0).
-    await new Promise((resolve) => setTimeout(resolve, 350));
     const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
     assert.equal(fill.style.animation, `battle-windup-fill ${PARRY_WINDUP_DURATION_MS}ms linear forwards`);
     // A couple more 300ms ticks fire while still winding (updateAtbBars
     // runs each time) - confirm they don't stomp the animation with a
@@ -301,10 +332,10 @@ test('battleScreen DOM', async (t) => {
       `battle-windup-fill ${PARRY_WINDUP_DURATION_MS}ms linear forwards`,
       'animation should survive intervening ticks while still winding',
     );
-    // Press inside the real 80-100% zone (~800-1000ms after windup started,
-    // which began on the first tick ~300ms after mount) and confirm the
-    // parry lands, then that resolution clears the animation.
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    // Press at the real midpoint of the current parry zone (see
+    // waitUntilZoneMidpoint above) and confirm the parry lands, then that
+    // resolution clears the animation.
+    await waitUntilZoneMidpoint(windupStart);
     keydown('s');
     assert.match(root.querySelector('#battle-log').textContent, /You parry/);
     assert.equal(fill.style.animation, '');
@@ -314,9 +345,9 @@ test('battleScreen DOM', async (t) => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     const parryBtn = root.querySelector('#btn-parry');
     assert.ok(parryBtn, 'Parry button should always render, not gated on unlock level');
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    // Same real 80-100% zone timing as the keyboard-shortcut test above.
-    await new Promise((resolve) => setTimeout(resolve, 850));
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(windupStart);
     click(parryBtn);
     assert.match(root.querySelector('#battle-log').textContent, /You parry/);
   });
@@ -330,8 +361,9 @@ test('battleScreen DOM', async (t) => {
   // emoji (see playParryEffect in battleScreen.js).
   await t.test('a landed parry shows a distinct PARRY! badge and hero-emoji flash, with no dialog shake', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    await new Promise((resolve) => setTimeout(resolve, 850));
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(windupStart);
     keydown('s');
     assert.match(root.querySelector('#battle-log').textContent, /You parry/);
 
