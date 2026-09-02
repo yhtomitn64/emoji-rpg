@@ -6,6 +6,9 @@
 # Node dependencies
 node_modules/
 
+# Local playthrough telemetry - never commit real play data
+analytics/
+
 # Secrets and local env - never commit these
 .env
 .env.*

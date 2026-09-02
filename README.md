@@ -8,10 +8,15 @@ gold, shop and upgrade gear in town, and clear the dungeon's boss.
 ## Run it
 
 ```bash
-python3 -m http.server 8000
+node tools/dev-server.mjs 8000
 ```
 
-Then open http://localhost:8000 in a browser.
+Then open http://localhost:8000 in a browser. This is a small
+zero-dependency static file server (like `python3 -m http.server`,
+which still works if you just want to browse) plus one addition: it
+accepts playthrough telemetry from the game and appends it to a local,
+gitignored `analytics/events.jsonl` — see
+`docs/superpowers/specs/2026-09-01-playthrough-telemetry-design.md`.
 
 ## Run tests
 
