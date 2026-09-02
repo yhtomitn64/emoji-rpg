@@ -390,6 +390,37 @@ test('battleScreen DOM', async (t) => {
     assert.match(log, /hits you for/, 'the second wind-up should resolve as a normal unblocked hit instead');
   });
 
+  await t.test('multi-mob parry catches every monster mid-wind-up regardless of timing, not just those in the zone', async () => {
+    const { root } = await mountBattle(['boar', 'boar', 'boar'], {
+      monsterOverrides: [{ speed: 1000 }, { speed: 1000 }, { speed: 1000 }],
+    });
+    const fill0 = root.querySelector('#battle-monster-atb-fill-0');
+    // All three share the same speed:1000 override, so their wind-ups all
+    // saturate and start on the same synchronous tick - waiting for the
+    // first one's animation to appear confirms all three have started.
+    await waitForWindupStart(fill0);
+    // Press immediately, well before any monster nears its 90% zone - this
+    // is the whole point of the fix: no zone timing required in multi-mob.
+    keydown('s');
+    const log = root.querySelector('#battle-log').textContent;
+    assert.equal((log.match(/You parry/g) || []).length, 3, 'all three monsters mid-wind-up should be parried, even this early');
+  });
+
+  await t.test('clicking a monster\'s ATB bar to parry also respects the shared cooldown', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(windupStart);
+    keydown('s'); // burns the shared cooldown via the keyboard path
+    assert.match(root.querySelector('#battle-log').textContent, /You parry/);
+
+    const secondWindupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(secondWindupStart);
+    click(root.querySelector('#battle-monster-atb-bar-0'));
+    const log = root.querySelector('#battle-log').textContent;
+    assert.equal((log.match(/You parry/g) || []).length, 1, 'clicking the ATB bar while on cooldown should not land a second parry');
+  });
+
   await t.test('a landed parry shows a distinct PARRY! badge and hero-emoji flash, with no dialog shake', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     const fill = root.querySelector('#battle-monster-atb-fill-0');

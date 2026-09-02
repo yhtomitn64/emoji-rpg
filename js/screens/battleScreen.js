@@ -1304,8 +1304,16 @@ function playReviveEffect(emojiEl) {
 function attemptParry() {
   if (battleOver || parryCooldownMs > 0) return;
   parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
-  for (const mc of monsterCombatants) {
-    if (mc.hp > 0 && mc.windup.active && resolveParryAttempt(windupElapsedPercent(mc.windup))) {
+  const aliveMonsters = monsterCombatants.filter((mc) => mc.hp > 0);
+  const isMultiMob = aliveMonsters.length > 1;
+  for (const mc of aliveMonsters) {
+    if (!mc.windup.active) continue;
+    if (isMultiMob) {
+      // No zone requirement in multi-mob - catching everyone currently
+      // mid-wind-up is the whole point of this rework (see the design
+      // doc's Purpose section).
+      resolveMonsterWindup(mc, true, { requireZone: false });
+    } else if (resolveParryAttempt(windupElapsedPercent(mc.windup))) {
       resolveMonsterWindup(mc, true);
     }
   }
@@ -1708,14 +1716,14 @@ function monsterAttack(monster) {
   applyMonsterAttackImpact(monster, result);
 }
 
-function resolveMonsterWindup(monster, parried) {
+function resolveMonsterWindup(monster, parried, { requireZone = true } = {}) {
   if (battleOver || battlePaused) return;
   if (monster.hp <= 0) return;
   if (!monster.windup.active) return;
   const elapsedPercent = windupElapsedPercent(monster.windup);
   monster.windup = createWindupState();
   const index = monsterCombatants.indexOf(monster);
-  if (parried && resolveParryAttempt(elapsedPercent)) {
+  if (parried && (!requireZone || resolveParryAttempt(elapsedPercent))) {
     const { damage, isCrit } = rollIncomingDamage(monster, playerCombatant);
     const result = resolveParrySuccess(monster, damage);
     monster.hp = result.monsterHp;
@@ -2017,11 +2025,17 @@ export function mount(root, props) {
     };
     elements.monsterAtbBars[i].onclick = (event) => {
       event.stopPropagation();
+      if (parryCooldownMs > 0) return;
+      parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
       resolveMonsterWindup(mc, true);
+      updateMenu();
     };
     elements.parryHints[i].onclick = (event) => {
       event.stopPropagation();
+      if (parryCooldownMs > 0) return;
+      parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
       resolveMonsterWindup(mc, true);
+      updateMenu();
     };
   });
   selectedMonsterIndex = 0;
