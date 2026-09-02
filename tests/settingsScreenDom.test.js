@@ -56,4 +56,30 @@ test('settingsScreen DOM', async (t) => {
     click(root.querySelector('#btn-close-settings'));
     assert.equal(closed, true);
   });
+
+  await t.test('Copy Play Log copies buffered events via the Clipboard API when available', async () => {
+    const { startSession, logEvent } = await import('../js/systems/telemetry.js');
+    startSession();
+    logEvent('level_up', { level: 2 });
+    let copiedText = null;
+    window.navigator.clipboard = { writeText: async (text) => { copiedText = text; } };
+    const root = await mountSettings(createNewGame());
+    click(root.querySelector('#btn-copy-play-log'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.ok(copiedText.includes('"level":2'));
+    assert.equal(root.querySelector('#play-log-fallback').hidden, true);
+  });
+
+  await t.test('Copy Play Log falls back to a visible textarea when the Clipboard API is unavailable', async () => {
+    const { startSession, logEvent } = await import('../js/systems/telemetry.js');
+    startSession();
+    logEvent('tool_acquired', { toolId: 'axe' });
+    // jsdom has no navigator.clipboard by default - exercises the fallback path.
+    const root = await mountSettings(createNewGame());
+    click(root.querySelector('#btn-copy-play-log'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const fallback = root.querySelector('#play-log-fallback');
+    assert.equal(fallback.hidden, false);
+    assert.ok(fallback.value.includes('"toolId":"axe"'));
+  });
 });

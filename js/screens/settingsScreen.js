@@ -1,4 +1,5 @@
 import { DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } from '../state.js';
+import { getBufferAsJsonl } from '../systems/telemetry.js';
 
 const ITEM_MENU_AUTO_CLOSE_MIN_MS = 250;
 const ITEM_MENU_AUTO_CLOSE_MAX_MS = 5000;
@@ -6,6 +7,28 @@ const ITEM_MENU_AUTO_CLOSE_MAX_MS = 5000;
 let rootEl = null;
 let state = null;
 let callbacks = null;
+
+async function copyPlayLog() {
+  const jsonl = getBufferAsJsonl();
+  const statusEl = document.getElementById('play-log-status');
+  const fallbackEl = document.getElementById('play-log-fallback');
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(jsonl);
+      fallbackEl.hidden = true;
+      statusEl.hidden = false;
+      statusEl.textContent = 'Copied!';
+      return;
+    } catch {
+      // Fall through to the textarea fallback below - denied permission
+      // behaves the same as no Clipboard API at all.
+    }
+  }
+  fallbackEl.value = jsonl;
+  fallbackEl.hidden = false;
+  fallbackEl.select();
+  statusEl.hidden = true;
+}
 
 function render() {
   rootEl.innerHTML = `
@@ -24,6 +47,12 @@ function render() {
           value="${state.settings.itemMenuAutoCloseMs}"
         />
       </div>
+      <div class="settings-row settings-play-log">
+        <span>Play Log</span>
+        <button id="btn-copy-play-log">Copy Play Log</button>
+        <span id="play-log-status" hidden></span>
+      </div>
+      <textarea id="play-log-fallback" readonly hidden></textarea>
       <button id="btn-close-settings">Close</button>
     </div>
   `;
@@ -40,6 +69,7 @@ function render() {
     state.settings = { ...state.settings, itemMenuAutoCloseMs: clamped };
     callbacks.onChange();
   };
+  document.getElementById('btn-copy-play-log').onclick = () => copyPlayLog();
   document.getElementById('btn-close-settings').onclick = () => callbacks.onClose();
 }
 
