@@ -43,6 +43,18 @@ export const PARRY_WINDUP_DURATION_MS = 1000;
 export const PARRY_ZONE_START_PERCENT = 90;
 export const PARRY_ZONE_END_PERCENT = 100;
 export const PARRY_REFLECT_FRACTION = 0.5;
+// Gates how often the parry key can be pressed at all - added 2026-09-02
+// per the "multi-mob parry feels clunky" backlog item
+// (docs/superpowers/BACKLOG.md, Combat pass ideas). Starts the instant
+// the key is pressed, whether or not a monster was actually caught -
+// that's the entire anti-spam mechanism (Timothy's own call: "the
+// penalty being you use the ability and have to wait 10 seconds or
+// whatever"). Also closes the separate "parry can win almost anything"
+// balance concern for solo fights, since a skilled player can no longer
+// chain parries back to back. Starting value, not yet validated against
+// real play - see docs/superpowers/specs/2026-09-02-multimob-parry-
+// cooldown-design.md's Follow-ups section.
+export const PARRY_COOLDOWN_MS = 10000;
 
 export function createWindupState() {
   return { active: false, startedAt: 0 };

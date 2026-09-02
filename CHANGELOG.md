@@ -24,6 +24,35 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Changed
+- Parry (`js/systems/parry.js`, `js/screens/battleScreen.js`) now shares
+  a 10-second cooldown (`PARRY_COOLDOWN_MS`) across every parry input -
+  the `s`/`S` key, the Parry button, and the per-monster ATB-bar/parry-
+  hint click shortcuts. Pressing it starts the cooldown immediately
+  whether or not it actually catches a monster, which is the entire
+  anti-spam mechanism (no separate penalty needed). This also closes the
+  separate "parry can win almost anything" balance concern, since a
+  skilled player can no longer chain unlimited parries in a solo fight
+  either.
+- In fights with 2+ monsters, landing a parry while off cooldown now
+  catches *every* monster currently mid-wind-up, regardless of how far
+  into its wind-up it is - not just those inside the narrow 90-100%
+  zone. Solo fights are unchanged otherwise: still requires hitting that
+  same zone. This replaces the old always-available global sweep (which
+  required the same narrow zone per monster, making multi-mob parry play
+  out as repeated solo parries with more visual noise) with a genuine
+  multi-mob-specific mechanic. The per-monster ATB-bar/parry-hint click
+  shortcuts now share the same cooldown as the keyboard/button path -
+  see `docs/superpowers/specs/2026-09-02-multimob-parry-cooldown-
+  design.md`.
+- `scripts/simulate-balance.js`'s solo parry modeling updated to match:
+  an attempt is only possible off cooldown, and a miss costs the
+  cooldown the same as a hit, replacing the old flat per-attack
+  probability that had no cooldown concept at all. Existing dragon/
+  NG+2-tier matchup numbers were tuned against that old assumption and
+  haven't been re-validated against this one yet - flagged for a real
+  playtest pass, not re-tuned blind here.
+
 ## [0.17.4] - 2026-09-02
 
 ### Fixed

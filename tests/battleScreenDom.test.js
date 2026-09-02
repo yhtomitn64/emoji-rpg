@@ -359,6 +359,37 @@ test('battleScreen DOM', async (t) => {
   // clear "that worked" signal distinct from a monster's own timing-hit
   // "PERFECT!" badge - a gold "PARRY!" badge plus a flash on the hero's own
   // emoji (see playParryEffect in battleScreen.js).
+  await t.test('parry has a shared cooldown - a second press before it expires does not land, even mid-wind-up', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const firstWindupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(firstWindupStart);
+    keydown('s');
+    assert.match(root.querySelector('#battle-log').textContent, /You parry/);
+
+    const parryBtn = root.querySelector('#btn-parry');
+    assert.equal(parryBtn.disabled, true, 'Parry button should be disabled immediately after a press, while on cooldown');
+    assert.ok(
+      parryBtn.querySelector('.battle-ability-cooldown-wipe'),
+      'Parry button should show the same cooldown-wipe overlay Attack already uses',
+    );
+
+    // boar's speed:1000 override saturates its ATB gauge on the very next
+    // tick too, so a fresh wind-up starts again almost immediately after
+    // the first one resolves - press into that second wind-up's own zone
+    // while still well inside the 10s cooldown from the first press.
+    const secondWindupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(secondWindupStart);
+    keydown('s');
+    // Pressing while on cooldown is a total no-op (unlike a normal miss, it
+    // doesn't even force-resolve the wind-up) - wait for it to finish on its
+    // own and for tick()'s 300ms poll to catch that completion.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const log = root.querySelector('#battle-log').textContent;
+    assert.equal((log.match(/You parry/g) || []).length, 1, 'a press while on cooldown should not land a second parry');
+    assert.match(log, /hits you for/, 'the second wind-up should resolve as a normal unblocked hit instead');
+  });
+
   await t.test('a landed parry shows a distinct PARRY! badge and hero-emoji flash, with no dialog shake', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     const fill = root.querySelector('#battle-monster-atb-fill-0');

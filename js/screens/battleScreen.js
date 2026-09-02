@@ -3,7 +3,7 @@ import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
-import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT } from '../systems/parry.js';
+import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
 import { isTimedBuffPotion, createActiveBuffs, activateTimedBuff, tickActiveBuffs, getActiveBuffBonuses, combineBonuses } from '../systems/buffPotions.js';
@@ -72,6 +72,8 @@ let attackCooldownMs = 0;
 // numerator's own max) varies with the current streak, unlike ability
 // cooldowns which have one fixed cooldownMs per ability.
 let attackCooldownTotalMs = 0;
+let parryCooldownMs = 0;
+let parryCooldownTotalMs = 0;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
@@ -807,6 +809,8 @@ function updateMenu() {
   const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak, getUnlockedAbilities(state.player.level).length)) * 100);
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
   const attackCooldownPct = attackCooldownMs > 0 && attackCooldownTotalMs > 0 ? (attackCooldownMs / attackCooldownTotalMs) * 100 : 0;
+  const parryCooldownPct = parryCooldownMs > 0 && parryCooldownTotalMs > 0 ? (parryCooldownMs / parryCooldownTotalMs) * 100 : 0;
+  const parryCooldownSuffix = parryCooldownMs > 0 ? ` — ${Math.ceil(parryCooldownMs / 1000)}s` : '';
   const abilityEntries = abilityButtonEntries();
   const numberedAbilitiesHtml = abilityEntries.filter((entry) => entry.numbered).map((entry) => entry.html).join('');
   const otherAbilitiesHtml = abilityEntries.filter((entry) => !entry.numbered).map((entry) => entry.html).join('');
@@ -824,8 +828,9 @@ function updateMenu() {
       id: 'btn-parry',
       icon: '🛡️',
       key: 'S',
-      title: "Parry (S) — time it while a monster's wind-up bar is in the red zone to reflect its attack",
-      disabled: false,
+      title: `Parry (S) — solo: time it while a monster's wind-up bar is in the red zone to reflect its attack; 2+ monsters: catches everyone mid-wind-up instead. ${PARRY_COOLDOWN_MS / 1000}s cooldown${parryCooldownSuffix}`,
+      disabled: parryCooldownMs > 0,
+      cooldownPct: parryCooldownPct,
       extraClass: ' battle-parry-button',
     })}
     ${actionButtonHtml({
@@ -1297,12 +1302,20 @@ function playReviveEffect(emojiEl) {
 // so both trigger identical behavior rather than two slightly-different
 // parry paths.
 function attemptParry() {
-  if (battleOver) return;
+  if (battleOver || parryCooldownMs > 0) return;
+  parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
   for (const mc of monsterCombatants) {
     if (mc.hp > 0 && mc.windup.active && resolveParryAttempt(windupElapsedPercent(mc.windup))) {
       resolveMonsterWindup(mc, true);
     }
   }
+  // Explicit re-render: resolveMonsterWindup() above already calls
+  // updateMenu() when it actually resolves a monster, but a total whiff
+  // (cooldown just started, nothing was in its zone) would otherwise wait
+  // for the next 300ms tick to show the button going on cooldown -
+  // matches playerAttack()'s own explicit updateMenu() call right after
+  // setting attackCooldownMs.
+  updateMenu();
 }
 
 function handleKeydown(event) {
@@ -1753,6 +1766,7 @@ function tick() {
     }
   }
   attackCooldownMs = Math.max(0, attackCooldownMs - 300);
+  parryCooldownMs = Math.max(0, parryCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
   activeBuffs = tickActiveBuffs(activeBuffs, 300);
@@ -1982,6 +1996,8 @@ export function mount(root, props) {
   // real bug.
   attackCooldownMs = 0;
   attackCooldownTotalMs = 0;
+  parryCooldownMs = 0;
+  parryCooldownTotalMs = 0;
   battleDamageDealt = 0;
   battleElapsedMs = 0;
   monsterCombatants = monsterIds.map((id, i) => buildMonsterCombatant(id, monsterOverridesList[i], playerEffectBonuses));
