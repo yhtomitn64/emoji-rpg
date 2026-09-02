@@ -42,7 +42,7 @@
 
 import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier, ATTACK_STREAK_RECOVERY_MS } from '../js/systems/combat.js';
 import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, getUnlockedAbilities } from '../js/systems/abilities.js';
-import { rollIncomingDamage, resolveParrySuccess } from '../js/systems/parry.js';
+import { rollIncomingDamage, resolveParrySuccess, PARRY_COOLDOWN_MS } from '../js/systems/parry.js';
 import { chooseAction } from './simulateAbilityPolicy.js';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
@@ -56,7 +56,8 @@ import { getNgPlusCombatOverrides } from '../js/systems/ngPlus.js';
 
 // Stands in for a human's real parry-timing skill, since the simulator has
 // no windup/keypress to model (monsters still attack the instant their ATB
-// is ready - simulateBattle rolls this chance instead, see its
+// is ready - simulateBattle rolls this chance instead, gated by the same
+// PARRY_COOLDOWN_MS cooldown the real game now uses, see its
 // isReady(monster.atb) branch below). Every number this file produced before
 // 2026-09-01 assumed a player who never lands a single parry, which is a
 // known conservative bias, not just an oversight - see the 2026-08-31/
@@ -340,10 +341,12 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
  *   - Slash's delayed bleed tick from its buff state
  *   - The parry wind-up itself (monsters still attack the instant their ATB
  *     is ready in this simulation) - but a landed parry's outcome IS now
- *     modeled as a flat parryLandRate chance per monster attack, standing
- *     in for a human's windup-timing skill the same way TIMING_HIT_RATE
- *     stands in for ability-timing skill (see PARRY_LAND_RATE_DEFAULT below
- *     and --parry-rate in parseArgs).
+ *     modeled as cooldown-gated (PARRY_COOLDOWN_MS, js/systems/parry.js):
+ *     an attempt is only possible once off cooldown, rolling parryLandRate
+ *     as a stand-in for a human's windup-timing skill the same way
+ *     TIMING_HIT_RATE stands in for ability-timing skill, and the cooldown
+ *     starts whether or not that roll succeeds (see PARRY_LAND_RATE_DEFAULT
+ *     below and --parry-rate in parseArgs).
  */
 // Mirrors battleScreen.js's applyOnHitEffects exactly: lifesteal heals the
 // player as a percent of the hit's real (already-decayed) damage; elemental
@@ -384,6 +387,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
   let attackStreak = 0;
   let attackCooldownMs = 0;
   let attackStreakIdleMs = 0;
+  let parryCooldownMs = 0;
   const unlockedAbilityCount = getUnlockedAbilities(build.level).length;
 
   for (let ticks = 1; ticks <= MAX_TICKS; ticks++) {
@@ -399,6 +403,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
       }
     }
     attackCooldownMs = Math.max(0, attackCooldownMs - 300);
+    parryCooldownMs = Math.max(0, parryCooldownMs - 300);
     abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
     buffState = tickBuff(buffState, 300);
     monster.defenseDebuff = tickDefenseDebuff(monster.defenseDebuff, 300);
@@ -416,11 +421,17 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
       // decoupled from the ATB gauge in the real game too). Both branches'
       // result objects share the same monsterHp/monsterAtb field names, so
       // that assignment is written once below regardless of which fired.
+      //
+      // Cooldown-gated to match battleScreen.js's attemptParry (2026-09-02
+      // multi-mob-parry-cooldown rework): an attempt is only even possible
+      // off cooldown, and starts the cooldown whether it lands or not.
       let result;
-      if (Math.random() < parryLandRate) {
+      if (parryCooldownMs <= 0 && Math.random() < parryLandRate) {
+        parryCooldownMs = PARRY_COOLDOWN_MS;
         const { damage } = rollIncomingDamage(monster, player, Math.random);
         result = resolveParrySuccess(monster, damage);
       } else {
+        if (parryCooldownMs <= 0) parryCooldownMs = PARRY_COOLDOWN_MS;
         result = resolveMonsterAttack(monster, player, Math.random, build.thornsPercent);
         player.hp = result.playerHp;
         player.atb = result.playerAtb;
