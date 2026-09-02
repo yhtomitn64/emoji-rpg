@@ -84,6 +84,7 @@ of the three-session balance queue above — separate initiative):**
 - **In-game tutorials / mechanic explainers** — general onboarding idea, sharper combat-specific version (explain abilities/synergies/attack-falloff at unlock, explicit dismiss required). Timothy wants to talk through design when picked up.
 - **Combat pass ideas** — several independent threads, none scheduled:
   - Slower combat / reconsider the timing-minigame layer entirely — raw, Timothy wants to think it through more.
+  - **Ability rotation v2** (raised 2026-09-02) — AOE-widening attack chains, timing-buff trigger moved onto the ability's own re-press, a buildable big hit, new Stab/Chop/Slash names from Timothy's own candidate list. Needs its own dedicated brainstorm, not started.
   - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
   - Rung-3 gear effects: parry window trade-offs (undecided direction), plus known un-fixed side effects from the v1 ship (tooltip not tier-aware, AOE lifesteal/proc stacking per target, raw camelCase stat keys in UI, ±1 delta display rounding, redundant `getEquipmentBonuses` calls) — small cleanup items.
   - Rhythm-style multi-hit parry, hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
@@ -933,6 +934,45 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   since all three are really the same underlying question (is
   timing-minigame combat the right shape for this game) approached from
   different angles.
+
+- **Ability rotation v2 — AOE-widening chains, a re-timed buff trigger,
+  and a buildable "big hit," raised 2026-09-02** (spun out of the
+  multi-mob-parry-clunky conversation, but a distinct, separate project
+  from that fix — parked here rather than mixed into it). Timothy's own
+  vision, paraphrased from his own words: today's 4 damage abilities
+  (`js/systems/abilities.js`: Stab, Chop, Slash, Sweep, unlocking
+  levels 2/4/6/8) all become instant (no per-ability timing game) and
+  take on distinct rotation roles instead of just "bigger single-target
+  number each unlock": one strong single-target hit; one that always
+  hits a target plus one random adjacent enemy (usable one-on-one too);
+  one that carries the timing-game payoff — but re-triggered by pressing
+  that same ability again at the right moment (not a separate
+  space/key), and landing it right buffs the other abilities for a
+  duration; and one weak all-enemies AOE whose real purpose is widening
+  what the other three can hit (more targets, more damage, or some
+  other effect after using it) rather than doing real damage itself.
+  Super Scream stays as-is. Also floated in the same note, more general:
+  wanting combat to slow down a bit but hit "bigger and chunkier" -
+  possibly one big damage/AOE payoff ability buildable via the right
+  rotation sequence, similar in spirit to (but not the same idea as) the
+  already-open "slower combat, fewer harder-hitting swings" thread just
+  above. Separately, Timothy wants new names for Stab/Chop/Slash
+  specifically - big, damaging, scary-sounding, explicitly avoiding
+  anything that reads as lifted from a specific other game (his own
+  example: not to sound like WoW warrior abilities) - he's already
+  generated a candidate word list of his own to pick from and
+  remix/combine (compound/prefix style: Sundering, Cleaving, Rending,
+  Impaling, Perforating, Goring, Flaying, Lacerating, and similar), so
+  this is picking/refining from his own material, not open-ended
+  AI-authored naming - consistent with the standing "no unprompted
+  AI-generated narrative" boundary (see "The game needs an actual
+  story," Story / narrative section) since these are ability/UI labels
+  he's curating, not story/lore/dialogue. Nothing here is designed yet -
+  which of the 4 slots maps to which new role, the AOE-widen mechanic's
+  actual numbers, how the re-timed buff trigger feels without a
+  dedicated key, and the final ability names are all open. Needs its own
+  dedicated brainstorm - deliberately not tackled in the same session as
+  the multi-mob-parry-clunky fix it was raised alongside.
 
 - **Bigger, mixed, synergistic monster groups + battle-screen visual
   overhaul, raised 2026-08-29.** Timothy's own words: "when multiple
