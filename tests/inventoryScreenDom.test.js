@@ -173,4 +173,32 @@ test('inventoryScreen DOM', async (t) => {
     click(potionSlot1);
     assert.deepEqual(state.loadout, [null, null, null, null]);
   });
+
+  await t.test('equipping gear logs a gear_equipped telemetry event', async () => {
+    const { startSession, getBufferAsJsonl } = await import('../js/systems/telemetry.js');
+    startSession();
+    const root = await mountInventory(buildState());
+    click(root.querySelector('button[data-equip="ironSword"]'));
+    const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const equipEvent = events.find((e) => e.type === 'gear_equipped');
+    assert.ok(equipEvent);
+    assert.equal(equipEvent.itemId, 'ironSword');
+    assert.equal(equipEvent.slot, 'weapon');
+    assert.equal(equipEvent.replacedItemId, null);
+  });
+
+  await t.test('using the heal potion outside battle logs a potion_used event with inBattle false', async () => {
+    const { startSession, getBufferAsJsonl } = await import('../js/systems/telemetry.js');
+    startSession();
+    const state = buildState();
+    state.player.hp = 5; // below max, so the Use button isn't disabled
+    const root = await mountInventory(state);
+    click(root.querySelector('button[data-tab="consumable"]'));
+    click(root.querySelector('button[data-use="potion"]'));
+    const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const potionEvent = events.find((e) => e.type === 'potion_used');
+    assert.ok(potionEvent);
+    assert.equal(potionEvent.itemId, 'potion');
+    assert.equal(potionEvent.inBattle, false);
+  });
 });

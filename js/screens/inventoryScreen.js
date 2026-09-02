@@ -5,6 +5,7 @@ import {
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 import { LOADOUT_SIZE, setLoadoutSlot, clearLoadoutSlot } from '../systems/loadout.js';
+import { logEvent } from '../systems/telemetry.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
 const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
@@ -181,7 +182,10 @@ function render() {
     btn.onclick = () => {
       const itemId = btn.dataset.equip;
       const tier = btn.dataset.tier || undefined;
-      Object.assign(state, equipItem(state, itemId, btn.dataset.slot, tier));
+      const slot = btn.dataset.slot;
+      const replacedItemId = state.equipment[slot] || null;
+      Object.assign(state, equipItem(state, itemId, slot, tier));
+      logEvent('gear_equipped', { itemId, slot, tier: tier || null, upgradeLevel: getUpgradeLevel(state, itemId, tier), replacedItemId });
       callbacks.onChange();
       render();
     };
@@ -200,6 +204,7 @@ function render() {
       const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
       Object.assign(state, removeItem(state, itemId, 1));
       state.player.hp = applyHeal(state.player.hp, effectiveMaxHp, item.heal);
+      logEvent('potion_used', { itemId, inBattle: false });
       callbacks.onChange();
       render();
     };
