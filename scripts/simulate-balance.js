@@ -297,13 +297,10 @@ const BOSS_TIER_MATCHUP_IDS = Array.from({ length: MAX_BOSS_TIER + 1 }, (_, tier
 const MAX_TICKS = 3000;
 const POTION_THRESHOLD = 0.4; // drink when below 40% of max HP
 
-// Stands in for a human's real meter timing, since the simulator has no
-// input timing to model. 0.7 = a reasonably-attentive player hits the
-// sweet spot most of the time, not always. Only setup abilities (Stab/
-// Slash) still have the timing meter post-combo-rework - payoffs (Chop/
-// Sweep) never roll this. See docs/superpowers/specs/2026-08-22-balance-
-// pass-design.md for why 0.7 and what to re-check if results feel overly
-// sensitive to it.
+// Stands in for a human's real input timing, since the simulator has no
+// input timing to model - used both for the retrigger check above (see
+// docs/superpowers/specs/2026-08-22-balance-pass-design.md for why 0.7 and
+// what to re-check if results feel overly sensitive to it).
 const TIMING_HIT_RATE = 0.7;
 const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
 
@@ -319,7 +316,7 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
  *
  * What's modeled here via real code (not reimplemented):
  *   - Ability rotation policy via chooseAction from simulateAbilityPolicy.js
- *   - Combo primer tracking and timing hits for setup abilities
+ *   - Lacerate's self-retrigger buff (stand-in success rate, same as the old combo-timing model)
  *   - Buff state (duration, active/inactive)
  *   - Defense debuff application and ticking (Sweep's shred effect)
  *   - Attack streak multiplier/knockback scaling
@@ -382,7 +379,6 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
   // Real-time-style state, same shape battleScreen.js keeps at module scope
   // - reset fresh per simulated battle here since each trial is independent.
   let abilityCooldowns = {};
-  let comboState = {};
   let buffState = createBuffState();
   let attackStreak = 0;
   let attackCooldownMs = 0;
@@ -445,7 +441,6 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
     const action = chooseAction({
       level: build.level,
       cooldowns: abilityCooldowns,
-      comboState,
       buffActive: buffState.active,
       ready: isReady(player.atb),
       attackOnCooldown: attackCooldownMs > 0,
@@ -459,9 +454,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
         attackStreak = 0;
         attackStreakIdleMs = 0;
       } else {
-        const timingHit = ability.comboRole === 'setup' ? Math.random() < TIMING_HIT_RATE : false;
-        const comboBonusActive = !!comboState[ability.id];
-        const result = resolveAbilityUse(player, applyDefenseDebuff(monster, monster.defenseDebuff), ability, buffState.active, timingHit, comboBonusActive, Math.random, build.critChancePercent / 100);
+        const result = resolveAbilityUse(player, applyDefenseDebuff(monster, monster.defenseDebuff), ability, buffState.active, Math.random, build.critChancePercent / 100);
         monster.hp = result.monsterHp;
         monster.atb = result.monsterAtb;
         player.atb = result.playerAtb;
@@ -469,9 +462,13 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
         abilityCooldowns[ability.id] = ability.cooldownMs;
         attackStreak = 0;
         attackStreakIdleMs = 0;
-        comboState[ability.id] = false;
-        if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
-          comboState[ability.comboPartnerId] = true;
+        // Lacerate's self-retrigger (js/systems/abilities.js's `retrigger`
+        // field, id 'slash') is modeled the same stand-in way
+        // TIMING_HIT_RATE already models human timing skill elsewhere in
+        // this file: a reasonably-attentive simulated player always
+        // attempts the re-press and lands it at the same rate.
+        if (ability.retrigger && Math.random() < TIMING_HIT_RATE) {
+          buffState = activateBuff({ buffDurationMs: ability.retrigger.buffDurationMs });
         }
         if (ability.defenseShredMultiplier) {
           monster.defenseDebuff = createDefenseDebuff(ability);
