@@ -61,6 +61,7 @@ of the three-session balance queue above — separate initiative):**
   own assessment) but back-burner, same as the GA4 line above — only
   relevant if GA4 actually gets added later.
 
+- **UI consistency: universal Escape-to-close + aligned dialog chrome** — raised 2026-09-01 (Timothy, via a friend's suggestion): every menu/dialog should close on Escape, and all dialogs should share the same close affordance (an X button in the same corner) and matching look/feel. Today this is inconsistent - some overlays (e.g. the battle item quick-select menu) already close on Escape, others (Settings, Inventory, Smith) only have a "Close"/"Leave" button with no Escape handler, and corner-X close buttons exist on some screens but not all. Needs an audit of every `js/screens/*.js` overlay before implementing, not scoped yet.
 - **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
 - **Pacing / progression** — early ramp / dragon-fell-quickly thread: level-12 dragon kill reads as right pacing, but even 3-star dragon was too easy; Timothy's own read is gear, not level, is the driver. Ties to defense-scaling and Mythic-tier items below.
 - **Multi-zone progression** (big, needs its own design pass) — zone 2/3/4 identity, spatial difficulty gradient, healing-enemies zone-2 idea, tool-gated zone unlocks, NG+ state carry-over into zone 2, town south-exit/expand/signage, town NPC hints (needs landmarks first). NG+ tools-reset piece already shipped.
