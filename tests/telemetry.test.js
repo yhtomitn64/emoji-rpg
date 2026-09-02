@@ -99,14 +99,53 @@ test('logEvent auto-flushes once pending events reach FLUSH_EVENT_THRESHOLD', as
   assert.equal(JSON.parse(fetchImpl.calls[0].options.body).events.length, FLUSH_EVENT_THRESHOLD);
 });
 
-test('persistBuffer mirrors the buffer to the injected storage', () => {
+test('persistBuffer mirrors the buffer and pending queue to the injected storage', () => {
   const storage = createFakeStorage();
   startSession({ storage });
   const neverResolves = () => new Promise(() => {});
   logEvent('gear_equipped', { itemId: 'ironSword' }, { storage, fetchImpl: neverResolves });
   const stored = JSON.parse(storage.getItem(STORAGE_KEY));
-  assert.equal(stored.length, 1);
-  assert.equal(stored[0].itemId, 'ironSword');
+  assert.equal(stored.buffer.length, 1);
+  assert.equal(stored.buffer[0].itemId, 'ironSword');
+  assert.equal(stored.pending.length, 1);
+  assert.equal(stored.pending[0].itemId, 'ironSword');
+});
+
+test('startSession recovers an abandoned session (never flushed) into the new buffer and pending queue', () => {
+  const storage = createFakeStorage();
+  startSession({ storage });
+  const neverResolves = () => new Promise(() => {});
+  logEvent('level_up', { level: 3 }, { storage, fetchImpl: neverResolves });
+
+  // Simulate the tab being closed with that event never flushed, then the
+  // game being reopened - a fresh startSession() call on the same storage.
+  const newSessionId = startSession({ storage });
+  const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'level_up');
+  assert.notEqual(events[0].sessionId, newSessionId); // carried over from the old session, not rewritten
+});
+
+test('startSession does not resurrect already-flushed events into the new pending queue', async () => {
+  const storage = createFakeStorage();
+  startSession({ storage });
+  const fetchImpl = fakeFetch([{ ok: true }, { ok: true }]);
+  logEvent('level_up', { level: 3 }, { storage, fetchImpl });
+  await flushNow({ fetchImpl, storage });
+  assert.equal(fetchImpl.calls.length, 1);
+
+  startSession({ storage });
+  logEvent('level_up', { level: 4 }, { storage, fetchImpl });
+  await flushNow({ fetchImpl, storage });
+  assert.equal(fetchImpl.calls.length, 2);
+  const secondBody = JSON.parse(fetchImpl.calls[1].options.body);
+  // Only the new event - the already-flushed level-3 event isn't resent.
+  assert.equal(secondBody.events.length, 1);
+  assert.equal(secondBody.events[0].level, 4);
+
+  // But it's still in the buffer for Copy Play Log, just not re-sent.
+  const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  assert.equal(events.length, 2);
 });
 
 test('envelope fields cannot be clobbered by payload', () => {

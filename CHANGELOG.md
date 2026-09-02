@@ -24,7 +24,34 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
-## [0.17.1] - 2026-09-01
+## [0.17.2] - 2026-09-02
+
+### Fixed
+- `js/systems/telemetry.js`'s localStorage mirror is no longer write-only:
+  `startSession` now reads back whatever the previous page-load's session
+  persisted before resetting the buffer, so closing a tab (or a crash)
+  before that session ever flushed no longer loses its events outright -
+  they resurface in the next session's buffer (for Copy Play Log) and its
+  pending flush queue (for the next auto-flush to a running dev server).
+  Already-successfully-flushed events aren't resurrected into the pending
+  queue, so recovery can't cause duplicate lines in a local
+  `analytics/events.jsonl`. The storage format changed from a plain array
+  to `{ buffer, pending }` to track this; the old plain-array format is
+  still read on a first load after upgrading, so no existing mirror is
+  discarded.
+- Potion drops (`drop.potionId` from `rollDrop`) now log an `item_drop`
+  telemetry event, matching the existing gear-drop logging in
+  `logDropEvent` (`js/main.js`) - previously only `drop.item` was logged,
+  silently missing every potion a monster dropped.
+- Reforging Superior gear to Mythic (`js/screens/smithScreen.js`'s
+  `tryReforge`) now logs a new `item_reforged` telemetry event - the one
+  smith-screen action that had no telemetry coverage at all.
+- Added the `ngPlusCycle` envelope field (present on most other gameplay
+  events) to `upgrade_purchased`, `gear_equipped` (both the Inventory and
+  Shop equip-prompt call sites), `potion_used` (both in- and out-of-battle
+  call sites), and `ability_used` - these five were the only logged event
+  types missing it, which made cross-referencing them against NG+ cycle
+  harder than every other event type.
 
 ### Fixed
 - Final whole-branch review fixes for the playthrough telemetry plan

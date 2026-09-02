@@ -54,6 +54,20 @@ test('smithScreen reforge DOM', async (t) => {
     assert.ok(upgraded);
   });
 
+  await t.test('clicking Reforge logs an item_reforged telemetry event', async () => {
+    const { startSession, getBufferAsJsonl } = await import('../js/systems/telemetry.js');
+    startSession();
+    const root = await mountSmith(buildState());
+    click(root.querySelector('button[data-reforge="weapon"]'));
+    const events = getBufferAsJsonl().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const reforgeEvent = events.find((e) => e.type === 'item_reforged');
+    assert.ok(reforgeEvent);
+    assert.equal(reforgeEvent.itemId, 'ironSword');
+    assert.equal(reforgeEvent.slot, 'weapon');
+    assert.equal(reforgeEvent.newTier, 'mythic');
+    assert.equal(reforgeEvent.ngPlusCycle, 1);
+  });
+
   await t.test('a ring slot with an equipped item shows no upgrade select/button, only the reforge button', async () => {
     const state = buildState({
       equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: 'emberRing', ring2: null },
@@ -84,5 +98,6 @@ test('smithScreen reforge DOM', async (t) => {
     assert.equal(upgradeEvent.slot, 'weapon');
     assert.equal(upgradeEvent.newLevel, 1);
     assert.equal(upgradeEvent.goldSpent, 20);
+    assert.equal(upgradeEvent.ngPlusCycle, 1);
   });
 });

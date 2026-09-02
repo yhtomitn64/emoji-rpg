@@ -28,17 +28,10 @@ start there rather than re-deriving the queue from the index below.
 
 **New threads raised 2026-09-01, same session as the NG+ uncap (not part
 of the three-session balance queue above — separate initiative):**
-- **Local + live playthrough telemetry logging** — in design (brainstorm
-  converged, spec doc about to be written) — event catalog (level-ups,
-  tool pickups, battle outcomes, ability/potion use, gear-equip behavior,
-  drops, upgrades, NG+ transitions) plus a small zero-dependency local dev
-  server (`tools/dev-server.mjs`, replaces `python3 -m http.server`) that
-  auto-writes to a gitignored `analytics/events.jsonl`, with an
-  always-available copy-to-clipboard fallback in Settings for the live
-  site (no backend there). Explicitly chose Node built-ins over any
-  npm dependency, and skipped Google Analytics entirely (wrong tool for
-  structured gameplay events; adds a third-party/network dependency and
-  consent-banner obligations for no real benefit here).
+- ~~**Local + live playthrough telemetry logging.**~~ **Shipped
+  2026-09-01/02 (0.17.0, 0.17.1, 0.17.2).** See
+  BACKLOG_SHIPPED.md's "Local + live playthrough telemetry logging"
+  section for the full history and code pointers.
 - **Dev-facing tunable balance-config layer** — expose the constants we
   keep hand-editing (NG+ multipliers, upgrade cost curve, drop-tier
   chances) as live-adjustable rather than source-edit-and-redeploy.
@@ -1407,6 +1400,16 @@ above should probably share one underlying event-tracking
 implementation (same events, two different sinks: a local
 export/console command for his own dev-mode use now, GA for aggregate
 player data once opted-in players exist), rather than being built
-twice. Still just an idea - which events, what the extract command looks
-like, and how/whether it shares code with the GA item above are all open
-design questions, not decided.
+twice.
+
+**Update (2026-09-01/02): the local-extract half shipped, GA half
+didn't.** `js/systems/telemetry.js` + the Settings screen's "Copy Play
+Log" button (0.17.0-0.17.2, see BACKLOG_SHIPPED.md's "Local + live
+playthrough telemetry logging" section) is exactly this local-collection
+mechanism - event catalog, session buffer, clipboard export. It
+deliberately did *not* build on Google Analytics or any third-party sink
+(see that section for the reasoning) - so the "share one implementation
+with GA" idea above never got tested, and the opt-in-with-consent GA
+telemetry for *other* players (the rest of this whole entry, both the
+2026-08-28 and 2026-08-28-update paragraphs above) is still fully open,
+not started.

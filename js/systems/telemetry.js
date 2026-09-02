@@ -18,7 +18,7 @@ function randomSessionId() {
 
 function persistBuffer(storage) {
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(sessionBuffer));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ buffer: sessionBuffer, pending: pendingFlushQueue }));
   } catch {
     // localStorage can throw (quota exceeded, private browsing, or - in
     // tests - simply be undefined). The in-memory buffer still works for
@@ -26,11 +26,34 @@ function persistBuffer(storage) {
   }
 }
 
+// Reads back whatever the previous page-load's session mirrored to storage,
+// so a tab closed (or crashed) before it ever flushed doesn't lose that
+// session's data outright - it resurfaces in the next session's buffer
+// (for Copy Play Log) and pending queue (for the next auto-flush). Also
+// accepts the older plain-array format this key used before recovery
+// existed, so a leftover live-site mirror from an earlier version doesn't
+// just vanish behind a JSON shape it no longer recognizes.
+function loadPersisted(storage) {
+  try {
+    const raw = storage?.getItem(STORAGE_KEY);
+    if (!raw) return { buffer: [], pending: [] };
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return { buffer: parsed, pending: [] };
+    return {
+      buffer: Array.isArray(parsed?.buffer) ? parsed.buffer : [],
+      pending: Array.isArray(parsed?.pending) ? parsed.pending : [],
+    };
+  } catch {
+    return { buffer: [], pending: [] };
+  }
+}
+
 export function startSession({ storage = globalThis.localStorage } = {}) {
+  const recovered = loadPersisted(storage);
   sessionId = randomSessionId();
   sessionStartMs = Date.now();
-  sessionBuffer = [];
-  pendingFlushQueue = [];
+  sessionBuffer = recovered.buffer.slice(-MAX_BUFFERED_EVENTS);
+  pendingFlushQueue = recovered.pending.slice();
   serverAvailable = false;
   if (flushTimerId) clearInterval(flushTimerId);
   if (typeof setInterval === 'function') {

@@ -121,7 +121,7 @@ function render() {
       const slot = ITEMS[pendingEquip].slot;
       const replacedItemId = state.equipment[slot] || null;
       Object.assign(state, equipItem(state, pendingEquip, slot));
-      logEvent('gear_equipped', { itemId: pendingEquip, slot, tier: null, upgradeLevel: getUpgradeLevel(state, pendingEquip, undefined), replacedItemId });
+      logEvent('gear_equipped', { itemId: pendingEquip, slot, tier: null, upgradeLevel: getUpgradeLevel(state, pendingEquip, undefined), replacedItemId, ngPlusCycle: state.ngPlusCycle });
       pendingEquip = null;
       callbacks.onPurchase();
       render();

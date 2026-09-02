@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.17.2',
+    date: '2026-09-02',
+    highlights: [
+      'Behind-the-scenes: more complete and durable play-log telemetry (a closed tab no longer loses that session\'s data, potion drops and Mythic reforges are now logged) - nothing to see here.',
+    ],
+  },
+  {
     version: '0.17.1',
     date: '2026-09-01',
     highlights: [

@@ -108,7 +108,7 @@ function tryUpgrade(slot) {
   try {
     const next = upgradeItem(state, slot, materialId, cost);
     Object.assign(state, next);
-    logEvent('upgrade_purchased', { itemId, slot, tier: tier || null, newLevel: level + 1, goldSpent: cost });
+    logEvent('upgrade_purchased', { itemId, slot, tier: tier || null, newLevel: level + 1, goldSpent: cost, ngPlusCycle: state.ngPlusCycle });
     callbacks.onUpgrade();
   } catch {
     // Not enough gold or missing material — button availability already reflects this
@@ -117,9 +117,15 @@ function tryUpgrade(slot) {
 }
 
 function tryReforge(slot) {
+  const itemId = state.equipment[slot];
   try {
     const next = reforgeToMythic(state, slot);
     Object.assign(state, next);
+    logEvent('item_reforged', {
+      itemId, slot, newTier: 'mythic',
+      goldSpent: REFORGE_GOLD_COST, essenceSpent: REFORGE_ESSENCE_COST,
+      ngPlusCycle: state.ngPlusCycle,
+    });
     callbacks.onUpgrade();
   } catch {
     // Not enough gold or essence — button availability already reflects this

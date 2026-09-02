@@ -696,7 +696,7 @@ function consumeGuaranteedCritBonus() {
 // secondWind, consumed elsewhere - see consumeGuaranteedCritBonus() above
 // and the Second Wind check inside monsterAttack()).
 function drinkPotion(itemId) {
-  logEvent('potion_used', { itemId, inBattle: true });
+  logEvent('potion_used', { itemId, inBattle: true, ngPlusCycle: state.ngPlusCycle });
   Object.assign(state, removeItem(state, itemId, 1));
   const item = ITEMS[itemId];
   if (item.heal) {
@@ -1482,7 +1482,7 @@ async function playerUseAbility(abilityId) {
   document.getElementById(`btn-ability-${abilityId}`)?.classList.add('battle-ability-button-pressed');
   try {
     const ability = ABILITIES.find((a) => a.id === abilityId);
-    logEvent('ability_used', { abilityId, inBattle: true });
+    logEvent('ability_used', { abilityId, inBattle: true, ngPlusCycle: state.ngPlusCycle });
     if (ability.type === 'buff') {
       buffState = activateBuff(ability);
       abilityCooldowns[abilityId] = ability.cooldownMs;

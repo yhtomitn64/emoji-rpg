@@ -668,6 +668,9 @@ function logDropEvent(drop, monsterId) {
   if (drop.item) {
     logEvent('item_drop', { itemId: drop.item, tier: drop.tier || null, sourceMonsterId: monsterId, ngPlusCycle: state.ngPlusCycle });
   }
+  if (drop.potionId) {
+    logEvent('item_drop', { itemId: drop.potionId, tier: null, sourceMonsterId: monsterId, ngPlusCycle: state.ngPlusCycle });
+  }
 }
 
 function handleBossBattle() {

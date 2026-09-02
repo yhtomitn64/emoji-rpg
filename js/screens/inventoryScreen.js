@@ -185,7 +185,7 @@ function render() {
       const slot = btn.dataset.slot;
       const replacedItemId = state.equipment[slot] || null;
       Object.assign(state, equipItem(state, itemId, slot, tier));
-      logEvent('gear_equipped', { itemId, slot, tier: tier || null, upgradeLevel: getUpgradeLevel(state, itemId, tier), replacedItemId });
+      logEvent('gear_equipped', { itemId, slot, tier: tier || null, upgradeLevel: getUpgradeLevel(state, itemId, tier), replacedItemId, ngPlusCycle: state.ngPlusCycle });
       callbacks.onChange();
       render();
     };
@@ -204,7 +204,7 @@ function render() {
       const effectiveMaxHp = state.player.maxHp + getEquipmentBonuses(state).maxHp;
       Object.assign(state, removeItem(state, itemId, 1));
       state.player.hp = applyHeal(state.player.hp, effectiveMaxHp, item.heal);
-      logEvent('potion_used', { itemId, inBattle: false });
+      logEvent('potion_used', { itemId, inBattle: false, ngPlusCycle: state.ngPlusCycle });
       callbacks.onChange();
       render();
     };

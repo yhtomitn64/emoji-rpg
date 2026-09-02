@@ -212,6 +212,68 @@ drops themselves (new items, higher tiers) more interesting, and the
 NG+/zone-2 relationship questions - see BACKLOG.md and the handoff doc's
 Session 2 section, both explicitly not touched by this ship.
 
+## ~~Local + live playthrough telemetry logging~~ Shipped 2026-09-01/02 (0.17.0, 0.17.1, 0.17.2)
+
+Raised 2026-09-01, same session as the NG+ uncap - a separate initiative
+from the balance-tuning queue. Also the local-collection half of the
+older "Gameplay analytics (Google Analytics)" backlog thread's
+"we should collect data as I play... give me a command to extract it
+for you" ask (2026-08-28) - see that entry (BACKLOG.md, Discoverability /
+monetization section) for the still-open GA-for-other-players half this
+didn't touch.
+
+Design: `docs/superpowers/specs/2026-09-01-playthrough-telemetry-design.md`.
+Plan: `docs/superpowers/plans/2026-09-01-playthrough-telemetry.md`. Shipped
+in three passes:
+
+- **0.17.0** - `js/systems/telemetry.js`: an in-memory session buffer
+  (`sessionId`/`elapsedMs`/`ts`/`type` envelope, tamper-proof against a
+  same-named payload key) logging level-ups, tool pickups, battle
+  outcomes, ability/potion use, gear-equip choices, item drops, smith
+  upgrades, and NG+ transitions, mirrored to `localStorage`.
+  `tools/dev-server.mjs` - a new zero-dependency Node static server,
+  replacing `python3 -m http.server` for local dev - accepts
+  `POST /__telemetry` and appends events as newline-delimited JSON to a
+  gitignored `analytics/events.jsonl`. A "Copy Play Log" button on the
+  Settings screen copies the current session's buffered events (Clipboard
+  API, falling back to a selectable textarea) regardless of whether the
+  dev server is running - the only delivery path on the live site, which
+  has no backend. Explicitly chose Node built-ins over any npm dependency,
+  and skipped Google Analytics entirely (wrong tool for structured
+  gameplay events; adds a third-party/network dependency and
+  consent-banner obligations for no real benefit here).
+- **0.17.1** - whole-branch review fixes: a malformed percent-escape in a
+  request URL no longer crashes `tools/dev-server.mjs`; the shop's
+  post-purchase "Equip this?" prompt (`js/screens/shopScreen.js`) now logs
+  `gear_equipped` too - it was the one `equipItem()` call site the initial
+  build missed; `logInventorySnapshot` no longer throws on a stale
+  inventory item id from an old save.
+- **0.17.2** - closed the gap the 0.17.1 review flagged but deliberately
+  left open pending Timothy's own call: the `localStorage` mirror was
+  write-only, so closing a tab before a session ever flushed lost that
+  session's data outright on the live site (the one place it's hardest to
+  recover). `startSession` now reads back the previous session's mirrored
+  buffer and unflushed pending queue before resetting - an abandoned
+  session's events resurface in the next session's buffer (Copy Play Log)
+  and pending flush queue (next auto-flush to a dev server), without
+  resurrecting already-flushed events into a duplicate send. The mirror's
+  storage format changed from a plain array to `{ buffer, pending }`; the
+  old plain-array format is still read once on upgrade so no existing
+  mirror is silently discarded. Also closed two smaller catalog gaps found
+  the same pass: potion drops (`drop.potionId`) never logged an `item_drop`
+  event (only `drop.item` did); reforging Superior gear to Mythic
+  (`js/screens/smithScreen.js`'s `tryReforge`) had no telemetry event at
+  all (`item_reforged`, now added). Also added the `ngPlusCycle` envelope
+  field - present on most other event types - to the five that were
+  missing it (`upgrade_purchased`, both `gear_equipped` call sites, both
+  `potion_used` call sites, `ability_used`), for consistent NG+-cycle
+  cross-referencing across the whole event catalog.
+
+Still open, not part of any of these three ships: the item-design half of
+NG+ loot staying interesting (see the NG+ loot ceiling entry above), and
+the GA-for-other-players half of the older analytics thread this grew out
+of.
+
 ## ~~Terrain painter: small UX polish items~~ All three shipped 2026-08-26
 
 Raised 2026-08-24 while Timothy was actively painting. Small, independent
