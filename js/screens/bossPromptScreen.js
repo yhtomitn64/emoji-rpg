@@ -1,4 +1,5 @@
 import { MAX_BOSS_TIER, BOSS_TIER_HP_MULTIPLIER, nextBossTierToAttempt } from '../systems/bossTiers.js';
+import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 
 let rootEl = null;
 let callbacks = null;
@@ -6,6 +7,11 @@ let text = null;
 let showNgPlus = false;
 let clearedTiers = [];
 let currentTier = 0;
+let unbindEscape = null;
+let unbindBackdrop = null;
+// Reassigned per sub-screen (main vs. the NG+ confirm step) - Escape/
+// click-outside/the X button all back out one level, not straight past both.
+let currentCloseAction = null;
 
 function renderMain() {
   const ngPlusButton = showNgPlus ? '<button id="btn-boss-ngplus">Start New Game+</button>' : '';
@@ -25,6 +31,7 @@ function renderMain() {
 
   rootEl.innerHTML = `
     <div class="overlay-panel boss-prompt-panel">
+      <button class="screen-close-x" id="btn-close-x" aria-label="Not yet">✕</button>
       <h2>The Dragon Returns</h2>
       ${tierIndicator}
       <p>${text}</p>
@@ -38,9 +45,11 @@ function renderMain() {
     btn.onclick = () => callbacks.onFight(Number(btn.dataset.tier));
   });
   document.getElementById('btn-boss-not-yet').onclick = () => callbacks.onWalkAway();
+  document.getElementById('btn-close-x').onclick = () => callbacks.onWalkAway();
   if (showNgPlus) {
     document.getElementById('btn-boss-ngplus').onclick = renderConfirm;
   }
+  currentCloseAction = () => callbacks.onWalkAway();
 
   rootEl.querySelector('button[data-tier]').focus();
 }
@@ -48,6 +57,7 @@ function renderMain() {
 function renderConfirm() {
   rootEl.innerHTML = `
     <div class="overlay-panel boss-prompt-panel">
+      <button class="screen-close-x" id="btn-close-x" aria-label="Cancel">✕</button>
       <h2>Start New Game+?</h2>
       <p>This resets your map progress. Your level, gear, and gold carry over.</p>
       <button id="btn-ngplus-confirm">Continue</button>
@@ -57,7 +67,9 @@ function renderConfirm() {
 
   document.getElementById('btn-ngplus-confirm').onclick = () => callbacks.onStartNgPlus();
   document.getElementById('btn-ngplus-cancel').onclick = renderMain;
+  document.getElementById('btn-close-x').onclick = renderMain;
   document.getElementById('btn-ngplus-confirm').focus();
+  currentCloseAction = renderMain;
 }
 
 export function mount(root, props) {
@@ -68,6 +80,11 @@ export function mount(root, props) {
   clearedTiers = props.clearedTiers || [];
   currentTier = props.currentTier || 0;
   renderMain();
+  unbindEscape = bindEscapeClose(() => currentCloseAction());
+  unbindBackdrop = bindBackdropClose(rootEl, () => currentCloseAction());
 }
 
-export function unmount() {}
+export function unmount() {
+  unbindEscape?.();
+  unbindBackdrop?.();
+}

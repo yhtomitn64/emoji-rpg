@@ -3,7 +3,7 @@
 // pre-existing smith-upgrade flow - scoped to the new reforge button.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot, click } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 
 function buildState(overrides = {}) {
   return {
@@ -99,5 +99,19 @@ test('smithScreen reforge DOM', async (t) => {
     assert.equal(upgradeEvent.newLevel, 1);
     assert.equal(upgradeEvent.goldSpent, 20);
     assert.equal(upgradeEvent.ngPlusCycle, 1);
+  });
+
+  await t.test('the X button calls onLeave', async () => {
+    let left = false;
+    const root = await mountSmith(buildState(), { onUpgrade: () => {}, onLeave: () => { left = true; } });
+    click(root.querySelector('#btn-close-x'));
+    assert.equal(left, true);
+  });
+
+  await t.test('Escape calls onLeave', async () => {
+    let left = false;
+    await mountSmith(buildState(), { onUpgrade: () => {}, onLeave: () => { left = true; } });
+    keydown('Escape');
+    assert.equal(left, true);
   });
 });

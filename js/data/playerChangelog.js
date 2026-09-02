@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.18.1',
+    date: '2026-09-02',
+    highlights: [
+      'Fixed: every menu and dialog (Inventory, Settings, Stats, Message Log, Loot Reference, What\'s New, Shop, Smith, Quest Board, and confirmation prompts) now closes with Escape, a corner ✕ button, or by clicking outside it - not just its own "Close"/"Leave" button.',
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-09-02',
     highlights: [

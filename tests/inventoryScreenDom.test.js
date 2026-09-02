@@ -5,7 +5,7 @@
 // predates this change and isn't being touched).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot, click } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 
 function buildState() {
   return {
@@ -200,5 +200,21 @@ test('inventoryScreen DOM', async (t) => {
     assert.ok(potionEvent);
     assert.equal(potionEvent.itemId, 'potion');
     assert.equal(potionEvent.inBattle, false);
+  });
+
+  await t.test('the X button, Escape, and backdrop click all call onClose', async () => {
+    let closed = 0;
+    const root = await mountInventory(buildState(), { onChange: () => {}, onClose: () => { closed += 1; } });
+    click(root.querySelector('#btn-close-x'));
+    keydown('Escape');
+    click(root);
+    assert.equal(closed, 3);
+  });
+
+  await t.test('clicking inside the panel does not call onClose', async () => {
+    let closed = false;
+    const root = await mountInventory(buildState(), { onChange: () => {}, onClose: () => { closed = true; } });
+    click(root.querySelector('.inventory-panel'));
+    assert.equal(closed, false);
   });
 });

@@ -24,6 +24,31 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-09-02
+
+### Added
+- New shared `js/screens/dialogChrome.js` helper (`bindEscapeClose`,
+  `bindBackdropClose`) gives every closeable screen the same close
+  affordances: Escape, a corner ✕ button, and (for backdrop-dimmed
+  overlays) clicking outside the dialog panel. Closes the open "UI
+  consistency: universal Escape-to-close + aligned dialog chrome"
+  backlog item (raised 2026-09-01), extended per Timothy's ask
+  (2026-09-02) to also cover click-outside.
+- Wired into the 8 backdrop overlays (Settings, Inventory, Message Log,
+  Loot Reference, Changelog, Stats Panel, Logout Confirm, Boss Prompt)
+  and the 3 full-page screens (Shop, Smith, Quest Board — Escape only,
+  no backdrop to click outside of). Logout Confirm and Boss Prompt map
+  Escape/✕/click-outside to their cancel path (`onCancel`/
+  `onWalkAway`), never the destructive confirm action; Boss Prompt's
+  NG+ confirm sub-step backs out one level at a time rather than
+  exiting the whole prompt. Battle screen and the forced Post-Death
+  Travel prompt are deliberately untouched — the former isn't a
+  dismissable dialog, the latter has no cancel action to fall back to.
+
+### Changed
+- Quest Board gained the same corner ✕ button Shop/Smith already had
+  (`.screen-close-x`), alongside its existing "Leave" button.
+
 ## [0.18.0] - 2026-09-02
 
 ### Changed

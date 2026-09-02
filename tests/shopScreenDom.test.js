@@ -7,7 +7,7 @@
 // something you can do all the time").
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot, click } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 import { sellPrice } from '../js/systems/inventory.js';
 import { ITEMS } from '../js/data/items.js';
 
@@ -187,5 +187,28 @@ test('shopScreen DOM - equip prompt telemetry', async (t) => {
     assert.equal(equipEvent.slot, 'weapon');
     assert.equal(equipEvent.tier, null);
     assert.equal(equipEvent.replacedItemId, null);
+  });
+});
+
+test('shopScreen DOM - close affordances', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/shopScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('the X button calls onLeave', async () => {
+    let left = false;
+    const root = await mountShop(buildState(), { onPurchase: () => {}, onLeave: () => { left = true; } });
+    click(root.querySelector('#btn-close-x'));
+    assert.equal(left, true);
+  });
+
+  await t.test('Escape calls onLeave', async () => {
+    let left = false;
+    await mountShop(buildState(), { onPurchase: () => {}, onLeave: () => { left = true; } });
+    keydown('Escape');
+    assert.equal(left, true);
   });
 });

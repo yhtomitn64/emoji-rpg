@@ -6,6 +6,7 @@ import {
 import { tierLabel } from '../systems/itemQuality.js';
 import { LOADOUT_SIZE, setLoadoutSlot, clearLoadoutSlot } from '../systems/loadout.js';
 import { logEvent } from '../systems/telemetry.js';
+import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
 const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
@@ -30,6 +31,8 @@ let state = null;
 let callbacks = null;
 let activeTabId = 'gear';
 let sortOrderByTab = null;
+let unbindEscape = null;
+let unbindBackdrop = null;
 
 function defaultSortOrderByTab() {
   return Object.fromEntries(TABS.map((tab) => [tab.id, 'alpha']));
@@ -151,6 +154,7 @@ function render() {
 
   rootEl.innerHTML = `
     <div class="overlay-panel inventory-panel">
+      <button class="screen-close-x" id="btn-close-x" aria-label="Close">✕</button>
       <h2>Inventory</h2>
       <div class="inventory-scroll-area">
         <h3>Equipment</h3>
@@ -220,6 +224,7 @@ function render() {
     };
   });
   document.getElementById('btn-close-inventory').onclick = () => callbacks.onClose();
+  document.getElementById('btn-close-x').onclick = () => callbacks.onClose();
 }
 
 export function mount(root, props) {
@@ -229,6 +234,11 @@ export function mount(root, props) {
   activeTabId = 'gear';
   sortOrderByTab = defaultSortOrderByTab();
   render();
+  unbindEscape = bindEscapeClose(() => callbacks.onClose());
+  unbindBackdrop = bindBackdropClose(rootEl, () => callbacks.onClose());
 }
 
-export function unmount() {}
+export function unmount() {
+  unbindEscape?.();
+  unbindBackdrop?.();
+}

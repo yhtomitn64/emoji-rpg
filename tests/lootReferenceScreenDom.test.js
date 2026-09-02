@@ -6,7 +6,7 @@
 // equipment shape: weapon/head/body/legs/accessory/ring1/ring2).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 import { createNewGame } from '../js/state.js';
 
 async function mountLootReference(state, callbacks = { onClose: () => {} }) {
@@ -32,5 +32,24 @@ test('lootReferenceScreen DOM', async (t) => {
     const emberRow = rows.find((row) => row.textContent.includes('Ember Ring'));
     assert.ok(emberRow, 'expected an Ember Ring row to render');
     assert.ok(emberRow.textContent.includes('(own 1)'));
+  });
+
+  await t.test('the X button, Escape, and backdrop click all call onClose', async () => {
+    let closed = 0;
+    const state = createNewGame();
+    const root = await mountLootReference(state, { onClose: () => { closed += 1; } });
+
+    click(root.querySelector('#btn-close-x'));
+    keydown('Escape');
+    click(root);
+    assert.equal(closed, 3);
+  });
+
+  await t.test('clicking inside the panel does not call onClose', async () => {
+    let closed = false;
+    const state = createNewGame();
+    const root = await mountLootReference(state, { onClose: () => { closed = true; } });
+    click(root.querySelector('.loot-reference-panel'));
+    assert.equal(closed, false);
   });
 });

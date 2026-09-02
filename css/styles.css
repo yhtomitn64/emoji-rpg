@@ -162,8 +162,9 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 
 /* Explicit top-corner close affordance for shop/smith, alongside (not
    replacing) the existing text Leave button - raised 2026-08-28: "I keep
-   looking for an X and not just the leave button." */
-.shop-screen, .smith-screen {
+   looking for an X and not just the leave button." Quest Board joined the
+   same pattern 2026-09-02 for close-affordance consistency across screens. */
+.shop-screen, .smith-screen, .quest-board-screen {
   position: relative;
 }
 .screen-close-x {
@@ -182,7 +183,7 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 /* Raised 2026-08-29: a long title ("Smith (Gold: 6401)") ran full-width
    under the absolutely-positioned close-x circle above and overlapped it.
    Reserves room for the button instead of letting title text run under it. */
-.shop-screen h2, .smith-screen h2 {
+.shop-screen h2, .smith-screen h2, .quest-board-screen h2 {
   padding-right: 32px;
 }
 
@@ -1019,6 +1020,13 @@ button:focus-visible {
   padding: 20px 24px;
   max-width: min(90vw, 720px);
   width: 90%;
+  /* Anchors each overlay's own .screen-close-x corner button (added
+     2026-09-02 for close-affordance consistency) to the dialog card
+     itself, not to #overlay's full-viewport box. */
+  position: relative;
+}
+.overlay-panel h2 {
+  padding-right: 32px;
 }
 
 .message-log-list {

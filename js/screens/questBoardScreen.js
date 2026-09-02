@@ -28,6 +28,7 @@ function render() {
 
   rootEl.innerHTML = `
     <div class="quest-board-screen">
+      <button class="screen-close-x" id="btn-close-x" aria-label="Leave quest board">✕</button>
       <h2>Quest Board</h2>
       ${rows}
       <button id="btn-turn-in-all" ${anyComplete ? '' : 'disabled'}>Turn In All</button>
@@ -40,12 +41,13 @@ function render() {
   });
   document.getElementById('btn-turn-in-all').onclick = turnInAll;
   document.getElementById('btn-leave').onclick = () => callbacks.onLeave();
+  document.getElementById('btn-close-x').onclick = () => callbacks.onLeave();
 }
 
 // Single-key shortcut alongside Tab-based focus navigation, raised
 // 2026-08-28: "what else could help like 'l' for leave or something?"
 function handleKeydown(event) {
-  if (event.key === 'l' || event.key === 'L') {
+  if (event.key === 'l' || event.key === 'L' || event.key === 'Escape') {
     event.preventDefault();
     callbacks.onLeave();
   }

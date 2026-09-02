@@ -4,7 +4,7 @@
 // this pattern exists.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 
 const SAMPLE_ENTRIES = [
   { version: '0.6.0', date: '2026-08-28', highlights: ['Added an in-game changelog'] },
@@ -45,5 +45,33 @@ test('changelogScreen DOM', async (t) => {
     const root = await mountChangelog(SAMPLE_ENTRIES, { onClose: () => { closed = true; } });
     root.querySelector('#btn-close-changelog').click();
     assert.equal(closed, true);
+  });
+
+  await t.test('the X button calls onClose', async () => {
+    let closed = false;
+    const root = await mountChangelog(SAMPLE_ENTRIES, { onClose: () => { closed = true; } });
+    click(root.querySelector('#btn-close-x'));
+    assert.equal(closed, true);
+  });
+
+  await t.test('Escape calls onClose', async () => {
+    let closed = false;
+    await mountChangelog(SAMPLE_ENTRIES, { onClose: () => { closed = true; } });
+    keydown('Escape');
+    assert.equal(closed, true);
+  });
+
+  await t.test('clicking the backdrop (the mounted root itself) calls onClose', async () => {
+    let closed = false;
+    const root = await mountChangelog(SAMPLE_ENTRIES, { onClose: () => { closed = true; } });
+    click(root);
+    assert.equal(closed, true);
+  });
+
+  await t.test('clicking inside the dialog panel does not call onClose', async () => {
+    let closed = false;
+    const root = await mountChangelog(SAMPLE_ENTRIES, { onClose: () => { closed = true; } });
+    click(root.querySelector('.changelog-panel'));
+    assert.equal(closed, false);
   });
 });

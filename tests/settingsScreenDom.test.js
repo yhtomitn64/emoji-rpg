@@ -3,7 +3,7 @@
 // battleScreenDom.test.js's own header for why this pattern exists.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot, click } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
 import { createNewGame } from '../js/state.js';
 
 async function mountSettings(state, callbacks = { onChange: () => {}, onClose: () => {} }) {
@@ -55,6 +55,22 @@ test('settingsScreen DOM', async (t) => {
     const root = await mountSettings(createNewGame(), { onChange: () => {}, onClose: () => { closed = true; } });
     click(root.querySelector('#btn-close-settings'));
     assert.equal(closed, true);
+  });
+
+  await t.test('the X button, Escape, and backdrop click all call onClose', async () => {
+    let closed = 0;
+    const root = await mountSettings(createNewGame(), { onChange: () => {}, onClose: () => { closed += 1; } });
+    click(root.querySelector('#btn-close-x'));
+    keydown('Escape');
+    click(root);
+    assert.equal(closed, 3);
+  });
+
+  await t.test('clicking inside the panel does not call onClose', async () => {
+    let closed = false;
+    const root = await mountSettings(createNewGame(), { onChange: () => {}, onClose: () => { closed = true; } });
+    click(root.querySelector('.settings-panel'));
+    assert.equal(closed, false);
   });
 
   await t.test('Copy Play Log copies buffered events via the Clipboard API when available', async () => {

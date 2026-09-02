@@ -1,5 +1,6 @@
 import { ITEMS } from '../data/items.js';
 import { getItemSources } from '../systems/loot.js';
+import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 
 const SECTIONS = [
   { label: 'Gear', filter: (item) => Boolean(item.slot) },
@@ -11,6 +12,8 @@ const SECTIONS = [
 let rootEl = null;
 let state = null;
 let callbacks = null;
+let unbindEscape = null;
+let unbindBackdrop = null;
 
 function ownedQuantity(itemId) {
   const item = ITEMS[itemId];
@@ -41,6 +44,7 @@ function render() {
   const sections = SECTIONS.map(renderSection).join('');
   rootEl.innerHTML = `
     <div class="overlay-panel loot-reference-panel">
+      <button class="screen-close-x" id="btn-close-x" aria-label="Close">✕</button>
       <h2>Loot Reference</h2>
       <div class="inventory-scroll-area">${sections}</div>
       <button id="btn-close-loot-reference">Close</button>
@@ -48,6 +52,7 @@ function render() {
   `;
 
   document.getElementById('btn-close-loot-reference').onclick = () => callbacks.onClose();
+  document.getElementById('btn-close-x').onclick = () => callbacks.onClose();
 }
 
 export function mount(root, props) {
@@ -55,6 +60,11 @@ export function mount(root, props) {
   state = props.state;
   callbacks = props.callbacks;
   render();
+  unbindEscape = bindEscapeClose(() => callbacks.onClose());
+  unbindBackdrop = bindBackdropClose(rootEl, () => callbacks.onClose());
 }
 
-export function unmount() {}
+export function unmount() {
+  unbindEscape?.();
+  unbindBackdrop?.();
+}

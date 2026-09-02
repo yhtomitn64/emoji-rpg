@@ -155,7 +155,7 @@ function buyItem(itemId, quantity = 1) {
 // type-ahead-to-select-an-option behavior there.
 function handleKeydown(event) {
   if (document.activeElement?.tagName === 'SELECT') return;
-  if (event.key === 'l' || event.key === 'L') {
+  if (event.key === 'l' || event.key === 'L' || event.key === 'Escape') {
     event.preventDefault();
     callbacks.onLeave();
   }

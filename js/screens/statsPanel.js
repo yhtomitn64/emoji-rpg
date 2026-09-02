@@ -2,6 +2,7 @@ import { ITEMS } from '../data/items.js';
 import { xpForLevel } from '../systems/leveling.js';
 import { getEquipmentBonuses } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
+import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 
 const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
 const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
@@ -9,6 +10,8 @@ const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
 let rootEl = null;
 let state = null;
 let callbacks = null;
+let unbindEscape = null;
+let unbindBackdrop = null;
 
 function render() {
   const bonuses = getEquipmentBonuses(state);
@@ -35,6 +38,7 @@ function render() {
 
   rootEl.innerHTML = `
     <div class="overlay-panel stats-panel">
+      <button class="screen-close-x" id="btn-close-x" aria-label="Close">✕</button>
       <h2>Stats</h2>
       ${ngPlusBadge}
       <div>Level ${state.player.level} (XP ${state.player.xp}/${xpNeeded})</div>
@@ -51,6 +55,7 @@ function render() {
   `;
 
   document.getElementById('btn-close-stats').onclick = () => callbacks.onClose();
+  document.getElementById('btn-close-x').onclick = () => callbacks.onClose();
 }
 
 export function mount(root, props) {
@@ -58,6 +63,11 @@ export function mount(root, props) {
   state = props.state;
   callbacks = props.callbacks;
   render();
+  unbindEscape = bindEscapeClose(() => callbacks.onClose());
+  unbindBackdrop = bindBackdropClose(rootEl, () => callbacks.onClose());
 }
 
-export function unmount() {}
+export function unmount() {
+  unbindEscape?.();
+  unbindBackdrop?.();
+}
