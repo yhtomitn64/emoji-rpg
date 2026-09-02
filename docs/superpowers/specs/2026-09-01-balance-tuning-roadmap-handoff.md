@@ -1,18 +1,22 @@
 # Balance-tuning roadmap — session handoff prompts
 
-**Status:** a queue of three separate future sessions, decided
-2026-09-01 right after the portal-scroll feature shipped. Each item
-below gets its **own fresh session** — don't try to do more than one in
-the same session. This file isn't itself a design or a plan; it's the
-paste-in opening prompt for each session, plus the shared context each
-one needs. Once an item ships and goes live (pushed to `main`), start a
-brand-new session and paste in the next item's prompt section below.
+**Status:** a queue of three separate sessions, decided 2026-09-01
+right after the portal-scroll feature shipped. All three have now run.
+This file isn't itself a design or a plan; it's the paste-in opening
+prompt each session used, plus the shared context each one needed,
+kept for historical record.
 
 **The three items, in order:**
-1. Parry window + simulator's parry-rate blind spot
+1. Parry window + simulator's parry-rate blind spot — **shipped
+   2026-09-01**
 2. NG+ loot ceiling (+ the NG+/zone-2 direction questions it's tangled
-   up with)
-3. Defense scaling / near-town pacing
+   up with) — **numeric-cap half shipped 2026-09-01 (0.16.3); the
+   item-design half and the NG+/zone-2 direction questions are still
+   open — the only genuinely unstarted work left in this queue**
+3. Defense scaling / near-town pacing — **investigated 2026-09-02;
+   damage-floor bug shipped as 0.17.3, the rest closed as a documented
+   structural dead end (see `docs/superpowers/BACKLOG.md`'s "The player
+   outpaces near-town/far-corner content" section)**
 
 All three live in `docs/superpowers/BACKLOG.md` — this file doesn't
 duplicate their full history, just enough to open each session cold.
@@ -156,23 +160,28 @@ Paste this in as the opening message of that session:
 
 ---
 
-## Session 3 — Defense scaling / near-town pacing
+## Session 3 — Defense scaling / near-town pacing — INVESTIGATED 2026-09-02
 
-Smaller than session 2, but still needs the balance-simulator treatment
-before any design decision — not bounded, but not a huge design pass
-either.
+See `docs/superpowers/BACKLOG.md`'s "The player outpaces near-town/
+far-corner content" section for the full writeup and CHANGELOG.md's
+0.17.3 entry for what shipped. Kept below for historical record.
 
-Full history: `docs/superpowers/BACKLOG.md`, "The player outpaces
-near-town/far-corner content well before dungeon tier" section. Short
-version: near-town content goes trivial (100% win, 0 potions used) well
-before dungeon-tier content becomes reachable at all, and the standing
-steer is zone 1 should keep getting *easier* over time, not scale to
-track the player — so this isn't "buff monsters," it's specifically
-about whether the player's own defense stat is growing too fast
-relative to incoming damage, or whether monster attack numbers need
-their own independent look. Not investigated yet which.
+Two findings: (1) the literal damage-floor bug (near-town/far-corner
+monster attack falling at or below player defense, flooring every hit
+to 1) was real and got fixed in 0.17.3. (2) The deeper "nothing feels
+dangerous" complaint is **not fixable by further stat tuning** — near-
+town monster HP is low enough that fights resolve before a slow,
+static-speed monster's ATB gauge can recover from the knockback of each
+player action, and no single static stat block can be both safely
+killable at L1 and a real threat at L9+ (confirmed directly: a bump big
+enough to matter at L9+ made the same monster unkillable at L1). This
+is consistent with, not in tension with, the standing "zone 1 should
+keep getting easier over time" steer — the actual complaint should be
+pointed at the player's current-tier content instead, which is what the
+already-shipped surrender/flee mechanic and the still-open "faster
+battle timer?" question exist to address.
 
-Paste this in as the opening message of that session:
+Original opening prompt, for reference:
 
 > Pick up "The player outpaces near-town/far-corner content" thread
 > from `docs/superpowers/BACKLOG.md`, specifically the

@@ -15,16 +15,23 @@ specific item needs its full context (history, code pointers, decisions
 already made). Keep this index in sync whenever an item ships or a new
 one is raised — that's the whole point of it.
 
-**Next up, decided 2026-09-01:** a queue of three sessions — parry
-window + simulator parry-rate (session 1, shipped 2026-09-01, see
-BACKLOG_SHIPPED.md's Multi-zone progression section), then NG+ loot
-ceiling (session 2, **numeric-cap half shipped 2026-09-01 as 0.16.3** —
-item-design half + NG+/zone-2 direction questions still open, see the
-handoff doc's Session 2 section for the split), then defense
-scaling/near-town pacing (session 3, still queued). Paste-in opening
-prompt for session 3, plus shared context, lives in
-`docs/superpowers/specs/2026-09-01-balance-tuning-roadmap-handoff.md` —
-start there rather than re-deriving the queue from the index below.
+**Balance-tuning queue, decided 2026-09-01 — all three sessions now
+run:** parry window + simulator parry-rate (session 1, shipped
+2026-09-01, see BACKLOG_SHIPPED.md's Multi-zone progression section),
+NG+ loot ceiling (session 2, **numeric-cap half shipped 2026-09-01 as
+0.16.3** — item-design half + NG+/zone-2 direction questions still
+open, see the handoff doc's Session 2 section for the split), and
+defense scaling/near-town pacing (session 3, **investigated and
+partially shipped 2026-09-02 as 0.17.3** — the literal damage-floor bug
+is fixed, but the deeper "nothing feels dangerous" complaint turned out
+structural, not a tuning gap: no static near-town monster stat block
+can be both safe at L1 and threatening at L9+, so it can't be fixed by
+further stat tuning at all. See "The player outpaces near-town/far-
+corner content" thread further down for the full investigation and
+where the complaint should actually be redirected instead). The
+item-design half of session 2 is the only piece of this queue still
+genuinely open — see `docs/superpowers/specs/2026-09-01-balance-tuning-
+roadmap-handoff.md`'s Session 2 section before starting it.
 
 **New threads raised 2026-09-01, same session as the NG+ uncap (not part
 of the three-session balance queue above — separate initiative):**
@@ -81,7 +88,7 @@ of the three-session balance queue above — separate initiative):**
   - Rung-3 gear effects: parry window trade-offs (undecided direction), plus known un-fixed side effects from the v1 ship (tooltip not tier-aware, AOE lifesteal/proc stacking per target, raw camelCase stat keys in UI, ±1 delta display rounding, redundant `getEquipmentBonuses` calls) — small cleanup items.
   - Rhythm-style multi-hit parry, hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
   - Research: alternatives to raw stat-number power creep — rough research question, unblocked but unstarted.
-  - **Defense scaling needs work** (player outpaces near-town content thread) — Timothy flagged it again 2026-08-28, not yet run through the balance simulator.
+  - ~~**Defense scaling needs work** (player outpaces near-town content thread)~~ — **investigated 2026-09-02, damage-floor half shipped as 0.17.3; the rest is a documented structural dead end, not an open task.** See "The player outpaces near-town/far-corner content" section below for the full writeup.
 - **Mobile/touch combat should be turn-based** — raw idea, explicitly scoped to touch input only.
 - **Open question: faster battle timer against weaker enemies?** — needs a decision (is it a speed problem or a power problem), not just an implementation.
 - **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass).
