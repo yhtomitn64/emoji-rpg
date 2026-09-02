@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.18.0',
+    date: '2026-09-02',
+    highlights: [
+      'Changed: Parry now has a 10-second cooldown instead of being usable on every attack.',
+      'Changed: in fights against multiple monsters, landing a parry during that cooldown now catches every monster mid-attack at once, instead of needing to time each one\'s narrow window individually.',
+    ],
+  },
+  {
     version: '0.17.4',
     date: '2026-09-02',
     highlights: [

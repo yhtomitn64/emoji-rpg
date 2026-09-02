@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-09-02
+
 ### Changed
 - Parry (`js/systems/parry.js`, `js/screens/battleScreen.js`) now shares
   a 10-second cooldown (`PARRY_COOLDOWN_MS`) across every parry input -
