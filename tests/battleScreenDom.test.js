@@ -297,6 +297,23 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#battle-log').textContent, /You use Impale/);
   });
 
+  await t.test('using Sever against 2+ monsters also hits one random other living enemy', async () => {
+    const { root } = await mountBattle(['boar', 'boar', 'boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
+    const hpText = (i) => root.querySelector(`#battle-monster-hp-text-${i}`).textContent;
+    const before = [hpText(0), hpText(1), hpText(2)];
+    click(root.querySelector('#btn-ability-chop'));
+    const after = [hpText(0), hpText(1), hpText(2)];
+    const hitCount = after.filter((text, i) => text !== before[i]).length;
+    assert.equal(hitCount, 2, 'Sever should hit exactly the selected target plus one other');
+  });
+
+  await t.test('using Sever solo (one monster) only hits that one monster, no crash', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
+    const before = root.querySelector('#battle-monster-hp-text-0').textContent;
+    click(root.querySelector('#btn-ability-chop'));
+    assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, before);
+  });
+
   await t.test('parry windup fill drives from a real-time CSS animation, not a stale JS width snapshot', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     // speed: 1000 saturates the monster's ATB gauge on the very first

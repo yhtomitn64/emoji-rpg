@@ -172,6 +172,23 @@ function livingIndices() {
   return monsterCombatants.map((mc, i) => i).filter((i) => monsterCombatants[i].hp > 0);
 }
 
+// Picks up to `count` distinct random living monster indices, excluding
+// excludeIndex - used by Sever's own extra target and (Task 4) Faultline's
+// widen buff. Returns fewer than `count` (down to zero) if there aren't
+// enough other living enemies - e.g. Sever solo just returns [].
+function pickRandomOtherLivingIndices(excludeIndex, count) {
+  const pool = monsterCombatants
+    .map((mc, i) => i)
+    .filter((i) => i !== excludeIndex && monsterCombatants[i].hp > 0);
+  const picked = [];
+  for (let n = 0; n < count && pool.length > 0; n++) {
+    const poolIndex = Math.floor(Math.random() * pool.length);
+    picked.push(pool[poolIndex]);
+    pool.splice(poolIndex, 1);
+  }
+  return picked;
+}
+
 function cycleTarget(direction) {
   const living = livingIndices();
   if (living.length === 0) return;
@@ -1406,6 +1423,7 @@ async function playerUseAbility(abilityId) {
     const targetIndex = selectedMonsterIndex;
     const target = monsterCombatants[targetIndex];
     const defenseDebuffAtPress = target.defenseDebuff;
+    const extraTargetIndices = pickRandomOtherLivingIndices(targetIndex, ability.extraTargetCount || 0);
     const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
@@ -1424,6 +1442,20 @@ async function playerUseAbility(abilityId) {
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
     recordPlayerDamage(abilityId, result.damage, elements.monsterZones[targetIndex]);
     applyOnHitEffects(target, result.damage);
+    for (const extraIndex of extraTargetIndices) {
+      const extraTarget = monsterCombatants[extraIndex];
+      if (extraTarget.hp <= 0) continue;
+      const extraResult = resolveAbilityUse(playerCombatant, applyDefenseDebuff(extraTarget, extraTarget.defenseDebuff), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
+      extraTarget.hp = extraResult.monsterHp;
+      extraTarget.atb = extraResult.monsterAtb;
+      maybeMarkSplitDeath(extraTarget, extraResult);
+      log.push(extraResult.isCrit
+        ? `Critical! You use ${ability.name} on ${extraTarget.name} for ${extraResult.damage}!`
+        : `You use ${ability.name} on ${extraTarget.name} for ${extraResult.damage}.`);
+      playHitEffect(elements.monsterZones[extraIndex], elements.monsterEmojis[extraIndex], extraResult.damage, extraResult.isCrit);
+      recordPlayerDamage(abilityId, extraResult.damage, elements.monsterZones[extraIndex]);
+      applyOnHitEffects(extraTarget, extraResult.damage);
+    }
     updateHpBars();
     updateAtbBars();
     updateLog();
