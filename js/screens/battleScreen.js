@@ -2,7 +2,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, resolveTimingHit, canUseAbility, estimateAbilityDamage, comboTimingHintUnlocked, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
@@ -27,9 +27,6 @@ const EXIT_ANIM_MS = 400;
 // it's a body-level fixed element (see showDamageNumber), independent of the
 // zone's own DOM lifecycle.
 const DEATH_HIDE_DELAY_MS = 900;
-const TIMING_METER_DURATION_MS = 1000;
-const TIMING_SWEET_SPOT_START = 80;
-const TIMING_SWEET_SPOT_END = 100;
 // Shown once per battle, the first time Attack's decay bottoms out at its
 // (ability-lowered) floor - a nudge toward the rotation, not a mechanical
 // effect.
@@ -63,7 +60,6 @@ let endBattleTimeoutId = null;
 let exitAnimTimeoutId = null;
 let abilityCooldowns = {};
 let buffState = createBuffState();
-let comboState = {};
 let abilityActionInFlight = false;
 let attackStreak = 0;
 let attackCooldownMs = 0;
@@ -108,11 +104,6 @@ let itemMenuAutoCloseTimeoutId = null;
 let battlePaused = false;
 let pauseStartedAt = 0;
 let pauseTimeScale = 0;
-// Set by runTimingMeter() while its promise is pending, cleared once it
-// resolves - lets pauseBattle()/resumeBattle() reach into that otherwise-
-// local closure without a bigger refactor.
-let activeTimingMeterHandle = null;
-
 // Both take the equipment bonuses as a parameter, computed once by the
 // caller (mount()), rather than each calling getEquipmentBonuses(state)
 // itself - the three call sites on the mount path (this, buildMonsterCombatant,
@@ -208,18 +199,6 @@ function battleDecorationHtml() {
   return emoji.map((e) => `<span>${e}</span>`).join('');
 }
 
-function timingMeterHtml() {
-  if (getUnlockedAbilities(state.player.level).length === 0) return '';
-  return `
-        <div class="battle-timing-meter" id="battle-timing-meter">
-          <div class="battle-timing-track">
-            <div class="battle-timing-sweet-spot" id="battle-timing-sweet-spot" style="left: 80%; width: 20%;"></div>
-            <div class="battle-timing-fill" id="battle-timing-fill"></div>
-          </div>
-          <div class="battle-timing-hint" id="battle-timing-hint">Press Space!</div>
-        </div>`;
-}
-
 function monsterSlotHtml(mc, index) {
   return `
           <div class="battle-combatant battle-monster-slot" id="battle-monster-zone-${index}">
@@ -281,7 +260,6 @@ function buildDom() {
               <div class="battle-potion-buff-indicator" id="battle-potion-buff-indicator"></div>
             </div>
           </div>
-          ${timingMeterHtml()}
         </div>
         <div class="battle-sidebar">
           <div class="battle-log-label">Battle Log</div>
@@ -321,110 +299,7 @@ function buildDom() {
     potionBuffIndicator: document.getElementById('battle-potion-buff-indicator'),
     menu: document.getElementById('battle-menu'),
     log: document.getElementById('battle-log'),
-    timingMeter: document.getElementById('battle-timing-meter'),
-    timingFill: document.getElementById('battle-timing-fill'),
-    timingHint: document.getElementById('battle-timing-hint'),
-    timingSweetSpot: document.getElementById('battle-timing-sweet-spot'),
   };
-}
-
-function runTimingMeter(ability) {
-  // The timing bonus zone only means anything once the ability it primes is
-  // unlocked - see comboTimingHintUnlocked. The timing hit is still scored
-  // underneath so priming "just works" the moment the payoff unlocks, this
-  // only hides the visual.
-  const showHint = !ability || comboTimingHintUnlocked(ability, state.player.level);
-  return new Promise((resolve) => {
-    // Defensive: the meter track only renders once the player has an
-    // unlocked ability (see timingMeterHtml()), and an ability can't be
-    // used below that level anyway - so this should be unreachable with a
-    // null meter. Resolve as a miss rather than throwing if it ever is.
-    if (!elements.timingMeter || !elements.timingFill || !elements.timingHint) {
-      resolve(false);
-      return;
-    }
-
-    elements.timingMeter.classList.add('battle-timing-meter-active');
-    // Same real-time-delayed pulse approach as the parry zone above,
-    // timed off TIMING_SWEET_SPOT_START/TIMING_METER_DURATION_MS instead
-    // of PARRY_ZONE_START_PERCENT/PARRY_WINDUP_DURATION_MS.
-    if (elements.timingSweetSpot) {
-      const pulseDelayMs = (TIMING_SWEET_SPOT_START / 100) * TIMING_METER_DURATION_MS;
-      elements.timingSweetSpot.style.animation = 'none';
-      void elements.timingSweetSpot.offsetWidth; // force reflow so re-triggering restarts the animation
-      elements.timingSweetSpot.style.animation = `battle-zone-pulse 0.35s ease-out ${pulseDelayMs}ms`;
-    }
-    let startedAt = performance.now();
-    let resolved = false;
-    let rafId = null;
-    // Non-null only while a mid-battle pause has this meter's rAF loop
-    // suspended - holds how far into the meter it had gotten, so resume can
-    // pick up from the same point instead of restarting or jumping ahead by
-    // however long the pause lasted (see pauseBattle()/resumeBattle()).
-    let pausedElapsedMs = null;
-
-    function onKeydown(event) {
-      if (battlePaused) return;
-      if (event.code !== 'Space' && event.code !== 'Enter') return;
-      event.preventDefault();
-      const elapsed = performance.now() - startedAt;
-      finish(Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100));
-    }
-
-    function finish(actedAtPercent) {
-      if (resolved) return;
-      resolved = true;
-      cancelAnimationFrame(rafId);
-      activeTimingMeterHandle = null;
-      elements.timingMeter.classList.remove('battle-timing-meter-active');
-      elements.timingMeter.onclick = null;
-      window.removeEventListener('keydown', onKeydown);
-      elements.timingFill.style.width = '0%';
-      elements.timingHint.classList.remove('battle-timing-hint-visible');
-      resolve(resolveTimingHit(actedAtPercent, TIMING_SWEET_SPOT_START, TIMING_SWEET_SPOT_END));
-    }
-
-    function frame(now) {
-      const elapsed = now - startedAt;
-      const percent = Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100);
-      elements.timingFill.style.width = `${percent}%`;
-      elements.timingHint.classList.toggle('battle-timing-hint-visible', showHint && percent >= TIMING_SWEET_SPOT_START);
-      if (percent >= 100) {
-        finish(-1); // ran out with no input: always a miss, ability still resolves at base value
-        return;
-      }
-      rafId = requestAnimationFrame(frame);
-    }
-
-    elements.timingMeter.onclick = () => {
-      if (battlePaused) return;
-      const elapsed = performance.now() - startedAt;
-      finish(Math.min(100, (elapsed / TIMING_METER_DURATION_MS) * 100));
-    };
-
-    window.addEventListener('keydown', onKeydown);
-
-    activeTimingMeterHandle = {
-      pause() {
-        if (pausedElapsedMs !== null) return;
-        pausedElapsedMs = performance.now() - startedAt;
-        cancelAnimationFrame(rafId);
-        // The sweet-spot pulse (set above via style.animation) runs on its
-        // own CSS clock, independent of the rAF loop above - without this it
-        // would keep animating while the fill bar sits frozen.
-        if (elements.timingSweetSpot) elements.timingSweetSpot.style.animationPlayState = 'paused';
-      },
-      resume() {
-        if (pausedElapsedMs === null) return;
-        startedAt = performance.now() - pausedElapsedMs;
-        pausedElapsedMs = null;
-        rafId = requestAnimationFrame(frame);
-        if (elements.timingSweetSpot) elements.timingSweetSpot.style.animationPlayState = 'running';
-      },
-    };
-
-    rafId = requestAnimationFrame(frame);
-  });
 }
 
 function updateHpBars() {
@@ -725,8 +600,8 @@ function drinkPotion(itemId) {
 }
 
 // Icon-only battle action button: icon + a small keybind chip in the
-// corner, everything else (full name, cooldown seconds, combo status,
-// damage estimate) goes in the `title` tooltip instead - see the CSS
+// corner, everything else (full name, cooldown seconds, damage estimate)
+// goes in the `title` tooltip instead - see the CSS
 // comment above .battle-action-bar in css/styles.css for why. `cooldownPct`
 // (0-100, remaining/total) drives the red conic-gradient "clock wipe"
 // overlay; omit/0 for buttons with no cooldown to show.
@@ -750,45 +625,26 @@ function abilityButtonEntries() {
   return getUnlockedAbilities(state.player.level).map((ability, index) => {
     const slot = index + 1;
     const cooldownRemaining = abilityCooldowns[ability.id] || 0;
-    // A primed payoff (e.g. Chop after Stab landed) can be pressed even
-    // before the swing timer is full - that's the "instant" combo feel.
-    // A primed setup's return bonus (e.g. Stab after Chop landed) does NOT
-    // get this bypass, only the extra damage - see Global Constraints.
-    const comboPrimed = !!comboState[ability.id];
     const alwaysReady = ability.type === 'buff';
-    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, comboPrimed, comboRole: ability.comboRole, alwaysReady });
-    // A primed payoff bypasses its own cooldown (see canUseAbility) - don't
-    // show a stale countdown/wipe on a button that's actually already
-    // pressable.
-    const comboSkipsCooldown = comboPrimed && ability.comboRole === 'payoff';
-    const cooldownActive = cooldownRemaining > 0 && !comboSkipsCooldown;
+    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, alwaysReady });
+    const cooldownActive = cooldownRemaining > 0;
     const cooldownPct = cooldownActive ? (cooldownRemaining / ability.cooldownMs) * 100 : 0;
     const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
-    const comboSuffix = comboPrimed
-      ? (ability.comboRole === 'payoff' ? ' ⚡ Combo Ready' : ' ⚡ Bonus Ready')
-      : '';
     const keyLabel = alwaysReady ? 'Space' : String(slot);
     const keyDisplay = alwaysReady ? 'Spc' : String(slot);
-    // Excludes crit/timing luck (unknowable before pressing) - see estimateAbilityDamage.
     const damageSuffix = ability.type === 'damage' && target
-      ? ` ~${estimateAbilityDamage(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), ability, buffState.active, comboPrimed)} dmg`
+      ? ` ~${estimateAbilityDamage(playerCombatant, applyDefenseDebuff(target, target.defenseDebuff), ability, buffState.active)} dmg`
       : '';
-    // Computed here (not baked into ability.description) so the number
-    // can't silently drift from ROTATION_BONUS_MULTIPLIER/buffDurationMs if
-    // either is retuned later - see the damage-decay/animation-duration
-    // "two numbers that only happen to agree" hazard elsewhere in this file.
     const buffEffectSuffix = ability.type === 'buff'
       ? ` (+${Math.round((ROTATION_BONUS_MULTIPLIER - 1) * 100)}% for ${ability.buffDurationMs / 1000}s)`
       : '';
-    const title = `${ability.name} (${keyLabel}) — ${ability.description}${buffEffectSuffix}${cooldownSuffix}${comboSuffix}${damageSuffix}`;
-    const comboClass = comboPrimed ? ' battle-ability-button-combo' : '';
+    const title = `${ability.name} (${keyLabel}) — ${ability.description}${buffEffectSuffix}${cooldownSuffix}${damageSuffix}`;
     const html = actionButtonHtml({
       id: `btn-ability-${ability.id}`,
       icon: ability.icon,
       key: keyDisplay,
       title,
       disabled,
-      extraClass: comboClass,
       cooldownPct,
     });
     return { html, numbered: !alwaysReady };
@@ -1365,8 +1221,8 @@ function handleKeydown(event) {
     // other ability it's exempt from the swing-timer-ready gate entirely -
     // see canUseAbility's alwaysReady param. The existing abilityActionInFlight
     // guard inside playerUseAbility already keeps this safe if Space is
-    // pressed while another ability's timing meter is up: that call just
-    // no-ops and the meter's own separate listener still resolves normally.
+    // pressed while another ability's resolution is still in flight: that
+    // call just no-ops.
     event.preventDefault();
     const superScream = ABILITIES.find((a) => a.id === 'superScream');
     const locked = state.player.level < superScream.unlockLevel;
@@ -1385,8 +1241,7 @@ function handleKeydown(event) {
     const ability = getUnlockedAbilities(state.player.level)[Number(key) - 1];
     if (!ability) return;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
-    const comboPrimed = !!comboState[ability.id];
-    if (canUseAbility({ locked: false, onCooldown, ready: isReady(playerCombatant.atb), comboPrimed, comboRole: ability.comboRole })) {
+    if (canUseAbility({ locked: false, onCooldown, ready: isReady(playerCombatant.atb) })) {
       playerUseAbility(ability.id);
     }
   }
@@ -1485,14 +1340,6 @@ function playerAttack() {
 async function playerUseAbility(abilityId) {
   // See playerAttack's own comment on this same guard.
   if (battleOver || battlePaused) return;
-  // Guard against re-entrant activation: while a damage ability's timing meter is
-  // awaited below, the player's ATB isn't reset yet (that only happens once the
-  // await resolves), so a second click/keypress during that ~1s window would
-  // otherwise start a second runTimingMeter() concurrently. Both instances share
-  // the same `elements.timingMeter` DOM node and `onclick` handler, so the two
-  // instances stomp on each other and the meter can be left stuck on-screen,
-  // never resolving. This flag makes any overlapping activation attempt a no-op
-  // instead.
   if (abilityActionInFlight) return;
   abilityActionInFlight = true;
   // Fired once here rather than removed later: this button is about to be
@@ -1517,83 +1364,34 @@ async function playerUseAbility(abilityId) {
       return;
     }
 
-    // Press-time semantics: the player's commitment is the button press, and
-    // that's also what the on-screen buff countdown/debuff they're reading
-    // refers to. Snapshot both here, before the ~1s timing-meter await, so a
-    // buff/debuff that expires mid-meter doesn't silently steal the bonus the
-    // player was visibly aiming for when they pressed the button.
     const buffActiveAtPress = buffState.active;
-    const comboBonusActive = !!comboState[abilityId];
 
     if (ability.aoe) {
       const targetIndices = monsterCombatants
         .map((mc, i) => i)
         .filter((i) => monsterCombatants[i].hp > 0);
       const debuffSnapshots = targetIndices.map((i) => monsterCombatants[i].defenseDebuff);
-      // Payoff abilities (Sweep) never get the timing minigame - only the
-      // setup half of a combo lane (Stab/Slash) does. Landing the setup's
-      // timing window is what primes the payoff in the first place; the
-      // payoff's own "bonus" is the combo multiplier, not a stacked timing
-      // bonus on top of it.
-      const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter(ability);
-      // Same battle-can-end-mid-await hazard as the single-target path below.
-      if (battleOver) return;
-      // Press-time semantics (see the buffActiveAtPress/comboBonusActive
-      // snapshots above): cooldown/streak/combo bookkeeping all commit here,
-      // immediately on press, rather than waiting for the staggered sequence
-      // below to finish - the player's commitment is the button press, not
-      // however long the sweep animation takes to play out.
       abilityCooldowns[abilityId] = ability.cooldownMs;
       attackStreak = 0;
       attackStreakIdleMs = 0;
-      // Consume this ability's own primed bonus (if any), then prime its combo
-      // partner: a setup primes its payoff for the bigger forward bonus, a
-      // payoff primes its setup for the smaller return bonus. Same two lines
-      // handle both directions since comboPartnerId points both ways - but a
-      // setup only primes forward when its timing window was actually hit
-      // (a miss still deals normal damage, per the never-fails design, just
-      // doesn't light up the payoff); a payoff has no timing option of its
-      // own, so it always primes its setup's return bonus.
-      comboState[abilityId] = false;
-      if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
-        comboState[ability.comboPartnerId] = true;
-      }
-      // Sequential contact, not a fan of duplicate sprites (raised
-      // 2026-08-28, see BACKLOG.md): one traveling sweep sprite visits each
-      // living target in turn, and each target's own hp/log/hit-effect lands
-      // in sync with the sprite actually reaching it - a real awaited delay
-      // between targets, not everything resolving in one synchronous batch.
-      // abilityActionInFlight (see the try/finally around this whole
-      // function) stays true for the entire sequence, so it behaves like the
-      // existing timing-meter await above: no re-entrant action mid-swing.
       const livingIndices = targetIndices.filter((i) => monsterCombatants[i].hp > 0);
       playPlayerSweepSwing(ability, livingIndices.map((i) => elements.monsterZones[i]));
       for (let n = 0; n < targetIndices.length; n++) {
         const monsterIndex = targetIndices[n];
-        // Always sleeps first, even for a target that turns out to already be
-        // dead below - the sweep sprite's own waypoint schedule (built from a
-        // fixed livingIndices count above) assumes one stagger slot per living
-        // target regardless of what happens to any of them mid-sequence. A
-        // target that dies from something unrelated while waiting its turn
-        // (e.g. a Slash bleed tick landing via tick()'s own setInterval) still
-        // consumes its slot instead of the remaining hits resolving early and
-        // outrunning the sprite still visually en route to them.
         await sleep(SWEEP_STAGGER_MS);
         if (battleOver || unmounted) return;
         const mc = monsterCombatants[monsterIndex];
-        if (mc.hp <= 0) continue; // died before its own turn in the sequence
-        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, consumeGuaranteedCritBonus());
+        if (mc.hp <= 0) continue;
+        const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
         mc.hp = result.monsterHp;
         mc.atb = result.monsterAtb;
         playerCombatant.atb = result.playerAtb;
         maybeMarkSplitDeath(mc, result);
         mc.defenseDebuff = createDefenseDebuff(ability);
-        const timingSuffix = timingHit ? ' Perfect timing!' : '';
-        log.push((result.isCrit
+        log.push(result.isCrit
           ? `Critical! You use ${ability.name} on ${mc.name} for ${result.damage}!`
-          : `You use ${ability.name} on ${mc.name} for ${result.damage}.`) + timingSuffix);
+          : `You use ${ability.name} on ${mc.name} for ${result.damage}.`);
         playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
-        if (timingHit) playPerfectTimingEffect(elements.monsterZones[monsterIndex]);
         recordPlayerDamage(abilityId, result.damage, elements.monsterZones[monsterIndex]);
         applyOnHitEffects(mc, result.damage);
         updateHpBars();
@@ -1608,16 +1406,7 @@ async function playerUseAbility(abilityId) {
     const targetIndex = selectedMonsterIndex;
     const target = monsterCombatants[targetIndex];
     const defenseDebuffAtPress = target.defenseDebuff;
-    // Payoff abilities (Chop) never get the timing minigame - see the AOE
-    // branch above for why.
-    const timingHit = ability.comboRole === 'payoff' ? false : await runTimingMeter(ability);
-    // The battle can end while this await is outstanding - e.g. the monster's
-    // own ATB-driven attack (tick() -> monsterAttack(), which is intentionally
-    // NOT gated by abilityActionInFlight) can kill the player mid-swing. If it
-    // did, don't resolve this ability's damage or call checkOutcome()/endBattle()
-    // a second time.
-    if (battleOver) return;
-    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, timingHit, comboBonusActive, Math.random, consumeGuaranteedCritBonus());
+    const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
@@ -1628,23 +1417,11 @@ async function playerUseAbility(abilityId) {
     if (ability.id === 'slash') {
       target.pendingDelayedHit = { amount: resolveDelayedHit(result.damage, ability), dueAtMs: ability.delayedHitDelayMs };
     }
-    // Consume this ability's own primed bonus (if any), then prime its combo
-    // partner - see the AOE branch above for the same logic and why a setup
-    // only primes forward on a timing hit while a payoff always primes back.
-    comboState[abilityId] = false;
-    if (ability.comboPartnerId && (ability.comboRole === 'payoff' || timingHit)) {
-      comboState[ability.comboPartnerId] = true;
-    }
-    const timingSuffix = timingHit ? ' Perfect timing!' : '';
-    log.push((result.isCrit
+    log.push(result.isCrit
       ? `Critical! You use ${ability.name} on ${target.name} for ${result.damage}!`
-      : `You use ${ability.name} on ${target.name} for ${result.damage}.`) + timingSuffix);
-    // Play the hit effect before updateHpBars() hides a killed monster's slot
-    // (display: none), so a killing blow's damage number/flash/shake is
-    // actually visible instead of rendering onto an already-hidden element.
+      : `You use ${ability.name} on ${target.name} for ${result.damage}.`);
     playPlayerSwing(ability, elements.monsterZones[targetIndex], result.isCrit);
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
-    if (timingHit) playPerfectTimingEffect(elements.monsterZones[targetIndex]);
     recordPlayerDamage(abilityId, result.damage, elements.monsterZones[targetIndex]);
     applyOnHitEffects(target, result.damage);
     updateHpBars();
@@ -1661,7 +1438,7 @@ function playerFlee() {
   // See playerAttack's own comment on this same guard.
   if (battleOver || battlePaused) return;
   // Same re-entrancy hazard as playerAttack's guard above: block Flee (button
-  // or Escape) while an ability's timing meter is still pending.
+  // or Escape) while an ability's resolution is still in flight.
   if (abilityActionInFlight) return;
   if (monsterIds.some((id) => MONSTERS[id].isBoss)) {
     log.push('You cannot flee from this battle!');
@@ -1872,7 +1649,6 @@ function pauseBattle(timeScale = 0) {
       }
     }
   });
-  if (activeTimingMeterHandle) activeTimingMeterHandle.pause();
   if (timeScale === 0) {
     elements.pauseBtn.textContent = '▶️';
     elements.pauseBtn.title = 'Resume battle (P)';
@@ -1903,7 +1679,6 @@ function resumeBattle() {
       (elements.monsterParryZones[i].getAnimations?.() || []).forEach((anim) => { anim.playbackRate = 1; });
     }
   });
-  if (activeTimingMeterHandle) activeTimingMeterHandle.resume();
   // Clear before reassigning: at timeScale 0 (P-key pause) pauseBattle()
   // already set intervalId to null, so this was previously a no-op - but
   // at a fractional timeScale, pauseBattle() leaves a *live* slow interval
@@ -1980,7 +1755,6 @@ export function mount(root, props) {
   itemMenuOpen = false;
   itemMenuSelectedIndex = 0;
   itemMenuAutoCloseTimeoutId = null;
-  activeTimingMeterHandle = null;
   equipmentBonuses = getEquipmentBonuses(state);
   activeBuffs = createActiveBuffs();
   guaranteedCritNextHit = false;
@@ -1989,7 +1763,6 @@ export function mount(root, props) {
   playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
-  comboState = {};
   abilityActionInFlight = false;
   attackStreak = 0;
   attackStreakIdleMs = 0;

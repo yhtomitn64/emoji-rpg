@@ -603,48 +603,6 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   font-size: 0.75rem;
   color: #9be69b;
 }
-.battle-timing-meter {
-  width: 280px;
-  margin: 8px 0;
-  opacity: 0.35;
-  transition: opacity 0.15s;
-}
-.battle-timing-meter-active {
-  opacity: 1;
-}
-.battle-timing-track {
-  position: relative;
-  height: 14px;
-  background: #2a2a2a;
-  border-radius: 7px;
-  overflow: hidden;
-}
-.battle-timing-sweet-spot {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: rgba(74, 222, 128, 0.35);
-}
-.battle-timing-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 0%;
-  background: #f5b942;
-  cursor: pointer;
-}
-.battle-timing-hint {
-  font-size: 0.8rem;
-  color: #4ade80;
-  text-align: center;
-  margin-top: 4px;
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-.battle-timing-hint-visible {
-  opacity: 1;
-}
 .battle-sidebar {
   width: 180px;
   background: #161616;
@@ -794,10 +752,6 @@ button:disabled {
 .battle-ability-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-.battle-ability-button-combo {
-  border-color: #f5b942;
-  box-shadow: 0 0 8px rgba(245, 185, 66, 0.6);
 }
 .battle-ability-button-pressed {
   animation: battle-ability-press 220ms ease-out;

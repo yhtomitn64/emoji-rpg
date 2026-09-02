@@ -288,31 +288,13 @@ test('battleScreen DOM', async (t) => {
     assert.equal(state.player.level, 1); // sanity: still the state we set up
   });
 
-  await t.test('a landed hit on a timing-hit Stab primes Chop for an instant combo bonus', async () => {
-    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
-    const stabBtn = root.querySelector('#btn-ability-stab');
-    assert.ok(stabBtn, 'Stab should be unlocked at level 4');
-    click(stabBtn);
-    // Land inside the timing sweet spot (80-100% of the 1000ms meter) with a
-    // real wait - this is the one test in this file that isn't instantaneous,
-    // proving the harness can drive the same timing minigame a real player
-    // interacts with, not just instant synchronous button clicks.
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    keydown(' ', { code: 'Space' });
-    // Let the ability's own promise resolution/render settle.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.match(root.querySelector('#battle-log').textContent, /Perfect timing!/);
-    const chopBtn = root.querySelector('#btn-ability-chop');
-    assert.ok(chopBtn, 'Chop should be unlocked at level 4');
-    // Combo status moved from the button's own text into its title tooltip
-    // as part of the icon-only redesign - the gold glow class is the
-    // always-visible signal now, the tooltip carries the wording.
-    assert.match(chopBtn.title, /Combo Ready/);
-    assert.ok(chopBtn.classList.contains('battle-ability-button-combo'));
-    // playPerfectTimingEffect appends to <body> (same escape-the-dialog's-
-    // overflow-hidden pattern as showDamageNumber's damage numbers), not
-    // inside root - see battleScreen.js.
-    assert.ok(document.querySelector('.battle-perfect-timing-badge'), 'a Perfect timing! hit should show the perfect-timing badge');
+  await t.test('using Impale resolves synchronously - no timing meter to wait through', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 2 } }) });
+    const before = root.querySelector('#battle-monster-hp-text-0').textContent;
+    click(root.querySelector('#btn-ability-stab'));
+    // No await needed at all - resolves in the same synchronous click handler.
+    assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, before);
+    assert.match(root.querySelector('#battle-log').textContent, /You use Impale/);
   });
 
   await t.test('parry windup fill drives from a real-time CSS animation, not a stale JS width snapshot', async () => {
@@ -506,9 +488,7 @@ test('battleScreen DOM', async (t) => {
 
   await t.test('using Chop spawns a swing sprite carrying Chop\'s own icon, not the equipped weapon\'s', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
-    // Chop is a combo payoff (js/systems/abilities.js) - it skips the timing
-    // meter entirely, so clicking it resolves synchronously like Attack does,
-    // no need for the timing-meter wait/keydown dance the Stab test above uses.
+    // Every ability resolves synchronously post-rotation-v2 (js/systems/abilities.js) - no timing-meter wait needed for any of them.
     click(root.querySelector('#btn-ability-chop'));
     const sprite = document.querySelector('.battle-swing-sprite');
     assert.ok(sprite, 'expected a swing sprite element on using Chop');
@@ -519,9 +499,7 @@ test('battleScreen DOM', async (t) => {
     const { root } = await mountBattle(['boar', 'boar', 'boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
     const hpText = (i) => root.querySelector(`#battle-monster-hp-text-${i}`).textContent;
     const before = [hpText(0), hpText(1), hpText(2)];
-    // Sweep is a combo payoff (js/systems/abilities.js) - like Chop, it skips
-    // the timing meter, so the only await before the first target resolves
-    // is the new staggered sequence's own delay.
+    // Faultline (js/systems/abilities.js) resolves synchronously too - the only await before the first target resolves is the staggered sequence's own delay.
     click(root.querySelector('#btn-ability-sweep'));
     assert.deepEqual([hpText(0), hpText(1), hpText(2)], before, 'no target should be hit yet, immediately after pressing Sweep');
     assert.equal(
