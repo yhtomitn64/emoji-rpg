@@ -1153,6 +1153,56 @@ themselves need their own look independent of the "don't scale zone 1
 to the player" steer above. Needs the balance-simulator treatment the
 rest of this thread already got before any design decision.
 
+**Investigated 2026-09-02 — two findings, one shipped fix, one genuine
+dead end:**
+
+1. **Confirmed and fixed the literal damage floor.** `calculateDamage`
+   (`js/systems/combat.js`) is `max(1, attack - defense)` — once a
+   monster's defense-facing attack falls at or below player defense,
+   every hit floors to 1 regardless of the gap. Player defense grows
+   `+1`/level flat (`js/systems/leveling.js`) plus cheap gear, and
+   near-town/far-corner monster attack (originally 9-14) was still at
+   its original value — dungeon-tier (orc/wraith/skeleton) already got
+   a fix for this exact bug (see the comment on `orc` in
+   `js/data/monsters.js`), near-town/far-corner never did. Shipped a
+   moderate attack bump on boar/bat/snake/goblin/frog/direWolf/spider/
+   scorpion (see that file's own comment for the numbers and history)
+   — big enough to clear the floor through most of leveling, small
+   enough to stay safe at L1 (a larger bump sized to survive all the
+   way through full-iron gear was tried first and nearly one-shot a
+   fresh L1 character — reverted).
+
+2. **The floor fix barely moves "nothing feels dangerous," and here's
+   why — this is the more important finding.** Instrumented the
+   simulator to count real monster turns landed per fight: near-town
+   monsters average **~0 turns** against an L5+ build. The bottleneck
+   isn't damage math at all — it's the ATB turn economy. Every player
+   action (ability, or an early-streak Attack) knocks the monster's ATB
+   gauge back by a flat 15 (`ATB_KNOCKBACK`, `js/systems/combat.js` /
+   `js/systems/abilities.js`), and near-town monster HP is low enough
+   that fights end in a handful of hits — before a slow, static-speed
+   monster's gauge can climb back from repeated knockback. Tried fixing
+   this directly (raised boar's speed and HP together, confirmed via
+   the simulator it produces real danger — HP loss, potion use — at
+   L5); the **same HP value made boar literally unkillable at L1 (0%
+   win rate)** — a fresh L1 character's attack can't grind through that
+   much HP fast enough to survive the attrition. **No static per-monster
+   stat block can satisfy "safely killable at L1" and "meaningfully
+   threatens a full-iron L9 character" at the same time** — the
+   player's own power grows too much across that range for one fixed
+   target. This isn't a numbers-tuning gap, it's structural.
+
+   **Implication:** near-town/far-corner monsters can't be made to
+   "feel dangerous" again by tuning their stats, full stop — that's
+   consistent with, not in tension with, the "zone 1 should keep
+   getting easier over time" steer above. The actual "nothing feels
+   dangerous" complaint should be pointed at whatever the player's
+   *current*-tier content is (dungeon/far-corner at their real level),
+   not at near-town — and the mechanism side of it (short trivial fights
+   from turn-suppression) is exactly what the already-shipped
+   surrender/flee mechanic and the still-open "faster battle timer?"
+   question (below) already exist to address, rather than a new lever.
+
 ### Mobile/touch-only combat should be turn-based, raised 2026-08-23
 Timothy: for mobile/phone/touch input specifically (not desktop/keyboard),
 he doesn't want to simulate keypresses for combat — wants a genuinely

@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.17.3',
+    date: '2026-09-02',
+    highlights: [
+      'Balance: boars, bats, snakes, goblins, frogs, dire wolves, spiders, and scorpions near town hit a bit harder now - they were going completely toothless (0 damage) way too early into leveling up.',
+    ],
+  },
+  {
     version: '0.17.2',
     date: '2026-09-02',
     highlights: [

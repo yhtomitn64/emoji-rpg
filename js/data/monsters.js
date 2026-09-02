@@ -1,28 +1,44 @@
 export const MONSTERS = {
+  // Near-town roster (boar/bat/snake/goblin/frog) and far-corner roster
+  // (direWolf/spider/scorpion) had their attack raised 2026-09-02.
+  // calculateDamage floors at 1 once defense >= attack
+  // (js/systems/combat.js), and these were still at their original ~9-14
+  // attack while player defense climbs every level - by ~L4-5 combat was
+  // already 0-potion floor damage. A bump big enough to still clear the
+  // full-iron-gear defense band (~19-22, the bar orc/wraith/skeleton
+  // below were tuned to) turned out to make the very first L1 fight
+  // dangerously swingy instead (a flat monster attack has to work across
+  // the whole L1-to-full-iron defense spread, and that spread is too
+  // wide for one number to be safe at both ends) - see
+  // docs/superpowers/specs/2026-09-01-balance-tuning-roadmap-handoff.md's
+  // Session 3. Settled for a smaller bump that keeps L1 safe and pushes
+  // the trivialization point later into leveling, accepting these floor
+  // out again by full iron gear same as before - by then the player has
+  // moved on to dungeon-tier content anyway.
   boar: {
     id: 'boar', name: 'Snorty McPigface', emoji: '🐗',
-    hp: 77, attack: 10, defense: 1, speed: 4,
+    hp: 77, attack: 15, defense: 1, speed: 4,
     xp: 16, goldRange: [4, 8],
     dropTable: [{ itemId: 'leatherScrap', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',
   },
   bat: {
     id: 'bat', name: 'Spooky Pancake', emoji: '🦇',
-    hp: 55, attack: 9, defense: 0, speed: 7,
+    hp: 55, attack: 13, defense: 0, speed: 7,
     xp: 11, goldRange: [2, 7],
     dropTable: [{ itemId: 'batWing', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',
   },
   snake: {
     id: 'snake', name: 'Slippery Breadstick', emoji: '🐍',
-    hp: 60, attack: 10, defense: 1, speed: 5,
+    hp: 60, attack: 15, defense: 1, speed: 5,
     xp: 16, goldRange: [4, 9],
     dropTable: [{ itemId: 'snakeFang', chance: 0.25 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',
   },
   goblin: {
     id: 'goblin', name: 'Mean Meatball', emoji: '👺',
-    hp: 67, attack: 10, defense: 2, speed: 4,
+    hp: 67, attack: 15, defense: 2, speed: 4,
     xp: 22, goldRange: [5, 13],
     dropTable: [
       { itemId: 'goblinClub', chance: 0.15 },
@@ -33,28 +49,28 @@ export const MONSTERS = {
   },
   direWolf: {
     id: 'direWolf', name: 'Mega Muffin', emoji: '🐺',
-    hp: 100, attack: 14, defense: 3, speed: 6,
+    hp: 100, attack: 19, defense: 3, speed: 6,
     xp: 32, goldRange: [8, 15],
     dropTable: [{ itemId: 'wolfPelt', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',
   },
   spider: {
     id: 'spider', name: 'Eight-Leg Eggroll', emoji: '🕷️',
-    hp: 85, attack: 12, defense: 2, speed: 5,
+    hp: 85, attack: 17, defense: 2, speed: 5,
     xp: 29, goldRange: [7, 14],
     dropTable: [{ itemId: 'spiderSilk', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'ranged', projectileEmoji: '🥟',
   },
   frog: {
     id: 'frog', name: 'Ribbity Ravioli', emoji: '🐸',
-    hp: 58, attack: 9, defense: 1, speed: 6,
+    hp: 58, attack: 13, defense: 1, speed: 6,
     xp: 13, goldRange: [3, 8],
     dropTable: [{ itemId: 'frogSkin', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',
   },
   scorpion: {
     id: 'scorpion', name: 'Spicy Skewer', emoji: '🦂',
-    hp: 90, attack: 13, defense: 3, speed: 6,
+    hp: 90, attack: 18, defense: 3, speed: 6,
     xp: 30, goldRange: [7, 15],
     dropTable: [{ itemId: 'scorpionVenom', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
     attackStyle: 'melee',

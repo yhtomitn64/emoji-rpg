@@ -51,12 +51,12 @@ test('every item has required fields', () => {
 
 test('near-town, far-corner, dungeon, and dragon monsters have the savage-early-game stats', () => {
   const expectedStats = {
-    boar: { hp: 77, attack: 10, defense: 1, speed: 4, xp: 16, goldRange: [4, 8] },
-    bat: { hp: 55, attack: 9, defense: 0, speed: 7, xp: 11, goldRange: [2, 7] },
-    snake: { hp: 60, attack: 10, defense: 1, speed: 5, xp: 16, goldRange: [4, 9] },
-    goblin: { hp: 67, attack: 10, defense: 2, speed: 4, xp: 22, goldRange: [5, 13] },
-    direWolf: { hp: 100, attack: 14, defense: 3, speed: 6, xp: 32, goldRange: [8, 15] },
-    spider: { hp: 85, attack: 12, defense: 2, speed: 5, xp: 29, goldRange: [7, 14] },
+    boar: { hp: 77, attack: 15, defense: 1, speed: 4, xp: 16, goldRange: [4, 8] },
+    bat: { hp: 55, attack: 13, defense: 0, speed: 7, xp: 11, goldRange: [2, 7] },
+    snake: { hp: 60, attack: 15, defense: 1, speed: 5, xp: 16, goldRange: [4, 9] },
+    goblin: { hp: 67, attack: 15, defense: 2, speed: 4, xp: 22, goldRange: [5, 13] },
+    direWolf: { hp: 100, attack: 19, defense: 3, speed: 6, xp: 32, goldRange: [8, 15] },
+    spider: { hp: 85, attack: 17, defense: 2, speed: 5, xp: 29, goldRange: [7, 14] },
     dragon: { hp: 150, attack: 34, defense: 12, speed: 11, xp: 200, goldRange: [65, 100] },
     orc: { hp: 180, attack: 32, defense: 8, speed: 8, xp: 60, goldRange: [18, 28] },
     wraith: { hp: 170, attack: 32, defense: 4, speed: 11, xp: 63, goldRange: [18, 30] },
@@ -75,11 +75,11 @@ test('near-town, far-corner, dungeon, and dragon monsters have the savage-early-
 test('the frog/scorpion/skeleton roster additions have the expected names, stats, attack styles, and drops', () => {
   const expected = {
     frog: {
-      name: 'Ribbity Ravioli', emoji: '🐸', hp: 58, attack: 9, defense: 1, speed: 6, xp: 13, goldRange: [3, 8],
+      name: 'Ribbity Ravioli', emoji: '🐸', hp: 58, attack: 13, defense: 1, speed: 6, xp: 13, goldRange: [3, 8],
       attackStyle: 'melee', dropItemId: 'frogSkin',
     },
     scorpion: {
-      name: 'Spicy Skewer', emoji: '🦂', hp: 90, attack: 13, defense: 3, speed: 6, xp: 30, goldRange: [7, 15],
+      name: 'Spicy Skewer', emoji: '🦂', hp: 90, attack: 18, defense: 3, speed: 6, xp: 30, goldRange: [7, 15],
       attackStyle: 'melee', dropItemId: 'scorpionVenom',
     },
     skeleton: {

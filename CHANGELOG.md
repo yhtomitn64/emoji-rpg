@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-09-02
+
+### Changed
+- Near-town/far-corner monster attack (boar, bat, snake, goblin, frog,
+  direWolf, spider, scorpion in `js/data/monsters.js`) raised from their
+  original ~9-14 to 13-19. `calculateDamage` (`js/systems/combat.js`)
+  floors at 1 once a monster's attack falls at or below player defense
+  (`max(1, attack - defense)`), and player defense (+1/level flat, plus
+  cheap early gear) was crossing these monsters' original attack values
+  by ~L4-5 - the same floor bug dungeon-tier (orc/wraith/skeleton)
+  already got a fix for, never extended to this roster. Sized to clear
+  the floor through most of leveling while staying safe at L1 (a larger
+  bump matched to survive through full-iron gear was tried and reverted
+  - it nearly one-shot a fresh L1 character; see the `js/data/
+  monsters.js` comment and `docs/superpowers/BACKLOG.md`'s "player
+  outpaces near-town/far-corner content" thread for the full
+  investigation, including why a further fix via monster HP/speed turned
+  out to be a structural dead end, not just unfinished tuning).
+
 ## [0.17.2] - 2026-09-02
 
 ### Fixed
