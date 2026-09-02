@@ -60,7 +60,8 @@ import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, has
 import { ABILITIES } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
-import { addGold, addItem, spendGold, getEquipmentBonuses, migrateUpgradesToPerTier } from './systems/inventory.js';
+import { addGold, addItem, spendGold, getEquipmentBonuses, migrateUpgradesToPerTier, getUpgradeLevel } from './systems/inventory.js';
+import { startSession, logEvent, getElapsedMs } from './systems/telemetry.js';
 import { isValidSavedPosition } from './systems/world.js';
 import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
@@ -212,9 +213,16 @@ function mountStartScreen() {
   mountScreen(startScreen, {
     slots: listSlots(),
     callbacks: {
-      onContinue: (slotId) => startGame(loadState(slotId), slotId),
+      onContinue: (slotId) => {
+        const loaded = loadState(slotId);
+        startSession();
+        logEvent('session_start', { continuing: true, level: loaded.player.level, ngPlusCycle: loaded.ngPlusCycle });
+        startGame(loaded, slotId);
+      },
       onNewGame: (name, heroEmoji) => {
         const created = createSlot(name, heroEmoji);
+        startSession();
+        logEvent('session_start', { continuing: false, level: created.state.player.level, ngPlusCycle: created.state.ngPlusCycle });
         startGame(created.state, created.id);
       },
       onDelete: (slotId) => {
@@ -252,6 +260,10 @@ let activeBossTierAttempt = null;
 // monster flees before taking any damage) - that branch still needs to know which monster
 // it was to price the loot roll.
 let activeEncounterMonsterIds = null;
+
+let lastLevelUpElapsedMs = 0;
+let lastToolElapsedMs = 0;
+let activeBattleStartMs = null;
 
 function setHudButtonsEnabled(enabled) {
   const statsButton = document.getElementById('btn-open-stats');
@@ -581,6 +593,9 @@ function grantDropItem(itemId, tier) {
   Object.assign(state, addItem(state, itemId, 1, tier));
   const displayName = `${tierLabel(tier)}${item.name}`;
   if (isNewTool) {
+    const nowElapsed = getElapsedMs();
+    logEvent('tool_acquired', { toolId: itemId, level: state.player.level, ngPlusCycle: state.ngPlusCycle, elapsedMsSincePreviousTool: nowElapsed - lastToolElapsedMs });
+    lastToolElapsedMs = nowElapsed;
     playToolCelebration(item.emoji, `You found a ${displayName}! ${item.description}.`, `${item.description}!`);
   } else {
     playItemPickupToast(item.emoji, displayName);
@@ -630,6 +645,27 @@ function handleTreasureFound() {
   renderHud();
 }
 
+function logInventorySnapshot() {
+  const unequippedGear = state.inventory
+    .filter((entry) => ITEMS[entry.itemId].slot)
+    .map((entry) => ({ itemId: entry.itemId, tier: entry.tier || null, upgradeLevel: getUpgradeLevel(state, entry.itemId, entry.tier) }));
+  const equipment = Object.fromEntries(
+    Object.keys(state.equipment).map((slot) => {
+      const itemId = state.equipment[slot];
+      if (!itemId) return [slot, null];
+      const tier = state.equipmentTiers?.[slot];
+      return [slot, { itemId, tier: tier || null, upgradeLevel: getUpgradeLevel(state, itemId, tier) }];
+    })
+  );
+  logEvent('inventory_snapshot', { equipment, unequippedGear });
+}
+
+function logDropEvent(drop, monsterId) {
+  if (drop.item) {
+    logEvent('item_drop', { itemId: drop.item, tier: drop.tier || null, sourceMonsterId: monsterId, ngPlusCycle: state.ngPlusCycle });
+  }
+}
+
 function handleBossBattle() {
   const offerTierEscalation = shouldPromptForRematch(state);
   const offerNgPlus = canStartNgPlus(state);
@@ -653,6 +689,8 @@ function handleBossBattle() {
       },
       onStartNgPlus: () => {
         Object.assign(state, resetWorldForNgPlus(state));
+        logEvent('ng_plus_started', { newCycle: state.ngPlusCycle, playerLevel: state.player.level });
+        logInventorySnapshot();
         persist();
         startGame(state, activeSlotId);
       },
@@ -704,6 +742,7 @@ function goToQuestBoard() {
 }
 
 function handleEncounter(monsterIds, monsterOverridesList = null) {
+  activeBattleStartMs = Date.now();
   // A null monsterOverridesList means a regular (non-boss) encounter - boss
   // fights always pass their own explicit tier overrides, so this branch
   // never fires for those. Each monster in the group independently rolls a
@@ -769,6 +808,16 @@ function handleBattleEnd(outcome, killedMonsterIds) {
   // mutations below change them, so the log entry reflects what actually fought this
   // battle, not what you have now.
   const bonuses = getEquipmentBonuses(state);
+  const battleDurationMs = activeBattleStartMs === null ? 0 : Date.now() - activeBattleStartMs;
+  activeBattleStartMs = null;
+  logEvent('battle_end', {
+    outcome,
+    monsterIds: encounterMonsterIds,
+    ngPlusCycle: state.ngPlusCycle,
+    playerLevel: state.player.level,
+    hpPercentRemaining: Math.max(0, state.player.hp) / (state.player.maxHp + bonuses.maxHp),
+    durationMs: battleDurationMs,
+  });
   const gearSlots = ['weapon', 'head', 'body', 'legs', 'accessory'];
   const playerSnapshot = {
     level: state.player.level,
@@ -812,6 +861,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
 
       const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
       const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
+      logDropEvent(drop, monsterId);
       const gold = Math.round(drop.gold * rewardMultiplier.gold);
       Object.assign(state, addGold(state, gold));
       if (drop.item) {
@@ -847,6 +897,12 @@ function handleBattleEnd(outcome, killedMonsterIds) {
           playCelebration(emoji, `New ability unlocked: ${names}!`);
         }, 1600);
       }
+      for (let lvl = levelBeforeRewards + 1; lvl <= state.player.level; lvl += 1) {
+        const nowElapsed = getElapsedMs();
+        logEvent('level_up', { level: lvl, ngPlusCycle: state.ngPlusCycle, elapsedMsSincePreviousLevel: nowElapsed - lastLevelUpElapsedMs });
+        lastLevelUpElapsedMs = nowElapsed;
+      }
+      logInventorySnapshot();
     }
     state.lossStreak = 0;
 
@@ -871,6 +927,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
     const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
     const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
+    logDropEvent(drop, encounterMonsterIds[0]);
     const gold = Math.round(drop.gold * rewardMultiplier.gold);
     Object.assign(state, addGold(state, gold));
     if (drop.item) {
@@ -891,6 +948,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
       state.player = player;
       const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
       const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
+      logDropEvent(drop, monsterId);
       const gold = Math.round(drop.gold * rewardMultiplier.gold);
       Object.assign(state, addGold(state, gold));
       if (drop.item) {
