@@ -1,4 +1,5 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings } from './state.js';
+import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
@@ -131,6 +132,7 @@ function startGame(loadedState, slotId) {
   state = migrateBestDamage(state);
   state = migrateLoadout(state);
   state = migrateSettings(state);
+  state = migrateAudioSettings(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';
@@ -205,6 +207,9 @@ function startGame(loadedState, slotId) {
   if (!state.player.emoji) {
     state.player.emoji = DEFAULT_HERO_EMOJI;
   }
+  initAudio();
+  syncAudioSettings(state.settings);
+  unlockAudio(); // startGame only ever runs from a real click (save-slot select), so this satisfies the browser's autoplay-gesture requirement.
   renderHud();
   goToMap(state.map);
 }
@@ -366,7 +371,7 @@ function openSettings() {
   mountOverlay(settingsScreen, {
     state,
     callbacks: {
-      onChange: () => persist(),
+      onChange: () => { persist(); syncAudioSettings(state.settings); },
       onClose: () => unmountOverlay(),
     },
   });
