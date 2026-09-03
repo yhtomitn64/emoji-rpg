@@ -81,9 +81,9 @@ of the three-session balance queue above — separate initiative):**
 - **Fog-of-war reveal map** (`m` keypress) — raw idea, not scoped.
 - **New terrain: sand/tarpit/water enemies** — raw idea; needs per-tile-kind monster tables + a move-speed-modifier mechanic, neither exists today.
 - **Hand-placed zone-1 loot + shop rebalance** (big, needs design pass) — weaker shop gear, a placement-dropdown system for world loot, possibly tied to hand-placed mini-dungeons.
-- **In-game tutorials / mechanic explainers** — general onboarding idea, sharper combat-specific version (explain abilities/synergies/attack-falloff at unlock, explicit dismiss required). Timothy wants to talk through design when picked up.
+- **In-game tutorials / mechanic explainers** — **engineering implemented 2026-09-03 (0.22.0)**: both trigger points (ability-unlock popup, mid-battle attack-falloff popup) are wired and gated behind a `mechanicExplainersBeta` Settings toggle. Remaining: Timothy writes the actual explainer copy (`js/data/abilityExplainers.js`, currently empty), then flip the flag on by default.
 - **Combat pass ideas** — several independent threads, none scheduled:
-  - Slower combat / reconsider the timing-minigame layer entirely — raw, Timothy wants to think it through more.
+  - Slower combat / reconsider the timing-minigame layer entirely — raw, Timothy wants to think it through more. **Sharper 2026-09-03: take Attack + the 1-4 abilities off the swing timer/ATB gauge entirely in favor of a flat ~1s speed-scaled global cooldown, keeping the timing minigame only for Lacerate's retrigger. Next up in a new session — not designed yet.**
   - ~~**Ability rotation v2.**~~ **Shipped 2026-09-02 (0.19.0).** See BACKLOG_SHIPPED.md's "Combat pass ideas" section.
   - **Debuff visual effects** (raised 2026-09-02) — a bleed tick should show a falling blood droplet, every enemy debuff deserves its own distinct effect rather than just a status bar. Raw idea, not designed.
   - ~~**Lacerate retrigger sweet-spot flash**~~ — **Shipped 2026-09-03 (0.20.1).** See BACKLOG_SHIPPED.md's "Combat pass ideas" section.
@@ -814,6 +814,22 @@ narrative framing for these explainers is his to write, this item stays
 scoped to the engineering (trigger timing, modal/dismiss mechanic) same as
 the rest of this section.
 
+**Engineering implemented 2026-09-03 (0.22.0), content still pending.**
+Both trigger points are wired exactly as designed above: a combined popup
+(`js/screens/mechanicExplainerScreen.js`, one per level-up event covering
+every ability that just unlocked) mounts right after the existing
+ability-unlocked banner in `js/main.js`, and a second one fires mid-battle
+in `js/screens/battleScreen.js` the first time the attack-falloff mechanic
+actually decays a hit, pausing combat via the existing pause path.
+Escape/backdrop-click/button all dismiss it (Timothy's call - matches the
+existing changelog screen's own affordances). The whole thing is gated off
+by default behind a new Settings > Feature Flags > "Combat Explainers
+(beta)" toggle (`mechanicExplainersBeta`), because the explainer text
+itself is still empty placeholders in `js/data/abilityExplainers.js` -
+that's Timothy's to write, not engineering's. **Remaining work: write the
+actual ability/mechanic explainer copy, then flip the flag on by
+default.**
+
 ## Input / accessibility
 
 ### Controller support, raised 2026-08-28
@@ -916,6 +932,28 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   since all three are really the same underlying question (is
   timing-minigame combat the right shape for this game) approached from
   different angles.
+
+  **Sharper direction, raised 2026-09-03:** Timothy's own words: "I meant
+  to remove our 1,2,3,4 abilities from the swing timer. I actually don't
+  even think we need a swing timer any longer except for when we do the
+  ability that needs the timing minigame to do more damage if you time it
+  right. Everything else is just on a 1 second global cooldown which is
+  sped up with whatever our hate/agility/speed stat is." Concretely: take
+  Attack and the digit-key abilities (Impale/Sever/Lacerate/Faultline -
+  `canUseAbility`'s `ready`/`isReady(playerCombatant.atb)` gate in
+  `js/systems/battleScreen.js`/`js/systems/combat.js`) off the ATB gauge
+  entirely, replacing it with a flat ~1s global cooldown scaled down by the
+  player's speed stat; keep the sweet-spot timing minigame only for
+  Lacerate's own retrigger (the ability that already rewards timing it
+  right - `js/systems/abilities.js`'s `retrigger` config). Parry's own
+  windup/timing minigame isn't mentioned here and presumably stays as-is.
+  This is a real architecture question for `ATB_MAX`/`tickGauge`/
+  `isReady`/`attackStreakMultiplier`'s whole streak-decay system (this
+  session's own mid-battle attack-falloff explainer trigger, added in
+  0.22.0, is built directly on top of that streak-decay mechanic - a
+  global-cooldown rework would need to account for what happens to it).
+  **Timothy wants to tackle this next, in a new session** - not scoped or
+  designed yet, just captured here so it isn't lost.
 
 - **Debuff visual effects - a bleed should show a falling blood
   droplet, and every enemy debuff deserves its own distinct effect, not
