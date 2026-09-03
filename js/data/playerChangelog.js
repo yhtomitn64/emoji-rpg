@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.21.0',
+    date: '2026-09-03',
+    highlights: [
+      'New: town now has 4 exits, one on each side, instead of a single door - just a gap in the trees, and you\'ll appear on the wilderness map in whichever direction you left from.',
+      'Changed: town is a bit bigger to make room for the new exits.',
+      'New: the shop, blacksmith, quest board, and well now always show a little wooden sign naming them.',
+    ],
+  },
+  {
     version: '0.20.1',
     date: '2026-09-03',
     highlights: [
