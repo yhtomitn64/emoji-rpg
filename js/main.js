@@ -124,8 +124,12 @@ const WORLD_GRID = buildWorldGrid(MAPS);
 // The @ tile's fixed position on 'center' - town's only real link to the
 // wilderness (see docs/superpowers/specs/2026-09-03-town-exits-and-
 // signage-design.md). All 4 town exits land 1 tile out from this point
-// in the matching direction; verified walkable on all 4 sides by
-// tests/maps.test.js's "center screen has open, walkable ground..." test.
+// in the matching direction. tests/maps.test.js has two guards: "center
+// screen has open, walkable ground on all 4 sides..." confirms the real
+// @ position has room to land on every side, and a second test pins this
+// constant's literal value against center.js's real @ position - if that
+// second test ever fails, center.js's @ moved and this constant is now
+// stale.
 const TOWN_ENTRANCE = { x: 14, y: 12 };
 
 let state = null;

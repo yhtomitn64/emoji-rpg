@@ -64,7 +64,7 @@ of the three-session balance queue above — separate initiative):**
 - ~~**UI consistency: universal Escape-to-close + aligned dialog chrome.**~~ **Shipped 2026-09-02 (0.18.1)**, extended to also cover click-outside per the same request. See BACKLOG_SHIPPED.md's "Bugs" section for the full audit and file list.
 - **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
 - **Pacing / progression** — early ramp / dragon-fell-quickly thread: level-12 dragon kill reads as right pacing, but even 3-star dragon was too easy; Timothy's own read is gear, not level, is the driver. Ties to defense-scaling and Mythic-tier items below.
-- **Multi-zone progression** (big, needs its own design pass) — zone 2/3/4 identity, spatial difficulty gradient, healing-enemies zone-2 idea, tool-gated zone unlocks, NG+ state carry-over into zone 2, town south-exit/expand/signage, town NPC hints (needs landmarks first). NG+ tools-reset piece already shipped.
+- **Multi-zone progression** (big, needs its own design pass) — zone 2/3/4 identity, spatial difficulty gradient, healing-enemies zone-2 idea, tool-gated zone unlocks, NG+ state carry-over into zone 2, town NPC hints (needs landmarks first). NG+ tools-reset piece already shipped; town south-exit/expand/signage shipped 2026-09-03 (0.21.0), see the Multi-zone progression section below.
   - ~~**NG+ loot stale at the gear ceiling — the hard cap half.**~~ **Shipped 2026-09-01 (0.16.3).** See the detailed bullet lower in this section for the still-open item-design half.
   - **Dragon NG+ better drops** — not designed.
   - **NG+ monsters appearing "out of place"** — raw idea, not designed.
@@ -502,26 +502,30 @@ one-off task.
   set shared across every variant; expanding that (or adding a genuinely
   new reward tier) is still open. No puzzle-triggered special-encounter
   mechanic exists at all yet.
-- **Town layout: south exit instead of a "door," expand town, and
-  per-shop signage, raised 2026-08-28.** Timothy: "Door of town should
-  be at the bottom of town or not even a door just a break in the trees
-  in the south of town. Also can we expand town a bit and have a
-  signpost or something or a label above each shop type or feature in
-  town. Also when you exit town then you should appear in the map below
-  the town if exit in south and for future towns maybe you can exit in
-  multiple directions. Actually in first town let's have an exit in all
-  directions and that's the direction you appear on the map." Several
-  distinct pieces in one note: (a) replace the current town door/exit
-  with a south-side tree-break, with matching correct landing placement
-  on the wilderness map below; (b) grow the town map itself; (c) label
-  each shop/feature with a visible sign or name tag rather than relying
-  on the player to walk up and discover it; (d) exits in all four
-  directions for town 1 specifically, each landing the player on the
-  correspondingly-adjacent wilderness screen — establishing the general
-  multi-exit pattern this section already expects future towns to need.
-  Not designed — needs a look at the existing town interior map and
-  exit-handling code (likely alongside whatever handles
-  `handleEdgeTransition`/wilderness screen transitions) before scoping.
+- ~~**Town layout: south exit instead of a "door," expand town, and
+  per-shop signage.**~~ **Shipped 2026-09-03 (0.21.0).** Raised
+  2026-08-28, Timothy: "Door of town should be at the bottom of town or
+  not even a door just a break in the trees in the south of town. Also
+  can we expand town a bit and have a signpost or something or a label
+  above each shop type or feature in town. Also when you exit town then
+  you should appear in the map below the town if exit in south and for
+  future towns maybe you can exit in multiple directions. Actually in
+  first town let's have an exit in all directions and that's the
+  direction you appear on the map." All four pieces shipped together:
+  (a) the door is gone, replaced by 4 unmarked tree-gap exits
+  (`TILES.treeGapNorth/South/East/West`, `js/tiles.js`); (b) town grew
+  16x12 -> 20x14 (`js/maps/townMap.js`); (c) shop/blacksmith/quest
+  board/well each show an always-on wooden signpost
+  (`SIGN_LABEL_BY_TILE`, `js/screens/mapScreen.js`); (d) all 4
+  directions exit town, each landing 1 tile out from the `@` entrance on
+  `center` in the matching direction. One narrowing from how (d) reads
+  above: exits land just outside town on the same `center` screen, not
+  on a separate "correspondingly-adjacent wilderness screen" - decided
+  during brainstorming (2026-09-03) as the simpler, still fully correct
+  reading of "appear in the map below the town," since `center` already
+  *is* the wilderness map immediately around town. See
+  `docs/superpowers/specs/2026-09-03-town-exits-and-signage-design.md`
+  and `docs/superpowers/plans/2026-09-03-town-exits-and-signage.md`.
 - **Town NPCs that hint at where to go next, using landmarks rather
   than naming the tool location outright, raised 2026-08-28.** Timothy:
   "I think we should have towns folks and one of them should give you

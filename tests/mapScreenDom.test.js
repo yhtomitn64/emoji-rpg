@@ -48,12 +48,14 @@ test('mapScreen DOM - quest board glow', async (t) => {
   // jsdom's clientWidth/clientHeight always read 0 (no real layout engine),
   // so mapScreen.js falls back to DEFAULT_VIEWPORT_TILES_WIDE/TALL - every
   // one of those viewport cells must render its own .map-tile div, even the
-  // ones landing outside town's real 8x6 extent (town is far smaller than
-  // the fallback viewport, so most cells resolve to nothing and render
-  // content-less - see render()'s `if (!resolved)` branch). A regression
-  // here (e.g. skipping unresolved cells outright instead of rendering an
-  // empty placeholder) previously let CSS grid auto-flow silently pack the
-  // real cells into the wrong rows/columns without any test catching it.
+  // ones landing outside town's real 20x14 extent (town is now close in
+  // size to the 21x13 fallback viewport, so only a modest strip of cells
+  // resolves to nothing and renders content-less - see render()'s
+  // `if (!resolved)` branch). A regression here (e.g. skipping unresolved
+  // cells outright instead of rendering an empty placeholder) previously
+  // let CSS grid auto-flow silently pack the real cells into the wrong
+  // rows/columns without any test catching it - still worth guarding even
+  // with fewer unresolved cells today.
   await t.test('every viewport cell renders its own .map-tile div, including ones outside the map itself', async () => {
     const root = await mountTown(baseState());
     const tileCount = root.querySelectorAll('.map-tile').length;

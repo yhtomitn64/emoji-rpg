@@ -76,9 +76,13 @@ const TILE_SIZE_PX = 48;
 // viewport size used whenever a real measurement isn't available, keeping
 // DOM tests deterministic without needing to stub layout. Not a real-browser
 // floor (see css/styles.css - .map-viewport fills whatever space #app has,
-// no fixed cap) - chosen only because it clears dungeonMap's 20x11 (the
-// widest/tallest non-wilderness map) with margin, same as any normal
-// desktop window comfortably does today.
+// no fixed cap) - chosen only because it comfortably clears dungeonMap's
+// 20x11, same as any normal desktop window does today. As of the
+// 2026-09-03 resize, town (js/maps/townMap.js) is 20x14 and is actually
+// the tallest non-wilderness map now, 1 row taller than this fallback's
+// height - so jsdom-based tests of town pan slightly and don't render its
+// full extent (e.g. town's row 0, where the north exit gap sits, isn't
+// visible in the default fallback viewport).
 const DEFAULT_VIEWPORT_TILES_WIDE = 21;
 const DEFAULT_VIEWPORT_TILES_TALL = 13;
 

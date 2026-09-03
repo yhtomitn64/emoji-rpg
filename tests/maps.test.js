@@ -410,7 +410,7 @@ test('center screen has the town entrance', () => {
   assert.ok(centerTileKeys.includes('townEntrance'));
 });
 
-test('center screen start position (where exiting town lands you) is orthogonally adjacent to the town entrance, not diagonal', () => {
+test('center screen start position (where a fresh game begins) is orthogonally adjacent to the town entrance, not diagonal', () => {
   const entranceChar = Object.entries(centerMap.legend).find(([, kind]) => kind === 'townEntrance')?.[0];
   assert.ok(entranceChar, 'center map legend must have a townEntrance character');
   let entranceX, entranceY;
@@ -438,6 +438,17 @@ test('center screen has open, walkable ground on all 4 sides of the town entranc
     const y = entranceY + dy;
     assert.ok(isWalkableAt(centerMap, x, y), `center (${x},${y}), one step ${dir} of the town entrance, must be walkable for the matching town exit to land there`);
   }
+});
+
+test('center screen town entrance is exactly where js/main.js hardcodes TOWN_ENTRANCE - update both together if it ever moves', () => {
+  const entranceChar = Object.entries(centerMap.legend).find(([, kind]) => kind === 'townEntrance')?.[0];
+  let entranceX, entranceY;
+  for (let y = 0; y < centerMap.rows.length; y++) {
+    const x = centerMap.rows[y].indexOf(entranceChar);
+    if (x >= 0) { entranceX = x; entranceY = y; }
+  }
+  assert.deepEqual({ x: entranceX, y: entranceY }, { x: 14, y: 12 },
+    "js/main.js's TOWN_ENTRANCE constant hardcodes {x:14,y:12} - if this test fails, center.js's @ moved and TOWN_ENTRANCE must be updated to match, or all 4 town exits will land in the wrong place");
 });
 
 test('southeast screen has no static dungeon entrance tile — the entrance is a per-save override now', () => {

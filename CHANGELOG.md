@@ -27,6 +27,12 @@ public API, no formal release process — commits land straight on
 ## [0.21.0] - 2026-09-03
 
 ### Added
+- Shop, blacksmith, quest board, and well now show an always-on wooden
+  signpost label above their tile (`SIGN_LABEL_BY_TILE` lookup and the
+  signpost render step in `js/screens/mapScreen.js`, `.map-tile-signpost`
+  in `css/styles.css`) instead of requiring proximity to identify them.
+
+### Changed
 - Town's single `🚪` door exit is replaced with 4 directional tree-gap
   exits, one centered on each of town's 4 border walls
   (`TILES.treeGapNorth/South/East/West` in `js/tiles.js`, wired into
@@ -40,10 +46,6 @@ public API, no formal release process — commits land straight on
   make room for the 4 new wall-gaps plus breathing room around the
   existing shop/smith/quest-board/well and the player's starting
   position.
-- Shop, blacksmith, quest board, and well now show an always-on wooden
-  signpost label above their tile (`SIGN_LABEL_BY_TILE` lookup and the
-  signpost render step in `js/screens/mapScreen.js`, `.map-tile-signpost`
-  in `css/styles.css`) instead of requiring proximity to identify them.
 
 See `docs/superpowers/specs/2026-09-03-town-exits-and-signage-design.md`
 for the full design and `docs/superpowers/plans/2026-09-03-town-exits-
