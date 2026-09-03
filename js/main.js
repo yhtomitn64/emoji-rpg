@@ -121,6 +121,13 @@ const MAPS = {
 
 const WORLD_GRID = buildWorldGrid(MAPS);
 
+// The @ tile's fixed position on 'center' - town's only real link to the
+// wilderness (see docs/superpowers/specs/2026-09-03-town-exits-and-
+// signage-design.md). All 4 town exits land 1 tile out from this point
+// in the matching direction; verified walkable on all 4 sides by
+// tests/maps.test.js's "center screen has open, walkable ground..." test.
+const TOWN_ENTRANCE = { x: 14, y: 12 };
+
 let state = null;
 let activeSlotId = null;
 let audioStarted = false;
@@ -496,8 +503,11 @@ function handleTileAction(action) {
   if (action === 'usePortalTool') return handleUsePortalTool();
   if (action === 'enterPortalToTown') return handleEnterPortalToTown();
   if (action === 'enterPortalToOrigin') return handleEnterPortalToOrigin();
+  if (action === 'exitTownNorth') return enterMap('center', { x: TOWN_ENTRANCE.x, y: TOWN_ENTRANCE.y - 1 });
+  if (action === 'exitTownSouth') return enterMap('center', { x: TOWN_ENTRANCE.x, y: TOWN_ENTRANCE.y + 1 });
+  if (action === 'exitTownEast') return enterMap('center', { x: TOWN_ENTRANCE.x + 1, y: TOWN_ENTRANCE.y });
+  if (action === 'exitTownWest') return enterMap('center', { x: TOWN_ENTRANCE.x - 1, y: TOWN_ENTRANCE.y });
   if (action === 'exitMap') {
-    if (state.map === 'town') return enterMap('center');
     // Land back on the exact entrance tile, not the destination screen's
     // generic startPosition - otherwise leaving a dungeon drops the player
     // somewhere else on the screen entirely, with no immediate way back to
