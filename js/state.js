@@ -44,6 +44,14 @@ export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'farNorthwest', x: 
 
 export const DEFAULT_ITEM_MENU_AUTO_CLOSE_MS = 1000;
 
+const DEFAULT_AUDIO_SETTINGS = {
+  soundTheme: 'realistic',
+  audioCombatVolume: 0.8, audioCombatMuted: false,
+  audioUiVolume: 0.8, audioUiMuted: false,
+  audioWorldVolume: 0.8, audioWorldMuted: false,
+  audioMusicVolume: 0.6, audioMusicMuted: false,
+};
+
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
@@ -97,11 +105,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     // this time for different users."
     settings: {
       itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
-      soundTheme: 'realistic',
-      audioCombatVolume: 0.8, audioCombatMuted: false,
-      audioUiVolume: 0.8, audioUiMuted: false,
-      audioWorldVolume: 0.8, audioWorldMuted: false,
-      audioMusicVolume: 0.6, audioMusicMuted: false,
+      ...DEFAULT_AUDIO_SETTINGS,
     },
   };
 }
@@ -191,14 +195,6 @@ export function migrateSettings(state) {
   if ('settings' in state) return state;
   return { ...state, settings: { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } };
 }
-
-const DEFAULT_AUDIO_SETTINGS = {
-  soundTheme: 'realistic',
-  audioCombatVolume: 0.8, audioCombatMuted: false,
-  audioUiVolume: 0.8, audioUiMuted: false,
-  audioWorldVolume: 0.8, audioWorldMuted: false,
-  audioMusicVolume: 0.6, audioMusicMuted: false,
-};
 
 // One-time migration for saves from before per-category audio settings
 // existed - merges in only the fields that are missing, so a player who's
