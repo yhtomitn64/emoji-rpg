@@ -582,6 +582,15 @@ e.g. "Slippery Breadstick" for the snake. Not tracked anywhere; revisit
 only if it comes up again for a future zone. Items below were raised
 mid-combat-pass, later than that original batch.)*
 
+### ~~"New Max damage!" progression feedback + a DPS meter~~ Shipped 2026-08-31 (0.14.0)
+Timothy's own words: "New Max damage for ability!!! and things like that
+so you know you are progressing. Also maybe a DPS meter somewhere!" Both
+shipped the same day: a "NEW MAX!" callout (tracked per ability, and for
+Attack — `playNewMaxEffect` in `js/screens/battleScreen.js`) and a live
+per-battle DPS meter (`updateDpsDisplay`, same file). Found stale in
+BACKLOG.md during a 2026-09-03 cleanup pass — never marked shipped when
+it landed.
+
 ### ~~Portal scroll — drop a portal to warp to town and back~~ Shipped 2026-09-01 (0.16.0)
 Timothy's idea, raised live during a testing session 2026-09-01. Brainstormed
 to completion, then a full design + plan + TDD implementation. Shipped as

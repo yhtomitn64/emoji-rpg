@@ -97,7 +97,6 @@ of the three-session balance queue above — separate initiative):**
 - **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass).
 - **Discoverability / monetization** — AdSense (blocked on Google review; placement plan already decided); Cloudflare traffic analytics (waiting on a token from Timothy); opt-in gameplay analytics + local play-data export (not designed, tied to the same difficulty-by-tool-gate tuning question).
 - **Input / accessibility** — controller support, raw idea, not investigated.
-- **Feature requests** — "New Max damage!" progression callouts + a DPS meter (raw idea, raised in passing).
 - **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first).
 - **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
 
@@ -810,24 +809,6 @@ not a commitment, and doesn't change the authorship boundary: any actual
 narrative framing for these explainers is his to write, this item stays
 scoped to the engineering (trigger timing, modal/dismiss mechanic) same as
 the rest of this section.
-
-## Feature requests
-
-*(Everything originally in this section shipped 2026-08-17, and every item
-raised into it since then has since shipped too — see CHANGELOG and
-BACKLOG_SHIPPED.md. One thing was dropped rather than shipped: swapping
-monster emoji to match their silly food names — Timothy likes them as
-they are, e.g. "Slippery Breadstick" for the snake. Not tracked anywhere;
-revisit only if it comes up again for a future zone.)*
-
-### "New Max damage!" progression feedback + a DPS meter, raised 2026-08-31
-Timothy's own words: "New Max damage for ability!!! and things like that
-so you know you are progressing. Also maybe a DPS meter somewhere!" Raw
-idea only, raised in passing (not part of any active work) — not
-designed: what counts as "max" (per-ability best hit ever, best this
-battle, both), where the callout shows (log line, badge on the
-button/damage number, toast), and what a DPS meter would actually measure
-or where it'd live (per-battle, rolling window, lifetime stat).
 
 ## Input / accessibility
 
