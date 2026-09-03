@@ -1125,12 +1125,13 @@ function swingSoundIdFor(ability) {
     slash: 'abilitySwingSlash', sweep: 'abilitySwingSweep',
     superScream: 'abilitySwingSuperScream',
   };
-  return bySwingId[ability?.id] || 'hitNormal'; // plain Attack (ability === null) reuses the base hit sound
+  return bySwingId[ability?.id] || null; // plain Attack makes no swing sound of its own - playHitEffect's hitNormal/hitCrit carries it
 }
 
 function playPlayerSwing(ability, targetZoneEl, isCrit) {
   playHeroAttackLunge();
-  playSfx(swingSoundIdFor(ability));
+  const swingSoundId = swingSoundIdFor(ability);
+  if (swingSoundId) playSfx(swingSoundId);
   const emoji = swingSpriteEmoji(ability);
   const durationMs = SWING_DURATION_MS[ability?.id || 'attack'] || 250;
   const keyframesFn = (dx, dy) => swingKeyframesFor(ability?.id, dx, dy);

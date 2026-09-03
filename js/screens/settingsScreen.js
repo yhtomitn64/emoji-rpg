@@ -111,7 +111,7 @@ function render() {
   };
   for (const category of CATEGORIES) {
     const volumeInput = document.getElementById(`settings-audio-${category}-volume`);
-    volumeInput.oninput = () => {
+    volumeInput.onchange = () => {
       state.settings = { ...state.settings, [`audio${capitalize(category)}Volume`]: Number(volumeInput.value) };
       callbacks.onChange();
     };

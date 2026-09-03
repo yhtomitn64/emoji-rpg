@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initAudio, unlockAudio, CATEGORIES, playSfx, playMusic, stopMusic, setCategoryVolume, setCategoryMuted, setTheme, syncAudioSettings, _getCategoryGainValueForTests } from '../js/systems/audio.js';
+import { createNewGame } from '../js/state.js';
 
 function categoryGainValueFor(category) {
   return _getCategoryGainValueForTests(category);
@@ -179,4 +180,11 @@ test('syncAudioSettings applies volumes, mutes, and theme from a settings object
   assert.equal(categoryGainValueFor('ui'), 0); // muted
   assert.equal(categoryGainValueFor('world'), 0.5);
   assert.equal(categoryGainValueFor('music'), 0.2);
+});
+
+test('syncAudioSettings consumes a real createNewGame() settings object', () => {
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
+  syncAudioSettings(createNewGame().settings);
+  assert.equal(categoryGainValueFor('combat'), 0.8);
+  assert.equal(categoryGainValueFor('music'), 0.6);
 });

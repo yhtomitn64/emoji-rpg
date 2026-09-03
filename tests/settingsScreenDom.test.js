@@ -112,22 +112,30 @@ test('settingsScreen DOM', async (t) => {
     let changed = false;
     const state = createNewGame();
     const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
-    const slider = root.querySelector('#settings-audio-combat-volume');
-    slider.value = '0.25';
-    slider.dispatchEvent(new window.Event('input', { bubbles: true }));
-    assert.equal(state.settings.audioCombatVolume, 0.25);
-    assert.equal(changed, true);
+    for (const category of ['combat', 'ui', 'world', 'music']) {
+      changed = false;
+      const slider = root.querySelector(`#settings-audio-${category}-volume`);
+      slider.value = '0.25';
+      slider.dispatchEvent(new window.Event('change', { bubbles: true }));
+      const key = `audio${category.charAt(0).toUpperCase()}${category.slice(1)}Volume`;
+      assert.equal(state.settings[key], 0.25, `expected ${key} to update`);
+      assert.equal(changed, true);
+    }
   });
 
   await t.test('toggling a mute checkbox updates state and calls onChange', async () => {
     let changed = false;
     const state = createNewGame();
     const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
-    const checkbox = root.querySelector('#settings-audio-ui-muted');
-    checkbox.checked = true;
-    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
-    assert.equal(state.settings.audioUiMuted, true);
-    assert.equal(changed, true);
+    for (const category of ['combat', 'ui', 'world', 'music']) {
+      changed = false;
+      const checkbox = root.querySelector(`#settings-audio-${category}-muted`);
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+      const key = `audio${category.charAt(0).toUpperCase()}${category.slice(1)}Muted`;
+      assert.equal(state.settings[key], true, `expected ${key} to update`);
+      assert.equal(changed, true);
+    }
   });
 
   await t.test('the theme select lists every known theme and defaults to the saved value', async () => {

@@ -14,8 +14,14 @@ let bufferCache = new Map();
 let warnedMissing = new Set();
 let currentMusic = null;
 
-export function initAudio({ AudioContextClass = globalThis.AudioContext, fetchImpl: injectedFetch = globalThis.fetch } = {}) {
-  audioContext = new AudioContextClass();
+export function initAudio({ AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext, fetchImpl: injectedFetch = globalThis.fetch } = {}) {
+  try {
+    audioContext = new AudioContextClass();
+  } catch (err) {
+    audioContext = null;
+    console.warn(`[audio] Web Audio unavailable, running silent: ${err?.message}`);
+    return;
+  }
   fetchImpl = injectedFetch;
   categoryGains = {};
   categoryState = {};
@@ -44,21 +50,23 @@ async function loadBuffer(soundId) {
   const path = resolvePath(currentTheme, soundId);
   if (!path) {
     warnOnce(cacheKey, `unknown sound id "${soundId}"`);
-    bufferCache.set(cacheKey, null);
-    return null;
+    const failed = Promise.resolve(null);
+    bufferCache.set(cacheKey, failed);
+    return failed;
   }
-  try {
-    const response = await fetchImpl(path);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    bufferCache.set(cacheKey, audioBuffer);
-    return audioBuffer;
-  } catch (err) {
-    warnOnce(cacheKey, `failed to load "${soundId}" (theme "${currentTheme}"): ${err.message}`);
-    bufferCache.set(cacheKey, null);
-    return null;
-  }
+  const loadPromise = (async () => {
+    try {
+      const response = await fetchImpl(path);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const arrayBuffer = await response.arrayBuffer();
+      return await audioContext.decodeAudioData(arrayBuffer);
+    } catch (err) {
+      warnOnce(cacheKey, `failed to load "${soundId}" (theme "${currentTheme}"): ${err.message}`);
+      return null;
+    }
+  })();
+  bufferCache.set(cacheKey, loadPromise);
+  return loadPromise;
 }
 
 function warnOnce(cacheKey, message) {
@@ -131,6 +139,7 @@ export function setCategoryMuted(category, muted) {
 }
 
 export function setTheme(themeId) {
+  if (themeId === currentTheme) return;
   const previousTheme = currentTheme;
   currentTheme = themeId;
   if (previousTheme !== DEFAULT_THEME) {

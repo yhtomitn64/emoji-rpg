@@ -24,6 +24,31 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Fixed
+- Audio engine fix wave from the ability-rotation-v2/audio-engine final
+  whole-branch review — 1 critical + 5 important cross-task integration
+  bugs no single task's scoped review could see:
+  - `initAudio()` no longer throws and blanks the whole game on startup
+    when Web Audio is unavailable (Firefox with webaudio disabled, Tor
+    Browser, some webviews) — it now catches construction failure and
+    runs silent instead.
+  - `setTheme()` is now idempotent (no-ops when the theme hasn't
+    actually changed), so every settings-screen interaction no longer
+    wipes and refetches the current theme's whole buffer cache.
+  - A basic Attack no longer plays its hit sound twice (doubled
+    amplitude/phasing) — `swingSoundIdFor`'s fallback no longer reuses
+    `hitNormal`; only named abilities get their own distinct swing
+    sound, layered on top of the hit sound as intended.
+  - Volume sliders in Settings now commit on release (`onchange`)
+    instead of firing a `persist()` + full audio resync on every drag
+    tick.
+  - Concurrent first-plays of the same sound (e.g. an AOE ability
+    hitting several monsters at once) now share one in-flight fetch/
+    decode instead of each issuing its own.
+  - Added a settings.js↔audio.js integration test and broadened the
+    settings-screen DOM tests to round-trip all 4 audio categories,
+    not just 2.
+
 ## [0.20.0] - 2026-09-03
 
 ### Added
