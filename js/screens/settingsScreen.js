@@ -1,9 +1,17 @@
 import { DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } from '../state.js';
 import { getBufferAsJsonl } from '../systems/telemetry.js';
 import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
+import { CATEGORIES } from '../systems/audio.js';
+import { SOUND_THEMES } from '../data/soundManifest.js';
 
 const ITEM_MENU_AUTO_CLOSE_MIN_MS = 250;
 const ITEM_MENU_AUTO_CLOSE_MAX_MS = 5000;
+
+const CATEGORY_LABELS = { combat: 'Combat', ui: 'UI', world: 'World', music: 'Music' };
+
+function capitalize(word) {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
 
 let rootEl = null;
 let state = null;
@@ -57,6 +65,29 @@ function render() {
         <span id="play-log-status" hidden></span>
       </div>
       <textarea id="play-log-fallback" readonly hidden></textarea>
+      <h3>Sound</h3>
+      <div class="settings-row">
+        <label for="settings-sound-theme">Sound theme</label>
+        <select id="settings-sound-theme">
+          ${Object.keys(SOUND_THEMES).map((themeId) => `
+            <option value="${themeId}" ${state.settings.soundTheme === themeId ? 'selected' : ''}>${themeId}</option>
+          `).join('')}
+        </select>
+      </div>
+      ${CATEGORIES.map((category) => `
+        <div class="settings-row">
+          <label for="settings-audio-${category}-volume">${CATEGORY_LABELS[category]} volume</label>
+          <input
+            type="range" min="0" max="1" step="0.05"
+            id="settings-audio-${category}-volume"
+            value="${state.settings[`audio${capitalize(category)}Volume`]}"
+          />
+          <label for="settings-audio-${category}-muted">
+            <input type="checkbox" id="settings-audio-${category}-muted" ${state.settings[`audio${capitalize(category)}Muted`] ? 'checked' : ''} />
+            Mute
+          </label>
+        </div>
+      `).join('')}
       <button id="btn-close-settings">Close</button>
     </div>
   `;
@@ -74,6 +105,22 @@ function render() {
     callbacks.onChange();
   };
   document.getElementById('btn-copy-play-log').onclick = () => copyPlayLog();
+  document.getElementById('settings-sound-theme').onchange = (e) => {
+    state.settings = { ...state.settings, soundTheme: e.target.value };
+    callbacks.onChange();
+  };
+  for (const category of CATEGORIES) {
+    const volumeInput = document.getElementById(`settings-audio-${category}-volume`);
+    volumeInput.oninput = () => {
+      state.settings = { ...state.settings, [`audio${capitalize(category)}Volume`]: Number(volumeInput.value) };
+      callbacks.onChange();
+    };
+    const mutedInput = document.getElementById(`settings-audio-${category}-muted`);
+    mutedInput.onchange = () => {
+      state.settings = { ...state.settings, [`audio${capitalize(category)}Muted`]: mutedInput.checked };
+      callbacks.onChange();
+    };
+  }
   document.getElementById('btn-close-settings').onclick = () => callbacks.onClose();
   document.getElementById('btn-close-x').onclick = () => callbacks.onClose();
 }

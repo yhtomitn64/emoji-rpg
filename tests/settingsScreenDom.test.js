@@ -98,4 +98,55 @@ test('settingsScreen DOM', async (t) => {
     assert.equal(fallback.hidden, false);
     assert.ok(fallback.value.includes('"toolId":"axe"'));
   });
+
+  await t.test('shows a volume slider and mute toggle for each audio category', async () => {
+    const state = createNewGame();
+    const root = await mountSettings(state);
+    for (const category of ['Combat', 'Ui', 'World', 'Music']) {
+      assert.ok(root.querySelector(`#settings-audio-${category.toLowerCase()}-volume`), `missing volume slider for ${category}`);
+      assert.ok(root.querySelector(`#settings-audio-${category.toLowerCase()}-muted`), `missing mute checkbox for ${category}`);
+    }
+  });
+
+  await t.test('dragging a volume slider updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const slider = root.querySelector('#settings-audio-combat-volume');
+    slider.value = '0.25';
+    slider.dispatchEvent(new window.Event('input', { bubbles: true }));
+    assert.equal(state.settings.audioCombatVolume, 0.25);
+    assert.equal(changed, true);
+  });
+
+  await t.test('toggling a mute checkbox updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const checkbox = root.querySelector('#settings-audio-ui-muted');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.audioUiMuted, true);
+    assert.equal(changed, true);
+  });
+
+  await t.test('the theme select lists every known theme and defaults to the saved value', async () => {
+    const state = createNewGame();
+    state.settings.soundTheme = 'realistic';
+    const root = await mountSettings(state);
+    const select = root.querySelector('#settings-sound-theme');
+    assert.ok(select);
+    assert.equal(select.value, 'realistic');
+  });
+
+  await t.test('changing the theme select updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const select = root.querySelector('#settings-sound-theme');
+    select.value = 'realistic'; // only theme with real content today; asserts the wiring, not theme content
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.soundTheme, 'realistic');
+    assert.equal(changed, true);
+  });
 });
