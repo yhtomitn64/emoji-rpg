@@ -334,6 +334,43 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#battle-widen-indicator').textContent, '');
   });
 
+  await t.test('Faultline\'s widen buff stacks with Sever\'s own extra target, hitting 2 extras total', async () => {
+    // 4 monsters (not 3, like the plain Sever test above) so that hitting
+    // exactly 3 (primary + Sever's own extra + widen's bonus extra) still
+    // leaves one monster provably untouched - with only 3 monsters, "all
+    // extras" and "capped at 1 extra" would be indistinguishable.
+    const { root } = await mountBattle(['boar', 'boar', 'boar', 'boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    const hpText = (i) => root.querySelector(`#battle-monster-hp-text-${i}`).textContent;
+    click(root.querySelector('#btn-ability-sweep'));
+    // Let Faultline's own staggered all-enemies sequence finish, same wait
+    // as the Impale widen test above.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    assert.match(root.querySelector('#battle-widen-indicator').textContent, /Widened/);
+
+    const before = [hpText(0), hpText(1), hpText(2), hpText(3)];
+    click(root.querySelector('#btn-ability-chop'));
+    const after = [hpText(0), hpText(1), hpText(2), hpText(3)];
+    const hitCount = after.filter((text, i) => text !== before[i]).length;
+    assert.equal(hitCount, 3, 'Sever should hit its target plus its own extra plus one more from the widen buff');
+  });
+
+  await t.test('Faultline\'s widen buff also bleeds Lacerate\'s bonus extra target, not just the primary', async () => {
+    const { root } = await mountBattle(['boar', 'boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    click(root.querySelector('#btn-ability-sweep'));
+    // Let Faultline's own staggered all-enemies sequence finish, same wait
+    // as the Impale widen test above.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    assert.match(root.querySelector('#battle-widen-indicator').textContent, /Widened/);
+
+    click(root.querySelector('#btn-ability-slash'));
+    // Lacerate's own delayedHitDelayMs is 900ms, ticked down 300ms per real
+    // tick (see tick()'s pendingDelayedHit handling in battleScreen.js) -
+    // wait past it with margin so both targets' bleed ticks land.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const bleedHits = (root.querySelector('#battle-log').textContent.match(/bleed hits/g) || []).length;
+    assert.equal(bleedHits, 2, 'both the primary target and the widen-bonus extra target should take Lacerate\'s delayed bleed tick');
+  });
+
   await t.test('parry windup fill drives from a real-time CSS animation, not a stale JS width snapshot', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     // speed: 1000 saturates the monster's ATB gauge on the very first
@@ -451,8 +488,9 @@ test('battleScreen DOM', async (t) => {
     const dialog = root.querySelector('.overlay-panel.battle-screen');
     assert.equal(dialog.classList.contains('battle-dialog-shake-crit'), false);
 
-    // playPerfectTimingEffect/playParryEffect append to <body>, same as the
-    // ability-timing-hit badge (see the level-4 combo test above).
+    // playPerfectTimingEffect/playParryEffect append to <body>, same
+    // escape-the-dialog's-overflow-hidden pattern as showDamageNumber's
+    // floating damage numbers.
     const badge = document.querySelector('.battle-perfect-timing-badge-parry');
     assert.ok(badge, 'a landed parry should show its own distinctly-styled badge');
     assert.equal(badge.textContent, 'PARRY!');

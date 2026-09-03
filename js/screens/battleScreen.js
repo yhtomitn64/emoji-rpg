@@ -143,7 +143,7 @@ function buildMonsterCombatant(monsterId, overrides, bonuses) {
 
 // Lifesteal and elemental proc are each their own small, discrete hook -
 // deliberately not a generic "on-hit effect" pipeline, matching how
-// crit/knockback/combo bonuses are each their own named mechanic in this
+// crit/knockback bonuses are each their own named mechanic in this
 // file already. Called once per monster actually hit by a player action
 // (once for a single-target hit, once per monster for an AOE ability).
 // damageMultiplier defaults to 1 (abilities' own on-hit effects always land
@@ -1401,6 +1401,16 @@ function playerAttack() {
 async function playerUseAbility(abilityId) {
   // See playerAttack's own comment on this same guard.
   if (battleOver || battlePaused) return;
+  // Deliberately checked, and acted on, before the abilityActionInFlight
+  // guard below - a well-timed Lacerate re-press must land even while
+  // Lacerate's own prior press is still "in flight" (it isn't, by the time
+  // the window is open, but this keeps the re-press from ever being blocked
+  // by itself). This can also let a re-press slip in while a *different*
+  // ability's multi-await sequence (e.g. Faultline's staggered all-enemies
+  // sweep) is mid-flight and abilityActionInFlight is still true for it -
+  // handleLacerateRetriggerPress() only touches buffState/log/menu, never
+  // combatant hp/atb, so at worst that interleaves a log line; no state
+  // corruption results.
   if (abilityId === 'slash' && lacerateRetriggerOpen) {
     handleLacerateRetriggerPress();
     return;
@@ -1504,6 +1514,9 @@ async function playerUseAbility(abilityId) {
       extraTarget.hp = extraResult.monsterHp;
       extraTarget.atb = extraResult.monsterAtb;
       maybeMarkSplitDeath(extraTarget, extraResult);
+      if (ability.id === 'slash') {
+        extraTarget.pendingDelayedHit = { amount: resolveDelayedHit(extraResult.damage, ability), dueAtMs: ability.delayedHitDelayMs };
+      }
       log.push(extraResult.isCrit
         ? `Critical! You use ${ability.name} on ${extraTarget.name} for ${extraResult.damage}!`
         : `You use ${ability.name} on ${extraTarget.name} for ${extraResult.damage}.`);
