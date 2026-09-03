@@ -112,3 +112,47 @@ export function stopMusic({ fadeMs = 1500 } = {}) {
   setTimeout(() => source.stop(), fadeMs);
   currentMusic = null;
 }
+
+function applyCategoryGain(category) {
+  const { volume, muted } = categoryState[category];
+  categoryGains[category].gain.value = muted ? 0 : volume;
+}
+
+export function setCategoryVolume(category, value) {
+  categoryState[category].volume = Math.min(1, Math.max(0, value));
+  applyCategoryGain(category);
+}
+
+export function setCategoryMuted(category, muted) {
+  categoryState[category].muted = muted;
+  applyCategoryGain(category);
+}
+
+export function setTheme(themeId) {
+  const previousTheme = currentTheme;
+  currentTheme = themeId;
+  if (previousTheme !== DEFAULT_THEME) {
+    for (const key of [...bufferCache.keys()]) {
+      if (key.startsWith(`${previousTheme}:`)) bufferCache.delete(key);
+    }
+  }
+}
+
+export function syncAudioSettings(settings) {
+  setTheme(settings.soundTheme);
+  setCategoryVolume('combat', settings.audioCombatVolume);
+  setCategoryMuted('combat', settings.audioCombatMuted);
+  setCategoryVolume('ui', settings.audioUiVolume);
+  setCategoryMuted('ui', settings.audioUiMuted);
+  setCategoryVolume('world', settings.audioWorldVolume);
+  setCategoryMuted('world', settings.audioWorldMuted);
+  setCategoryVolume('music', settings.audioMusicVolume);
+  setCategoryMuted('music', settings.audioMusicMuted);
+}
+
+// Test-only: categoryGains is internal engine state with no other reason to
+// be exported. Kept to a single trivial accessor rather than exporting the
+// whole map, so production code never has a reason to reach in from outside.
+export function _getCategoryGainValueForTests(category) {
+  return categoryGains[category].gain.value;
+}

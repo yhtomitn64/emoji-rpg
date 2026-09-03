@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initAudio, unlockAudio, CATEGORIES, playSfx, playMusic, stopMusic } from '../js/systems/audio.js';
+import { initAudio, unlockAudio, CATEGORIES, playSfx, playMusic, stopMusic, setCategoryVolume, setCategoryMuted, setTheme, syncAudioSettings, _getCategoryGainValueForTests } from '../js/systems/audio.js';
+
+function categoryGainValueFor(category) {
+  return _getCategoryGainValueForTests(category);
+}
 
 class FakeGainNode {
   constructor() { this.gain = { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }; this.connected = []; }
@@ -116,4 +120,56 @@ test('playMusic crossfades: starting a second track ramps the first track\'s gai
 test('stopMusic clears the current track with no error when nothing is playing', async () => {
   initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
   assert.doesNotThrow(() => stopMusic());
+});
+
+test('setCategoryVolume clamps to 0..1 and updates the gain node value', () => {
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
+  setCategoryVolume('combat', 1.5);
+  assert.equal(categoryGainValueFor('combat'), 1);
+  setCategoryVolume('combat', -1);
+  assert.equal(categoryGainValueFor('combat'), 0);
+});
+
+test('setCategoryMuted forces the gain to 0 regardless of volume, and restores volume on unmute', () => {
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
+  setCategoryVolume('ui', 0.7);
+  setCategoryMuted('ui', true);
+  assert.equal(categoryGainValueFor('ui'), 0);
+  setCategoryMuted('ui', false);
+  assert.equal(categoryGainValueFor('ui'), 0.7);
+});
+
+test('setTheme switches the theme used for subsequent playSfx path resolution', async () => {
+  const fetchSpy = fakeFetch(true);
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fetchSpy });
+  setTheme('metal');
+  await playSfx('hitNormal');
+  // 'metal' has no entries yet, so this must still resolve to the realistic fallback path.
+  assert.match(fetchSpy.calls[0], /realistic\/sfx\/hitNormal\.mp3$/);
+});
+
+test('setTheme clears cached buffers for the previous non-default theme', async () => {
+  const fetchSpy = fakeFetch(true);
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fetchSpy });
+  setTheme('metal');
+  await playSfx('hitNormal'); // caches under 'metal:hitNormal' (falls back to realistic path, but cache key is theme-specific)
+  setTheme('realistic');
+  setTheme('metal');
+  await playSfx('hitNormal');
+  assert.equal(fetchSpy.calls.length, 2, 'switching away from and back to a non-default theme should refetch, not reuse a stale cache entry');
+});
+
+test('syncAudioSettings applies volumes, mutes, and theme from a settings object in one call', () => {
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
+  syncAudioSettings({
+    soundTheme: 'realistic',
+    audioCombatVolume: 0.3, audioCombatMuted: false,
+    audioUiVolume: 0.9, audioUiMuted: true,
+    audioWorldVolume: 0.5, audioWorldMuted: false,
+    audioMusicVolume: 0.2, audioMusicMuted: false,
+  });
+  assert.equal(categoryGainValueFor('combat'), 0.3);
+  assert.equal(categoryGainValueFor('ui'), 0); // muted
+  assert.equal(categoryGainValueFor('world'), 0.5);
+  assert.equal(categoryGainValueFor('music'), 0.2);
 });
