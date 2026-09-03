@@ -123,6 +123,7 @@ const WORLD_GRID = buildWorldGrid(MAPS);
 
 let state = null;
 let activeSlotId = null;
+let audioStarted = false;
 
 function startGame(loadedState, slotId) {
   state = migrateUpgradesToPerTier(loadedState);
@@ -207,9 +208,14 @@ function startGame(loadedState, slotId) {
   if (!state.player.emoji) {
     state.player.emoji = DEFAULT_HERO_EMOJI;
   }
-  initAudio();
+  // guarded to run once per session — startGame's other call sites (NG+ restart) happen
+  // mid-session with audio already initialized, and only need their settings re-synced.
+  if (!audioStarted) {
+    audioStarted = true;
+    initAudio();
+    unlockAudio(); // startGame's first call only ever runs from a real click (save-slot select), so this satisfies the browser's autoplay-gesture requirement.
+  }
   syncAudioSettings(state.settings);
-  unlockAudio(); // startGame only ever runs from a real click (save-slot select), so this satisfies the browser's autoplay-gesture requirement.
   renderHud();
   goToMap(state.map);
 }
