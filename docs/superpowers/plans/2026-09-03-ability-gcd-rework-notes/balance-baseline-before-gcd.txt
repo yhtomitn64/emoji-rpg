@@ -1,0 +1,305 @@
+Balance simulation — 2000 trials per matchup, parry land rate 0.3
+
+Monster stats under test:
+  Snorty McPigface       hp  77  atk 15  def  1  spd  4
+  Spooky Pancake         hp  55  atk 13  def  0  spd  7
+  Slippery Breadstick    hp  60  atk 15  def  1  spd  5
+  Mean Meatball          hp  67  atk 15  def  2  spd  4
+  Mega Muffin            hp 100  atk 19  def  3  spd  6
+  Eight-Leg Eggroll      hp  85  atk 17  def  2  spd  5
+  Super Mean Meatloaf    hp 180  atk 32  def  8  spd  8
+  Ghost Apple Supreme    hp 170  atk 32  def  4  spd 11
+  Jurassic Jerky         hp 132  atk 30  def 11  spd 10
+  Dragon (tier 0)        hp 150  atk 34  def 12  spd 11
+  Dragon (tier 1)        hp 300  atk 43  def 15  spd 11
+  Dragon (tier 2)        hp 600  atk 53  def 19  spd 11
+  Snorty McPigface (NG+2) hp 308  atk 23  def  2  spd  4
+  Spooky Pancake (NG+2)  hp 220  atk 20  def  0  spd  7
+  Slippery Breadstick (NG+2) hp 240  atk 23  def  2  spd  5
+  Mean Meatball (NG+2)   hp 268  atk 23  def  3  spd  4
+  Mega Muffin (NG+2)     hp 400  atk 30  def  5  spd  6
+  Eight-Leg Eggroll (NG+2) hp 340  atk 27  def  3  spd  5
+  Super Mean Meatloaf (NG+2) hp 720  atk 50  def 13  spd  8
+  Ghost Apple Supreme (NG+2) hp 680  atk 50  def  6  spd 11
+  Jurassic Jerky (NG+2)  hp 528  atk 47  def 17  spd 10
+
+Player builds under test:
+  L1 (starter sword only, no armor)      hp  20  atk  8  def  3  spd  5  potions 2  gear cost 0g
+  L1 (starter sword + cloth tunic)       hp  24  atk  8  def  5  spd  5  potions 2  gear cost 20g
+  L4 (starter sword + cloth tunic + cloth cap) hp  36  atk 13  def  9  spd  8  potions 3  gear cost 35g
+  L5 (starter sword unupgraded, full cloth) hp  40  atk 14  def 11  spd 10  potions 3  gear cost 50g
+  rushed L6 (starter sword + cloth cap)  hp  40  atk 16  def  9  spd 10  potions 2  gear cost 15g
+  reasonable L7 (iron sword + full cloth) hp  48  atk 20  def 13  spd 14  potions 4  gear cost 105g
+  geared L6 (full iron)                  hp  48  atk 21  def 19  spd 10  potions 4  gear cost 180g
+  prepared L9 (full iron)                hp  60  atk 25  def 22  spd 13  potions 6  gear cost 180g
+  prepared L9 (full iron, 2 potions)     hp  60  atk 25  def 22  spd 13  potions 2  gear cost 180g
+  veteran L11 (full iron)                hp  64  atk 27  def 24  spd 14  potions 6  gear cost 180g
+  maxed Mythic L12 (NG+2, no rings)      hp  79  atk 41  def 43  spd 15  potions 6  gear cost 180g
+  maxed Mythic L12 (NG+2, +rings)        hp  79  atk 41  def 43  spd 15  potions 6  gear cost 180g
+
+build                                 monster                 win   HP left  potions
+----------------------------------------------------------------------------------------
+L1 (starter sword only, no armor)     Snorty McPigface        98%     76%    0.3
+L1 (starter sword only, no armor)     Spooky Pancake         100%     68%    0.1
+L1 (starter sword only, no armor)     Slippery Breadstick     97%     76%    0.3
+L1 (starter sword only, no armor)     Mean Meatball           97%     75%    0.3
+L1 (starter sword only, no armor)     Mega Muffin             51%     74%    1.6
+L1 (starter sword only, no armor)     Eight-Leg Eggroll       78%     91%    1.2
+L1 (starter sword only, no armor)     Super Mean Meatloaf      0%      0%    0.0
+L1 (starter sword only, no armor)     Ghost Apple Supreme      0%      0%    0.0
+L1 (starter sword only, no armor)     Jurassic Jerky           0%      0%    0.0
+L1 (starter sword only, no armor)     Dragon (tier 0)          0%      0%    0.0
+L1 (starter sword only, no armor)     Dragon (tier 1)          0%      0%    0.0
+L1 (starter sword only, no armor)     Dragon (tier 2)          0%      0%    0.0
+L1 (starter sword only, no armor)     Snorty McPigface (NG+2)   0%      0%    0.4
+L1 (starter sword only, no armor)     Spooky Pancake (NG+2)    6%     33%    1.4
+L1 (starter sword only, no armor)     Slippery Breadstick (NG+2)   0%      0%    0.4
+L1 (starter sword only, no armor)     Mean Meatball (NG+2)     0%     85%    0.4
+L1 (starter sword only, no armor)     Mega Muffin (NG+2)       0%      0%    0.0
+L1 (starter sword only, no armor)     Eight-Leg Eggroll (NG+2)   0%      0%    0.0
+L1 (starter sword only, no armor)     Super Mean Meatloaf (NG+2)   0%      0%    0.0
+L1 (starter sword only, no armor)     Ghost Apple Supreme (NG+2)   0%      0%    0.0
+L1 (starter sword only, no armor)     Jurassic Jerky (NG+2)    0%      0%    0.0
+----------------------------------------------------------------------------------------
+L1 (starter sword + cloth tunic)      Snorty McPigface       100%     73%    0.0
+L1 (starter sword + cloth tunic)      Spooky Pancake         100%     76%    0.0
+L1 (starter sword + cloth tunic)      Slippery Breadstick    100%     72%    0.0
+L1 (starter sword + cloth tunic)      Mean Meatball          100%     73%    0.0
+L1 (starter sword + cloth tunic)      Mega Muffin             32%     64%    0.7
+L1 (starter sword + cloth tunic)      Eight-Leg Eggroll       59%     64%    0.4
+L1 (starter sword + cloth tunic)      Super Mean Meatloaf      0%      0%    0.1
+L1 (starter sword + cloth tunic)      Ghost Apple Supreme      0%      0%    0.1
+L1 (starter sword + cloth tunic)      Jurassic Jerky           0%      0%    0.3
+L1 (starter sword + cloth tunic)      Dragon (tier 0)          0%      0%    0.0
+L1 (starter sword + cloth tunic)      Dragon (tier 1)          0%      0%    0.0
+L1 (starter sword + cloth tunic)      Dragon (tier 2)          0%      0%    0.0
+L1 (starter sword + cloth tunic)      Snorty McPigface (NG+2)   6%     39%    1.6
+L1 (starter sword + cloth tunic)      Spooky Pancake (NG+2)    8%     42%    1.1
+L1 (starter sword + cloth tunic)      Slippery Breadstick (NG+2)   3%     45%    1.6
+L1 (starter sword + cloth tunic)      Mean Meatball (NG+2)     6%     29%    1.6
+L1 (starter sword + cloth tunic)      Mega Muffin (NG+2)       0%      0%    0.3
+L1 (starter sword + cloth tunic)      Eight-Leg Eggroll (NG+2)   0%      0%    0.7
+L1 (starter sword + cloth tunic)      Super Mean Meatloaf (NG+2)   0%      0%    0.0
+L1 (starter sword + cloth tunic)      Ghost Apple Supreme (NG+2)   0%      0%    0.0
+L1 (starter sword + cloth tunic)      Jurassic Jerky (NG+2)    0%      0%    0.0
+----------------------------------------------------------------------------------------
+L4 (starter sword + cloth tunic + cloth cap)Snorty McPigface       100%    100%    0.0
+L4 (starter sword + cloth tunic + cloth cap)Spooky Pancake         100%     92%    0.0
+L4 (starter sword + cloth tunic + cloth cap)Slippery Breadstick    100%     88%    0.0
+L4 (starter sword + cloth tunic + cloth cap)Mean Meatball          100%    100%    0.0
+L4 (starter sword + cloth tunic + cloth cap)Mega Muffin            100%     59%    0.2
+L4 (starter sword + cloth tunic + cloth cap)Eight-Leg Eggroll      100%     83%    0.0
+L4 (starter sword + cloth tunic + cloth cap)Super Mean Meatloaf      0%      0%    1.3
+L4 (starter sword + cloth tunic + cloth cap)Ghost Apple Supreme      0%      0%    1.3
+L4 (starter sword + cloth tunic + cloth cap)Jurassic Jerky           0%      0%    1.0
+L4 (starter sword + cloth tunic + cloth cap)Dragon (tier 0)          0%      0%    1.4
+L4 (starter sword + cloth tunic + cloth cap)Dragon (tier 1)          0%      0%    0.6
+L4 (starter sword + cloth tunic + cloth cap)Dragon (tier 2)          0%      0%    0.0
+L4 (starter sword + cloth tunic + cloth cap)Snorty McPigface (NG+2)  89%     65%    2.1
+L4 (starter sword + cloth tunic + cloth cap)Spooky Pancake (NG+2)   95%     57%    1.8
+L4 (starter sword + cloth tunic + cloth cap)Slippery Breadstick (NG+2)  89%     64%    2.1
+L4 (starter sword + cloth tunic + cloth cap)Mean Meatball (NG+2)    88%     65%    2.1
+L4 (starter sword + cloth tunic + cloth cap)Mega Muffin (NG+2)       0%      0%    1.0
+L4 (starter sword + cloth tunic + cloth cap)Eight-Leg Eggroll (NG+2)   2%     35%    0.7
+L4 (starter sword + cloth tunic + cloth cap)Super Mean Meatloaf (NG+2)   0%      0%    0.1
+L4 (starter sword + cloth tunic + cloth cap)Ghost Apple Supreme (NG+2)   0%      0%    0.1
+L4 (starter sword + cloth tunic + cloth cap)Jurassic Jerky (NG+2)    0%      0%    0.2
+----------------------------------------------------------------------------------------
+L5 (starter sword unupgraded, full cloth)Snorty McPigface       100%    100%    0.0
+L5 (starter sword unupgraded, full cloth)Spooky Pancake         100%     97%    0.0
+L5 (starter sword unupgraded, full cloth)Slippery Breadstick    100%     94%    0.0
+L5 (starter sword unupgraded, full cloth)Mean Meatball          100%    100%    0.0
+L5 (starter sword unupgraded, full cloth)Mega Muffin            100%     65%    0.0
+L5 (starter sword unupgraded, full cloth)Eight-Leg Eggroll      100%     89%    0.0
+L5 (starter sword unupgraded, full cloth)Super Mean Meatloaf      0%      0%    0.4
+L5 (starter sword unupgraded, full cloth)Ghost Apple Supreme      0%      0%    0.3
+L5 (starter sword unupgraded, full cloth)Jurassic Jerky           0%      0%    1.1
+L5 (starter sword unupgraded, full cloth)Dragon (tier 0)          0%      0%    0.7
+L5 (starter sword unupgraded, full cloth)Dragon (tier 1)          0%      0%    0.9
+L5 (starter sword unupgraded, full cloth)Dragon (tier 2)          0%      0%    0.3
+L5 (starter sword unupgraded, full cloth)Snorty McPigface (NG+2)  95%     56%    1.5
+L5 (starter sword unupgraded, full cloth)Spooky Pancake (NG+2)  100%     60%    1.0
+L5 (starter sword unupgraded, full cloth)Slippery Breadstick (NG+2)  95%     56%    1.5
+L5 (starter sword unupgraded, full cloth)Mean Meatball (NG+2)    97%     57%    1.2
+L5 (starter sword unupgraded, full cloth)Mega Muffin (NG+2)       0%      0%    1.1
+L5 (starter sword unupgraded, full cloth)Eight-Leg Eggroll (NG+2)  44%     32%    2.5
+L5 (starter sword unupgraded, full cloth)Super Mean Meatloaf (NG+2)   0%      0%    0.5
+L5 (starter sword unupgraded, full cloth)Ghost Apple Supreme (NG+2)   0%      0%    0.5
+L5 (starter sword unupgraded, full cloth)Jurassic Jerky (NG+2)    0%      0%    0.7
+----------------------------------------------------------------------------------------
+rushed L6 (starter sword + cloth cap) Snorty McPigface       100%    100%    0.0
+rushed L6 (starter sword + cloth cap) Spooky Pancake         100%     94%    0.0
+rushed L6 (starter sword + cloth cap) Slippery Breadstick    100%     90%    0.0
+rushed L6 (starter sword + cloth cap) Mean Meatball          100%    100%    0.0
+rushed L6 (starter sword + cloth cap) Mega Muffin            100%     60%    0.1
+rushed L6 (starter sword + cloth cap) Eight-Leg Eggroll      100%     85%    0.0
+rushed L6 (starter sword + cloth cap) Super Mean Meatloaf      0%      0%    0.6
+rushed L6 (starter sword + cloth cap) Ghost Apple Supreme      0%      0%    0.6
+rushed L6 (starter sword + cloth cap) Jurassic Jerky           0%      0%    0.3
+rushed L6 (starter sword + cloth cap) Dragon (tier 0)          0%      0%    1.0
+rushed L6 (starter sword + cloth cap) Dragon (tier 1)          0%      0%    0.9
+rushed L6 (starter sword + cloth cap) Dragon (tier 2)          0%      0%    0.1
+rushed L6 (starter sword + cloth cap) Snorty McPigface (NG+2)  94%     48%    1.8
+rushed L6 (starter sword + cloth cap) Spooky Pancake (NG+2)   97%     51%    1.4
+rushed L6 (starter sword + cloth cap) Slippery Breadstick (NG+2)  94%     50%    1.8
+rushed L6 (starter sword + cloth cap) Mean Meatball (NG+2)    96%     49%    1.8
+rushed L6 (starter sword + cloth cap) Mega Muffin (NG+2)       0%      0%    0.3
+rushed L6 (starter sword + cloth cap) Eight-Leg Eggroll (NG+2)   6%     20%    1.3
+rushed L6 (starter sword + cloth cap) Super Mean Meatloaf (NG+2)   0%      0%    0.3
+rushed L6 (starter sword + cloth cap) Ghost Apple Supreme (NG+2)   0%      0%    0.4
+rushed L6 (starter sword + cloth cap) Jurassic Jerky (NG+2)    0%      0%    0.6
+----------------------------------------------------------------------------------------
+reasonable L7 (iron sword + full cloth)Snorty McPigface       100%    100%    0.0
+reasonable L7 (iron sword + full cloth)Spooky Pancake         100%    100%    0.0
+reasonable L7 (iron sword + full cloth)Slippery Breadstick    100%    100%    0.0
+reasonable L7 (iron sword + full cloth)Mean Meatball          100%    100%    0.0
+reasonable L7 (iron sword + full cloth)Mega Muffin            100%     91%    0.0
+reasonable L7 (iron sword + full cloth)Eight-Leg Eggroll      100%     94%    0.0
+reasonable L7 (iron sword + full cloth)Super Mean Meatloaf     39%     31%    3.2
+reasonable L7 (iron sword + full cloth)Ghost Apple Supreme     50%     45%    3.0
+reasonable L7 (iron sword + full cloth)Jurassic Jerky          28%     27%    3.8
+reasonable L7 (iron sword + full cloth)Dragon (tier 0)          0%      0%    2.7
+reasonable L7 (iron sword + full cloth)Dragon (tier 1)          0%      0%    1.5
+reasonable L7 (iron sword + full cloth)Dragon (tier 2)          0%      0%    1.1
+reasonable L7 (iron sword + full cloth)Snorty McPigface (NG+2) 100%     62%    0.4
+reasonable L7 (iron sword + full cloth)Spooky Pancake (NG+2)  100%     59%    0.2
+reasonable L7 (iron sword + full cloth)Slippery Breadstick (NG+2) 100%     62%    0.4
+reasonable L7 (iron sword + full cloth)Mean Meatball (NG+2)   100%     62%    0.4
+reasonable L7 (iron sword + full cloth)Mega Muffin (NG+2)      27%     26%    3.8
+reasonable L7 (iron sword + full cloth)Eight-Leg Eggroll (NG+2)  96%     55%    2.3
+reasonable L7 (iron sword + full cloth)Super Mean Meatloaf (NG+2)   0%      0%    0.9
+reasonable L7 (iron sword + full cloth)Ghost Apple Supreme (NG+2)   0%      0%    0.9
+reasonable L7 (iron sword + full cloth)Jurassic Jerky (NG+2)    0%      0%    1.2
+----------------------------------------------------------------------------------------
+geared L6 (full iron)                 Snorty McPigface       100%    100%    0.0
+geared L6 (full iron)                 Spooky Pancake         100%    100%    0.0
+geared L6 (full iron)                 Slippery Breadstick    100%    100%    0.0
+geared L6 (full iron)                 Mean Meatball          100%    100%    0.0
+geared L6 (full iron)                 Mega Muffin            100%     98%    0.0
+geared L6 (full iron)                 Eight-Leg Eggroll      100%     98%    0.0
+geared L6 (full iron)                 Super Mean Meatloaf     98%     54%    3.2
+geared L6 (full iron)                 Ghost Apple Supreme     98%     57%    2.5
+geared L6 (full iron)                 Jurassic Jerky         100%     56%    3.3
+geared L6 (full iron)                 Dragon (tier 0)          7%     22%    3.8
+geared L6 (full iron)                 Dragon (tier 1)          0%      0%    1.3
+geared L6 (full iron)                 Dragon (tier 2)          0%      0%    1.2
+geared L6 (full iron)                 Snorty McPigface (NG+2) 100%     79%    0.0
+geared L6 (full iron)                 Spooky Pancake (NG+2)  100%     94%    0.0
+geared L6 (full iron)                 Slippery Breadstick (NG+2) 100%     79%    0.0
+geared L6 (full iron)                 Mean Meatball (NG+2)   100%     83%    0.0
+geared L6 (full iron)                 Mega Muffin (NG+2)     100%     51%    3.4
+geared L6 (full iron)                 Eight-Leg Eggroll (NG+2) 100%     58%    0.7
+geared L6 (full iron)                 Super Mean Meatloaf (NG+2)   0%      0%    1.4
+geared L6 (full iron)                 Ghost Apple Supreme (NG+2)   0%      0%    1.4
+geared L6 (full iron)                 Jurassic Jerky (NG+2)    0%      0%    1.2
+----------------------------------------------------------------------------------------
+prepared L9 (full iron)               Snorty McPigface       100%    100%    0.0
+prepared L9 (full iron)               Spooky Pancake         100%    100%    0.0
+prepared L9 (full iron)               Slippery Breadstick    100%    100%    0.0
+prepared L9 (full iron)               Mean Meatball          100%    100%    0.0
+prepared L9 (full iron)               Mega Muffin            100%     99%    0.0
+prepared L9 (full iron)               Eight-Leg Eggroll      100%     99%    0.0
+prepared L9 (full iron)               Super Mean Meatloaf    100%     50%    1.7
+prepared L9 (full iron)               Ghost Apple Supreme    100%     53%    1.2
+prepared L9 (full iron)               Jurassic Jerky         100%     52%    1.6
+prepared L9 (full iron)               Dragon (tier 0)        100%     47%    4.3
+prepared L9 (full iron)               Dragon (tier 1)          0%      0%    5.3
+prepared L9 (full iron)               Dragon (tier 2)          0%      0%    1.0
+prepared L9 (full iron)               Snorty McPigface (NG+2) 100%     96%    0.0
+prepared L9 (full iron)               Spooky Pancake (NG+2)  100%     94%    0.0
+prepared L9 (full iron)               Slippery Breadstick (NG+2) 100%     96%    0.0
+prepared L9 (full iron)               Mean Meatball (NG+2)   100%     96%    0.0
+prepared L9 (full iron)               Mega Muffin (NG+2)     100%     52%    1.8
+prepared L9 (full iron)               Eight-Leg Eggroll (NG+2) 100%     65%    0.0
+prepared L9 (full iron)               Super Mean Meatloaf (NG+2)   0%      0%    3.0
+prepared L9 (full iron)               Ghost Apple Supreme (NG+2)   0%      0%    2.9
+prepared L9 (full iron)               Jurassic Jerky (NG+2)    0%      0%    3.5
+----------------------------------------------------------------------------------------
+prepared L9 (full iron, 2 potions)    Snorty McPigface       100%    100%    0.0
+prepared L9 (full iron, 2 potions)    Spooky Pancake         100%    100%    0.0
+prepared L9 (full iron, 2 potions)    Slippery Breadstick    100%    100%    0.0
+prepared L9 (full iron, 2 potions)    Mean Meatball          100%    100%    0.0
+prepared L9 (full iron, 2 potions)    Mega Muffin            100%     99%    0.0
+prepared L9 (full iron, 2 potions)    Eight-Leg Eggroll      100%     99%    0.0
+prepared L9 (full iron, 2 potions)    Super Mean Meatloaf    100%     47%    1.6
+prepared L9 (full iron, 2 potions)    Ghost Apple Supreme    100%     53%    1.2
+prepared L9 (full iron, 2 potions)    Jurassic Jerky         100%     52%    1.5
+prepared L9 (full iron, 2 potions)    Dragon (tier 0)         34%     16%    2.0
+prepared L9 (full iron, 2 potions)    Dragon (tier 1)          0%      0%    1.9
+prepared L9 (full iron, 2 potions)    Dragon (tier 2)          0%      0%    0.6
+prepared L9 (full iron, 2 potions)    Snorty McPigface (NG+2) 100%     96%    0.0
+prepared L9 (full iron, 2 potions)    Spooky Pancake (NG+2)  100%     94%    0.0
+prepared L9 (full iron, 2 potions)    Slippery Breadstick (NG+2) 100%     96%    0.0
+prepared L9 (full iron, 2 potions)    Mean Meatball (NG+2)   100%     96%    0.0
+prepared L9 (full iron, 2 potions)    Mega Muffin (NG+2)     100%     49%    1.7
+prepared L9 (full iron, 2 potions)    Eight-Leg Eggroll (NG+2) 100%     65%    0.0
+prepared L9 (full iron, 2 potions)    Super Mean Meatloaf (NG+2)   0%      0%    1.4
+prepared L9 (full iron, 2 potions)    Ghost Apple Supreme (NG+2)   0%      0%    1.4
+prepared L9 (full iron, 2 potions)    Jurassic Jerky (NG+2)    0%      0%    1.6
+----------------------------------------------------------------------------------------
+veteran L11 (full iron)               Snorty McPigface       100%    100%    0.0
+veteran L11 (full iron)               Spooky Pancake         100%     99%    0.0
+veteran L11 (full iron)               Slippery Breadstick    100%     99%    0.0
+veteran L11 (full iron)               Mean Meatball          100%    100%    0.0
+veteran L11 (full iron)               Mega Muffin            100%     98%    0.0
+veteran L11 (full iron)               Eight-Leg Eggroll      100%     99%    0.0
+veteran L11 (full iron)               Super Mean Meatloaf    100%     52%    1.3
+veteran L11 (full iron)               Ghost Apple Supreme    100%     47%    1.8
+veteran L11 (full iron)               Jurassic Jerky         100%     48%    0.8
+veteran L11 (full iron)               Dragon (tier 0)        100%     52%    3.7
+veteran L11 (full iron)               Dragon (tier 1)          0%      0%    5.6
+veteran L11 (full iron)               Dragon (tier 2)          0%      0%    3.5
+veteran L11 (full iron)               Snorty McPigface (NG+2) 100%     95%    0.0
+veteran L11 (full iron)               Spooky Pancake (NG+2)  100%     93%    0.0
+veteran L11 (full iron)               Slippery Breadstick (NG+2) 100%     96%    0.0
+veteran L11 (full iron)               Mean Meatball (NG+2)   100%     96%    0.0
+veteran L11 (full iron)               Mega Muffin (NG+2)     100%     53%    1.2
+veteran L11 (full iron)               Eight-Leg Eggroll (NG+2) 100%     73%    0.0
+veteran L11 (full iron)               Super Mean Meatloaf (NG+2)   0%      0%    4.1
+veteran L11 (full iron)               Ghost Apple Supreme (NG+2)   0%      0%    4.1
+veteran L11 (full iron)               Jurassic Jerky (NG+2)    0%      0%    5.2
+----------------------------------------------------------------------------------------
+maxed Mythic L12 (NG+2, no rings)     Snorty McPigface       100%    100%    0.0
+maxed Mythic L12 (NG+2, no rings)     Spooky Pancake         100%    100%    0.0
+maxed Mythic L12 (NG+2, no rings)     Slippery Breadstick    100%    100%    0.0
+maxed Mythic L12 (NG+2, no rings)     Mean Meatball          100%    100%    0.0
+maxed Mythic L12 (NG+2, no rings)     Mega Muffin            100%     99%    0.0
+maxed Mythic L12 (NG+2, no rings)     Eight-Leg Eggroll      100%     99%    0.0
+maxed Mythic L12 (NG+2, no rings)     Super Mean Meatloaf    100%     95%    0.0
+maxed Mythic L12 (NG+2, no rings)     Ghost Apple Supreme    100%     94%    0.0
+maxed Mythic L12 (NG+2, no rings)     Jurassic Jerky         100%     95%    0.0
+maxed Mythic L12 (NG+2, no rings)     Dragon (tier 0)        100%     94%    0.0
+maxed Mythic L12 (NG+2, no rings)     Dragon (tier 1)        100%     85%    0.0
+maxed Mythic L12 (NG+2, no rings)     Dragon (tier 2)          0%      0%    6.0
+maxed Mythic L12 (NG+2, no rings)     Snorty McPigface (NG+2) 100%     98%    0.0
+maxed Mythic L12 (NG+2, no rings)     Spooky Pancake (NG+2)  100%     97%    0.0
+maxed Mythic L12 (NG+2, no rings)     Slippery Breadstick (NG+2) 100%     97%    0.0
+maxed Mythic L12 (NG+2, no rings)     Mean Meatball (NG+2)   100%     98%    0.0
+maxed Mythic L12 (NG+2, no rings)     Mega Muffin (NG+2)     100%     93%    0.0
+maxed Mythic L12 (NG+2, no rings)     Eight-Leg Eggroll (NG+2) 100%     97%    0.0
+maxed Mythic L12 (NG+2, no rings)     Super Mean Meatloaf (NG+2) 100%     41%    5.8
+maxed Mythic L12 (NG+2, no rings)     Ghost Apple Supreme (NG+2) 100%     40%    5.8
+maxed Mythic L12 (NG+2, no rings)     Jurassic Jerky (NG+2)  100%     49%    2.9
+----------------------------------------------------------------------------------------
+maxed Mythic L12 (NG+2, +rings)       Snorty McPigface       100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Spooky Pancake         100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Slippery Breadstick    100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Mean Meatball          100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Mega Muffin            100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Eight-Leg Eggroll      100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Super Mean Meatloaf    100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Ghost Apple Supreme    100%     99%    0.0
+maxed Mythic L12 (NG+2, +rings)       Jurassic Jerky         100%     99%    0.0
+maxed Mythic L12 (NG+2, +rings)       Dragon (tier 0)        100%     99%    0.0
+maxed Mythic L12 (NG+2, +rings)       Dragon (tier 1)        100%     97%    0.0
+maxed Mythic L12 (NG+2, +rings)       Dragon (tier 2)        100%     51%    1.1
+maxed Mythic L12 (NG+2, +rings)       Snorty McPigface (NG+2) 100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Spooky Pancake (NG+2)  100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Slippery Breadstick (NG+2) 100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Mean Meatball (NG+2)   100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Mega Muffin (NG+2)     100%     99%    0.0
+maxed Mythic L12 (NG+2, +rings)       Eight-Leg Eggroll (NG+2) 100%    100%    0.0
+maxed Mythic L12 (NG+2, +rings)       Super Mean Meatloaf (NG+2) 100%     70%    0.0
+maxed Mythic L12 (NG+2, +rings)       Ghost Apple Supreme (NG+2) 100%     63%    0.1
+maxed Mythic L12 (NG+2, +rings)       Jurassic Jerky (NG+2)  100%     78%    0.0
+----------------------------------------------------------------------------------------
