@@ -772,6 +772,18 @@ button:disabled {
   border-color: #f5b942;
   box-shadow: 0 0 8px rgba(245, 185, 66, 0.6);
 }
+/* Distinct flash for the retrigger window's own sweet-spot sub-range
+   (raised 2026-09-02, see docs/superpowers/BACKLOG.md's "Lacerate
+   retrigger sweet-spot flash" item) - reuses battle-zone-pulse's brightness
+   flash (same visual language as the parry zone's own pulse) rather than
+   a new keyframe. `infinite` (not a one-shot) because whichever tick's
+   render happens to land inside the sub-range applies this class fresh on
+   a brand-new button element each time - a single iteration could get cut
+   short by the very next re-render, so it loops for as long as the class
+   stays applied instead of assuming it gets to finish. */
+.battle-ability-button-retrigger-sweetspot {
+  animation: battle-zone-pulse 0.3s ease-out infinite;
+}
 /* Parry is a standalone reaction, not one of the ATB-gated actions beside
    it - a distinct blue border (matches the existing water/ATB blue used
    elsewhere, #2b6cb0) sets it apart from the combat buttons rather than

@@ -34,14 +34,14 @@ export const SOUND_CATEGORY = {
 };
 
 function sfxPath(soundId) {
-  return `assets/audio/realistic/sfx/${soundId}.mp3`;
+  return `assets/audio/${DEFAULT_THEME}/sfx/${soundId}.mp3`;
 }
 function musicPath(soundId) {
-  return `assets/audio/realistic/music/${soundId}.mp3`;
+  return `assets/audio/${DEFAULT_THEME}/music/${soundId}.mp3`;
 }
 
 export const SOUND_THEMES = {
-  realistic: Object.fromEntries(
+  [DEFAULT_THEME]: Object.fromEntries(
     Object.entries(SOUND_CATEGORY).map(([soundId, category]) => [
       soundId,
       category === 'music' ? musicPath(soundId) : sfxPath(soundId),

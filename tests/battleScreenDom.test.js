@@ -975,6 +975,37 @@ test('battleScreen DOM', async (t) => {
     assert.equal(lacerateBtn.disabled, false, 'Lacerate should stay clickable during its own retrigger window, despite being on cooldown');
   });
 
+  await t.test('the retrigger glow gets a distinct flash class once the window reaches its sweet-spot sub-range', async () => {
+    // High HP override: Lacerate's own delayed bleed tick (900ms after use,
+    // ~75% into this 1200ms retrigger window) would otherwise finish off a
+    // regular boar and end the battle before the window's own 80-100%
+    // sweet spot is ever reached - every tick after battleOver bails at the
+    // top of tick(), so updateMenu() (and this flash) would never run again.
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ player: { ...createNewGame().player, level: 6 } }),
+      monsterOverrides: [{ hp: 100000 }],
+    });
+    click(root.querySelector('#btn-ability-slash'));
+    // Poll rather than wait for a fixed delay - the flash only appears on
+    // whichever 300ms tick's render happens to land inside the sweet spot's
+    // sub-range (see abilityButtonEntries()'s own comment on why this can't
+    // be a precisely-timed one-shot like the parry zone's pulse), so the
+    // exact real-time offset isn't fixed the way the retrigger press itself
+    // is. Bounded past the window's own 1200ms so a genuine regression
+    // still fails instead of hanging.
+    const pollStart = Date.now();
+    let sawFlash = false;
+    while (Date.now() - pollStart < 1500) {
+      const btn = root.querySelector('#btn-ability-slash');
+      if (btn?.classList.contains('battle-ability-button-retrigger-sweetspot')) {
+        sawFlash = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.ok(sawFlash, 'expected the sweet-spot flash class to appear at some point during the retrigger window');
+  });
+
   await t.test('landing the re-press inside the sweet spot buffs the other abilities', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     click(root.querySelector('#btn-ability-slash'));
@@ -1015,7 +1046,15 @@ test('battleScreen DOM', async (t) => {
   await t.test('missing the re-press window entirely (letting it lapse) grants no buff', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     click(root.querySelector('#btn-ability-slash'));
-    await new Promise((resolve) => setTimeout(resolve, 1500)); // past the 1200ms window, tick() polls it closed
+    // Past the 1200ms window plus one more full 300ms tick: tick() now
+    // renders once more with the window still open on the tick that first
+    // crosses windowMs (so the sweet-spot flash gets a chance to show right
+    // up to the boundary - see abilityButtonEntries()'s and tick()'s own
+    // comments on the retrigger close-check's ordering), closing only
+    // after that render. The glow doesn't actually clear from the DOM
+    // until the following tick's own render, one 300ms tick later than it
+    // used to.
+    await new Promise((resolve) => setTimeout(resolve, 1800));
     assert.equal(root.querySelector('#battle-buff-indicator').textContent, '');
     // Re-query rather than reuse a pre-click reference - see the comment on
     // the first retrigger test above for why.

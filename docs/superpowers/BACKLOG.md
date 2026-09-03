@@ -86,9 +86,9 @@ of the three-session balance queue above — separate initiative):**
   - Slower combat / reconsider the timing-minigame layer entirely — raw, Timothy wants to think it through more.
   - ~~**Ability rotation v2.**~~ **Shipped 2026-09-02 (0.19.0).** See BACKLOG_SHIPPED.md's "Combat pass ideas" section.
   - **Debuff visual effects** (raised 2026-09-02) — a bleed tick should show a falling blood droplet, every enemy debuff deserves its own distinct effect rather than just a status bar. Raw idea, not designed.
-  - **Lacerate retrigger sweet-spot flash** (raised 2026-09-02, final review of ability rotation v2) — today the retrigger window only shows a steady glow (`.battle-ability-button-retrigger`) for its whole ~1.2s duration; the design doc's original prose wanted a distinct flash keyed to the 80-100% sweet-spot sub-range specifically (like the parry zone's own pulse), but that never made it into the concrete plan steps. `@keyframes battle-zone-pulse` already exists and is unused for this purpose. Small, well-scoped polish item.
+  - ~~**Lacerate retrigger sweet-spot flash**~~ — **Shipped 2026-09-03 (0.20.1).** See BACKLOG_SHIPPED.md's "Combat pass ideas" section.
   - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
-  - Rung-3 gear effects: parry window trade-offs (undecided direction), plus known un-fixed side effects from the v1 ship (tooltip not tier-aware, AOE lifesteal/proc stacking per target, raw camelCase stat keys in UI, ±1 delta display rounding, redundant `getEquipmentBonuses` calls) — small cleanup items.
+  - Rung-3 gear effects: parry window trade-offs (undecided direction). Of the known v1-ship follow-ups, the tier-aware-tooltip, camelCase-stat-key, and redundant-`getEquipmentBonuses`-call items **already shipped in `b8a5d33`** (found stale while doing an unrelated backlog pass 2026-09-03 — this line was never updated when that commit landed) — only AOE lifesteal/proc stacking per target (deliberate, not a bug) and the ±1 delta display rounding (cosmetic, not worth blocking anything on) are still open, and neither is scheduled.
   - Hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
   - Research: alternatives to raw stat-number power creep — rough research question, unblocked but unstarted.
   - ~~**Defense scaling needs work** (player outpaces near-town content thread)~~ — **investigated 2026-09-02, damage-floor half shipped as 0.17.3; the rest is a documented structural dead end, not an open task.** See "The player outpaces near-town/far-corner content" section below for the full writeup.
@@ -1026,43 +1026,38 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   - **Known follow-ups from the item-quality-tiers final review,
     2026-08-28** (each a real, deliberately-accepted consequence of the
     v1 shipped design, not a bug — recorded rather than silently
-    accepted):
-    - **`describeItem` (`js/systems/inventory.js`) was never made
-      tier-aware.** It's the `title=` tooltip on every gear row and
-      still prints raw base stats, so a Superior Iron Sword's tooltip
-      reads "attack +6" while the item actually grants 7 (it already
-      ignored smith-upgrade level before tiers existed; this adds a
-      second axis of the same drift).
+    accepted). Three of the four **already shipped in `b8a5d33`** ("fix:
+    Rung-3 gear cleanup - tier-aware tooltips, shared stat labels, dedup
+    bonus calls") — this section just never got updated to say so until a
+    2026-09-03 backlog pass noticed the code didn't match the text:
+    - ~~`describeItem` (`js/systems/inventory.js`) was never made
+      tier-aware.~~ **Shipped in `b8a5d33`** — it now factors in the
+      item's tier via `getItemEffectiveStats`.
     - **AOE abilities multiply lifesteal/elemental-proc per target
       hit**, not per player action — `applyOnHitEffects` is called once
       per monster hit, so Sweep against 3 monsters yields 3 lifesteal
       heals (45% of total damage healed back) and 3 independent 20%
       proc rolls. Plan-mandated and commented as deliberate; flagging
       as a balance data point now that Sweep and Vampiric Fang/Ember
-      Ring coexist.
-    - **`formatDelta` (duplicated identically in `inventoryScreen.js`
-      and `shopScreen.js`) leaks raw camelCase stat keys into the UI**
-      once an effect stat is nonzero — e.g. "attack +7, lifestealPercent
-      +15", or Ember Ring's "elementalProcChance +20,
-      elementalProcDamage +6". Pre-existing style
-      (`enemySlowPercent` already did this), the four new effect keys
-      just make it a lot more visible. A shared stat-label map would fix
-      the display and the duplication in one move.
+      Ring coexist. **Still open** — deliberate, not scheduled.
+    - ~~`formatDelta` (duplicated identically in `inventoryScreen.js`
+      and `shopScreen.js`) leaks raw camelCase stat keys into the UI.~~
+      **Shipped in `b8a5d33`** as `formatStatDelta` + a shared
+      `STAT_LABELS` map in `js/systems/inventory.js`, reused by both
+      screens and by `describeItem`.
     - **`getItemStatDelta`'s displayed delta can be off by ±1** from
       what `getEquipmentBonuses` actually applies, whenever another
       equipped slot's fractional upgrade/tier contribution rounds
       differently once totaled — brute-forced across a large sample of
       equipped/candidate/tier/upgrade combinations: roughly a quarter
       mismatch (pre-existing from upgrade-level fractions alone; tiers
-      barely move the rate). Never a sign error, only ever ±1. Not
-      worth blocking anything on, but the delta shown before equipping
-      something isn't always exactly what you get.
-    - **`getEquipmentBonuses(state)` is called three separate times on
-      the battle-mount path** (`js/screens/battleScreen.js`, once each
-      for the player combatant build, the enemy-slow stat, and
-      `playerEffectBonuses`) — cheap and correct, just worth
-      consolidating into one call reused for all three next time this
-      file gets touched.
+      barely move the rate). Never a sign error, only ever ±1. **Still
+      open** — not worth blocking anything on, but the delta shown
+      before equipping something isn't always exactly what you get.
+    - ~~`getEquipmentBonuses(state)` is called three separate times on
+      the battle-mount path.~~ **Shipped in `b8a5d33`** — computed once
+      in `mount()` and reused for the player combatant build, the
+      enemy-slow stat, and `playerEffectBonuses`.
 - ~~**Rhythm-style multi-hit parry / synchronized multi-mob parry bar,
   raised 2026-08-26; reiterated 2026-09-01 as a concrete "clunky"
   complaint** rather than a tentative idea.~~ **Shipped 2026-09-02
@@ -1549,9 +1544,10 @@ doc above.
   the first's `loadBuffer` resolves can orphan a track (caught in final
   review, latent today since no music call site exists yet) — worth a
   fix before the area-music-transitions item above starts.
-- `js/data/soundManifest.js` hardcodes `'realistic'` in its path
-  helpers instead of deriving from `DEFAULT_THEME` — cosmetic today,
-  would silently break if `DEFAULT_THEME` ever changes.
+- ~~`js/data/soundManifest.js` hardcodes `'realistic'` in its path
+  helpers instead of deriving from `DEFAULT_THEME`.~~ **Shipped
+  2026-09-03 (0.20.1)** — `sfxPath`/`musicPath`/`SOUND_THEMES` now all
+  derive from `DEFAULT_THEME`.
 - Manifest sound ids use pre-0.19.0 ability names (`abilitySwingStab`
   etc.) rather than the current display names (Impale/Sever/Lacerate/
   Faultline) — internally consistent, just a translation note for

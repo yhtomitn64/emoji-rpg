@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.20.1',
+    date: '2026-09-03',
+    highlights: [
+      'Added: Lacerate\'s re-press window now flashes brighter right as it hits its sweet spot, on top of the steady glow shown the rest of the time.',
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-09-03',
     highlights: [

@@ -684,6 +684,25 @@ function abilityButtonEntries() {
     const cooldownRemaining = abilityCooldowns[ability.id] || 0;
     const alwaysReady = ability.type === 'buff';
     const retriggerWindowOpen = ability.id === 'slash' && lacerateRetriggerOpen;
+    // Design doc (2026-09-02) wanted this keyed to the exact real-time
+    // instant the window crosses into its sweet spot, same as the parry
+    // zone's animation-delay trick - but that trick relies on the zone
+    // marker being a persistent DOM node, while this button gets torn down
+    // and rebuilt fresh by updateMenu() every 300ms tick (see
+    // actionButtonHtml callers below). So this reads real elapsed time
+    // fresh on each render instead: whichever tick's render happens to land
+    // inside the sweet-spot sub-range gets the flash class, same tick-
+    // granularity approximation every other state-driven class in this
+    // function already lives with.
+    const inRetriggerSweetSpot = retriggerWindowOpen && (() => {
+      // Clamped to 100: the render that catches the window's closing tick
+      // (see tick()'s own comment on why the close-check now runs after
+      // updateMenu()) can measure real elapsed time a hair past windowMs
+      // from ordinary setInterval jitter - still the same instant the
+      // sweet spot's upper edge covers, not a new one past it.
+      const elapsedPercent = Math.min(100, ((performance.now() - lacerateRetriggerStartedAt) / ability.retrigger.windowMs) * 100);
+      return elapsedPercent >= ability.retrigger.sweetSpotStartPercent && elapsedPercent <= ability.retrigger.sweetSpotEndPercent;
+    })();
     const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, alwaysReady, retriggerWindowOpen });
     const cooldownActive = cooldownRemaining > 0;
     const cooldownPct = cooldownActive ? (cooldownRemaining / ability.cooldownMs) * 100 : 0;
@@ -698,7 +717,9 @@ function abilityButtonEntries() {
       : '';
     const retriggerSuffix = retriggerWindowOpen ? ' ⚡ Re-press for buff!' : '';
     const title = `${ability.name} (${keyLabel}) — ${ability.description}${buffEffectSuffix}${cooldownSuffix}${damageSuffix}${retriggerSuffix}`;
-    const retriggerClass = retriggerWindowOpen ? ' battle-ability-button-retrigger' : '';
+    const retriggerClass = retriggerWindowOpen
+      ? ` battle-ability-button-retrigger${inRetriggerSweetSpot ? ' battle-ability-button-retrigger-sweetspot' : ''}`
+      : '';
     const html = actionButtonHtml({
       id: `btn-ability-${ability.id}`,
       icon: ability.icon,
@@ -1668,12 +1689,6 @@ function tick() {
   parryCooldownMs = Math.max(0, parryCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
-  if (lacerateRetriggerOpen) {
-    const lacerate = ABILITIES.find((a) => a.id === 'slash');
-    if (performance.now() - lacerateRetriggerStartedAt >= lacerate.retrigger.windowMs) {
-      closeLacerateRetriggerWindow();
-    }
-  }
   widenBuffState = tickDefenseDebuff(widenBuffState, 300);
   activeBuffs = tickActiveBuffs(activeBuffs, 300);
   recomputeEffectBonuses();
@@ -1734,6 +1749,19 @@ function tick() {
   updateBuffIndicator();
   updateWidenIndicator();
   updatePotionBuffIndicator();
+  // Checked right after rendering, not before it, so the tick whose real
+  // elapsed time first lands at/past windowMs still gets to render once
+  // more with the window state that produced it (e.g. the sweet-spot flash
+  // class in abilityButtonEntries()) before the flag flips - closing it
+  // ahead of updateMenu() used to cut that last render off before it could
+  // ever show, since a 1200ms window and 300ms ticks can put the boundary
+  // tick exactly at windowMs.
+  if (lacerateRetriggerOpen) {
+    const lacerate = ABILITIES.find((a) => a.id === 'slash');
+    if (performance.now() - lacerateRetriggerStartedAt >= lacerate.retrigger.windowMs) {
+      closeLacerateRetriggerWindow();
+    }
+  }
 }
 
 // Freezes everything that decides a battle outcome: the 300ms tick (ATB

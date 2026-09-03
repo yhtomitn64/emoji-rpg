@@ -1564,6 +1564,44 @@ See `docs/superpowers/specs/2026-09-02-ability-rotation-v2-design.md` for
 the full design and `docs/superpowers/plans/2026-09-02-ability-rotation-
 v2.md` for the implementation plan and task breakdown.
 
+### ~~Lacerate retrigger sweet-spot flash~~ Shipped 2026-09-03 (0.20.1)
+Raised 2026-09-02 during ability rotation v2's final review: the retrigger
+window only ever showed a steady glow (`.battle-ability-button-retrigger`)
+for its whole ~1.2s duration, even though the original design doc wanted a
+distinct flash keyed to the 80-100% sweet-spot sub-range specifically -
+that detail never made it into the concrete plan steps. New
+`.battle-ability-button-retrigger-sweetspot` class (reusing
+`battle-zone-pulse`, same visual language as the parry zone's own pulse)
+applies on top of the steady glow whenever `abilityButtonEntries()`'s
+render lands inside the sweet spot.
+
+Not a precisely-timed one-shot like the parry zone's own animation-delay
+trick, though - that trick depends on the zone marker being a persistent
+DOM node, while the ability button gets torn down and rebuilt by
+`updateMenu()` every 300ms tick. Reads real elapsed time fresh on each
+render instead, so whichever tick happens to land inside the sub-range
+shows the flash; `infinite` iteration (not a one-shot) covers a render
+getting cut short by the very next tick's rebuild.
+
+Fixing this surfaced a real, separate bug in `tick()`: the retrigger
+window's auto-close check ran *before* that tick's own render, so the
+boundary tick that first crossed `windowMs` never got to render the
+"still open" state that produced it - with a 1200ms window and 300ms
+ticks, that boundary tick can land exactly at 100% elapsed, which is
+inside the sweet spot's own inclusive upper edge. Moved the close-check to
+run right after `updateMenu()` instead, so that last render happens before
+the flag flips. Caught via a real jsdom test that polls for the flash
+class across the whole window rather than a fixed-delay wait (the flash's
+timing is inherently tick-dependent, not a fixed real-time offset the way
+the retrigger *press* itself is) - this also meant bumping an existing
+"missing the window" test's wait from 1500ms to 1800ms, since the glow now
+visibly clears one tick later than it used to (the boundary tick still
+shows it; only the tick after that renders clean).
+
+Found and fixed during an unrelated 2026-09-03 small-bug-fix backlog pass
+(see `docs/superpowers/BACKLOG.md`'s Combat pass ideas section for where
+this was raised).
+
 ## Balance / design gaps
 
 ### ~~Abilities have made the game too easy overall, raised 2026-08-22~~ Balance pass shipped 2026-08-22

@@ -24,6 +24,27 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-09-03
+
+### Fixed
+- `js/data/soundManifest.js`'s sound/music path helpers and the theme map
+  now derive from `DEFAULT_THEME` instead of hardcoding `'realistic'` -
+  previously cosmetic only, but would have silently broken if the default
+  theme ever changed.
+- The Lacerate retrigger's auto-close check in `battleScreen.js`'s `tick()`
+  now runs after that tick's own render instead of before it, so the
+  boundary tick that first crosses the window's `windowMs` still renders
+  once with the window state that produced it, instead of the flag
+  flipping before that render ever happens.
+
+### Added
+- Lacerate's self-retrigger window button now flashes distinctly
+  (`.battle-ability-button-retrigger-sweetspot`, reusing the parry zone's
+  `battle-zone-pulse`) once real elapsed time lands inside its 80-100%
+  sweet-spot sub-range, on top of the steady glow shown for the rest of
+  the window - the flash the original ability-rotation-v2 design doc
+  wanted but never got built (see BACKLOG.md).
+
 ## [0.20.0] - 2026-09-03
 
 ### Added
