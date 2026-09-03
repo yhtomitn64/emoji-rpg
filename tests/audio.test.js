@@ -28,6 +28,13 @@ test('CATEGORIES lists exactly the 4 known categories', () => {
   assert.deepEqual([...CATEGORIES].sort(), ['combat', 'music', 'ui', 'world']);
 });
 
+// Must run before any test below calls initAudio() - it relies on the
+// module's audioContext still being unset at this point in the file.
+test('setCategoryVolume and setCategoryMuted are safe no-ops before initAudio has ever run', () => {
+  assert.doesNotThrow(() => setCategoryVolume('combat', 0.5));
+  assert.doesNotThrow(() => setCategoryMuted('combat', true));
+});
+
 test('initAudio creates one gain node per category, each connected to the context destination', () => {
   let created = 0;
   class CountingContext extends FakeAudioContext {

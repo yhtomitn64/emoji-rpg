@@ -119,11 +119,13 @@ function applyCategoryGain(category) {
 }
 
 export function setCategoryVolume(category, value) {
+  if (!audioContext) return;
   categoryState[category].volume = Math.min(1, Math.max(0, value));
   applyCategoryGain(category);
 }
 
 export function setCategoryMuted(category, muted) {
+  if (!audioContext) return;
   categoryState[category].muted = muted;
   applyCategoryGain(category);
 }
