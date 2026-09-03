@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, buildAbilityExplainerSections } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, buildAbilityExplainerSections, applyAbilityGcd } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order, ids unchanged from before the rename', () => {
@@ -242,4 +242,48 @@ test('buildAbilityExplainerSections falls back to an empty string when an abilit
   const [stab] = ABILITIES;
   const sections = buildAbilityExplainerSections([stab], {});
   assert.equal(sections[0].text, '');
+});
+
+test('applyAbilityGcd puts every unlocked non-buff ability on the GCD, not just the one used', () => {
+  const unlocked = ABILITIES.filter((a) => ['stab', 'chop', 'slash', 'sweep'].includes(a.id));
+  const { cooldowns } = applyAbilityGcd({}, unlocked, 'stab', 1000);
+  assert.equal(cooldowns.stab, 1000);
+  assert.equal(cooldowns.chop, 1000);
+  assert.equal(cooldowns.slash, 1000);
+  assert.equal(cooldowns.sweep, 1000);
+});
+
+test('applyAbilityGcd leaves Super Scream (a buff-type ability) untouched', () => {
+  const unlocked = ABILITIES; // includes superScream at level 10
+  const { cooldowns } = applyAbilityGcd({}, unlocked, 'stab', 1000);
+  assert.equal('superScream' in cooldowns, false);
+});
+
+test('applyAbilityGcd never shortens an ability that already has a longer remaining cooldown', () => {
+  const unlocked = ABILITIES.filter((a) => ['stab', 'chop'].includes(a.id));
+  const { cooldowns } = applyAbilityGcd({ chop: 5000 }, unlocked, 'stab', 1000);
+  assert.equal(cooldowns.chop, 5000, 'chop already had 5000ms remaining from an earlier use - a fresh 1000ms GCD must not shorten it');
+  assert.equal(cooldowns.stab, 1000);
+});
+
+test('applyAbilityGcd lets the used ability\'s own overrideCooldownMs raise its cooldown above the bare GCD', () => {
+  const longAbility = { id: 'sweep', type: 'damage', overrideCooldownMs: 6000 };
+  const shortAbility = { id: 'stab', type: 'damage' };
+  const { cooldowns } = applyAbilityGcd({}, [longAbility, shortAbility], 'sweep', 1000);
+  assert.equal(cooldowns.sweep, 6000, 'sweep has its own overrideCooldownMs of 6000, longer than the 1000ms GCD');
+  assert.equal(cooldowns.stab, 1000, 'stab is not the used ability, so it only gets the bare GCD even though sweep has a longer override');
+});
+
+test('applyAbilityGcd tracks the applied duration in totals, in lockstep with cooldowns, for cooldown-percentage display', () => {
+  const unlocked = ABILITIES.filter((a) => ['stab', 'chop'].includes(a.id));
+  const { cooldowns, totals } = applyAbilityGcd({}, unlocked, 'stab', 1000);
+  assert.equal(totals.stab, 1000);
+  assert.equal(totals.chop, 1000);
+  assert.equal(cooldowns.stab, totals.stab);
+});
+
+test('applyAbilityGcd does not overwrite totals when it does not overwrite cooldowns (the not-shortened case)', () => {
+  const unlocked = ABILITIES.filter((a) => ['stab', 'chop'].includes(a.id));
+  const { totals } = applyAbilityGcd({ chop: 5000 }, unlocked, 'stab', 1000, { chop: 5000 });
+  assert.equal(totals.chop, 5000, 'chop\'s cooldown was not touched (still has 5000ms remaining from its own longer application), so its total must stay 5000 too - otherwise the percentage math would use the wrong denominator');
 });

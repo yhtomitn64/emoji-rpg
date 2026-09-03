@@ -45,6 +45,30 @@ export function getUnlockedAbilities(level) {
   return ABILITIES.filter((ability) => ability.unlockLevel <= level);
 }
 
+// Reuses the existing per-ability cooldown state (abilityCooldowns in
+// js/screens/battleScreen.js / scripts/simulate-balance.js) as the shared
+// global cooldown mechanism, rather than introducing a separate timer -
+// see docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md's
+// "Mechanism" section. `totals` is a parallel map of the duration that was
+// actually applied to each ability's most recent cooldown (mirrors
+// battleScreen.js's existing attackCooldownMs/attackCooldownTotalMs
+// pattern) - needed because cooldownPct can no longer divide by a fixed
+// per-ability config value once the applied duration varies per use.
+export function applyAbilityGcd(cooldowns, unlockedAbilities, usedAbilityId, gcdMs, totals = {}) {
+  const nextCooldowns = { ...cooldowns };
+  const nextTotals = { ...totals };
+  for (const ability of unlockedAbilities) {
+    if (ability.type === 'buff') continue; // Super Scream stays independent
+    const floor = ability.id === usedAbilityId ? (ability.overrideCooldownMs || 0) : 0;
+    const target = Math.max(gcdMs, floor);
+    if (target > (nextCooldowns[ability.id] || 0)) {
+      nextCooldowns[ability.id] = target;
+      nextTotals[ability.id] = target;
+    }
+  }
+  return { cooldowns: nextCooldowns, totals: nextTotals };
+}
+
 // Feeds js/screens/mechanicExplainerScreen.js's combined ability-unlock
 // popup (js/main.js) - explainerText is keyed by ability id, matching
 // js/data/abilityExplainers.js. Falls back to '' rather than throwing so a
