@@ -124,6 +124,16 @@ than introduce a separate GCD timer. When any of the 4 abilities resolves:
    written for the player anywhere in `battleScreen.js` (monsters keep
    their own separate `.atb`, untouched).
 
+5. **Flee.** Discovered during planning, not covered by the original ask:
+   Flee's button and its Escape/F keydown path are both currently gated on
+   `isReady(playerCombatant.atb)` too (`disabled: !ready` in `updateMenu()`),
+   despite its own tooltip claiming it "retreat[s]... instantly." Once the
+   player ATB gauge is gone there's nothing left to gate it on anyway —
+   Flee becomes unconditionally available (no `disabled` check tied to
+   readiness at all), matching what its tooltip already claims. It keeps
+   whatever non-readiness restrictions it already has (e.g. disabled
+   against bosses, if that exists elsewhere).
+
 ## UI changes
 
 - The player's ATB bar (`battle-hero-atb-fill`, the player half of
