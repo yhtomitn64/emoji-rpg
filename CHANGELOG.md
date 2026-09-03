@@ -24,6 +24,19 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-09-03
+
+### Changed
+- The town exit routing arithmetic (landing 1 tile out from the town
+  entrance per direction) is pulled out of `js/main.js`'s untested
+  `handleTileAction` into a new pure `resolveTownExitLanding(action,
+  townEntrance)` in `js/systems/world.js`, with direct unit tests
+  covering all 4 directions plus non-matching actions
+  (`tests/world.test.js`). Closes a real coverage gap flagged during
+  0.21.0's final review: `main.js` itself is never imported by any test
+  in this codebase, so this routing had no automated coverage at all
+  before this change - only a manual code-trace. No behavior change.
+
 ## [0.21.0] - 2026-09-03
 
 ### Added

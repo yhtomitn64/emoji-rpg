@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.21.1',
+    date: '2026-09-03',
+    highlights: [
+      'Behind-the-scenes: added more automated test coverage for town\'s exits - nothing to see here.',
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-09-03',
     highlights: [

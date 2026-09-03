@@ -63,7 +63,7 @@ import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses, migrateUpgradesToPerTier, getUpgradeLevel } from './systems/inventory.js';
 import { startSession, logEvent, getElapsedMs } from './systems/telemetry.js';
-import { isValidSavedPosition } from './systems/world.js';
+import { isValidSavedPosition, resolveTownExitLanding } from './systems/world.js';
 import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
@@ -507,10 +507,8 @@ function handleTileAction(action) {
   if (action === 'usePortalTool') return handleUsePortalTool();
   if (action === 'enterPortalToTown') return handleEnterPortalToTown();
   if (action === 'enterPortalToOrigin') return handleEnterPortalToOrigin();
-  if (action === 'exitTownNorth') return enterMap('center', { x: TOWN_ENTRANCE.x, y: TOWN_ENTRANCE.y - 1 });
-  if (action === 'exitTownSouth') return enterMap('center', { x: TOWN_ENTRANCE.x, y: TOWN_ENTRANCE.y + 1 });
-  if (action === 'exitTownEast') return enterMap('center', { x: TOWN_ENTRANCE.x + 1, y: TOWN_ENTRANCE.y });
-  if (action === 'exitTownWest') return enterMap('center', { x: TOWN_ENTRANCE.x - 1, y: TOWN_ENTRANCE.y });
+  const townExitLanding = resolveTownExitLanding(action, TOWN_ENTRANCE);
+  if (townExitLanding) return enterMap('center', townExitLanding);
   if (action === 'exitMap') {
     // Land back on the exact entrance tile, not the destination screen's
     // generic startPosition - otherwise leaving a dungeon drops the player
