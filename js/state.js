@@ -95,7 +95,14 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     // people playing on the same device/save-slot list want their own
     // preference - raised live during testing: "a settings menu to adjust
     // this time for different users."
-    settings: { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS },
+    settings: {
+      itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
+      soundTheme: 'realistic',
+      audioCombatVolume: 0.8, audioCombatMuted: false,
+      audioUiVolume: 0.8, audioUiMuted: false,
+      audioWorldVolume: 0.8, audioWorldMuted: false,
+      audioMusicVolume: 0.6, audioMusicMuted: false,
+    },
   };
 }
 
@@ -183,6 +190,21 @@ export function migrateLoadout(state) {
 export function migrateSettings(state) {
   if ('settings' in state) return state;
   return { ...state, settings: { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } };
+}
+
+const DEFAULT_AUDIO_SETTINGS = {
+  soundTheme: 'realistic',
+  audioCombatVolume: 0.8, audioCombatMuted: false,
+  audioUiVolume: 0.8, audioUiMuted: false,
+  audioWorldVolume: 0.8, audioWorldMuted: false,
+  audioMusicVolume: 0.6, audioMusicMuted: false,
+};
+
+// One-time migration for saves from before per-category audio settings
+// existed - merges in only the fields that are missing, so a player who's
+// already adjusted a slider on a save made mid-rollout never gets it reset.
+export function migrateAudioSettings(state) {
+  return { ...state, settings: { ...DEFAULT_AUDIO_SETTINGS, ...state.settings } };
 }
 
 export function serializeState(state) {
