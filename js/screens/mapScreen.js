@@ -32,6 +32,17 @@ const MINI_DUNGEON_MARKER_DESCRIPTION = 'A mysterious opening — explore it';
 // boat across water rather than turning into a boat).
 const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
 
+// Town's always-on signpost labels (see docs/superpowers/specs/2026-09-03-
+// town-exits-and-signage-design.md) - keyed by tile identity, not gated on
+// mapConfig.id === 'town', since these 4 tile kinds only ever appear in
+// js/maps/townMap.js's own legend.
+const SIGN_LABEL_BY_TILE = new Map([
+  [TILES.shop, 'Shop'],
+  [TILES.smith, 'Blacksmith'],
+  [TILES.questBoard, 'Quest Board'],
+  [TILES.well, 'Well'],
+]);
+
 // Non-moving obstacles render full-square and up (100-150% of a tile's own
 // height, deterministic per position via hash01), tall enough to overlap
 // into the row above - see .map-tile-obstacle in css/styles.css.
@@ -115,6 +126,10 @@ const GRASS_CONTEXT_MARKERS = new Set([
   TILES.questBoard,
   TILES.well,
   TILES.exit,
+  TILES.treeGapNorth,
+  TILES.treeGapSouth,
+  TILES.treeGapEast,
+  TILES.treeGapWest,
 ]);
 
 // A cleared thicket/mountain (see CLEARED_GATE_REPLACEMENT below) reads as
@@ -596,6 +611,13 @@ function render() {
         cell.append(emoji);
       }
       cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
+      const signLabel = SIGN_LABEL_BY_TILE.get(tile);
+      if (signLabel) {
+        const signpost = document.createElement('span');
+        signpost.className = 'map-tile-signpost';
+        signpost.textContent = signLabel;
+        cell.appendChild(signpost);
+      }
       grid.appendChild(cell);
     }
   }

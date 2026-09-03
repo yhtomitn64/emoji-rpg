@@ -525,3 +525,63 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
     }
   });
 });
+
+test('mapScreen DOM - town exits and signage', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  async function mountTownWithActionCapture(position) {
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    const maps = { town: townMap };
+    let capturedAction = null;
+    mount(root, {
+      state: baseState({ position }),
+      mapConfig: townMap,
+      maps,
+      worldGrid: buildWorldGrid(maps),
+      callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: (action) => { capturedAction = action; } },
+    });
+    return { root, getAction: () => capturedAction };
+  }
+
+  await t.test('walking onto the north gap fires exitTownNorth', async () => {
+    const { getAction } = await mountTownWithActionCapture({ x: 10, y: 1 });
+    keydown('ArrowUp');
+    assert.equal(getAction(), 'exitTownNorth');
+  });
+
+  await t.test('walking onto the south gap fires exitTownSouth', async () => {
+    const { getAction } = await mountTownWithActionCapture({ x: 10, y: 12 });
+    keydown('ArrowDown');
+    assert.equal(getAction(), 'exitTownSouth');
+  });
+
+  await t.test('walking onto the west gap fires exitTownWest', async () => {
+    const { getAction } = await mountTownWithActionCapture({ x: 1, y: 7 });
+    keydown('ArrowLeft');
+    assert.equal(getAction(), 'exitTownWest');
+  });
+
+  await t.test('walking onto the east gap fires exitTownEast', async () => {
+    const { getAction } = await mountTownWithActionCapture({ x: 18, y: 7 });
+    keydown('ArrowRight');
+    assert.equal(getAction(), 'exitTownEast');
+  });
+
+  await t.test('no door emoji renders anywhere in town', async () => {
+    const root = await mountTown(baseState());
+    assert.ok(!root.textContent.includes('🚪'), 'town should not render the door emoji anymore');
+  });
+
+  await t.test('all 4 town features get a signpost with the right label, and nothing else does', async () => {
+    const root = await mountTown(baseState());
+    const signposts = [...root.querySelectorAll('.map-tile-signpost')];
+    const labels = signposts.map((el) => el.textContent).sort();
+    assert.deepEqual(labels, ['Blacksmith', 'Quest Board', 'Shop', 'Well']);
+  });
+});
