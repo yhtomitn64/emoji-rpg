@@ -99,6 +99,8 @@ of the three-session balance queue above — separate initiative):**
 - **Input / accessibility** — controller support, raw idea, not investigated.
 - **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first).
 - **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
+- **Ability global-cooldown rework** — **spec + 12-task implementation plan written and committed 2026-09-03, not yet executed.** Removes the player ATB "swing timer" gate on abilities 1-4 in favor of a shared, speed-scaled ~1s global cooldown (Attack's own decay system, monster ATB, Super Scream, Lacerate's retrigger, and parry all explicitly untouched); ends with a balance-simulator comparison checkpoint before any monster retuning or per-ability cooldown override gets decided. See `docs/superpowers/plans/2026-09-03-ability-gcd-rework.md` (spec: `docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md`).
+- **Bugs raised 2026-09-03, neither investigated yet** — an old save (level 11) shows far more smith-upgrade levels available than expected before max level, cause unknown (level-gated at all, or just a long-lived save with saved-up gold?); the "NEW MAX!" battle callout overlaps other text and is hard to read, no fix decided. See "Bugs / open questions, raised 2026-09-03" below.
 
 ## Story / narrative
 
@@ -1301,6 +1303,35 @@ requested effect. Whether that's enough, or a dedicated fix (like a
 "quick battle" auto-resolve) is still wanted for genuinely trivial
 backtracked fights, is still Timothy's call — leaving this open, just
 better-informed.
+
+## Bugs / open questions, raised 2026-09-03
+
+### Old save shows way more smith-upgrade levels available than expected
+Timothy, on a save at level 11 (created "10-20 patches ago," not yet at
+max level): the smith screen lets him upgrade gear well past where a
+level-11 character should reasonably be (screenshot showed Dragon Fang
+Blade +5, Iron Helm +5, Iron Armor +4, Iron Greaves +5 already applied,
+with `Upgrade (120g)` still available on several). Question raised but
+explicitly deferred ("something to look into after this section is
+done") - **not yet investigated.** Need to check whether upgrade level is
+level-gated at all today (vs. purely gold/material-gated, in which case a
+long-lived save that's been grinding gold could legitimately reach this),
+and whether there's a migration gap for saves made before whatever
+gating (if any) was introduced. Look at `js/systems/inventory.js`'s
+`MAX_UPGRADE_LEVEL`/`upgradeKey` and `js/screens/smithScreen.js` first.
+
+### "NEW MAX!" callout overlaps other battle text, hard to read
+Timothy: "the text that comes up for 'new Max' should come up outside
+the battle dialog or not overlap other text as it's hard to read now. I
+don't know a good solution like making it bigger and higher up over the
+mob or something?" This is the `playPerfectTimingEffect(zoneEl, 'NEW
+MAX!', 'battle-perfect-timing-badge-max')` badge in
+`js/screens/battleScreen.js` (shipped 2026-08-31, see `BACKLOG_SHIPPED.md`
+for the original "New Max damage!" progression-callout feature). No
+solution decided yet - Timothy floated "bigger and higher up over the
+mob" as one option, not a commitment. Needs a look at what it currently
+overlaps (likely the battle log or damage numbers, given where it
+renders) before picking a fix.
 
 ## Infrastructure / deployment
 
