@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initAudio, unlockAudio, CATEGORIES } from '../js/systems/audio.js';
+import { initAudio, unlockAudio, CATEGORIES, playSfx } from '../js/systems/audio.js';
 
 class FakeGainNode {
   constructor() { this.gain = { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }; this.connected = []; }
@@ -41,4 +41,50 @@ test('unlockAudio resumes the underlying AudioContext', async () => {
   initAudio({ AudioContextClass: ResumeTrackingContext });
   await unlockAudio();
   assert.equal(resumed, true);
+});
+
+function fakeFetch(ok = true) {
+  const calls = [];
+  const fn = async (url) => {
+    calls.push(url);
+    if (!ok) return { ok: false, status: 404 };
+    return { ok: true, arrayBuffer: async () => new ArrayBuffer(4) };
+  };
+  fn.calls = calls;
+  return fn;
+}
+
+test('playSfx fetches the resolved path for the current theme and plays it', async () => {
+  const fetchSpy = fakeFetch(true);
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fetchSpy });
+  await playSfx('hitNormal');
+  assert.equal(fetchSpy.calls.length, 1);
+  assert.match(fetchSpy.calls[0], /realistic\/sfx\/hitNormal\.mp3$/);
+});
+
+test('playSfx caches the decoded buffer - a second play does not refetch', async () => {
+  const fetchSpy = fakeFetch(true);
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fetchSpy });
+  await playSfx('menuMove');
+  await playSfx('menuMove');
+  assert.equal(fetchSpy.calls.length, 1);
+});
+
+test('playSfx never throws when the file 404s, and only warns once', async () => {
+  const originalWarn = console.warn;
+  let warnCount = 0;
+  console.warn = () => { warnCount += 1; };
+  try {
+    initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(false) });
+    await assert.doesNotReject(() => playSfx('hitCrit'));
+    await assert.doesNotReject(() => playSfx('hitCrit'));
+    assert.equal(warnCount, 1);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('playSfx on an unknown sound id does not throw', async () => {
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
+  await assert.doesNotReject(() => playSfx('thisSoundDoesNotExist'));
 });
