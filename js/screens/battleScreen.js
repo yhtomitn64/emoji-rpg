@@ -8,6 +8,7 @@ import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
 import { isTimedBuffPotion, createActiveBuffs, activateTimedBuff, tickActiveBuffs, getActiveBuffBonuses, combineBonuses } from '../systems/buffPotions.js';
 import { logEvent } from '../systems/telemetry.js';
+import { playSfx } from '../systems/audio.js';
 
 const VICTORY_PAUSE_MS = 1200;
 const ITEM_MENU_TIME_SCALE = 0.25;
@@ -891,6 +892,7 @@ function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
   emojiEl.classList.add('battle-hit-flash');
   zoneEl.classList.add('battle-hit-shake');
   showDamageNumber(zoneEl, amount, isCrit);
+  playSfx(isCrit ? 'hitCrit' : 'hitNormal');
   if (isCrit) {
     playCritReaction(elements.decoration);
   }
@@ -1117,8 +1119,18 @@ function playHeroAttackLunge() {
 // Single-target swing: Attack (ability === null) or a non-AOE ability
 // (Stab/Chop/Slash). isCrit adds the afterimage trail on top of the base
 // swing - see spawnSwingTrail.
+function swingSoundIdFor(ability) {
+  const bySwingId = {
+    stab: 'abilitySwingStab', chop: 'abilitySwingChop',
+    slash: 'abilitySwingSlash', sweep: 'abilitySwingSweep',
+    superScream: 'abilitySwingSuperScream',
+  };
+  return bySwingId[ability?.id] || 'hitNormal'; // plain Attack (ability === null) reuses the base hit sound
+}
+
 function playPlayerSwing(ability, targetZoneEl, isCrit) {
   playHeroAttackLunge();
+  playSfx(swingSoundIdFor(ability));
   const emoji = swingSpriteEmoji(ability);
   const durationMs = SWING_DURATION_MS[ability?.id || 'attack'] || 250;
   const keyframesFn = (dx, dy) => swingKeyframesFor(ability?.id, dx, dy);
@@ -1206,6 +1218,7 @@ function playReviveEffect(emojiEl) {
   // glow's own keyframes also animate box-shadow rather than filter, so it
   // doesn't fight battle-hit-flash's filter on the emoji either.
   emojiEl.classList.add('battle-revive-glow');
+  playSfx('revive');
 }
 
 // Global sweep, not a targeted parry: every monster currently sitting in

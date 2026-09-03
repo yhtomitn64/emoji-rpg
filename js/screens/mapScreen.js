@@ -13,6 +13,7 @@ import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.
 import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
 import { hasAnyQuestReady } from '../systems/quests.js';
 import { TOWN_PORTAL_POSITION } from '../systems/portal.js';
+import { playSfx } from '../systems/audio.js';
 
 // Raised 2026-08-29: random encounters had no memory of the last one, so
 // two fights on consecutive steps was always possible (just rare per-pair -
@@ -806,6 +807,7 @@ const LEVEL_UP_EFFECT_DURATION_MS = 1200;
 export function playLevelUpEffect() {
   const playerCell = rootEl?.querySelector('.map-tile-player');
   if (!playerCell) return;
+  playSfx('levelUp');
 
   playerCell.classList.remove('map-tile-levelup');
   void playerCell.offsetWidth; // force reflow so re-triggering restarts the animation

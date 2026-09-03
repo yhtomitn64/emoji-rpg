@@ -1,3 +1,5 @@
+import { playSfx } from '../systems/audio.js';
+
 const TOAST_DURATION_MS = 1200;
 
 let hideTimeoutId = null;
@@ -9,6 +11,7 @@ export function playItemPickupToast(emoji, name) {
   const anchorButton = document.getElementById('btn-open-inventory');
   const toastEl = document.getElementById('item-pickup-toast');
   if (!anchorButton || !toastEl) return;
+  playSfx('itemPickupCommon');
 
   const rect = anchorButton.getBoundingClientRect();
   toastEl.style.left = `${rect.left + rect.width / 2}px`;
