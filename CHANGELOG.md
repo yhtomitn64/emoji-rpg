@@ -24,6 +24,28 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-03
+
+### Added
+- In-battle mechanic explainer system: a dismiss-required popup fires the
+  moment a new ability unlocks (post-battle, alongside the existing
+  ability-unlocked celebration banner in `js/main.js`) and again the first
+  time the attack-streak-decay mechanic actually lands a decayed hit
+  (mid-battle, pausing combat via the existing `pauseBattle()`/
+  `resumeBattle()` path in `js/screens/battleScreen.js`). New
+  `js/screens/mechanicExplainerScreen.js` renders both, sharing a
+  `renderSectionsHtml()` helper since `battleScreen.js` can't route the
+  mid-battle one through `screenManager.js`'s `mountOverlay()` - it's
+  itself already mounted as the active overlay at that point. New pure
+  helpers: `attackFalloffJustTriggered` (`js/systems/combat.js`, seen-gated
+  via `state.seenScreens`, same mechanism as the map screens' own
+  first-visit banners) and `buildAbilityExplainerSections`
+  (`js/systems/abilities.js`). Explainer copy lives in new
+  `js/data/abilityExplainers.js`, currently empty placeholders - Timothy
+  writes the actual text, not this session - so the whole feature is gated
+  off by default behind a new `mechanicExplainersBeta` Settings > Feature
+  Flags toggle until it's filled in.
+
 ## [0.21.1] - 2026-09-03
 
 ### Changed

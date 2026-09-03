@@ -842,6 +842,83 @@ test('battleScreen DOM', async (t) => {
     assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
   });
 
+  // The attack-falloff explainer (js/systems/combat.js's
+  // attackFalloffJustTriggered) fires the first time a real Attack lands at
+  // less than full strength - the second consecutive Attack, once the first
+  // one's own spam-cooldown (attackCooldownMsForStreak, streak 1 = 700ms)
+  // has cleared. Gated behind the mechanicExplainersBeta feature flag (off
+  // by default - see js/data/abilityExplainers.js's header for why the
+  // content is still empty placeholders).
+  async function triggerFalloff(root) {
+    click(root.querySelector('#btn-attack'));
+    await new Promise((resolve) => setTimeout(resolve, 950));
+    click(root.querySelector('#btn-attack'));
+  }
+
+  await t.test('the second consecutive Attack opens the falloff explainer and pauses the battle, when the beta flag is on', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    const overlay = root.querySelector('#battle-explainer-overlay');
+    assert.equal(overlay.hidden, true);
+    await triggerFalloff(root);
+    assert.equal(overlay.hidden, false);
+    assert.equal(root.querySelector('#battle-paused-overlay').hidden, false);
+  });
+
+  await t.test('the falloff explainer never opens when the beta flag is off', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState() });
+    await triggerFalloff(root);
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+  });
+
+  await t.test('the falloff explainer only opens once ever - marked seen in state.seenScreens, not reshown on a later decayed hit', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    state.seenScreens = { 'mechanic:attackFalloff': true };
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+  });
+
+  await t.test('the falloff explainer marks itself seen in state.seenScreens once opened', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    assert.equal(state.seenScreens['mechanic:attackFalloff'], true);
+  });
+
+  await t.test('"Got it" closes the falloff explainer and resumes the battle', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    click(root.querySelector('#battle-explainer-close'));
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+    assert.equal(root.querySelector('#battle-paused-overlay').hidden, true);
+  });
+
+  await t.test('Escape closes the falloff explainer', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    keydown('Escape');
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+  });
+
+  await t.test('while the falloff explainer is open, Attack is a no-op', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
+    click(root.querySelector('#btn-attack'));
+    keydown('a');
+    assert.equal(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
+  });
+
   await t.test('an active Strength Draught increases Attack damage over the unbuffed baseline', async () => {
     const originalRandom = Math.random;
     Math.random = () => 0.5; // fixed variance roll, no crit (rollCrit needs < 0.1)

@@ -58,6 +58,7 @@ const DEFAULT_AUDIO_SETTINGS = {
 // fine instead of needing a LaunchDarkly-style hidden rollout mechanism.
 const DEFAULT_FEATURE_FLAGS = {
   audioBeta: false,
+  mechanicExplainersBeta: false,
 };
 
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {

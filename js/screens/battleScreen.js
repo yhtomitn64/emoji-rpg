@@ -1,14 +1,24 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
+import { ATTACK_FALLOFF_EXPLAINER } from '../data/abilityExplainers.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
 import { isTimedBuffPotion, createActiveBuffs, activateTimedBuff, tickActiveBuffs, getActiveBuffBonuses, combineBonuses } from '../systems/buffPotions.js';
+import { hasSeenScreen, markScreenSeen } from '../systems/screenSeen.js';
 import { logEvent } from '../systems/telemetry.js';
 import { playSfx } from '../systems/audio.js';
+import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
+import { renderSectionsHtml } from './mechanicExplainerScreen.js';
+
+// seenScreens key (js/systems/screenSeen.js) gating the mid-battle
+// attack-falloff explainer below - shows once ever per save/NG+ cycle (see
+// the brainstorming design's "persistence" note: seenScreens already resets
+// on NG+, same as the map screens' own first-visit banners).
+export const ATTACK_FALLOFF_SEEN_KEY = 'mechanic:attackFalloff';
 
 const VICTORY_PAUSE_MS = 1200;
 const ITEM_MENU_TIME_SCALE = 0.25;
@@ -99,6 +109,9 @@ let secondWindAvailable = false;
 let itemMenuOpen = false;
 let itemMenuSelectedIndex = 0;
 let itemMenuAutoCloseTimeoutId = null;
+let explainerOpen = false;
+let unbindExplainerEscape = null;
+let unbindExplainerBackdrop = null;
 // Only game-state-affecting timers freeze on pause (the 300ms tick, a
 // monster's windup/parry clock, the ability timing-meter's rAF loop) - see
 // pauseBattle()/resumeBattle(). Already-committed cosmetic effects (damage
@@ -291,6 +304,7 @@ function buildDom() {
         <div class="battle-item-menu-timer"><div class="battle-item-menu-timer-fill" id="battle-item-menu-timer-fill"></div></div>
         <div class="battle-item-menu-slots" id="battle-item-menu-slots"></div>
       </div>
+      <div class="battle-explainer-overlay" id="battle-explainer-overlay" hidden></div>
       <div class="overlay-panel battle-screen ${envClass}">
         <div class="battle-main">
           <div class="battle-combatants-row">
@@ -331,6 +345,7 @@ function buildDom() {
     itemMenuOverlay: document.getElementById('battle-item-menu-overlay'),
     itemMenuTimerFill: document.getElementById('battle-item-menu-timer-fill'),
     itemMenuSlots: document.getElementById('battle-item-menu-slots'),
+    explainerOverlay: document.getElementById('battle-explainer-overlay'),
     monsterRow: document.getElementById('battle-monster-row'),
     monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
     monsterEmojis: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-emoji-${i}`)),
@@ -540,6 +555,40 @@ function startItemMenuAutoCloseTimer() {
 function clearItemMenuAutoCloseTimer() {
   clearTimeout(itemMenuAutoCloseTimeoutId);
   itemMenuAutoCloseTimeoutId = null;
+}
+
+// Mounted inline into battleScreen's own DOM (elements.explainerOverlay)
+// rather than through screenManager's mountOverlay(): battleScreen is
+// itself mounted as the active overlay (see main.js's handleEncounter), so
+// a second mountOverlay() call would tear it down instead of stacking on
+// top of it. renderSectionsHtml is shared with mechanicExplainerScreen.js
+// (the post-battle ability-unlock popup) so both surfaces render identical
+// section markup despite mounting differently.
+function openFalloffExplainer() {
+  if (battleOver || battlePaused || itemMenuOpen || explainerOpen) return;
+  explainerOpen = true;
+  pauseBattle();
+  elements.explainerOverlay.innerHTML = `
+    <div class="overlay-panel mechanic-explainer-panel">
+      ${renderSectionsHtml([{ title: 'Attacks Losing Steam?', text: ATTACK_FALLOFF_EXPLAINER }])}
+      <button id="battle-explainer-close">Got it</button>
+    </div>
+  `;
+  elements.explainerOverlay.hidden = false;
+  document.getElementById('battle-explainer-close').onclick = closeFalloffExplainer;
+  unbindExplainerEscape = bindEscapeClose(closeFalloffExplainer);
+  unbindExplainerBackdrop = bindBackdropClose(elements.explainerOverlay, closeFalloffExplainer);
+}
+
+function closeFalloffExplainer() {
+  if (!explainerOpen) return;
+  explainerOpen = false;
+  elements.explainerOverlay.hidden = true;
+  unbindExplainerEscape?.();
+  unbindExplainerBackdrop?.();
+  unbindExplainerEscape = null;
+  unbindExplainerBackdrop = null;
+  resumeBattle();
 }
 
 function openItemMenu() {
@@ -1280,6 +1329,12 @@ function attemptParry() {
 function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
+  // dialogChrome's own bindEscapeClose (attached in openFalloffExplainer)
+  // handles Escape-to-close on its own window listener - every other key
+  // just no-ops here, same intent as the battlePaused check below but
+  // checked first since 'p' shouldn't toggle pause independently while this
+  // is open.
+  if (explainerOpen) return;
   if (itemMenuOpen) {
     handleItemMenuKeydown(event);
     return;
@@ -1388,6 +1443,13 @@ function resolveOneAttack(countsTowardStreak) {
   playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
   recordPlayerDamage('attack', result.damage, elements.monsterZones[targetIndex]);
   applyOnHitEffects(target, result.damage, streakMultiplier);
+  if (countsTowardStreak && state.settings.featureFlags?.mechanicExplainersBeta) {
+    const alreadySeenFalloff = hasSeenScreen(state.seenScreens, ATTACK_FALLOFF_SEEN_KEY);
+    if (attackFalloffJustTriggered(streakMultiplier, alreadySeenFalloff)) {
+      state.seenScreens = markScreenSeen(state.seenScreens, ATTACK_FALLOFF_SEEN_KEY);
+      openFalloffExplainer();
+    }
+  }
 }
 
 function playerAttack() {
@@ -1843,7 +1905,7 @@ function resumeBattle() {
 }
 
 function toggleBattlePause() {
-  if (itemMenuOpen) return;
+  if (itemMenuOpen || explainerOpen) return;
   if (battlePaused) resumeBattle();
   else pauseBattle();
 }
@@ -1865,6 +1927,14 @@ function endBattle(outcome) {
     itemMenuOpen = false;
     elements.itemMenuOverlay.hidden = true;
     clearItemMenuAutoCloseTimer();
+  }
+  if (explainerOpen) {
+    explainerOpen = false;
+    elements.explainerOverlay.hidden = true;
+    unbindExplainerEscape?.();
+    unbindExplainerBackdrop?.();
+    unbindExplainerEscape = null;
+    unbindExplainerBackdrop = null;
   }
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
@@ -1905,6 +1975,9 @@ export function mount(root, props) {
   itemMenuOpen = false;
   itemMenuSelectedIndex = 0;
   itemMenuAutoCloseTimeoutId = null;
+  explainerOpen = false;
+  unbindExplainerEscape = null;
+  unbindExplainerBackdrop = null;
   equipmentBonuses = getEquipmentBonuses(state);
   activeBuffs = createActiveBuffs();
   guaranteedCritNextHit = false;
@@ -1983,6 +2056,8 @@ export function unmount() {
   clearTimeout(exitAnimTimeoutId);
   clearTimeout(itemMenuAutoCloseTimeoutId);
   window.removeEventListener('keydown', handleKeydown);
+  unbindExplainerEscape?.();
+  unbindExplainerBackdrop?.();
   liveDamageNumbers.forEach(({ el, timeoutId }) => {
     clearTimeout(timeoutId);
     el.remove();

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, buildAbilityExplainerSections } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order, ids unchanged from before the rename', () => {
@@ -227,4 +227,19 @@ test('estimateAbilityDamage defaults to an average roll when no rng is supplied'
 
 test('ROTATION_BONUS_MULTIPLIER keeps its spec\'d value', () => {
   assert.equal(ROTATION_BONUS_MULTIPLIER, 1.25);
+});
+
+test('buildAbilityExplainerSections maps each unlocked ability to its icon/name/text, in the order given', () => {
+  const [stab, chop] = ABILITIES;
+  const sections = buildAbilityExplainerSections([stab, chop], { stab: 'Impale text', chop: 'Sever text' });
+  assert.deepEqual(sections, [
+    { icon: stab.icon, title: stab.name, text: 'Impale text' },
+    { icon: chop.icon, title: chop.name, text: 'Sever text' },
+  ]);
+});
+
+test('buildAbilityExplainerSections falls back to an empty string when an ability has no explainer text yet', () => {
+  const [stab] = ABILITIES;
+  const sections = buildAbilityExplainerSections([stab], {});
+  assert.equal(sections[0].text, '');
 });

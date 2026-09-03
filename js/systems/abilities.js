@@ -45,6 +45,19 @@ export function getUnlockedAbilities(level) {
   return ABILITIES.filter((ability) => ability.unlockLevel <= level);
 }
 
+// Feeds js/screens/mechanicExplainerScreen.js's combined ability-unlock
+// popup (js/main.js) - explainerText is keyed by ability id, matching
+// js/data/abilityExplainers.js. Falls back to '' rather than throwing so a
+// not-yet-written entry renders an empty (not crashing) section instead of
+// blocking the level-up flow.
+export function buildAbilityExplainerSections(unlockedAbilities, explainerText) {
+  return unlockedAbilities.map((ability) => ({
+    icon: ability.icon,
+    title: ability.name,
+    text: explainerText[ability.id] || '',
+  }));
+}
+
 export function canUseAbility({ locked, onCooldown, ready, alwaysReady, retriggerWindowOpen }) {
   if (locked) return false;
   // Lacerate's own self-retrigger window (see js/screens/battleScreen.js)

@@ -122,6 +122,16 @@ export function attackCooldownMsForStreak(streak) {
   return ATTACK_COOLDOWN_BASE_MS + streak * ATTACK_COOLDOWN_GROWTH_MS;
 }
 
+// Powers the in-battle explainer for the streak-decay mechanic above: fire
+// once, the first time a real attack actually lands at less than full
+// strength - not at the moment the streak starts, and not again once the
+// player has already seen it (alreadySeen comes from state.seenScreens via
+// js/systems/screenSeen.js, keyed by battleScreen.js's own
+// ATTACK_FALLOFF_SEEN_KEY).
+export function attackFalloffJustTriggered(streakMultiplier, alreadySeen) {
+  return streakMultiplier < 1 && !alreadySeen;
+}
+
 export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1, knockbackMultiplier = 1, critChanceBonus = 0) {
   const isCrit = rollCrit(rng, critChanceBonus);
   let damage = calculateDamage(player, monster, rng);

@@ -58,7 +58,7 @@ import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/mess
 import { playCelebration, playToolCelebration } from './screens/celebrationEffect.js';
 import { playItemPickupToast } from './screens/itemPickupToast.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
-import { ABILITIES } from './systems/abilities.js';
+import { ABILITIES, buildAbilityExplainerSections } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses, migrateUpgradesToPerTier, getUpgradeLevel } from './systems/inventory.js';
@@ -79,6 +79,8 @@ import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWar
 import * as questBoardScreen from './screens/questBoardScreen.js';
 import * as changelogScreen from './screens/changelogScreen.js';
 import { PLAYER_CHANGELOG } from './data/playerChangelog.js';
+import * as mechanicExplainerScreen from './screens/mechanicExplainerScreen.js';
+import { ABILITY_EXPLAINERS } from './data/abilityExplainers.js';
 
 const MAPS = {
   town: townMap,
@@ -940,6 +942,20 @@ function handleBattleEnd(outcome, killedMonsterIds) {
         // BURST_DURATION_MS, 1400ms) so the two show in sequence instead.
         setTimeout(() => {
           playCelebration(emoji, `New ability unlocked: ${names}!`);
+          // Combined popup (one per level-up event, covering every ability
+          // that just unlocked) rather than one per ability - see the
+          // brainstorming design's "Multi-unlock" decision. No seenScreens
+          // gate needed: unlockLevel is crossed exactly once per ability per
+          // NG+ cycle by construction, same as the banner above it. Gated
+          // behind mechanicExplainersBeta while the explainer text itself is
+          // still empty placeholders (js/data/abilityExplainers.js).
+          if (state.settings.featureFlags?.mechanicExplainersBeta) {
+            mountOverlay(mechanicExplainerScreen, {
+              title: 'New Ability!',
+              sections: buildAbilityExplainerSections(newlyUnlockedAbilities, ABILITY_EXPLAINERS),
+              callbacks: { onClose: () => unmountOverlay() },
+            });
+          }
         }, 1600);
       }
       for (let lvl = levelBeforeRewards + 1; lvl <= state.player.level; lvl += 1) {

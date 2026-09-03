@@ -77,6 +77,17 @@ function render() {
           ${state.settings.featureFlags?.audioBeta ? 'checked' : ''}
         />
       </div>
+      <div class="settings-row settings-feature-flag">
+        <label for="settings-flag-mechanic-explainers-beta">
+          Combat Explainers (beta) — in-battle popups for new abilities and
+          mechanics as you unlock them, still being written
+        </label>
+        <input
+          type="checkbox"
+          id="settings-flag-mechanic-explainers-beta"
+          ${state.settings.featureFlags?.mechanicExplainersBeta ? 'checked' : ''}
+        />
+      </div>
       ${state.settings.featureFlags?.audioBeta ? `
         <h3>Sound</h3>
         <div class="settings-row">
@@ -126,6 +137,13 @@ function render() {
     };
     callbacks.onChange();
     render(); // toggling the flag shows/hides the Sound section immediately
+  };
+  document.getElementById('settings-flag-mechanic-explainers-beta').onchange = (e) => {
+    state.settings = {
+      ...state.settings,
+      featureFlags: { ...state.settings.featureFlags, mechanicExplainersBeta: e.target.checked },
+    };
+    callbacks.onChange();
   };
   const soundThemeSelect = document.getElementById('settings-sound-theme');
   if (soundThemeSelect) {

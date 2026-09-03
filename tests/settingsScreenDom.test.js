@@ -202,4 +202,23 @@ test('settingsScreen DOM', async (t) => {
     assert.equal(state.settings.soundTheme, 'realistic');
     assert.equal(changed, true);
   });
+
+  await t.test('shows a mechanicExplainersBeta checkbox, unchecked by default', async () => {
+    const state = createNewGame();
+    const root = await mountSettings(state);
+    const checkbox = root.querySelector('#settings-flag-mechanic-explainers-beta');
+    assert.ok(checkbox);
+    assert.equal(checkbox.checked, false);
+  });
+
+  await t.test('checking the mechanicExplainersBeta flag updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const checkbox = root.querySelector('#settings-flag-mechanic-explainers-beta');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.featureFlags.mechanicExplainersBeta, true);
+    assert.equal(changed, true);
+  });
 });

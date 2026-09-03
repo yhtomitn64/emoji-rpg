@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.22.0',
+    date: '2026-09-03',
+    highlights: [
+      'New: a "Combat Explainers (beta)" toggle in Settings > Feature Flags - flip it on to preview in-battle popups that explain new abilities and combat mechanics as you unlock them. Off by default since the explanations themselves aren\'t written yet.',
+    ],
+  },
+  {
     version: '0.21.1',
     date: '2026-09-03',
     highlights: [

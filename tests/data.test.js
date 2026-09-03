@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS, SHOP_CATALOG } from '../js/data/items.js';
 import { QUEST_REQUIREMENTS } from '../js/systems/quests.js';
+import { ABILITIES } from '../js/systems/abilities.js';
+import { ABILITY_EXPLAINERS, ATTACK_FALLOFF_EXPLAINER } from '../js/data/abilityExplainers.js';
 
 test('every monster has required fields and a valid drop table', () => {
   for (const [id, monster] of Object.entries(MONSTERS)) {
@@ -217,4 +219,11 @@ test('tools are only ever a guaranteed guardian drop, never a stray chance-drop 
   assert.equal(ITEMS.miningPick.price, 0);
   assert.equal(ITEMS.axe.type, 'tool');
   assert.equal(ITEMS.axe.price, 0);
+});
+
+test('every ability has an entry in ABILITY_EXPLAINERS, and the attack-falloff mechanic has its own explainer', () => {
+  for (const ability of ABILITIES) {
+    assert.ok(ability.id in ABILITY_EXPLAINERS, `${ability.id} is missing from ABILITY_EXPLAINERS`);
+  }
+  assert.equal(typeof ATTACK_FALLOFF_EXPLAINER, 'string');
 });

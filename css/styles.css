@@ -347,6 +347,25 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 .battle-item-menu-overlay[hidden] {
   display: none;
 }
+/* Above the item-menu overlay's own z-index (6): the mid-battle attack-
+   falloff explainer (js/screens/battleScreen.js) shares battleScreen's own
+   root instead of screenManager's #overlay (see mechanicExplainerScreen.js's
+   own header comment for why), so it needs to out-rank everything else
+   already stacked inside the battle screen. */
+.battle-explainer-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 8px;
+  padding: 16px;
+}
+.battle-explainer-overlay[hidden] {
+  display: none;
+}
 /* Anchored to .battle-item-menu-overlay's own position: absolute box, so
    it sits pinned to the top of the menu regardless of the slots grid's
    own centered layout below it. The fill's width is driven by a real CSS
@@ -1149,6 +1168,15 @@ button:focus-visible {
 .changelog-panel ul {
   margin: 0 0 12px;
   padding-left: 20px;
+}
+.mechanic-explainer-section {
+  margin-bottom: 12px;
+}
+.mechanic-explainer-section h3 {
+  margin-bottom: 4px;
+}
+.mechanic-explainer-section p {
+  margin: 0;
 }
 
 .battle-hit-flash {
