@@ -99,6 +99,7 @@ of the three-session balance queue above — separate initiative):**
 - **Input / accessibility** — controller support, raw idea, not investigated.
 - **Feature requests** — "New Max damage!" progression callouts + a DPS meter (raw idea, raised in passing).
 - **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first).
+- **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
 
 ## Story / narrative
 
@@ -1489,3 +1490,73 @@ with GA" idea above never got tested, and the opt-in-with-consent GA
 telemetry for *other* players (the rest of this whole entry, both the
 2026-08-28 and 2026-08-28-update paragraphs above) is still fully open,
 not started.
+
+## Audio / sound, raised 2026-09-02/03
+
+Full sound-effects and music request, brainstormed and built out
+2026-09-02/03. Design docs: `docs/superpowers/specs/2026-09-03-audio-
+asset-catalog-handoff.md` (the full content catalog — every sound/music
+cue, mapped to prompt ideas for local generation) and
+`docs/superpowers/specs/2026-09-03-audio-engine-design.md` (the
+playback engine). Implementation plan:
+`docs/superpowers/plans/2026-09-03-audio-engine.md`.
+
+**Shipped 2026-09-03 (0.20.0), but gated off by default.** The full
+Web Audio engine (`js/systems/audio.js`, `js/data/soundManifest.js`) —
+category volume/mute (Combat/UI/World/Music), a theme-aware manifest
+with lazy per-theme loading and default-theme fallback for partial
+packs, music crossfade, and the 7 already-existing visual-effect
+functions wired to real `playSfx` calls. All of it sits behind a new
+"🚧 Feature Flags" section in Settings (`audioBeta` checkbox, off by
+default) — Timothy's own call, chosen over a hidden secret-URL unlock,
+since this is a tiny project with a few known players and an
+in-progress toggle is fine to show. `initAudio()` never runs at all
+with the flag off, so the whole system is completely inert until
+turned on. A final whole-branch review caught and fixed one crash risk
+(unguarded `AudioContext` construction on the game's boot path) plus
+several cross-task integration bugs (a basic attack double-playing its
+hit sound, a non-idempotent theme switch wiping the buffer cache on
+every settings change, redundant concurrent fetches on AOE hits) —
+none of it ever shipped live, all fixed before the first push.
+
+**Sourcing real audio — in progress, happening on Timothy's home
+RTX 5090 machine, not this repo.** Plan: curate hits/footsteps/UI/
+potion sounds from CC0 libraries (Kenney.nl, Freesound, OpenGameArt) —
+diffusion models are weak at sharp percussive transients, a real
+recorded sample beats a generated one there. Generate the 4(+ area)
+music loops with ACE-Step 1.5, and experiment with bespoke one-off SFX
+using Stable Audio 3 Small SFX (the closest thing found to a real
+upgrade over general text-to-audio for impact sounds specifically).
+Full catalog with per-sound prompt ideas in the asset-catalog-handoff
+doc above.
+
+**Still open once assets exist:**
+- Flip Timothy's own `audioBeta` flag on, playthrough with real sound,
+  tune volumes/mixes — only after that does flipping the *default* to
+  `true` for everyone make sense.
+- Wiring the rest of the catalog into gameplay call sites — menu nav/
+  select, dialog close, potion use, walking footsteps, parry success/
+  fail, timing-ability success/fail, discovery/cache/comeback, elite
+  encounter sting, and the area-music transitions (town/overworld/
+  battle/boss/dungeon themes on screen and encounter changes).
+  Deliberately deferred past the first plan — needs its own pass, see
+  that plan doc's own "Follow-up work" section.
+- Additional sound themes (metal/symphony/chiptune raised as ideas) —
+  the manifest's plumbing already supports them (drop files, add one
+  manifest entry, zero code changes), but no theme besides the default
+  has any real content yet.
+- `playMusic`'s re-entrancy: two overlapping `playMusic` calls before
+  the first's `loadBuffer` resolves can orphan a track (caught in final
+  review, latent today since no music call site exists yet) — worth a
+  fix before the area-music-transitions item above starts.
+- `js/data/soundManifest.js` hardcodes `'realistic'` in its path
+  helpers instead of deriving from `DEFAULT_THEME` — cosmetic today,
+  would silently break if `DEFAULT_THEME` ever changes.
+- Manifest sound ids use pre-0.19.0 ability names (`abilitySwingStab`
+  etc.) rather than the current display names (Impale/Sever/Lacerate/
+  Faultline) — internally consistent, just a translation note for
+  whoever names the actual asset files.
+- Settings panel CSS: the new Sound/Feature-Flags rows have no
+  dedicated styling, and `.overlay-panel` has no `max-height`/
+  `overflow-y` — worth a look on a small viewport once the panel's
+  final row count is settled.
