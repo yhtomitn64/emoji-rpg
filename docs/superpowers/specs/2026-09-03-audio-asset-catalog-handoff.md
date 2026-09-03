@@ -45,6 +45,29 @@ Music tracks need to crossfade against each other in-engine (e.g. town →
 battle theme on encounter start) — not a generation concern, noted here
 for the later engine design.
 
+### Area/dungeon music
+Maps to real distinct areas in `js/maps/`: the tool dungeons
+(`axeDungeon.js`/`canoeDungeon.js`/`pickDungeon.js`, gating movement
+tools in a fixed axe → pick → canoe → dragon order), the randomized
+mini-dungeons (`js/maps/miniDungeons/variantA-E.js`), the main dragon
+dungeon (`dungeonMap.js`, `bossMonsterId: 'dragon'`), the portal dungeon
+(NG+/portal-scroll area), and the outer edge of the wilderness grid
+(the `far*` screens in `js/maps/wilderness/` — the periphery of the
+currently-built Zone 1).
+
+| Track | Prompt idea |
+|---|---|
+| Random dungeon/cavern theme (mini-dungeons) | echoey ambient cavern theme, subtle tension, loopable |
+| Tool dungeon theme (axe/pick/canoe areas) | mysterious puzzle-dungeon theme, curious and exploratory, loopable |
+| Dragon's dungeon theme (exploration, not the fight) | dark foreboding dungeon theme, distant rumbling, loopable — distinct from the boss battle theme, which plays during the fight itself |
+| Portal dungeon theme (NG+/portal-scroll area) | otherworldly eerie ambient theme, shimmering and alien, loopable |
+| End-of-zone/wilderness-edge theme | sparse isolated theme, wide open and a little unsettling, loopable |
+
+Not scoped as a full loop, but worth flagging: a short **elite encounter
+sting** (`js/systems/eliteEncounter.js`) — a brief dramatic cue rather
+than a background track, similar treatment to battle start/boss battle
+start above.
+
 ### Combat hits (Stable Audio 3 Small SFX)
 | Sound | Prompt idea |
 |---|---|
