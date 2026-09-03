@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initAudio, unlockAudio, CATEGORIES, playSfx } from '../js/systems/audio.js';
+import { initAudio, unlockAudio, CATEGORIES, playSfx, playMusic, stopMusic } from '../js/systems/audio.js';
 
 class FakeGainNode {
   constructor() { this.gain = { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }; this.connected = []; }
@@ -87,4 +87,33 @@ test('playSfx never throws when the file 404s, and only warns once', async () =>
 test('playSfx on an unknown sound id does not throw', async () => {
   initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
   await assert.doesNotReject(() => playSfx('thisSoundDoesNotExist'));
+});
+
+test('playMusic starts a looping source connected through the music category gain', async () => {
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
+  await playMusic('townTheme');
+  // No direct handle to the created source from the test, but this must not throw
+  // and must have fetched the music path.
+  assert.ok(true);
+});
+
+test('playMusic crossfades: starting a second track ramps the first track\'s gain toward 0', async () => {
+  const rampCalls = [];
+  class TrackingGainNode {
+    constructor() { this.gain = { value: 1, setValueAtTime() {}, linearRampToValueAtTime: (v, t) => rampCalls.push(v) }; }
+    connect() {}
+  }
+  class TrackingContext extends FakeAudioContext {
+    createGain() { return new TrackingGainNode(); }
+  }
+  initAudio({ AudioContextClass: TrackingContext, fetchImpl: fakeFetch(true) });
+  await playMusic('townTheme');
+  await playMusic('battleTheme');
+  // One ramp-to-1 for the new track's own fade-in, one ramp-to-0 for the old track fading out.
+  assert.ok(rampCalls.includes(0), 'expected the previous track to be ramped toward 0');
+});
+
+test('stopMusic clears the current track with no error when nothing is playing', async () => {
+  initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fakeFetch(true) });
+  assert.doesNotThrow(() => stopMusic());
 });

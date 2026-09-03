@@ -77,3 +77,38 @@ export async function playSfx(soundId) {
   source.connect(categoryGains[category]);
   source.start();
 }
+
+export async function playMusic(soundId, { crossfadeMs = 1500 } = {}) {
+  if (!audioContext) return;
+  const buffer = await loadBuffer(soundId);
+  if (!buffer) return;
+
+  const now = audioContext.currentTime;
+  const trackGain = audioContext.createGain();
+  trackGain.gain.setValueAtTime(0, now);
+  trackGain.gain.linearRampToValueAtTime(1, now + crossfadeMs / 1000);
+  trackGain.connect(categoryGains.music);
+
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  source.connect(trackGain);
+  source.start();
+
+  const previous = currentMusic;
+  currentMusic = { source, trackGain, soundId };
+
+  if (previous) {
+    previous.trackGain.gain.linearRampToValueAtTime(0, now + crossfadeMs / 1000);
+    setTimeout(() => previous.source.stop(), crossfadeMs);
+  }
+}
+
+export function stopMusic({ fadeMs = 1500 } = {}) {
+  if (!currentMusic) return;
+  const now = audioContext.currentTime;
+  const { source, trackGain } = currentMusic;
+  trackGain.gain.linearRampToValueAtTime(0, now + fadeMs / 1000);
+  setTimeout(() => source.stop(), fadeMs);
+  currentMusic = null;
+}
