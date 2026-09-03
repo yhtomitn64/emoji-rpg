@@ -24,6 +24,22 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-03
+
+### Added
+- Audio engine: Web Audio API-based sound/music playback with a
+  theme-aware sound manifest (`js/data/soundManifest.js`,
+  `js/systems/audio.js`). Sounds and music load on demand and are
+  cached after first play, so no theme costs bandwidth until it's
+  actually used, and a theme missing a sound falls back to the
+  default `realistic` theme's file.
+- Settings screen: per-category volume sliders and mute toggles for
+  Combat/UI/World/Music, plus a sound theme selector.
+- The 7 existing visual-effect functions (crit/normal hits, ability
+  swings, revive, level-up, generic and tool-pickup celebrations,
+  item pickup toast) now trigger their matching sound, once real
+  audio files are dropped into `assets/audio/realistic/`.
+
 ## [0.19.0] - 2026-09-02
 
 ### Changed

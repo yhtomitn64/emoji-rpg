@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.20.0',
+    date: '2026-09-03',
+    highlights: [
+      'Added a Settings screen sound theme picker and volume/mute controls for Combat, UI, World, and Music sounds separately.',
+    ],
+  },
+  {
     version: '0.19.0',
     date: '2026-09-02',
     highlights: [
