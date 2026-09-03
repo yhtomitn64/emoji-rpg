@@ -132,6 +132,21 @@ export function attackFalloffJustTriggered(streakMultiplier, alreadySeen) {
   return streakMultiplier < 1 && !alreadySeen;
 }
 
+// Speed-scaled shared cooldown for abilities 1-4 (Impale/Sever/Lacerate/
+// Faultline), replacing the player ATB "swing timer" gate those abilities
+// used to wait on - see docs/superpowers/specs/2026-09-03-ability-gcd-
+// rework-design.md. Starting values give exactly 1000ms at the player's
+// starting speed of 5, floored at 500ms around speed 22 (just past
+// SPEED_DAMAGE_BONUS_THRESHOLD) - a starting point for the balance pass
+// in that same spec's workflow section, not a final tuning.
+export const ABILITY_GCD_BASE_MS = 1150;
+export const ABILITY_GCD_MS_PER_SPEED = 30;
+export const ABILITY_GCD_FLOOR_MS = 500;
+
+export function abilityGcdMsForSpeed(speed) {
+  return Math.max(ABILITY_GCD_FLOOR_MS, ABILITY_GCD_BASE_MS - speed * ABILITY_GCD_MS_PER_SPEED);
+}
+
 export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1, knockbackMultiplier = 1, critChanceBonus = 0) {
   const isCrit = rollCrit(rng, critChanceBonus);
   let damage = calculateDamage(player, monster, rng);
