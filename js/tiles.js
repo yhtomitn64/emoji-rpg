@@ -19,6 +19,17 @@ export const TILES = {
   shop: { emoji: '🏪', walkable: true, encounter: false, action: 'enterShop', description: 'Shop — buy and sell gear' },
   smith: { emoji: '⚒️', walkable: true, encounter: false, action: 'enterSmith', description: 'Smith — upgrade your equipment' },
   exit: { emoji: '🚪', walkable: true, encounter: false, action: 'exitMap', description: 'Door — leave this area' },
+  // Town's own exits (see docs/superpowers/specs/2026-09-03-town-exits-
+  // and-signage-design.md) - deliberately no emoji ("not even a door,
+  // just a break in the trees"), one tile kind per direction so each
+  // carries its own explicit action, matching the enterAxeDungeon/
+  // enterPickDungeon/etc. convention rather than inferring direction
+  // from where the tile sits in the map. `exit` above is untouched and
+  // still used by dungeon/tool-dungeon doors.
+  treeGapNorth: { emoji: '', walkable: true, encounter: false, action: 'exitTownNorth', description: 'A break in the trees' },
+  treeGapSouth: { emoji: '', walkable: true, encounter: false, action: 'exitTownSouth', description: 'A break in the trees' },
+  treeGapEast: { emoji: '', walkable: true, encounter: false, action: 'exitTownEast', description: 'A break in the trees' },
+  treeGapWest: { emoji: '', walkable: true, encounter: false, action: 'exitTownWest', description: 'A break in the trees' },
   boss: { emoji: '🐉', walkable: true, encounter: false, action: 'bossBattle', description: 'The dragon awaits' },
   caveFloor: { emoji: '⬛', walkable: true, encounter: true, description: 'Cave floor — wild monsters may appear' },
   caveWall: { emoji: '🪨', walkable: false, encounter: false, description: 'Cave wall — blocks the way' },

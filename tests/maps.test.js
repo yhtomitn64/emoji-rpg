@@ -273,14 +273,19 @@ function assertSharedCrossingExists(id, map, side, neighborId, neighborMap) {
 // mountainWall regardless of what's saved in the map file, so a screen's
 // raw border content on a no-neighbor side no longer affects gameplay.
 
-test('town map is well-formed and includes shop, smith, quest board, and exit tiles', () => {
+test('town map is well-formed and includes shop, smith, quest board, and all 4 directional tree-gap exits', () => {
   assertValidMap(townMap);
   const chars = townMap.rows.join('');
   const tileKeys = [...chars].map((c) => townMap.legend[c]);
   assert.ok(tileKeys.includes('shop'));
   assert.ok(tileKeys.includes('smith'));
   assert.ok(tileKeys.includes('questBoard'));
-  assert.ok(tileKeys.includes('exit'));
+  assert.ok(tileKeys.includes('well'));
+  assert.ok(tileKeys.includes('treeGapNorth'));
+  assert.ok(tileKeys.includes('treeGapSouth'));
+  assert.ok(tileKeys.includes('treeGapEast'));
+  assert.ok(tileKeys.includes('treeGapWest'));
+  assert.ok(!tileKeys.includes('exit'), 'town should no longer use the door tile - see docs/superpowers/specs/2026-09-03-town-exits-and-signage-design.md');
 });
 
 test('dungeon map is well-formed, includes a boss tile, and references a real boss monster', () => {
@@ -417,6 +422,22 @@ test('center screen start position (where exiting town lands you) is orthogonall
   const dx = Math.abs(startX - entranceX);
   const dy = Math.abs(startY - entranceY);
   assert.equal(dx + dy, 1, `startPosition (${startX},${startY}) must be exactly one orthogonal step from the town entrance (${entranceX},${entranceY})`);
+});
+
+test('center screen has open, walkable ground on all 4 sides of the town entrance (every town exit direction needs a landing spot)', () => {
+  const entranceChar = Object.entries(centerMap.legend).find(([, kind]) => kind === 'townEntrance')?.[0];
+  assert.ok(entranceChar, 'center map legend must have a townEntrance character');
+  let entranceX, entranceY;
+  for (let y = 0; y < centerMap.rows.length; y++) {
+    const x = centerMap.rows[y].indexOf(entranceChar);
+    if (x >= 0) { entranceX = x; entranceY = y; }
+  }
+  const deltas = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+  for (const [dir, [dx, dy]] of Object.entries(deltas)) {
+    const x = entranceX + dx;
+    const y = entranceY + dy;
+    assert.ok(isWalkableAt(centerMap, x, y), `center (${x},${y}), one step ${dir} of the town entrance, must be walkable for the matching town exit to land there`);
+  }
 });
 
 test('southeast screen has no static dungeon entrance tile — the entrance is a per-save override now', () => {
