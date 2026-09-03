@@ -52,6 +52,14 @@ const DEFAULT_AUDIO_SETTINGS = {
   audioMusicVolume: 0.6, audioMusicMuted: false,
 };
 
+// In-progress features gated behind a visible Settings toggle rather than a
+// hidden unlock - this is a small personal project with a handful of known
+// players, so "off by default, flip it on when you want to help test" is
+// fine instead of needing a LaunchDarkly-style hidden rollout mechanism.
+const DEFAULT_FEATURE_FLAGS = {
+  audioBeta: false,
+};
+
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
@@ -106,6 +114,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     settings: {
       itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
       ...DEFAULT_AUDIO_SETTINGS,
+      featureFlags: { ...DEFAULT_FEATURE_FLAGS },
     },
   };
 }
@@ -201,6 +210,19 @@ export function migrateSettings(state) {
 // already adjusted a slider on a save made mid-rollout never gets it reset.
 export function migrateAudioSettings(state) {
   return { ...state, settings: { ...DEFAULT_AUDIO_SETTINGS, ...state.settings } };
+}
+
+// One-time migration for saves from before feature flags existed - merges
+// in only missing flags, so a save that already has one set (e.g. a
+// friend's save with audioBeta already toggled on) keeps that value.
+export function migrateFeatureFlags(state) {
+  return {
+    ...state,
+    settings: {
+      ...state.settings,
+      featureFlags: { ...DEFAULT_FEATURE_FLAGS, ...state.settings.featureFlags },
+    },
+  };
 }
 
 export function serializeState(state) {

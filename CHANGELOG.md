@@ -34,11 +34,16 @@ public API, no formal release process — commits land straight on
   actually used, and a theme missing a sound falls back to the
   default `realistic` theme's file.
 - Settings screen: per-category volume sliders and mute toggles for
-  Combat/UI/World/Music, plus a sound theme selector.
+  Combat/UI/World/Music, plus a sound theme selector — gated behind a
+  new "🚧 Feature Flags" section's `audioBeta` checkbox (off by
+  default) since no real audio assets exist yet. `initAudio()` never
+  runs at all for a player with the flag off, so the whole audio
+  system stays completely inert until it's turned on.
 - The 7 existing visual-effect functions (crit/normal hits, ability
   swings, revive, level-up, generic and tool-pickup celebrations,
   item pickup toast) now trigger their matching sound, once real
-  audio files are dropped into `assets/audio/realistic/`.
+  audio files are dropped into `assets/audio/realistic/` and the
+  `audioBeta` flag is enabled.
 
 ### Fixed
 - Cross-task integration bugs caught by this feature's final

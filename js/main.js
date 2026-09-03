@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags } from './state.js';
 import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
@@ -134,6 +134,7 @@ function startGame(loadedState, slotId) {
   state = migrateLoadout(state);
   state = migrateSettings(state);
   state = migrateAudioSettings(state);
+  state = migrateFeatureFlags(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';
@@ -208,9 +209,12 @@ function startGame(loadedState, slotId) {
   if (!state.player.emoji) {
     state.player.emoji = DEFAULT_HERO_EMOJI;
   }
-  // guarded to run once per session — startGame's other call sites (NG+ restart) happen
-  // mid-session with audio already initialized, and only need their settings re-synced.
-  if (!audioStarted) {
+  // Gated behind the audioBeta feature flag (Settings > Feature Flags) while
+  // real sound assets are still being produced - guarded to run at most once
+  // per session once the flag is on, since startGame's other call sites
+  // (NG+ restart) happen mid-session with audio already initialized and
+  // only need their settings re-synced.
+  if (!audioStarted && state.settings.featureFlags.audioBeta) {
     audioStarted = true;
     initAudio();
     unlockAudio(); // startGame's first call only ever runs from a real click (save-slot select), so this satisfies the browser's autoplay-gesture requirement.
@@ -377,7 +381,18 @@ function openSettings() {
   mountOverlay(settingsScreen, {
     state,
     callbacks: {
-      onChange: () => { persist(); syncAudioSettings(state.settings); },
+      onChange: () => {
+        persist();
+        // Flipping the audioBeta flag on mid-session (rather than at the
+        // next game load) should take effect immediately, same guard as
+        // startGame's own audio-init block.
+        if (!audioStarted && state.settings.featureFlags.audioBeta) {
+          audioStarted = true;
+          initAudio();
+          unlockAudio(); // openSettings only ever runs from a real click, so this satisfies the browser's autoplay-gesture requirement too.
+        }
+        syncAudioSettings(state.settings);
+      },
       onClose: () => unmountOverlay(),
     },
   });

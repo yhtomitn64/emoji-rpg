@@ -65,29 +65,43 @@ function render() {
         <span id="play-log-status" hidden></span>
       </div>
       <textarea id="play-log-fallback" readonly hidden></textarea>
-      <h3>Sound</h3>
-      <div class="settings-row">
-        <label for="settings-sound-theme">Sound theme</label>
-        <select id="settings-sound-theme">
-          ${Object.keys(SOUND_THEMES).map((themeId) => `
-            <option value="${themeId}" ${state.settings.soundTheme === themeId ? 'selected' : ''}>${themeId}</option>
-          `).join('')}
-        </select>
+      <h3>🚧 Feature Flags</h3>
+      <div class="settings-row settings-feature-flag">
+        <label for="settings-flag-audio-beta">
+          Enable Audio (beta) — sound is a work in progress, expect missing
+          or rough audio
+        </label>
+        <input
+          type="checkbox"
+          id="settings-flag-audio-beta"
+          ${state.settings.featureFlags?.audioBeta ? 'checked' : ''}
+        />
       </div>
-      ${CATEGORIES.map((category) => `
+      ${state.settings.featureFlags?.audioBeta ? `
+        <h3>Sound</h3>
         <div class="settings-row">
-          <label for="settings-audio-${category}-volume">${CATEGORY_LABELS[category]} volume</label>
-          <input
-            type="range" min="0" max="1" step="0.05"
-            id="settings-audio-${category}-volume"
-            value="${state.settings[`audio${capitalize(category)}Volume`]}"
-          />
-          <label for="settings-audio-${category}-muted">
-            <input type="checkbox" id="settings-audio-${category}-muted" ${state.settings[`audio${capitalize(category)}Muted`] ? 'checked' : ''} />
-            Mute
-          </label>
+          <label for="settings-sound-theme">Sound theme</label>
+          <select id="settings-sound-theme">
+            ${Object.keys(SOUND_THEMES).map((themeId) => `
+              <option value="${themeId}" ${state.settings.soundTheme === themeId ? 'selected' : ''}>${themeId}</option>
+            `).join('')}
+          </select>
         </div>
-      `).join('')}
+        ${CATEGORIES.map((category) => `
+          <div class="settings-row">
+            <label for="settings-audio-${category}-volume">${CATEGORY_LABELS[category]} volume</label>
+            <input
+              type="range" min="0" max="1" step="0.05"
+              id="settings-audio-${category}-volume"
+              value="${state.settings[`audio${capitalize(category)}Volume`]}"
+            />
+            <label for="settings-audio-${category}-muted">
+              <input type="checkbox" id="settings-audio-${category}-muted" ${state.settings[`audio${capitalize(category)}Muted`] ? 'checked' : ''} />
+              Mute
+            </label>
+          </div>
+        `).join('')}
+      ` : ''}
       <button id="btn-close-settings">Close</button>
     </div>
   `;
@@ -105,21 +119,32 @@ function render() {
     callbacks.onChange();
   };
   document.getElementById('btn-copy-play-log').onclick = () => copyPlayLog();
-  document.getElementById('settings-sound-theme').onchange = (e) => {
-    state.settings = { ...state.settings, soundTheme: e.target.value };
+  document.getElementById('settings-flag-audio-beta').onchange = (e) => {
+    state.settings = {
+      ...state.settings,
+      featureFlags: { ...state.settings.featureFlags, audioBeta: e.target.checked },
+    };
     callbacks.onChange();
+    render(); // toggling the flag shows/hides the Sound section immediately
   };
-  for (const category of CATEGORIES) {
-    const volumeInput = document.getElementById(`settings-audio-${category}-volume`);
-    volumeInput.onchange = () => {
-      state.settings = { ...state.settings, [`audio${capitalize(category)}Volume`]: Number(volumeInput.value) };
+  const soundThemeSelect = document.getElementById('settings-sound-theme');
+  if (soundThemeSelect) {
+    soundThemeSelect.onchange = (e) => {
+      state.settings = { ...state.settings, soundTheme: e.target.value };
       callbacks.onChange();
     };
-    const mutedInput = document.getElementById(`settings-audio-${category}-muted`);
-    mutedInput.onchange = () => {
-      state.settings = { ...state.settings, [`audio${capitalize(category)}Muted`]: mutedInput.checked };
-      callbacks.onChange();
-    };
+    for (const category of CATEGORIES) {
+      const volumeInput = document.getElementById(`settings-audio-${category}-volume`);
+      volumeInput.onchange = () => {
+        state.settings = { ...state.settings, [`audio${capitalize(category)}Volume`]: Number(volumeInput.value) };
+        callbacks.onChange();
+      };
+      const mutedInput = document.getElementById(`settings-audio-${category}-muted`);
+      mutedInput.onchange = () => {
+        state.settings = { ...state.settings, [`audio${capitalize(category)}Muted`]: mutedInput.checked };
+        callbacks.onChange();
+      };
+    }
   }
   document.getElementById('btn-close-settings').onclick = () => callbacks.onClose();
   document.getElementById('btn-close-x').onclick = () => callbacks.onClose();

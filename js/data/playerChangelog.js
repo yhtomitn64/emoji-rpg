@@ -9,7 +9,7 @@ export const PLAYER_CHANGELOG = [
     version: '0.20.0',
     date: '2026-09-03',
     highlights: [
-      'Added a Settings screen sound theme picker and volume/mute controls for Combat, UI, World, and Music sounds separately.',
+      'New: a "🚧 Feature Flags" section in Settings, starting with an "Enable Audio (beta)" toggle - flip it on to preview in-progress sound controls (a theme picker and Combat/UI/World/Music volume and mute sliders). Off by default since real sound isn\'t in yet.',
     ],
   },
   {

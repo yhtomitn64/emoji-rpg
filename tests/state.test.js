@@ -19,6 +19,7 @@ import {
   migrateLoadout,
   migrateSettings,
   migrateAudioSettings,
+  migrateFeatureFlags,
   DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
 } from '../js/state.js';
 
@@ -336,4 +337,23 @@ test('migrateAudioSettings is a no-op (same values) when fields already exist', 
   state.settings.audioCombatVolume = 0.1;
   const migrated = migrateAudioSettings(state);
   assert.equal(migrated.settings.audioCombatVolume, 0.1);
+});
+
+test('createNewGame defaults featureFlags.audioBeta to false', () => {
+  const state = createNewGame();
+  assert.equal(state.settings.featureFlags.audioBeta, false);
+});
+
+test('migrateFeatureFlags fills in missing featureFlags on an old save without touching existing settings', () => {
+  const oldState = { settings: { itemMenuAutoCloseMs: 900 } };
+  const migrated = migrateFeatureFlags(oldState);
+  assert.equal(migrated.settings.itemMenuAutoCloseMs, 900);
+  assert.equal(migrated.settings.featureFlags.audioBeta, false);
+});
+
+test('migrateFeatureFlags preserves an already-set flag value', () => {
+  const state = createNewGame();
+  state.settings.featureFlags.audioBeta = true;
+  const migrated = migrateFeatureFlags(state);
+  assert.equal(migrated.settings.featureFlags.audioBeta, true);
 });
