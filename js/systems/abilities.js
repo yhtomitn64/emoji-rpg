@@ -82,13 +82,13 @@ export function buildAbilityExplainerSections(unlockedAbilities, explainerText) 
   }));
 }
 
-export function canUseAbility({ locked, onCooldown, ready, alwaysReady, retriggerWindowOpen }) {
+export function canUseAbility({ locked, onCooldown, retriggerWindowOpen }) {
   if (locked) return false;
   // Lacerate's own self-retrigger window (see js/screens/battleScreen.js)
   // makes its button clickable again despite still being on cooldown - a
   // deliberately different input than a normal reuse.
   if (retriggerWindowOpen) return true;
-  return !onCooldown && !!(ready || alwaysReady);
+  return !onCooldown;
 }
 
 export function tickCooldowns(cooldowns, dt) {

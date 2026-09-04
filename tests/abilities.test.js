@@ -163,28 +163,20 @@ test('Lacerate carries a retrigger config with a window duration and a sweet spo
   assert.deepEqual(byId.slash.retrigger, { windowMs: 1200, sweetSpotStartPercent: 80, sweetSpotEndPercent: 100, buffDurationMs: 9000 });
 });
 
-test('canUseAbility requires ready, unless a retrigger window is open for this ability', () => {
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: true }), true);
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false }), false);
-  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, retriggerWindowOpen: true }), true);
-});
-
-test('canUseAbility is false when locked, even with a retrigger window open', () => {
-  assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: true, retriggerWindowOpen: true }), false);
+test('canUseAbility is true when unlocked and off cooldown', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: false }), true);
 });
 
 test('canUseAbility is false when on cooldown and no retrigger window is open', () => {
-  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: true }), false);
+  assert.equal(canUseAbility({ locked: false, onCooldown: true }), false);
 });
 
-test('canUseAbility bypasses the ready gate when alwaysReady is set, e.g. Super Scream', () => {
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, alwaysReady: true }), true);
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, alwaysReady: false }), false);
+test('canUseAbility is true on cooldown when a retrigger window is open for this ability', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: true, retriggerWindowOpen: true }), true);
 });
 
-test('canUseAbility still respects locked/onCooldown even when alwaysReady is set', () => {
-  assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: false, alwaysReady: true }), false);
-  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, alwaysReady: true }), false);
+test('canUseAbility is false when locked, even with a retrigger window open', () => {
+  assert.equal(canUseAbility({ locked: true, onCooldown: false, retriggerWindowOpen: true }), false);
 });
 
 test('every ability has a distinct icon', () => {
