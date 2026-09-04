@@ -727,7 +727,6 @@ function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', coo
 // always keys to Space, never a number, so it sorts into the non-numbered
 // group same as Parry/Attack/Item/Flee.
 function abilityButtonEntries() {
-  const ready = isReady(playerCombatant.atb);
   const target = monsterCombatants[selectedMonsterIndex];
   return getUnlockedAbilities(state.player.level).map((ability, index) => {
     const slot = index + 1;
@@ -753,7 +752,7 @@ function abilityButtonEntries() {
       const elapsedPercent = Math.min(100, ((performance.now() - lacerateRetriggerStartedAt) / ability.retrigger.windowMs) * 100);
       return elapsedPercent >= ability.retrigger.sweetSpotStartPercent && elapsedPercent <= ability.retrigger.sweetSpotEndPercent;
     })();
-    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, alwaysReady, retriggerWindowOpen });
+    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, retriggerWindowOpen });
     const cooldownActive = cooldownRemaining > 0;
     const cooldownPct = cooldownActive ? (cooldownRemaining / (abilityCooldownTotals[ability.id] || ability.cooldownMs)) * 100 : 0;
     const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
@@ -1368,17 +1367,15 @@ function handleKeydown(event) {
     return;
   }
   if (event.code === 'Space') {
-    // Super Scream lives on Space instead of a digit key, and unlike every
-    // other ability it's exempt from the swing-timer-ready gate entirely -
-    // see canUseAbility's alwaysReady param. The existing abilityActionInFlight
-    // guard inside playerUseAbility already keeps this safe if Space is
-    // pressed while another ability's resolution is still in flight: that
-    // call just no-ops.
+    // Super Scream lives on Space instead of a digit key. The existing
+    // abilityActionInFlight guard inside playerUseAbility already keeps
+    // this safe if Space is pressed while another ability's resolution is
+    // still in flight: that call just no-ops.
     event.preventDefault();
     const superScream = ABILITIES.find((a) => a.id === 'superScream');
     const locked = state.player.level < superScream.unlockLevel;
     const onCooldown = (abilityCooldowns[superScream.id] || 0) > 0;
-    if (canUseAbility({ locked, onCooldown, ready: isReady(playerCombatant.atb), alwaysReady: true })) {
+    if (canUseAbility({ locked, onCooldown })) {
       playerUseAbility(superScream.id);
     }
     return;
@@ -1393,7 +1390,7 @@ function handleKeydown(event) {
     if (!ability) return;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
     const retriggerWindowOpen = ability.id === 'slash' && lacerateRetriggerOpen;
-    if (canUseAbility({ locked: false, onCooldown, ready: isReady(playerCombatant.atb), retriggerWindowOpen })) {
+    if (canUseAbility({ locked: false, onCooldown, retriggerWindowOpen })) {
       playerUseAbility(ability.id);
     }
   }

@@ -1176,4 +1176,15 @@ test('battleScreen DOM', async (t) => {
     const pct = Number(chopWipe.style.getPropertyValue('--pct'));
     assert.ok(pct > 90 && pct <= 100, `expected a fresh cooldown to read near 100%, got ${pct}`);
   });
+
+  await t.test('an ability can be used the instant it comes off cooldown, with no extra wait for a swing timer to refill', async () => {
+    const { root, state } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 2, speed: 1 } }) });
+    // speed: 1 deliberately kept low - under the old ATB gauge this would
+    // make readiness take a long time to refill. If the ability still
+    // fires the instant it's mounted (cooldowns start at 0), the swing
+    // timer is confirmed gone, not just fast.
+    const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
+    click(root.querySelector('#btn-ability-stab'));
+    assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
+  });
 });
