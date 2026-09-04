@@ -1153,4 +1153,27 @@ test('battleScreen DOM', async (t) => {
     // refresh would show exactly 9s (the single shared buffState replaced).
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /9s/);
   });
+
+  await t.test('using one ability puts every other unlocked ability on cooldown too (the shared GCD)', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    // Level 8 unlocks stab(1)/chop(2)/slash(3)/sweep(4).
+    click(root.querySelector('#btn-ability-stab'));
+    assert.equal(root.querySelector('#btn-ability-chop').disabled, true, 'chop should be on the shared GCD too, even though it was never pressed');
+    assert.equal(root.querySelector('#btn-ability-sweep').disabled, true, 'sweep should be on the shared GCD too');
+  });
+
+  await t.test('the shared GCD does not touch Super Scream (a buff-type ability)', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
+    click(root.querySelector('#btn-ability-stab'));
+    assert.equal(root.querySelector('#btn-ability-superScream').disabled, false, 'Super Scream is not part of the shared GCD propagation');
+  });
+
+  await t.test('every ability button\'s cooldown-wipe percentage divides by the duration that actually applied, not a stale config value', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    click(root.querySelector('#btn-ability-stab'));
+    const chopWipe = root.querySelector('#btn-ability-chop .battle-ability-cooldown-wipe');
+    assert.ok(chopWipe, 'chop should show a cooldown-wipe animation from the shared GCD');
+    const pct = Number(chopWipe.style.getPropertyValue('--pct'));
+    assert.ok(pct > 90 && pct <= 100, `expected a fresh cooldown to read near 100%, got ${pct}`);
+  });
 });

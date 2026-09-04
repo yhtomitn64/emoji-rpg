@@ -10,25 +10,25 @@ export const ROTATION_BONUS_MULTIPLIER = 1.25;
 export const ABILITIES = [
   {
     id: 'stab', name: 'Impale', icon: '🗡️', unlockLevel: 2, type: 'damage',
-    damageMultiplier: 0.8, cooldownMs: 4000,
+    damageMultiplier: 0.8,
     description: 'a strong, precise single-target thrust',
   },
   {
     id: 'chop', name: 'Sever', icon: '🪓', unlockLevel: 4, type: 'damage',
-    damageMultiplier: 1.1, cooldownMs: 10000,
+    damageMultiplier: 1.1,
     extraTargetCount: 1,
     description: 'cuts through the target and into one random enemy beside it - still fine to use one-on-one',
   },
   {
     id: 'slash', name: 'Lacerate', icon: '⚔️', unlockLevel: 6, type: 'damage',
-    damageMultiplier: 0.85, cooldownMs: 6000,
+    damageMultiplier: 0.85,
     delayedHitMultiplier: 0.2, delayedHitDelayMs: 900,
     retrigger: { windowMs: 1200, sweetSpotStartPercent: 80, sweetSpotEndPercent: 100, buffDurationMs: 9000 },
     description: 'a cut that bleeds for extra damage a moment later - press it again right after landing to buff your other abilities for a while',
   },
   {
     id: 'sweep', name: 'Faultline', icon: '🪨', unlockLevel: 8, type: 'damage',
-    damageMultiplier: 1.3, cooldownMs: 12000,
+    damageMultiplier: 1.3,
     defenseShredMultiplier: 0.85, defenseShredDurationMs: 6000,
     widenBonusTargets: 1,
     aoe: true,

@@ -1,9 +1,9 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { ATTACK_FALLOFF_EXPLAINER } from '../data/abilityExplainers.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, abilityGcdMsForSpeed } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, applyAbilityGcd } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
@@ -70,6 +70,7 @@ let elements = {};
 let endBattleTimeoutId = null;
 let exitAnimTimeoutId = null;
 let abilityCooldowns = {};
+let abilityCooldownTotals = {};
 let buffState = createBuffState();
 let widenBuffState = null;
 let lacerateRetriggerOpen = false;
@@ -754,7 +755,7 @@ function abilityButtonEntries() {
     })();
     const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, alwaysReady, retriggerWindowOpen });
     const cooldownActive = cooldownRemaining > 0;
-    const cooldownPct = cooldownActive ? (cooldownRemaining / ability.cooldownMs) * 100 : 0;
+    const cooldownPct = cooldownActive ? (cooldownRemaining / (abilityCooldownTotals[ability.id] || ability.cooldownMs)) * 100 : 0;
     const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
     const keyLabel = alwaysReady ? 'Space' : String(slot);
     const keyDisplay = alwaysReady ? 'Spc' : String(slot);
@@ -1523,6 +1524,7 @@ async function playerUseAbility(abilityId) {
   try {
     const ability = ABILITIES.find((a) => a.id === abilityId);
     logEvent('ability_used', { abilityId, inBattle: true, ngPlusCycle: state.ngPlusCycle });
+    const gcdMs = abilityGcdMsForSpeed(playerCombatant.speed);
     if (ability.type === 'buff') {
       buffState = activateBuff(ability);
       abilityCooldowns[abilityId] = ability.cooldownMs;
@@ -1543,7 +1545,7 @@ async function playerUseAbility(abilityId) {
         .map((mc, i) => i)
         .filter((i) => monsterCombatants[i].hp > 0);
       const debuffSnapshots = targetIndices.map((i) => monsterCombatants[i].defenseDebuff);
-      abilityCooldowns[abilityId] = ability.cooldownMs;
+      ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(state.player.level), abilityId, gcdMs, abilityCooldownTotals));
       attackStreak = 0;
       attackStreakIdleMs = 0;
       const livingIndices = targetIndices.filter((i) => monsterCombatants[i].hp > 0);
@@ -1590,7 +1592,7 @@ async function playerUseAbility(abilityId) {
     target.atb = result.monsterAtb;
     playerCombatant.atb = result.playerAtb;
     maybeMarkSplitDeath(target, result);
-    abilityCooldowns[abilityId] = ability.cooldownMs;
+    ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(state.player.level), abilityId, gcdMs, abilityCooldownTotals));
     attackStreak = 0;
     attackStreakIdleMs = 0;
     if (ability.id === 'slash') {
@@ -1985,6 +1987,7 @@ export function mount(root, props) {
   recomputeEffectBonuses();
   playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
+  abilityCooldownTotals = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
   widenBuffState = null;
   lacerateRetriggerOpen = false;
