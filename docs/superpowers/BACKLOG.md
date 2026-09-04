@@ -69,10 +69,13 @@ of the three-session balance queue above — separate initiative):**
   2026-09-04 (0.24.2)** — the minor CI cleanup (`--commit-dirty=true`)
   is still deferred, not urgent.
   See the Infrastructure / deployment section below.
-- **Puzzle mechanics, raised 2026-09-04** — logic/riddle/physical-obstacle,
-  and what a tool could unlock besides simple traversal. Genuinely open,
-  needs its own brainstorming pass. See the dedicated Puzzle mechanics
-  section below.
+- **Puzzle mechanics, raised 2026-09-04** — water picked as the flavor to
+  explore first; a first brainstorming pass this same session captured
+  trench-fill/poison-drain (share one flood-fill engine, no new painter
+  tooling needed), a player-placeable dam, and a strategic block/unblock
+  maze idea (both bigger, more dynamic, not designed). Timothy wants to
+  keep adding his own notes before this becomes a real design - not
+  ready for a spec yet. See the dedicated Puzzle mechanics section below.
 
 - ~~**UI consistency: universal Escape-to-close + aligned dialog chrome.**~~ **Shipped 2026-09-02 (0.18.1)**, extended to also cover click-outside per the same request. See BACKLOG_SHIPPED.md's "Bugs" section for the full audit and file list.
 - **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
@@ -855,6 +858,114 @@ What's actually raised, as three separable threads:
 Raw idea only - no mechanic shape, no specific puzzle content, nothing
 implemented. Next step is a proper brainstorming session, not more
 backlog writing.
+
+**Brainstorming session, 2026-09-04 (this same session, picking up the
+thread above):** Constraint set at the start, Timothy's own call: no
+generic puzzle-authoring system/editor - whatever gets built should be
+ordinary tile-kinds painted in the terrain painter like `thicket`/
+`mountain`/`water` already are, not a bespoke "place this puzzle" tool.
+Timothy: "I really like stuff to do with water" - water was picked as
+the flavor to explore first (not a rejection of logic/riddle/push-
+obstacle, just where energy is right now). Still genuinely raw -
+Timothy explicitly wants to keep adding his own notes and think it
+through more before this becomes a real design ("I want to put all
+these ideas together in a doc and think through them... I will
+probably have to take a map square or two and redo them a bunch...
+which is fine because we have lots of unused areas"). **Not ready for
+an implementation plan or spec - this is the capture, not the design.**
+
+Ideas raised, roughly newest-first:
+- **Strategic block/unblock maze** — Timothy's own idea, extending the
+  dam concept below into a whole room/screen: "make some sort of maze
+  thing where you have to strategically block/unblock to get through."
+  Implies multiple obstacles/dams a player can toggle in sequence, not
+  just one one-time dig. Needs its own screen layout, not just a tile
+  mechanic - biggest of these ideas, not scoped at all.
+- **Chop-a-tree/lay-a-board shortcut** — Timothy's own idea, a one-way-
+  back shortcut: "maybe a shortcut where you chop down a tree/lay a
+  board to get back." Close to the "felled bridge" example floated
+  earlier this session (axe drops a tree across a narrow water gap) -
+  Timothy's phrasing suggests a carried/placeable board item might be a
+  separate, simpler variant of the same idea (lay a board you're
+  carrying, rather than only felling a specific pre-placed tree). Not
+  decided which.
+- **Player-placeable dam, mid-game** — Timothy's own idea: "maybe you
+  can also place a dam mid game and it stops the water." A real
+  departure from every other mechanic below (and from every existing
+  tool-gate in the game) - those are all one-time, permanent state
+  changes (thicket → stump, obstacle dug out, trench flooded) baked
+  into static per-screen data (`clearedGates`). A player-placeable,
+  presumably player-*removable* dam implies live, reversible water
+  state the player controls during play, not something the terrain
+  painter authors once ahead of time. Not designed - would need its own
+  data model (where placed dams live in save state, whether they're a
+  limited-use item, whether they can be picked back up) before it's
+  buildable at all.
+- **"We might need to think water flow"** — Timothy's own words,
+  flagging the real open technical question underneath all of this:
+  does "water flow" mean simple undirected connectivity (a flood-fill
+  from a `water` tile through connected `trench`/similar tiles, blocked
+  by uncleared obstacles - cheap, and enough for the trench-fill/
+  poison-drain ideas below on their own), or actual directional/
+  volumetric flow simulation (meaningfully bigger technical scope, and
+  probably only worth it if the block/unblock maze idea above needs
+  water to visibly move/redirect rather than just flip a region between
+  two states)? Unresolved - the answer likely depends on how far the
+  maze idea above ends up going.
+- **Trench-fill** — Timothy's own original example: "there is a trench
+  and you can dig out in front of the trench and the water will flow
+  through and you can finally cross that area with the boat." Worked
+  through in detail this session: a `water` tile (the source) and a
+  `trench` tile (dry, impassable, no tool crosses it) with an `obstacle`
+  tile between them (dug out with the mining pick, same one-time-clear
+  mechanic every existing tool gate already uses via `clearedGates`).
+  The trench only reads as "flooded" (→ acts like `water`, boat-
+  required) via a flood-fill from any real `water` tile through
+  connected trench tiles, blocked by any *uncleared* obstacle - computed
+  fresh at render/move time in `mapScreen.js`'s `tileAt()`, the same
+  function that already swaps `thicket` for `stump` via `clearedGates`.
+  Consequence worth calling out: **there's no real "paint the obstacle
+  before the trench" ordering rule to enforce** - a flood-fill evaluated
+  fresh from final tile positions doesn't care what order tiles were
+  painted in, only the finished arrangement. If a trench is painted
+  directly touching a lake with nothing between them, it simply reads as
+  flooded from the very first load, which is the algorithm working
+  correctly, not a mistake. The terrain painter's existing "Check Map"
+  reachability preview would be the natural place to show this live
+  (tint flooded vs. dry trench tiles) so an author can *see* the result
+  while painting instead of relying on the mental model - not built.
+- **Poison-drain** — Timothy's own original example: "you drain an area
+  of poison water and can finally walk through it to ancient castle that
+  has loot or something." Same underlying flood-fill primitive as
+  trench-fill, direction-inverted: a new `poisonWater` tile-kind,
+  impassable to everyone (boat included - that's what makes draining
+  the only answer, not just "bring a boat"), with a `valve`/trigger tile
+  at its edge. Once triggered, flood-fill outward through the connected
+  poison-water region converts it all to walkable ground. Because it
+  shares the trench-fill engine, building one gets the other most of
+  the way there for free.
+- **Waterwheel/remote trigger** — flow reaching a designated tile
+  unlocks a distant gate elsewhere (a `guardian`-style lock) instead of
+  converting local terrain - same flood-fill engine, different payoff.
+  Raw idea, not fleshed out.
+- **Drained lake reveals a mini-dungeon entrance** — ties the drain
+  mechanic into the existing `miniDungeons` system (`js/systems/
+  miniDungeons.js`) instead of inventing new reward plumbing. Raw idea.
+- **Freezing water for a temporary bridge** — flagged explicitly as a
+  *different, later* idea, not part of this pass: it implies a new tool/
+  mechanic concept rather than reusing pick/axe/boat, a real scope jump
+  from everything else here.
+
+Architecture notes from this session, for whoever picks this up next:
+`js/systems/toolGates.js` + `js/screens/mapScreen.js`'s `tileAt()`/
+`clearedGates` already cover every *one-time, static* mechanic above
+(trench-fill, poison-drain, waterwheel, drained-lake-reveal) with no new
+painter tooling needed beyond new palette tile-kinds and (optionally) a
+Check Map preview extension. The player-placeable-dam and strategic
+maze ideas are a different, more dynamic shape (live/reversible state
+during play, not baked into map data ahead of time) and would need their
+own design thinking before they're anywhere near buildable - don't
+assume they fall out of the same simple flood-fill work.
 
 ## In-game tutorials / mechanic explainers, raised 2026-08-28
 
