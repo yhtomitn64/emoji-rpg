@@ -101,6 +101,29 @@ test('smithScreen reforge DOM', async (t) => {
     assert.equal(upgradeEvent.ngPlusCycle, 1);
   });
 
+  await t.test('shows a disabled, maxed-out button once a slot hits its NG+ cycle upgrade cap', async () => {
+    // buildState defaults to ngPlusCycle: 1, whose cap is MAX_UPGRADE_LEVEL (3) + 2 = 5.
+    const root = await mountSmith(buildState({
+      upgrades: { 'ironSword:superior': 5 },
+      inventory: [{ itemId: 'ironScrap', quantity: 1 }],
+    }));
+    const button = root.querySelector('button[data-slot="weapon"]');
+    assert.ok(button.disabled);
+    assert.ok(button.textContent.includes('Maxed for NG+1'));
+  });
+
+  await t.test('clicking a maxed-out upgrade button is a no-op (disabled, but confirms no state change even if clicked)', async () => {
+    let upgraded = false;
+    const state = buildState({
+      upgrades: { 'ironSword:superior': 5 },
+      inventory: [{ itemId: 'ironScrap', quantity: 1 }],
+    });
+    const root = await mountSmith(state, { onUpgrade: () => { upgraded = true; }, onLeave: () => {} });
+    click(root.querySelector('button[data-slot="weapon"]'));
+    assert.equal(upgraded, false);
+    assert.equal(state.upgrades['ironSword:superior'], 5);
+  });
+
   await t.test('the X button calls onLeave', async () => {
     let left = false;
     const root = await mountSmith(buildState(), { onUpgrade: () => {}, onLeave: () => { left = true; } });

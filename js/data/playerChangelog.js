@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.24.2',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: smith upgrade level has a cap again - it just rises a bit each time you go NG+, instead of climbing forever within one cycle.',
+    ],
+  },
+  {
     version: '0.24.1',
     date: '2026-09-04',
     highlights: [

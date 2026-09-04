@@ -60,13 +60,14 @@ of the three-session balance queue above — separate initiative):**
 - **Querying GA4 via connectors** — sounds doable in principle (Timothy's
   own assessment) but back-burner, same as the GA4 line above — only
   relevant if GA4 actually gets added later.
-- **Partial walk-back of the 2026-09-01 upgrade-level uncap, raised
-  2026-09-04** — Timothy wants a real cap on smith upgrade level before a
-  player's first NG+ cycle again, with the cap itself rising a little
-  each NG+ cycle. Not designed yet — see the fuller entry in the
-  Multi-zone progression section below (under the original uncap bullet).
-- **Deploy workflow: pin the wrangler CLI version + minor CI cleanup,
-  raised 2026-09-04** — not urgent, deploys already succeed either way.
+- ~~**Partial walk-back of the 2026-09-01 upgrade-level uncap, raised
+  2026-09-04**~~ **shipped 2026-09-04 (0.24.2)** — `getMaxUpgradeLevel`
+  (3 at NG+0, +2/cycle) enforced again in `upgradeItem`. See the fuller
+  entry in the Multi-zone progression section below (under the original
+  uncap bullet).
+- ~~**Deploy workflow: pin the wrangler CLI version**~~ **shipped
+  2026-09-04 (0.24.2)** — the minor CI cleanup (`--commit-dirty=true`)
+  is still deferred, not urgent.
   See the Infrastructure / deployment section below.
 - **Puzzle mechanics, raised 2026-09-04** — logic/riddle/physical-obstacle,
   and what a tool could unlock besides simple traversal. Genuinely open,
@@ -366,22 +367,24 @@ one-off task.
     and `MAX_UPGRADE_LEVEL` are no longer enforced; both climb forever.
     Deliberately the narrowest fix, not the item-design pass below - kept
     open for exactly that reason.
-  - **Partial walk-back of the upgrade-level uncap above, raised
-    2026-09-04.** Timothy played a fresh NG+0 save through to level 9 and
-    was surprised `ironSword` had climbed to upgrade level 8 (`newLevel:8`
-    in his own play-log telemetry) - he remembered the old pre-NG+ cap
-    (`MAX_UPGRADE_LEVEL = 3`, no longer enforced per the entry directly
-    above) and wants it back, specifically: **a real cap on upgrade level
-    before a player's first NG+ cycle, with that cap itself rising a
-    little each NG+ cycle** (e.g. NG+0 caps at 3, NG+1 allows a bit more,
-    NG+2 more still - exact curve not decided). This is a different shape
-    than the fully-uncapped-forever state shipped 2026-09-01 - not a
-    revert of that decision, a new tiered-cap on top of it. Not designed:
-    the actual per-cycle cap progression, whether it's a flat step or
-    scales with something else, and how it interacts with `tier` (fine/
-    superior/mythic) upgrade paths which already have their own separate
-    ceiling. `MAX_UPGRADE_LEVEL`/`upgradeKey` in `js/systems/inventory.js`
-    and the enforcement site removed 2026-09-01 are the starting points.
+  - ~~**Partial walk-back of the upgrade-level uncap above, raised
+    2026-09-04.**~~ **Shipped 2026-09-04 (0.24.2).** Timothy played a
+    fresh NG+0 save through to level 9 and was surprised `ironSword` had
+    climbed to upgrade level 8 (`newLevel:8` in his own play-log
+    telemetry) - he remembered the old pre-NG+ cap (`MAX_UPGRADE_LEVEL =
+    3`, no longer enforced per the entry directly above) and wanted it
+    back, specifically a real cap on upgrade level that rises with NG+
+    cycle rather than staying flat forever. Landed as
+    `getMaxUpgradeLevel(ngPlusCycle)` in `js/systems/inventory.js` — 3 at
+    NG+0, `+UPGRADE_CAP_STEP_PER_CYCLE` (2) per cycle after that —
+    enforced in `upgradeItem`, with `smithScreen.js` disabling and
+    labeling the maxed slot. Applies prospectively only: an existing save
+    already above the new cap (like Timothy's own `ironSword +8`) keeps
+    its level, it just can't climb further until the cap rises on the
+    next NG+ transition. The interaction with `tier` (fine/superior/
+    mythic) upgrade paths needed no extra work — `upgradeKey` already
+    tracks upgrade level per itemId+tier, so the cap is checked and
+    enforced against whichever tier is actually equipped.
   - **NG+ loot still feels stale without new/better *items*, just numbers
     now — the item-design half of the above, still not done.** Same
     underlying gap as "Should the dragon drop better items in NG+?" just
@@ -1436,6 +1439,12 @@ renders) before picking a fix.
 ## Infrastructure / deployment
 
 ### Deploy workflow: reuse more between builds, pin the wrangler version, raised 2026-09-04
+~~The wrangler-version-pin half~~ **shipped 2026-09-04 (0.24.2)** —
+`wranglerVersion: '4.127.1'` added to the `cloudflare/wrangler-action@v4`
+step. The build-cache investigation below found nothing else to fix (the
+stall was a one-off, not a caching gap), and the `--commit-dirty=true`
+cosmetic cleanup is still explicitly deferred, not part of this fix.
+
 Timothy, after watching a deploy stall ~10 minutes at a plain `npm ci`
 step, then a retry succeed cleanly through the same steps: "is there a
 way to smarten up some of our CI/CD to reuse parts of the build process

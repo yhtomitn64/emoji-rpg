@@ -111,6 +111,12 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          # Pinned 2026-09-04: without this, the action tries `npx
+          # wrangler@latest --version` first, which fails on current npm
+          # (missing --yes) and falls back to an explicit `npm i wrangler@4`
+          # install - harmless but wasted overhead every single run. Bump
+          # this occasionally; there's no auto-update mechanism.
+          wranglerVersion: '4.127.1'
           # --branch is compared against the Pages project's own production-
           # branch setting (default "main" for a direct-upload project with
           # no Git connection) to decide production vs. preview deploy - it

@@ -5,7 +5,7 @@ import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
   maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier, sellDuplicateGear,
-  formatStatDelta,
+  formatStatDelta, getMaxUpgradeLevel,
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
   resolveRingEquipSlot,
 } from '../js/systems/inventory.js';
@@ -68,8 +68,33 @@ test('upgradeItem consumes gold and material, increasing upgrade level', () => {
   assert.equal(materialEntry, undefined);
 });
 
-test('upgradeItem has no ceiling - upgrading past the old MAX_UPGRADE_LEVEL still works', () => {
+test('getMaxUpgradeLevel starts at MAX_UPGRADE_LEVEL at NG+0 and rises 2 per cycle', () => {
+  assert.equal(getMaxUpgradeLevel(0), MAX_UPGRADE_LEVEL);
+  assert.equal(getMaxUpgradeLevel(1), MAX_UPGRADE_LEVEL + 2);
+  assert.equal(getMaxUpgradeLevel(2), MAX_UPGRADE_LEVEL + 4);
+});
+
+// Reinstated 2026-09-04 (partial walk-back of the 2026-09-01 uncap): a
+// flat, permanent ceiling was too limiting once NG+ existed, but a fully
+// uncapped climb within a single cycle turned out just as unwanted -
+// Timothy's own NG+0 save reached ironSword +8. The cap is back, now
+// keyed off ngPlusCycle via getMaxUpgradeLevel instead of a flat constant.
+test('upgradeItem throws once a slot hits its NG+ cycle upgrade cap', () => {
   let state = createNewGame();
+  state = addGold(state, 10000);
+  state = addItem(state, 'ironScrap', MAX_UPGRADE_LEVEL + 1);
+  for (let i = 0; i < MAX_UPGRADE_LEVEL; i += 1) {
+    const cost = upgradeCost(getUpgradeLevel(state, 'starterSword', undefined));
+    state = upgradeItem(state, 'weapon', 'ironScrap', cost);
+  }
+  assert.equal(state.upgrades[upgradeKey('starterSword', undefined)], MAX_UPGRADE_LEVEL);
+  const cost = upgradeCost(getUpgradeLevel(state, 'starterSword', undefined));
+  assert.throws(() => upgradeItem(state, 'weapon', 'ironScrap', cost));
+});
+
+test('upgradeItem allows a higher level once the NG+ cycle has raised the cap', () => {
+  let state = createNewGame();
+  state.ngPlusCycle = 1;
   state = addGold(state, 10000);
   state = addItem(state, 'ironScrap', MAX_UPGRADE_LEVEL + 2);
   for (let i = 0; i < MAX_UPGRADE_LEVEL + 2; i += 1) {
@@ -77,6 +102,20 @@ test('upgradeItem has no ceiling - upgrading past the old MAX_UPGRADE_LEVEL stil
     state = upgradeItem(state, 'weapon', 'ironScrap', cost);
   }
   assert.equal(state.upgrades[upgradeKey('starterSword', undefined)], MAX_UPGRADE_LEVEL + 2);
+  const cost = upgradeCost(getUpgradeLevel(state, 'starterSword', undefined));
+  assert.throws(() => upgradeItem(state, 'weapon', 'ironScrap', cost));
+});
+
+// A save that reached an above-cap level before this fix (or during a
+// since-passed NG+ cycle) keeps that level rather than being retroactively
+// stripped - the cap only ever blocks the *next* upgrade attempt.
+test('upgradeItem does not retroactively touch a level already above the current cap', () => {
+  let state = createNewGame();
+  state.upgrades[upgradeKey('starterSword', undefined)] = MAX_UPGRADE_LEVEL + 5;
+  state = addGold(state, 10000);
+  state = addItem(state, 'ironScrap', 1);
+  assert.equal(getUpgradeLevel(state, 'starterSword', undefined), MAX_UPGRADE_LEVEL + 5);
+  assert.throws(() => upgradeItem(state, 'weapon', 'ironScrap', upgradeCost(MAX_UPGRADE_LEVEL + 5)));
 });
 
 test('upgradeItem throws without the required material', () => {

@@ -2,13 +2,24 @@ import { ITEMS } from '../data/items.js';
 import { QUALITY_TIER_MULTIPLIERS } from './itemQuality.js';
 
 export const UPGRADE_BASE_COST = 20;
-// Uncapped 2026-09-01: this used to be an enforced ceiling (upgradeItem threw
-// past it). It's kept only as the fixed upgrade level scripts/simulate-balance.js
-// tests its "maxed ceiling" builds at - not read anywhere as an in-game limit
-// anymore. Upgrade cost (upgradeCost below) and the stat bonus it buys
-// (getItemEffectiveStats below) are both already unbounded formulas, so
-// there's nothing else to change to let upgrading continue past this number.
+// Base NG+0 ceiling. Also the fixed upgrade level scripts/simulate-balance.js
+// tests its "maxed ceiling" builds at, independent of any NG+ cycle.
 export const MAX_UPGRADE_LEVEL = 3;
+
+// Reinstated 2026-09-04, partial walk-back of the 2026-09-01 uncap: fully
+// uncapping upgrade level (no ceiling at all, ever) turned out to let a
+// single NG+ cycle climb as far as gold allowed - Timothy's own NG+0 save
+// reached ironSword +8. A flat permanent cap was too limiting once NG+
+// existed, so the cap is back but now rises with ngPlusCycle instead of
+// staying fixed at MAX_UPGRADE_LEVEL forever - each cycle's monsters get
+// ~25% tougher (NG_PLUS_COMBAT_MULTIPLIER), and one upgrade level is worth
+// +25% of an item's base stat, so +2/cycle gives a bit more headroom than
+// that growth alone rather than exactly tracking it.
+export const UPGRADE_CAP_STEP_PER_CYCLE = 2;
+
+export function getMaxUpgradeLevel(ngPlusCycle) {
+  return MAX_UPGRADE_LEVEL + UPGRADE_CAP_STEP_PER_CYCLE * ngPlusCycle;
+}
 
 const STAT_KEYS = [
   'attack', 'defense', 'maxHp', 'speed', 'enemySlowPercent',
@@ -237,11 +248,12 @@ export function upgradeItem(state, slot, materialId, cost) {
   const hasMaterial = state.inventory.some((entry) => entry.itemId === materialId && entry.quantity > 0);
   if (!hasMaterial) throw new Error('Missing required material');
   if (state.player.gold < cost) throw new Error('Not enough gold');
+  const currentLevel = getUpgradeLevel(state, itemId, tier);
+  if (currentLevel >= getMaxUpgradeLevel(state.ngPlusCycle)) throw new Error('Already at this NG+ cycle\'s upgrade cap');
 
   let next = spendGold(state, cost);
   next = removeItem(next, materialId, 1);
-  const upgradeLevel = getUpgradeLevel(next, itemId, tier) + 1;
-  next = { ...next, upgrades: { ...next.upgrades, [upgradeKey(itemId, tier)]: upgradeLevel } };
+  next = { ...next, upgrades: { ...next.upgrades, [upgradeKey(itemId, tier)]: currentLevel + 1 } };
   return next;
 }
 

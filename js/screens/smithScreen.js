@@ -1,6 +1,6 @@
 import { ITEMS } from '../data/items.js';
 import {
-  upgradeCost, upgradeItem, describeItem, getUpgradeLevel,
+  upgradeCost, upgradeItem, describeItem, getUpgradeLevel, getMaxUpgradeLevel,
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
@@ -50,16 +50,21 @@ function render() {
     }
 
     const cost = upgradeCost(level);
+    const maxLevel = getMaxUpgradeLevel(state.ngPlusCycle);
+    const atCap = level >= maxLevel;
     const materials = materialOptionsForSlot(slot);
     const canAfford = state.player.gold >= cost;
     const options = materials
       .map((m) => `<option value="${m.itemId}" title="${describeItem(state, m.itemId)}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)
       .join('');
+    const upgradeButton = atCap
+      ? `<button data-slot="${slot}" disabled title="Upgrade cap for NG+${state.ngPlusCycle} is +${maxLevel}">Maxed for NG+${state.ngPlusCycle}</button>`
+      : `<button data-slot="${slot}" ${materials.length === 0 || !canAfford ? 'disabled' : ''}>Upgrade (${cost}g)</button>`;
 
     return `<div class="smith-row">
       <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
-      <button data-slot="${slot}" ${materials.length === 0 || !canAfford ? 'disabled' : ''}>Upgrade (${cost}g)</button>
+      ${upgradeButton}
       ${reforgeButton}
     </div>`;
   }).join('');

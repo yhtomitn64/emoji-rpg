@@ -24,6 +24,31 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.24.2] - 2026-09-04
+
+### Changed
+- Smith upgrade level is capped again, but the cap now rises with NG+
+  cycle instead of staying fixed forever. The 2026-09-01 uncap
+  (`MAX_UPGRADE_LEVEL` no longer enforced) let a single NG+ cycle climb
+  as far as gold allowed - a fresh NG+0 save reached `ironSword +8`,
+  surprising enough that Timothy asked for the old ceiling back. New
+  `getMaxUpgradeLevel(ngPlusCycle)` in `js/systems/inventory.js` returns
+  `MAX_UPGRADE_LEVEL + UPGRADE_CAP_STEP_PER_CYCLE * ngPlusCycle` (3 at
+  NG+0, +2 per cycle after that), and `upgradeItem` throws once a slot
+  hits it. `smithScreen.js` disables that slot's Upgrade button and
+  labels it "Maxed for NG+`<cycle>`" instead of showing a cost. Applies
+  prospectively only - a save already above the new cap for its cycle
+  keeps its current level, it just can't go higher until the cap rises
+  on the next NG+ transition.
+
+### Fixed
+- Deploy workflow pins `wranglerVersion: '4.127.1'` on the
+  `cloudflare/wrangler-action@v4` step (`.github/workflows/deploy.yml`).
+  Without it, every deploy first tried `npx wrangler@latest --version`,
+  which fails on current npm (missing `--yes`) and fell back to an
+  explicit `npm i wrangler@4` install - harmless but wasted overhead on
+  every single run.
+
 ## [0.24.1] - 2026-09-04
 
 ### Changed
