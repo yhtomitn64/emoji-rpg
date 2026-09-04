@@ -11,14 +11,8 @@ export const ITEMS = {
   starterSword: { id: 'starterSword', name: 'Starter Sword', emoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 3 }, startingItem: true },
   ironSword: { id: 'ironSword', name: 'Iron Sword', emoji: '⚔️', slot: 'weapon', price: 30, stats: { attack: 6 } },
   goblinClub: { id: 'goblinClub', name: 'Goblin Club', emoji: '🏏', slot: 'weapon', price: 0, stats: { attack: 8 } },
-  // swingEmoji: these two weapons' own inventory emoji is a body-part-flavor
-  // pun (a literal tooth/dinosaur), not a weapon shape - fine in an
-  // inventory row, but battleScreen.js's Attack swing (js/screens/
-  // battleScreen.js's swingSpriteEmoji) should swing something blade-shaped
-  // instead. Weapons without a swingEmoji override just swing their own
-  // emoji, same as before.
-  dragonFang: { id: 'dragonFang', name: 'Dragon Fang Blade', emoji: '🦷', swingEmoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 16 } },
-  fossilFang: { id: 'fossilFang', name: 'Fossil Fang', emoji: '🦖', swingEmoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 14 } },
+  dragonFang: { id: 'dragonFang', name: 'Dragon Fang Blade', emoji: '🦷', slot: 'weapon', price: 0, stats: { attack: 16 } },
+  fossilFang: { id: 'fossilFang', name: 'Fossil Fang', emoji: '🦖', slot: 'weapon', price: 0, stats: { attack: 14 } },
 
   // Head
   clothCap: { id: 'clothCap', name: 'Cloth Cap', emoji: '🧢', slot: 'head', price: 15, stats: { defense: 1 } },
@@ -41,9 +35,7 @@ export const ITEMS = {
 
   // Unique-effect drops (found only, never sold - see js/systems/loot.js's
   // UNIQUE_EFFECT_ITEM_IDS)
-  // swingEmoji: same reasoning as dragonFang/fossilFang above - its own
-  // emoji is a bone pun, not a weapon shape.
-  vampiricFang: { id: 'vampiricFang', name: 'Vampiric Fang', emoji: '🦴', swingEmoji: '🗡️', slot: 'weapon', price: 0,
+  vampiricFang: { id: 'vampiricFang', name: 'Vampiric Fang', emoji: '🦴', slot: 'weapon', price: 0,
     stats: { attack: 7, lifestealPercent: 15 } },
   swiftStrikeCharm: { id: 'swiftStrikeCharm', name: 'Swift Strike Charm', emoji: '🔮', slot: 'accessory', price: 0,
     stats: { extraSwingChance: 10 } },

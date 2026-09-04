@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.24.1',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: Attack now shows a quick slash mark on the enemy instead of a weapon spinning across the screen.',
+    ],
+  },
+  {
     version: '0.24.0',
     date: '2026-09-04',
     highlights: [

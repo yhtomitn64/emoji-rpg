@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-09-04
+
+### Changed
+- Basic Attack's swing effect is now a quick CSS-drawn slash mark on the
+  target instead of a large weapon emoji flying in from the hero's own
+  portrait and spinning a full 360° over 1.5s
+  (`playAttackSlash`/`.battle-attack-slash` in `js/screens/battleScreen.js`/
+  `css/styles.css`). Fixes two related reports: the animation reading as
+  "silly spinning," and that same sprite's start position briefly covering
+  the "You" label every time, since it always began centered exactly on
+  the hero's own zone before traveling. Ability swings (Impale/Sever/
+  Lacerate/Faultline/Super Scream) are unchanged - only plain Attack's
+  swing was replaced. The now-dead `swingEmoji` weapon-emoji-override
+  field (`js/data/items.js`) is removed along with it.
+
 ## [0.24.0] - 2026-09-04
 
 ### Added

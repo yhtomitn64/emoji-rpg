@@ -1038,20 +1038,11 @@ const SWING_DURATION_MS = {
   // ANIMATION-DESIGNER:slash:DURATION:END
 };
 
-// Attack has no ability object/icon of its own to swing - falls back to
-// whatever's actually equipped (js/data/items.js's own emoji per weapon),
-// so an unarmed player (weapon slot unequipped via the inventory screen -
-// js/systems/inventory.js's unequipItem allows this) still gets *something*
-// rather than a blank sprite.
+// Only ever called with a real ability now (Attack's own swing was replaced
+// by playAttackSlash - see playPlayerSwing below) - abilities always have
+// their own fixed icon to swing, independent of the equipped weapon.
 function swingSpriteEmoji(ability) {
-  if (ability) return ability.icon;
-  const weaponId = state.equipment.weapon;
-  const weapon = ITEMS[weaponId];
-  // swingEmoji (js/data/items.js) overrides a weapon's own display emoji for
-  // this one purpose - a few weapons (Dragon Fang Blade, Fossil Fang,
-  // Vampiric Fang) use a body-part pun as their inventory icon, which reads
-  // fine in a gear list but not as a swung weapon.
-  return weapon?.swingEmoji || weapon?.emoji || '👊';
+  return ability.icon;
 }
 
 // Shared by every ability's generated case inside swingKeyframesFor below -
@@ -1200,10 +1191,47 @@ function swingSoundIdFor(ability) {
   return bySwingId[ability?.id] || null; // plain Attack makes no swing sound of its own - playHitEffect's hitNormal/hitCrit carries it
 }
 
+const ATTACK_SLASH_DURATION_MS = 260;
+
+// Basic Attack's own hit mark - a CSS-drawn slash on the target itself,
+// never a sprite that starts at (and briefly covers) the hero's own zone.
+// See .battle-attack-slash's own comment in css/styles.css for the two bugs
+// this replaced (the "looks silly spinning" complaint and the "You" label
+// overlap - same root cause, one fix). Doesn't reuse spawnSwingSprite at
+// all: a slash mark is a fixed hit decal on the target, not a sprite that
+// travels between two zones, so liveSwingSprites' start/end-rect tracking
+// doesn't apply here - it just needs its own timeout-based cleanup, same
+// pattern as everything else in liveSwingSprites for unmount() to sweep up.
+function playAttackSlash(targetZoneEl, isCrit) {
+  const rect = targetZoneEl.getBoundingClientRect();
+  const left = `${rect.left + rect.width / 2}px`;
+  const top = `${rect.top + rect.height / 2}px`;
+
+  const makeStroke = (extraClass) => {
+    const el = document.createElement('div');
+    el.className = `battle-attack-slash${extraClass}`;
+    el.style.left = left;
+    el.style.top = top;
+    document.body.appendChild(el);
+    const timeoutId = setTimeout(() => {
+      el.remove();
+      liveSwingSprites = liveSwingSprites.filter((s) => s.timeoutId !== timeoutId);
+    }, ATTACK_SLASH_DURATION_MS);
+    liveSwingSprites.push({ el, timeoutId });
+  };
+
+  makeStroke(isCrit ? ' battle-attack-slash-crit' : '');
+  if (isCrit) makeStroke(' battle-attack-slash-crit battle-attack-slash-crit-second');
+}
+
 function playPlayerSwing(ability, targetZoneEl, isCrit) {
   playHeroAttackLunge();
   const swingSoundId = swingSoundIdFor(ability);
   if (swingSoundId) playSfx(swingSoundId);
+  if (!ability) {
+    playAttackSlash(targetZoneEl, isCrit);
+    return;
+  }
   const emoji = swingSpriteEmoji(ability);
   const durationMs = SWING_DURATION_MS[ability?.id || 'attack'] || 250;
   const keyframesFn = (dx, dy) => swingKeyframesFor(ability?.id, dx, dy);

@@ -1331,6 +1331,56 @@ button:focus-visible {
 .battle-swing-trail {
   z-index: 36;
 }
+/* Basic Attack's own hit mark, raised 2026-09-04: Timothy's own read on the
+   old traveling-weapon-emoji sprite (a 4rem dagger flying from the hero's
+   own portrait, rotating a full 360deg over 1.5s) was "looks so silly
+   spinning around" - and because that sprite's animation starts centered
+   exactly on the hero's own zone before it travels, the same effect was
+   also covering the "You" label for its opening frames (a separate bug
+   report, same root cause). This replaces Attack's swing specifically
+   (Stab/Chop/Slash/Sweep/Super Scream keep their own existing emoji-sprite
+   swings, untouched - not part of either complaint) with a CSS-drawn slash
+   mark that appears directly on the monster being hit, never touching the
+   hero's own zone at all. No image/sprite asset - same emoji+CSS-only
+   pipeline every other battle effect in this file already uses.
+   scaleX 0->1 with transform-origin left reads as the blade's edge
+   "drawing" the cut across the target rather than just fading in. */
+@keyframes battle-attack-slash {
+  0% { transform: translate(-50%, -50%) rotate(-35deg) scaleX(0); opacity: 0; }
+  15% { opacity: 1; }
+  55% { transform: translate(-50%, -50%) rotate(-35deg) scaleX(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(-35deg) scaleX(1); opacity: 0; }
+}
+.battle-attack-slash {
+  position: fixed;
+  width: 110px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #fff 15%, #fff 85%, transparent);
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  transform-origin: center;
+  animation: battle-attack-slash 260ms ease-out forwards;
+  z-index: 37;
+  will-change: transform, opacity;
+}
+/* A crit gets a second, offset stroke crossing the first into an X, plus a
+   brighter/wider mark - same "escalate, don't just repeat" idea as the old
+   sprite's afterimage trail on a crit. */
+.battle-attack-slash-crit {
+  width: 130px;
+  height: 8px;
+  box-shadow: 0 0 12px 4px rgba(255, 215, 0, 0.85);
+}
+.battle-attack-slash-crit-second {
+  animation-name: battle-attack-slash-crit-second;
+}
+@keyframes battle-attack-slash-crit-second {
+  0% { transform: translate(-50%, -50%) rotate(35deg) scaleX(0); opacity: 0; }
+  15% { opacity: 1; }
+  55% { transform: translate(-50%, -50%) rotate(35deg) scaleX(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(35deg) scaleX(1); opacity: 0; }
+}
 .map-flee-emoji {
   position: fixed;
   font-size: 1.4rem;

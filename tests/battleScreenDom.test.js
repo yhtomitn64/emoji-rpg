@@ -526,30 +526,17 @@ test('battleScreen DOM', async (t) => {
     assert.match(log, /Retribution Charm reflects/);
   });
 
-  await t.test('clicking Attack spawns a swing sprite carrying the equipped weapon\'s emoji', async () => {
+  await t.test('clicking Attack spawns a CSS slash mark on the target, not a traveling weapon-emoji sprite', async () => {
+    // Raised 2026-09-04: Timothy's own read on the old traveling-weapon-emoji
+    // sprite was "looks so silly spinning around" - also, since that sprite's
+    // animation started centered on the hero's own zone before traveling, it
+    // briefly covered the "You" label too (a separate bug report, same root
+    // cause). Replaced with a CSS-drawn slash mark that appears directly on
+    // the monster - see .battle-attack-slash in css/styles.css.
     const { root } = await mountBattle(['boar']);
     click(root.querySelector('#btn-attack'));
-    const sprite = document.querySelector('.battle-swing-sprite');
-    assert.ok(sprite, 'expected a swing sprite element on a basic Attack');
-    // createNewGame() starts the player with starterSword equipped (js/state.js) -
-    // its item emoji (js/data/items.js) is what Attack's swing should carry,
-    // since Attack has no ability icon of its own to fall back on.
-    assert.equal(sprite.textContent, '🗡️');
-  });
-
-  await t.test('clicking Attack with the Dragon Fang Blade equipped swings a blade, not its own tooth-shaped inventory icon', async () => {
-    // Raised 2026-08-30: Timothy equipped Dragon Fang Blade (js/data/items.js,
-    // emoji '🦷' - a literal tooth, chosen for inventory-row flavor, not for
-    // being swung) and the Attack swing carried that tooth emoji verbatim.
-    // A weapon's swingEmoji override (when present) should win over its own
-    // display emoji for this specific purpose.
-    const state = baseState();
-    state.equipment.weapon = 'dragonFang';
-    const { root } = await mountBattle(['boar'], { state });
-    click(root.querySelector('#btn-attack'));
-    const sprite = document.querySelector('.battle-swing-sprite');
-    assert.ok(sprite, 'expected a swing sprite element on a basic Attack');
-    assert.notEqual(sprite.textContent, '🦷', 'should not swing the raw tooth emoji');
+    assert.ok(document.querySelector('.battle-attack-slash'), 'expected a slash-mark element on a basic Attack');
+    assert.equal(document.querySelector('.battle-swing-sprite'), null, 'Attack should no longer spawn the old emoji sprite');
   });
 
   await t.test('using Chop spawns a swing sprite carrying Chop\'s own icon, not the equipped weapon\'s', async () => {
@@ -601,30 +588,30 @@ test('battleScreen DOM', async (t) => {
     await new Promise((resolve) => setTimeout(resolve, 900));
   });
 
-  await t.test('a crit hit\'s swing gets an afterimage trail', async () => {
+  // Attack's own swing was replaced by a CSS slash mark (playAttackSlash,
+  // 2026-09-04) - it has no traveling sprite to grow an afterimage trail on,
+  // so a crit escalates by crossing a second stroke over the first instead
+  // (see .battle-attack-slash-crit-second in css/styles.css).
+  await t.test('a crit Attack gets a second crossed slash stroke', async () => {
     const originalRandom = Math.random;
-    // Forces every rollCrit() roll (js/systems/combat.js's CRIT_CHANCE = 0.1)
-    // to land as a crit, for the whole test.
+    // Forces every rollCrit() roll (js/systems/combat.js's CRIT_CHANCE = 0.1) to land as a crit.
     Math.random = () => 0.01;
     try {
       const { root } = await mountBattle(['boar']);
       click(root.querySelector('#btn-attack'));
-      // Let all staggered trail ghosts (TRAIL_GHOST_STAGGER_MS apart) spawn.
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      assert.ok(document.querySelectorAll('.battle-swing-trail').length > 0, 'a crit swing should spawn afterimage trail ghosts');
+      assert.ok(document.querySelector('.battle-attack-slash-crit-second'), 'a crit Attack should spawn the second crossed stroke');
     } finally {
       Math.random = originalRandom;
     }
   });
 
-  await t.test('a non-crit hit\'s swing has no afterimage trail', async () => {
+  await t.test('a non-crit Attack has no second crossed slash stroke', async () => {
     const originalRandom = Math.random;
     Math.random = () => 0.99; // never satisfies rollCrit()'s < 0.1 check
     try {
       const { root } = await mountBattle(['boar']);
       click(root.querySelector('#btn-attack'));
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      assert.equal(document.querySelectorAll('.battle-swing-trail').length, 0, 'a non-crit swing should not spawn any trail ghosts');
+      assert.equal(document.querySelector('.battle-attack-slash-crit-second'), null, 'a non-crit Attack should not spawn a second stroke');
     } finally {
       Math.random = originalRandom;
     }
