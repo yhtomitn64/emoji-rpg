@@ -531,14 +531,14 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   /* left/width must match PARRY_ZONE_START_PERCENT/PARRY_ZONE_END_PERCENT
      in js/systems/parry.js - CSS can't reference those constants directly,
      so this has to be kept in sync by hand whenever the parry window
-     changes. (Narrowed from 80%/20% to 90%/10% 2026-09-01 alongside that
-     window's own narrowing - see js/systems/parry.js and
+     changes. (Narrowed from 80%/20% to 90%/10% 2026-09-01, reverted back
+     to 80%/20% 2026-09-03 - see js/systems/parry.js and
      docs/superpowers/BACKLOG.md's "Parry window trade-offs" entry.) */
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 90%;
-  width: 10%;
+  left: 80%;
+  width: 20%;
   background: rgba(231, 76, 60, 0.5);
   opacity: 0;
   pointer-events: none;
@@ -645,10 +645,12 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 .battle-widen-indicator {
   font-size: 0.75rem;
   color: #c9a876;
+  min-height: 1.1em;
 }
 .battle-potion-buff-indicator {
   font-size: 0.75rem;
   color: #9be69b;
+  min-height: 1.1em;
 }
 .battle-sidebar {
   width: 180px;

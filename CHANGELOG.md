@@ -24,6 +24,48 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-09-04
+
+### Changed
+- Parry window widened back from 10% to 20% of the windup bar
+  (`PARRY_ZONE_START_PERCENT` 90 → 80 in `js/systems/parry.js`, matching
+  `.battle-parry-zone` in `css/styles.css`). It was narrowed 2026-09-01
+  over concern that a skilled player could win almost anything with
+  well-timed parries, but the shared 10s parry cooldown shipped
+  2026-09-02 already closes that gap on its own, so the extra-narrow
+  window was no longer needed. A progressive shrinking-window idea was
+  also considered and explicitly shelved in favor of this simpler flat
+  revert - see the "Progressive shrinking parry window" entry in
+  `docs/superpowers/BACKLOG.md`.
+- Abilities 1-4 (Impale/Sever/Lacerate/Faultline) now each carry their own
+  cooldown layered on top of the shared GCD (`overrideCooldownMs` in
+  `js/systems/abilities.js`: Impale 3s, Sever 4s, Lacerate 4.5s, Faultline
+  5s), graduated by unlock level. Before this, all four shared only the
+  ~1s GCD with nothing else distinguishing them, so spamming just Impale
+  the instant it unlocked at level 2 was exactly as fast as rotating
+  through every ability - confirmed with the balance simulator: a
+  level-2 character in a starter sword + cloth tunic won 100% of fights
+  (100% HP left) against every near-town monster and several NG+2-scaled
+  ones. Impale's own damage multiplier also dropped 0.8 → 0.55 to keep
+  it from being a strictly-better spammable option even at its new,
+  shorter cooldown. These specific numbers came from comparing this
+  graduated approach against a flat 5s cooldown on all four, which fixed
+  the early stomp equally well but crushed L4/L5 win rates against
+  Dragon tier 0 and Jurassic Jerky much harder for no early-game benefit.
+- The ability/attack/parry cooldown "clock wipe" buttons now animate
+  smoothly instead of visibly jumping in 300ms steps
+  (`animateCooldownWipes()` in `js/screens/battleScreen.js`, a
+  `requestAnimationFrame` loop independent of the 300ms game tick that
+  patches each wipe element's `--pct` directly by id).
+
+### Fixed
+- The battle dialog no longer grows/shrinks mid-fight when the widen or
+  potion-buff indicator text appears (`.battle-widen-indicator`,
+  `.battle-potion-buff-indicator` in `css/styles.css` now reserve
+  `min-height: 1.1em` like their sibling indicators already did) -
+  same "dialog size doesn't jump around" fix already applied to
+  dead-monster slots on 2026-08-31, extended to these two.
+
 ## [0.23.0] - 2026-09-03
 
 ### Changed

@@ -90,6 +90,7 @@ of the three-session balance queue above — separate initiative):**
   - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
   - Rung-3 gear effects: parry window trade-offs (undecided direction). Of the known v1-ship follow-ups, the tier-aware-tooltip, camelCase-stat-key, and redundant-`getEquipmentBonuses`-call items **already shipped in `b8a5d33`** (found stale while doing an unrelated backlog pass 2026-09-03 — this line was never updated when that commit landed) — only AOE lifesteal/proc stacking per target (deliberate, not a bug) and the ±1 delta display rounding (cosmetic, not worth blocking anything on) are still open, and neither is scheduled.
   - Hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
+  - Progressive shrinking parry window per successful landed parry, raised and scrapped in the same session, 2026-09-03 — see Combat pass ideas below for the calibration discussed before it was dropped.
   - Research: alternatives to raw stat-number power creep — rough research question, unblocked but unstarted.
   - ~~**Defense scaling needs work** (player outpaces near-town content thread)~~ — **investigated 2026-09-02, damage-floor half shipped as 0.17.3; the rest is a documented structural dead end, not an open task.** See "The player outpaces near-town/far-corner content" section below for the full writeup.
 - **Mobile/touch combat should be turn-based** — raw idea, explicitly scoped to touch input only.
@@ -1094,6 +1095,27 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
   floated here is what got built — see
   `docs/superpowers/specs/2026-09-02-multimob-parry-cooldown-design.md`
   for why a cooldown was the simpler, chosen direction instead.
+- **Progressive shrinking parry window (idea, not built), raised and
+  scrapped in the same message, 2026-09-03.** Timothy's own words:
+  "Every time you go to parry the window gets smaller so the first time
+  it's 50%, then like 25% shorter and so on down to be really hard to
+  time." Explored as a possible replacement for the flat-percent-window
+  idea below, then explicitly scrapped in the very next message: "Actually
+  scrap all that parry stuff. Maybe keep the idea in the backlog as a
+  potential thing. For now let's just keep parry as is and make it 20% of
+  the bar." Kept here only in case it's picked up again later. What got
+  discussed before it was dropped: the window starts at 50% of the windup
+  bar and halves after each *successful* landed parry within the current
+  battle (missed attempts don't shrink it further), resetting back to 50%
+  at the start of every new battle. Timothy also floated making the
+  shrink rate itself a settings knob ("some folks might keep it at 0% and
+  make it 100% of the bar all the time you can parry") — i.e. a 0%
+  shrink-rate setting would disable the mechanic entirely and always give
+  the full window. None of this is designed further than this paragraph —
+  no floor value picked, no code written, no settings-UI shape decided.
+  The actual shipped change from this session was the much simpler flat
+  revert of `PARRY_ZONE_START_PERCENT` back to 80 (20% window) — see
+  CHANGELOG.
 - **Hold-to-block shield, a damage-reduction alternative to parry,
   raised 2026-08-26.** Timothy's own words, explicitly unsure of the
   exact motivation ("not sure why you would want that over parry"):

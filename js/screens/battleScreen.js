@@ -85,6 +85,10 @@ let attackCooldownMs = 0;
 let attackCooldownTotalMs = 0;
 let parryCooldownMs = 0;
 let parryCooldownTotalMs = 0;
+// Drives the cooldown wipes' smooth motion between tick()'s own 300ms
+// steps - see animateCooldownWipes()'s own comment below.
+let lastTickAt = 0;
+let cooldownWipeAnimFrameId = null;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
 let liveDamageNumbers = [];
@@ -709,7 +713,11 @@ function drinkPotion(itemId) {
 // (0-100, remaining/total) drives the red conic-gradient "clock wipe"
 // overlay; omit/0 for buttons with no cooldown to show.
 function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', cooldownPct = 0 }) {
-  const wipe = cooldownPct > 0 ? `<div class="battle-ability-cooldown-wipe" style="--pct:${cooldownPct}"></div>` : '';
+  // id'd so animateCooldownWipes() can patch --pct directly between
+  // updateMenu()'s own 300ms full rebuilds, without needing a CSS
+  // transition (which can't animate a custom property across an element
+  // that gets torn down and recreated every tick anyway).
+  const wipe = cooldownPct > 0 ? `<div class="battle-ability-cooldown-wipe" id="${id}-wipe" style="--pct:${cooldownPct}"></div>` : '';
   const safeTitle = title.replace(/"/g, '&quot;');
   return `<button id="${id}" class="battle-ability-button${extraClass}" ${disabled ? 'disabled' : ''} title="${safeTitle}">${wipe}<span class="battle-ability-icon">${icon}</span><span class="battle-ability-key">${key}</span></button>`;
 }
@@ -1716,6 +1724,7 @@ function checkOutcome() {
 
 function tick() {
   if (battleOver) return;
+  lastTickAt = Date.now();
   battleElapsedMs += 300;
   updateDpsDisplay();
   // Attack's decayed streak only resets passively after a sustained
@@ -1946,6 +1955,54 @@ function endBattle(outcome) {
   }, exitAnimDelayMs + EXIT_ANIM_MS);
 }
 
+// Smooths the cooldown "clock wipe" (css/styles.css's conic-gradient on
+// .battle-ability-cooldown-wipe) between tick()'s own 300ms steps, which is
+// otherwise the only thing that ever updates --pct - visibly chunky at
+// 300ms granularity (raised 2026-09-03: "make the cooldown indication a
+// smooth animation instead of just big chunks suddenly going away"). Can't
+// use a plain CSS transition here: updateMenu() rebuilds each button's
+// entire subtree (including the wipe div) from scratch every tick, so
+// there's no persisting element for a transition to animate between values
+// on. Instead this runs its own requestAnimationFrame loop, independent of
+// the 300ms tick, and writes directly to whichever wipe element currently
+// exists in the DOM (found by id - see actionButtonHtml) - same
+// real-elapsed-time-since-the-last-known-good-value approach as the parry
+// windup's own real-time fill (js/systems/parry.js), just for a cosmetic
+// value instead of a fairness-critical one. Purely visual: the underlying
+// cooldown accounting (abilityCooldowns/attackCooldownMs/parryCooldownMs)
+// is untouched, still ticked in fixed 300ms steps by tick() itself.
+function animateCooldownWipes() {
+  cooldownWipeAnimFrameId = requestAnimationFrame(animateCooldownWipes);
+  if (battleOver || unmounted) return;
+  // While hard-paused (P key, timeScale 0) tick() stops firing entirely, so
+  // "time since the last tick" would otherwise grow without bound and drag
+  // every wipe down to 0% while paused - freeze instead (elapsed 0). At a
+  // fractional timeScale (slow-mo), tick() still fires, just on a longer
+  // interval (300 / pauseTimeScale) - clamp to that instead of the normal
+  // 300 so the interpolation window matches how far apart ticks actually
+  // are right now.
+  const intervalMs = battlePaused ? (pauseTimeScale > 0 ? 300 / pauseTimeScale : Infinity) : 300;
+  const elapsed = intervalMs === Infinity ? 0 : Math.min(Math.max(0, Date.now() - lastTickAt), intervalMs);
+
+  const setWipePct = (id, remainingMs, totalMs) => {
+    if (remainingMs <= 0 || totalMs <= 0) return;
+    const el = document.getElementById(`${id}-wipe`);
+    if (!el) return; // not currently on cooldown, or button not unlocked yet
+    const smoothedRemaining = Math.max(0, remainingMs - elapsed);
+    el.style.setProperty('--pct', String((smoothedRemaining / totalMs) * 100));
+  };
+
+  // Buff-type abilities (Super Scream) skip the shared GCD (applyAbilityGcd
+  // explicitly leaves them alone) but tick() still decrements their own
+  // fixed cooldownMs the same chunky way, so they get smoothed here too -
+  // same cooldownPct denominator fallback as abilityButtonEntries above.
+  for (const ability of ABILITIES) {
+    setWipePct(`btn-ability-${ability.id}`, abilityCooldowns[ability.id] || 0, abilityCooldownTotals[ability.id] || ability.cooldownMs);
+  }
+  setWipePct('btn-attack', attackCooldownMs, attackCooldownTotalMs);
+  setWipePct('btn-parry', parryCooldownMs, parryCooldownTotalMs);
+}
+
 export function mount(root, props) {
   rootEl = root;
   state = props.state;
@@ -2029,13 +2086,16 @@ export function mount(root, props) {
   updateLog();
   updateMenu();
   elements.pauseBtn.onclick = toggleBattlePause;
+  lastTickAt = Date.now();
   intervalId = setInterval(tick, 300);
+  cooldownWipeAnimFrameId = requestAnimationFrame(animateCooldownWipes);
   window.addEventListener('keydown', handleKeydown);
 }
 
 export function unmount() {
   unmounted = true;
   clearInterval(intervalId);
+  cancelAnimationFrame(cooldownWipeAnimFrameId);
   clearTimeout(endBattleTimeoutId);
   clearTimeout(exitAnimTimeoutId);
   clearTimeout(itemMenuAutoCloseTimeoutId);

@@ -7,16 +7,33 @@ import { rollCrit, calculateDamage, applyCritMultiplier, applySpeedDamageBonus, 
 
 export const ROTATION_BONUS_MULTIPLIER = 1.25;
 
+// Per-ability cooldowns layered on top of the shared GCD (applyAbilityGcd's
+// overrideCooldownMs floor), added 2026-09-03. Before this, all four
+// abilities shared the same ~1s GCD with nothing else distinguishing them,
+// so spamming just Impale (the earliest/cheapest) the instant it unlocked at
+// level 2 was exactly as fast as rotating through all four - confirmed with
+// the balance simulator: a level-2 character in just a starter sword + cloth
+// tunic won 100% of fights (100% HP left) against every near-town monster
+// and several NG+2-scaled ones. These numbers (graduated by unlock level,
+// Impale's damage also cut roughly in half) came from comparing a flat 5s
+// cooldown on all four against this graduated version - the flat version
+// fixed the early stomp equally well but also crushed L4/L5 win rates
+// against Dragon tier 0 and Jurassic Jerky much harder than the graduated
+// version did for the same early-game fix. Re-check against real play and
+// retune if it reads as too easy or too punishing, same as the parry
+// window's own commentary in js/systems/parry.js.
 export const ABILITIES = [
   {
     id: 'stab', name: 'Impale', icon: '🗡️', unlockLevel: 2, type: 'damage',
-    damageMultiplier: 0.8,
+    damageMultiplier: 0.55,
+    overrideCooldownMs: 3000,
     description: 'a strong, precise single-target thrust',
   },
   {
     id: 'chop', name: 'Sever', icon: '🪓', unlockLevel: 4, type: 'damage',
     damageMultiplier: 1.1,
     extraTargetCount: 1,
+    overrideCooldownMs: 4000,
     description: 'cuts through the target and into one random enemy beside it - still fine to use one-on-one',
   },
   {
@@ -24,6 +41,7 @@ export const ABILITIES = [
     damageMultiplier: 0.85,
     delayedHitMultiplier: 0.2, delayedHitDelayMs: 900,
     retrigger: { windowMs: 1200, sweetSpotStartPercent: 80, sweetSpotEndPercent: 100, buffDurationMs: 9000 },
+    overrideCooldownMs: 4500,
     description: 'a cut that bleeds for extra damage a moment later - press it again right after landing to buff your other abilities for a while',
   },
   {
@@ -32,6 +50,7 @@ export const ABILITIES = [
     defenseShredMultiplier: 0.85, defenseShredDurationMs: 6000,
     widenBonusTargets: 1,
     aoe: true,
+    overrideCooldownMs: 5000,
     description: 'a weak hit on every living enemy that weakens their defense and widens what your other abilities can hit for a few seconds',
   },
   {

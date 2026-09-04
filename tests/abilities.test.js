@@ -75,9 +75,9 @@ test('resolveAbilityUse applies the ability multiplier on top of a plain attack,
   const stab = ABILITIES.find((a) => a.id === 'stab');
   // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, no crit
   const result = resolveAbilityUse(player, monster, stab, false, () => 0.5);
-  assert.equal(result.damage, 6); // round(8 * 0.8) = 6
+  assert.equal(result.damage, 4); // round(8 * 0.55) = 4
   assert.equal(result.isCrit, false);
-  assert.equal(result.monsterHp, 94);
+  assert.equal(result.monsterHp, 96);
   assert.equal(result.playerAtb, 0);
 });
 
@@ -189,8 +189,8 @@ test('estimateAbilityDamage applies the ability multiplier with no buff bonus', 
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
-  // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, * 0.8 (stab) = round(6.4) = 6
-  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 6);
+  // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, * 0.55 (stab) = round(4.4) = 4
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 4);
 });
 
 test('estimateAbilityDamage multiplies in the rotation buff bonus when active', () => {
@@ -205,8 +205,8 @@ test('estimateAbilityDamage applies the speed damage bonus deterministically', (
   const player = { attack: 10, defense: 4, speed: 20, atb: 0 }; // at SPEED_DAMAGE_BONUS_THRESHOLD
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
-  // base 8, * 0.8 (stab) = round(6.4) = 6, * 1.1 (speed bonus) = round(6.6) = 7
-  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 7);
+  // base 8, * 0.55 (stab) = round(4.4) = 4, * 1.1 (speed bonus) = round(4.4) = 4
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 4);
 });
 
 test('estimateAbilityDamage defaults to an average roll when no rng is supplied', () => {
@@ -214,7 +214,7 @@ test('estimateAbilityDamage defaults to an average roll when no rng is supplied'
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
   const result = estimateAbilityDamage(player, monster, stab, false);
-  assert.equal(result, 6);
+  assert.equal(result, 4);
 });
 
 test('ROTATION_BONUS_MULTIPLIER keeps its spec\'d value', () => {
@@ -237,7 +237,11 @@ test('buildAbilityExplainerSections falls back to an empty string when an abilit
 });
 
 test('applyAbilityGcd puts every unlocked non-buff ability on the GCD, not just the one used', () => {
-  const unlocked = ABILITIES.filter((a) => ['stab', 'chop', 'slash', 'sweep'].includes(a.id));
+  // Synthetic abilities with no overrideCooldownMs, not pulled from the real
+  // ABILITIES array - this is testing the generic share-the-GCD mechanism,
+  // which should stay decoupled from real abilities' own tunable cooldowns
+  // (see the dedicated overrideCooldownMs test further below for that).
+  const unlocked = ['stab', 'chop', 'slash', 'sweep'].map((id) => ({ id, type: 'damage' }));
   const { cooldowns } = applyAbilityGcd({}, unlocked, 'stab', 1000);
   assert.equal(cooldowns.stab, 1000);
   assert.equal(cooldowns.chop, 1000);
@@ -252,7 +256,9 @@ test('applyAbilityGcd leaves Super Scream (a buff-type ability) untouched', () =
 });
 
 test('applyAbilityGcd never shortens an ability that already has a longer remaining cooldown', () => {
-  const unlocked = ABILITIES.filter((a) => ['stab', 'chop'].includes(a.id));
+  // Synthetic abilities, not the real ABILITIES - see the comment on the
+  // "puts every unlocked non-buff ability on the GCD" test above.
+  const unlocked = ['stab', 'chop'].map((id) => ({ id, type: 'damage' }));
   const { cooldowns } = applyAbilityGcd({ chop: 5000 }, unlocked, 'stab', 1000);
   assert.equal(cooldowns.chop, 5000, 'chop already had 5000ms remaining from an earlier use - a fresh 1000ms GCD must not shorten it');
   assert.equal(cooldowns.stab, 1000);
@@ -267,7 +273,9 @@ test('applyAbilityGcd lets the used ability\'s own overrideCooldownMs raise its 
 });
 
 test('applyAbilityGcd tracks the applied duration in totals, in lockstep with cooldowns, for cooldown-percentage display', () => {
-  const unlocked = ABILITIES.filter((a) => ['stab', 'chop'].includes(a.id));
+  // Synthetic abilities, not the real ABILITIES - see the comment on the
+  // "puts every unlocked non-buff ability on the GCD" test above.
+  const unlocked = ['stab', 'chop'].map((id) => ({ id, type: 'damage' }));
   const { cooldowns, totals } = applyAbilityGcd({}, unlocked, 'stab', 1000);
   assert.equal(totals.stab, 1000);
   assert.equal(totals.chop, 1000);

@@ -6,6 +6,16 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.23.1',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: the parry timing window is wider again - back to 20% of the windup bar instead of last week\'s tighter 10%.',
+      'Changed: Impale, Sever, Lacerate, and Faultline each have their own cooldown now, on top of the shared one - Impale hits a bit softer but comes back faster, the later abilities hit harder but take longer to reuse.',
+      'Fixed: the battle window no longer subtly grows or shrinks mid-fight.',
+      'Polish: cooldown timers on your action buttons now sweep smoothly instead of jumping in visible steps.',
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-09-03',
     highlights: [
