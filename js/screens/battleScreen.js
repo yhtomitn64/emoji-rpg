@@ -787,7 +787,6 @@ function updateMenu() {
   // away with the dialog when battle-screen-swirl-out plays on the shared
   // .battle-screen-stack (see endBattle()).
   if (battleOver) return;
-  const ready = isReady(playerCombatant.atb);
   const hasUsableItem = hasUsableLoadoutItem();
   const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak, getUnlockedAbilities(state.player.level).length)) * 100);
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
@@ -837,7 +836,6 @@ function updateMenu() {
       icon: '🏃',
       key: 'f',
       title: 'Flee (f) — retreat from the fight instantly; always works except against bosses',
-      disabled: !ready,
     })}
     </div>
   `;
@@ -1379,7 +1377,6 @@ function handleKeydown(event) {
   if (key === 'a' || key === 'A') {
     playerAttack();
   } else if (key === 'Escape' || key === 'f' || key === 'F') {
-    if (!isReady(playerCombatant.atb)) return;
     playerFlee();
   } else if (key >= '1' && key <= '4') {
     const ability = getUnlockedAbilities(state.player.level)[Number(key) - 1];

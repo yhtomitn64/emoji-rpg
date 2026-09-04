@@ -1193,4 +1193,9 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#battle-hero-atb-fill'), null);
     assert.ok(root.querySelector('[id^="battle-monster-atb-fill-"]'), 'monster ATB bars should still exist, untouched');
   });
+
+  await t.test('Flee is available instantly at the start of battle, with no wait', async () => {
+    const { root } = await mountBattle(['boar']);
+    assert.equal(root.querySelector('#btn-flee').disabled, false);
+  });
 });
