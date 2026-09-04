@@ -1098,22 +1098,11 @@ test('battleScreen DOM', async (t) => {
   });
 
   await t.test('the "3" key also lands the re-press during Lacerate\'s window, not just clicking its button', async () => {
-    // speed: 999 is a test-only override, not part of the brief's literal
-    // setup - see the comment just below for why it's needed. Unrelated to
-    // retrigger mechanics themselves.
-    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6, speed: 999 } }) });
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     // Level 6 unlocks stab(1)/chop(2)/slash(3) - Lacerate is slot 3.
-    // Unlike click() (a plain .onclick handler with no readiness gate - a
-    // pre-existing jsdom quirk the click-based ability tests elsewhere in
-    // this file already lean on, confirmed: dispatching a synthetic click
-    // on a genuinely `disabled` button still fires its handler here),
-    // handleKeydown's digit-key branch explicitly requires
-    // isReady(playerCombatant.atb) before calling playerUseAbility. ATB
-    // starts at 0 at mount and only fills at `speed` per 300ms tick, so the
-    // very first "3" press needs at least one real tick to land - bump
-    // speed so a single tick is enough and wait past it first. This is
-    // about the ability landing at all, not about the retrigger window.
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    // No ATB gate to wait past anymore (see the ability-GCD rework) - a
+    // fresh battle starts every ability off cooldown, so "3" lands on the
+    // very first press.
     keydown('3');
     await new Promise((resolve) => setTimeout(resolve, 1100));
     keydown('3');
