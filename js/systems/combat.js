@@ -22,6 +22,26 @@ export function applyKnockback(atb, amount) {
   return Math.max(0, atb - amount);
 }
 
+// Raised 2026-09-04: landing a hit used to knock the target's ATB back
+// every single time, no roll at all - with abilities now cooling down in
+// seconds rather than under a second, that stopped being "spam control"
+// and started just making the enemy's own attack timer crawl. Rather than
+// the streak-decay approach already used for Attack's own knockback
+// (attackKnockbackMultiplier below), Timothy's own call was simpler: make
+// the knockback itself a low-probability proc instead of guaranteed, same
+// shape as the game's other chance-based combat modifiers (rollCrit,
+// on-hit effect procs) rather than adding another streak counter to
+// track. Only wraps the player-hits-monster direction (resolvePlayerAttack/
+// resolveAbilityUse's monsterAtb) - resolveMonsterAttack's playerAtb
+// knockback is dead code today (nothing reads it; the player's own ATB
+// gauge was removed from the UI in the ability-GCD rework), so it's left
+// alone rather than changed for no observable effect.
+export const ATB_KNOCKBACK_CHANCE = 0.05;
+
+export function rollKnockback(atb, amount, rng = Math.random) {
+  return rng() < ATB_KNOCKBACK_CHANCE ? applyKnockback(atb, amount) : atb;
+}
+
 // A player who has invested enough in speed (leveling and/or gear like Wind
 // Greaves) to reach this threshold gets a small damage bonus, so speed stays
 // worth chasing past the point where it's already fast enough to act often.
@@ -157,7 +177,7 @@ export function resolvePlayerAttack(player, monster, rng = Math.random, streakMu
     damage,
     isCrit,
     monsterHp: Math.max(0, monster.hp - damage),
-    monsterAtb: applyKnockback(monster.atb, ATB_KNOCKBACK * knockbackMultiplier),
+    monsterAtb: rollKnockback(monster.atb, ATB_KNOCKBACK * knockbackMultiplier, rng),
     playerAtb: 0,
   };
 }

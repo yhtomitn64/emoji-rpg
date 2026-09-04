@@ -1,4 +1,4 @@
-import { rollCrit, calculateDamage, applyCritMultiplier, applySpeedDamageBonus, applyKnockback, ATB_KNOCKBACK } from './combat.js';
+import { rollCrit, calculateDamage, applyCritMultiplier, applySpeedDamageBonus, rollKnockback, ATB_KNOCKBACK } from './combat.js';
 
 // Powers the damage number shown next to each ability button. Deliberately
 // excludes crit (rollCrit) - luck at press-time, not something the player
@@ -147,7 +147,7 @@ export function resolveAbilityUse(player, monster, ability, buffActive, rng = Ma
     damage,
     isCrit,
     monsterHp: Math.max(0, monster.hp - damage),
-    monsterAtb: applyKnockback(monster.atb, ATB_KNOCKBACK),
+    monsterAtb: rollKnockback(monster.atb, ATB_KNOCKBACK, rng),
     playerAtb: 0,
   };
 }

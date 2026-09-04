@@ -60,6 +60,11 @@ of the three-session balance queue above — separate initiative):**
 - **Querying GA4 via connectors** — sounds doable in principle (Timothy's
   own assessment) but back-burner, same as the GA4 line above — only
   relevant if GA4 actually gets added later.
+- **Partial walk-back of the 2026-09-01 upgrade-level uncap, raised
+  2026-09-04** — Timothy wants a real cap on smith upgrade level before a
+  player's first NG+ cycle again, with the cap itself rising a little
+  each NG+ cycle. Not designed yet — see the fuller entry in the
+  Multi-zone progression section below (under the original uncap bullet).
 
 - ~~**UI consistency: universal Escape-to-close + aligned dialog chrome.**~~ **Shipped 2026-09-02 (0.18.1)**, extended to also cover click-outside per the same request. See BACKLOG_SHIPPED.md's "Bugs" section for the full audit and file list.
 - **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
@@ -334,6 +339,22 @@ one-off task.
     and `MAX_UPGRADE_LEVEL` are no longer enforced; both climb forever.
     Deliberately the narrowest fix, not the item-design pass below - kept
     open for exactly that reason.
+  - **Partial walk-back of the upgrade-level uncap above, raised
+    2026-09-04.** Timothy played a fresh NG+0 save through to level 9 and
+    was surprised `ironSword` had climbed to upgrade level 8 (`newLevel:8`
+    in his own play-log telemetry) - he remembered the old pre-NG+ cap
+    (`MAX_UPGRADE_LEVEL = 3`, no longer enforced per the entry directly
+    above) and wants it back, specifically: **a real cap on upgrade level
+    before a player's first NG+ cycle, with that cap itself rising a
+    little each NG+ cycle** (e.g. NG+0 caps at 3, NG+1 allows a bit more,
+    NG+2 more still - exact curve not decided). This is a different shape
+    than the fully-uncapped-forever state shipped 2026-09-01 - not a
+    revert of that decision, a new tiered-cap on top of it. Not designed:
+    the actual per-cycle cap progression, whether it's a flat step or
+    scales with something else, and how it interacts with `tier` (fine/
+    superior/mythic) upgrade paths which already have their own separate
+    ceiling. `MAX_UPGRADE_LEVEL`/`upgradeKey` in `js/systems/inventory.js`
+    and the enforcement site removed 2026-09-01 are the starting points.
   - **NG+ loot still feels stale without new/better *items*, just numbers
     now — the item-design half of the above, still not done.** Same
     underlying gap as "Should the dragon drop better items in NG+?" just
@@ -1356,6 +1377,49 @@ overlaps (likely the battle log or damage numbers, given where it
 renders) before picking a fix.
 
 ## Infrastructure / deployment
+
+### Deploy workflow: reuse more between builds, pin the wrangler version, raised 2026-09-04
+Timothy, after watching a deploy stall ~10 minutes at a plain `npm ci`
+step, then a retry succeed cleanly through the same steps: "is there a
+way to smarten up some of our CI/CD to reuse parts of the build process
+so we're not installing some of it fresh every time... seems like we do
+some things again and again even though we never change some of the
+packages between builds." Investigated live during that session:
+
+- **Our own dependency install is already cached** —
+  `.github/workflows/deploy.yml`'s `actions/setup-node@v7` step already
+  has `cache: npm`, keyed off `package-lock.json`, so `npm ci` itself
+  should normally be fast. The ~10 minute stall that prompted this
+  wasn't a caching gap - it looked like a one-off slow GitHub
+  Actions/npm-registry stretch (a same-session retry cleared it in the
+  low single-digit minutes with nothing changed), not a reproducible
+  bug.
+- **What's genuinely not cached or pinned: the Cloudflare `wrangler`
+  CLI itself.** The `cloudflare/wrangler-action@v4` deploy step doesn't
+  pin a `wranglerVersion` input, so every run it first tries
+  `npx wrangler@<latest> --version`, which fails on current npm
+  (`npx canceled due to missing packages and no YES option` - recent
+  npm requires an explicit `--yes`/`-y` this action's internal npx call
+  doesn't pass), then falls back to an explicit `npm i wrangler@4`
+  install, verified live in this session's logs. Harmless (deploy still
+  succeeds) but real, avoidable overhead every single run, and
+  unrelated to our own npm cache. Pinning `wranglerVersion` explicitly
+  in the `with:` block should let it skip straight to a known-good
+  version instead of doing this resolve-then-fallback dance - not
+  implemented yet, needs checking the current action's actual input
+  name/behavior before touching the workflow file.
+- **Separate small warning noticed same session, same fix bucket:**
+  wrangler also logs "Your working directory is a git repo and has
+  uncommitted changes" every run - this is just the workflow's own
+  `dist/` staging step (untracked build output, by design) tripping
+  wrangler's dirty-check. Cosmetic only; `--commit-dirty=true` on the
+  wrangler-action step would silence it if it's ever worth the noise
+  reduction.
+
+Not urgent - deploys are succeeding either way, this is pure log-noise/
+minor-time cleanup, not a blocker. Explicitly deferred rather than
+tackled same-session per Timothy's own call ("tackle now... or add for
+backlog").
 
 ### A friend playtester reported lag — worth a performance pass? Raised 2026-08-29
 Timothy relaying a friend's report: "I tried last night but my PC was

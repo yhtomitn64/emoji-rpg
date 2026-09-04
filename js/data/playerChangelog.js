@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.23.2',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: hitting an enemy no longer always resets how close they are to their next attack - now just a small chance per hit, so fights feel a little more dangerous.',
+    ],
+  },
+  {
     version: '0.23.1',
     date: '2026-09-04',
     highlights: [

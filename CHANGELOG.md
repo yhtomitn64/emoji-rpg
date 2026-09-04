@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-09-04
+
+### Changed
+- Landing a hit no longer guarantees knocking the target's ATB gauge back
+  - it's now a 5% chance per hit (`ATB_KNOCKBACK_CHANCE`, `rollKnockback`
+    in `js/systems/combat.js`), on the player-hits-monster direction only
+    (`resolvePlayerAttack`, `resolveAbilityUse`). With abilities now
+    cooling down in seconds rather than under a second (see 0.23.1), the
+    old guaranteed-every-hit knockback was keeping monsters' own attack
+    timers from ever filling, not just preventing spam. The
+    monster-hits-player direction (`resolveMonsterAttack`'s `playerAtb`)
+    is untouched - confirmed dead code today, since the player's own ATB
+    gauge was removed from the UI in the ability-GCD rework and nothing
+    reads that field anymore.
+
 ## [0.23.1] - 2026-09-04
 
 ### Changed

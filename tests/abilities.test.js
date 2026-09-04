@@ -100,13 +100,17 @@ test('resolveAbilityUse applies an optional crit chance bonus, defaulting to non
   assert.equal(withBonus.isCrit, true);
 });
 
-test('resolveAbilityUse knocks the monster\'s ATB back and never drops HP below 0', () => {
+test('resolveAbilityUse never drops HP below 0, and only knocks the monster\'s ATB back on the low-probability roll', () => {
   const player = { attack: 500, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 10, defense: 0, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  const result = resolveAbilityUse(player, monster, chop, false, () => 0.5);
-  assert.equal(result.monsterHp, 0);
-  assert.equal(result.monsterAtb, 50 - ATB_KNOCKBACK);
+  // rng()=0.01 lands under ATB_KNOCKBACK_CHANCE (0.05) - knockback procs.
+  const procced = resolveAbilityUse(player, monster, chop, false, () => 0.01);
+  assert.equal(procced.monsterHp, 0);
+  assert.equal(procced.monsterAtb, 50 - ATB_KNOCKBACK);
+  // rng()=0.5 misses the roll - ATB untouched.
+  const missed = resolveAbilityUse(player, monster, chop, false, () => 0.5);
+  assert.equal(missed.monsterAtb, 50);
 });
 
 test('resolveDelayedHit computes Lacerate\'s follow-up bleed tick as a fraction of the original hit', () => {
