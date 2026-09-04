@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.23.0',
+    date: '2026-09-03',
+    highlights: [
+      'Changed: Impale, Sever, Lacerate, and Faultline no longer wait on a refilling gauge before you can use them - they now share a quick cooldown that gets faster the higher your Speed stat is, so you can chain abilities much more smoothly.',
+      'Changed: Flee now works instantly, every time (except against bosses) - no more waiting for it.',
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-09-03',
     highlights: [

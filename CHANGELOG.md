@@ -24,6 +24,44 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-03
+
+### Changed
+- Abilities 1-4 (Impale/Sever/Lacerate/Faultline) no longer wait on the
+  player's ATB "swing timer" gauge - replaced with a shared, speed-scaled
+  global cooldown (GCD) that reuses each ability's existing per-ability
+  cooldown field/UI instead of a new timer. New `abilityGcdMsForSpeed`
+  (`js/systems/combat.js`: `ABILITY_GCD_BASE_MS = 1150`,
+  `ABILITY_GCD_MS_PER_SPEED = 30`, `ABILITY_GCD_FLOOR_MS = 500` - exactly
+  1000ms at the player's starting speed of 5) and `applyAbilityGcd`
+  (`js/systems/abilities.js`) propagate one ability's use to every
+  unlocked non-buff ability's cooldown at once, so it's a true shared
+  lockout, not 4 independent per-ability cooldowns. `canUseAbility` drops
+  its now-unused `ready`/`alwaysReady` params. The player's ATB gauge
+  (`playerCombatant.atb`, its UI bar, `updateAtbBars()`'s hero half) is
+  removed entirely from `js/screens/battleScreen.js` - monsters keep
+  their own, untouched. Attack's spam-decay system, monster ATB/windup,
+  Super Scream (exempt from GCD propagation via its `buff` type),
+  Lacerate's retrigger sweet-spot, and Parry are all explicitly
+  unaffected - Lacerate's retrigger window can now outlive its own
+  (much shorter) cooldown, and a re-press during that overlap
+  intentionally still triggers the retrigger buff rather than a fresh
+  cast, pinned by a new test. `scripts/simulate-balance.js` and
+  `scripts/simulateAbilityPolicy.js` mirror-updated so balance reports
+  reflect the new mechanic.
+- Flee is now unconditionally available (no readiness gate at all) - it
+  was previously gated on the same ATB gauge despite its own tooltip
+  already claiming to "retreat... instantly."
+
+### Note
+- The balance simulator's before/after comparison (see
+  `docs/superpowers/plans/2026-09-03-ability-gcd-rework-notes/`) shows a
+  large win-rate increase from L4 onward, including several previously-
+  unwinnable matchups (Super Mean Meatloaf, Ghost Apple Supreme, Jurassic
+  Jerky, and the Dragon tiers at various levels) becoming guaranteed
+  wins. Monster stat retuning was deliberately NOT done in this version -
+  it's a separate follow-up decision pending manual playtesting feedback.
+
 ## [0.22.0] - 2026-09-03
 
 ### Added
