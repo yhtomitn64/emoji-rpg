@@ -1187,4 +1187,10 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-ability-stab'));
     assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
   });
+
+  await t.test('the player no longer has an ATB gauge bar - only monsters do', async () => {
+    const { root } = await mountBattle(['boar']);
+    assert.equal(root.querySelector('#battle-hero-atb-fill'), null);
+    assert.ok(root.querySelector('[id^="battle-monster-atb-fill-"]'), 'monster ATB bars should still exist, untouched');
+  });
 });

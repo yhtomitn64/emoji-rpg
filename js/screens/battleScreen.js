@@ -135,7 +135,6 @@ function buildPlayerCombatant(bonuses) {
     attack: state.player.attack + bonuses.attack,
     defense: state.player.defense + bonuses.defense,
     speed: state.player.speed + bonuses.speed,
-    atb: 0,
   };
 }
 
@@ -319,7 +318,6 @@ function buildDom() {
               <div class="battle-name">You</div>
               <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
               <div class="battle-hp-text" id="battle-hero-hp-text"></div>
-              <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
               <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
               <div class="battle-widen-indicator" id="battle-widen-indicator"></div>
               <div class="battle-potion-buff-indicator" id="battle-potion-buff-indicator"></div>
@@ -360,7 +358,6 @@ function buildDom() {
     heroEmoji: document.getElementById('battle-hero-emoji'),
     heroHpFill: document.getElementById('battle-hero-hp-fill'),
     heroHpText: document.getElementById('battle-hero-hp-text'),
-    heroAtbFill: document.getElementById('battle-hero-atb-fill'),
     buffIndicator: document.getElementById('battle-buff-indicator'),
     widenIndicator: document.getElementById('battle-widen-indicator'),
     potionBuffIndicator: document.getElementById('battle-potion-buff-indicator'),
@@ -449,7 +446,6 @@ function updateAtbBars() {
     elements.monsterAtbBars[i].classList.toggle('battle-atb-bar-windup', winding);
     elements.parryHints[i].textContent = winding ? 'Parry! (s)' : '';
   });
-  elements.heroAtbFill.style.width = `${percent(playerCombatant.atb, ATB_MAX)}%`;
 }
 
 function updateLog() {
@@ -1421,7 +1417,6 @@ function resolveOneAttack(countsTowardStreak) {
   }
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
-  playerCombatant.atb = result.playerAtb;
   maybeMarkSplitDeath(target, result);
   log.push(result.isCrit
     ? `Critical! You hit ${target.name} for ${result.damage}!`
@@ -1556,7 +1551,6 @@ async function playerUseAbility(abilityId) {
         const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
         mc.hp = result.monsterHp;
         mc.atb = result.monsterAtb;
-        playerCombatant.atb = result.playerAtb;
         maybeMarkSplitDeath(mc, result);
         mc.defenseDebuff = createDefenseDebuff(ability);
         log.push(result.isCrit
@@ -1587,7 +1581,6 @@ async function playerUseAbility(abilityId) {
     const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
-    playerCombatant.atb = result.playerAtb;
     maybeMarkSplitDeath(target, result);
     ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(state.player.level), abilityId, gcdMs, abilityCooldownTotals));
     attackStreak = 0;
@@ -1638,7 +1631,6 @@ function playerFlee() {
   if (abilityActionInFlight) return;
   if (monsterIds.some((id) => MONSTERS[id].isBoss)) {
     log.push('You cannot flee from this battle!');
-    playerCombatant.atb = 0;
     updateAtbBars();
     updateLog();
     updateMenu();
@@ -1672,7 +1664,6 @@ function monsterAttack(monster) {
     playerCombatant.hp = 1;
     log.push('Second Wind kicks in! You survive with 1 HP.');
   }
-  playerCombatant.atb = result.playerAtb;
   monster.atb = result.monsterAtb;
   monster.hp = result.monsterHp;
   const monsterIndex = monsterCombatants.indexOf(monster);
@@ -1730,15 +1721,11 @@ function tick() {
   if (battleOver) return;
   battleElapsedMs += 300;
   updateDpsDisplay();
-  playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
   // Attack's decayed streak only resets passively after a sustained
   // real-time idle stretch with no Attack presses (ATTACK_STREAK_RECOVERY_MS) -
-  // deliberately slow, and deliberately decoupled from the ATB gauge above:
-  // that gauge caps at ATB_MAX and abilities read the same value for their
-  // own readiness, so it can't be pushed further to represent a slower
-  // recharge on its own. Landing an ability still resets the streak
-  // instantly (elsewhere in this file) - only the "just wait it out" path
-  // is slow.
+  // deliberately slow on purpose. Landing an ability still resets the
+  // streak instantly (elsewhere in this file) - only the "just wait it
+  // out" path is slow.
   if (attackStreak > 0) {
     attackStreakIdleMs += 300;
     if (attackStreakIdleMs >= ATTACK_STREAK_RECOVERY_MS) {
