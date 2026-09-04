@@ -1109,6 +1109,32 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
   });
 
+  await t.test('Lacerate\'s retrigger window still wins even after its own cooldown clears first (confirmed intentional, not a fresh re-cast)', async () => {
+    // speed: 22 pushes Lacerate's own cooldown (the bare speed-scaled GCD -
+    // see abilityGcdMsForSpeed) down to its 500ms floor, well under the
+    // 1200ms retrigger window - so by the time of the re-press below, a
+    // fresh cast is also legal again on cooldown grounds alone. Confirmed
+    // with the project owner: the retrigger window is still supposed to
+    // win in that overlap (playerUseAbility checks lacerateRetriggerOpen
+    // before it ever looks at cooldown state - see its own comment on
+    // that ordering), not silently fall back to treating the press as a
+    // fresh cast. This pins that as deliberate, since it's untested
+    // otherwise and would silently flip if someone "fixed" the ordering
+    // later without realizing it was on purpose.
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6, speed: 22 } }) });
+    // Level 6 unlocks stab(1)/chop(2)/slash(3) - Lacerate is slot 3.
+    keydown('3');
+    // By ~600ms in, Lacerate's own 500ms-floor cooldown has already ticked
+    // down to 0 (tick() decrements every 300ms) - but the 1200ms retrigger
+    // window opened by that first press is still open at this 1100ms mark
+    // (same wait the sweet-spot re-press tests above use), so this re-press
+    // lands squarely in the overlap between "cooldown cleared" and
+    // "retrigger window still open."
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    keydown('3');
+    assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
+  });
+
   await t.test('missing the re-press window entirely (letting it lapse) grants no buff', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     click(root.querySelector('#btn-ability-slash'));
@@ -1167,14 +1193,16 @@ test('battleScreen DOM', async (t) => {
   });
 
   await t.test('an ability can be used the instant it comes off cooldown, with no extra wait for a swing timer to refill', async () => {
-    const { root, state } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 2, speed: 1 } }) });
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 2, speed: 1 } }) });
     // speed: 1 deliberately kept low - under the old ATB gauge this would
-    // make readiness take a long time to refill. If the ability still
-    // fires the instant it's mounted (cooldowns start at 0), the swing
-    // timer is confirmed gone, not just fast.
-    const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
-    click(root.querySelector('#btn-ability-stab'));
-    assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
+    // make readiness take a long time to refill. Assert on .disabled
+    // directly (not via click()+HP-changed, which jsdom fires even on a
+    // disabled button - playerUseAbility itself never gated on readiness,
+    // only abilityButtonEntries/updateMenu/handleKeydown did, so a
+    // click-based version of this test would have passed against the old
+    // ATB-gated code too and wouldn't actually be exercising the gate that
+    // was removed) so this test actually pins the behavior that changed.
+    assert.equal(root.querySelector('#btn-ability-stab').disabled, false);
   });
 
   await t.test('the player no longer has an ATB gauge bar - only monsters do', async () => {

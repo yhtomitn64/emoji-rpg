@@ -365,7 +365,7 @@ function applyOnHitEffects(build, player, target, damage, damageMultiplier = 1) 
 function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEFAULT) {
   const player = {
     hp: build.maxHp, maxHp: build.maxHp,
-    attack: build.attack, defense: build.defense, speed: build.speed, atb: 0,
+    attack: build.attack, defense: build.defense, speed: build.speed,
   };
   const monster = {
     hp: monsterStats.hp, maxHp: monsterStats.hp,
@@ -483,7 +483,6 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
       attackCooldownMs = ATTACK_COOLDOWN_MS;
       monster.hp = result.monsterHp;
       monster.atb = result.monsterAtb;
-      player.atb = result.playerAtb;
       applyOnHitEffects(build, player, monster, result.damage, streakMultiplier);
       if (monster.hp <= 0) {
         return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
@@ -499,7 +498,6 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
         );
         monster.hp = bonusResult.monsterHp;
         monster.atb = bonusResult.monsterAtb;
-        player.atb = bonusResult.playerAtb;
         applyOnHitEffects(build, player, monster, bonusResult.damage, 1);
         if (monster.hp <= 0) {
           return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };

@@ -1444,9 +1444,9 @@ function resolveOneAttack(countsTowardStreak) {
 
 function playerAttack() {
   // Same re-entrancy hazard as playerUseAbility's own guard, but from the other
-  // direction: while an ability's timing meter is pending, playerCombatant.atb
-  // hasn't been reset and updateMenu() hasn't re-rendered, so Attack (button or
-  // the 'a' keydown path) is still clickable/pressable. Left unguarded, a
+  // direction: while an ability's timing meter is pending, updateMenu()
+  // hasn't re-rendered yet, so Attack (button or the 'a' keydown path) is
+  // still clickable/pressable. Left unguarded, a
   // resolvePlayerAttack() here could end the battle (checkOutcome -> endBattle)
   // while the pending ability's await is still outstanding - see the
   // `if (battleOver) return;` added after that await below for the other half
