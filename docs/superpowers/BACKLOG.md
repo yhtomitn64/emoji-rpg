@@ -65,6 +65,13 @@ of the three-session balance queue above — separate initiative):**
   player's first NG+ cycle again, with the cap itself rising a little
   each NG+ cycle. Not designed yet — see the fuller entry in the
   Multi-zone progression section below (under the original uncap bullet).
+- **Deploy workflow: pin the wrangler CLI version + minor CI cleanup,
+  raised 2026-09-04** — not urgent, deploys already succeed either way.
+  See the Infrastructure / deployment section below.
+- **Puzzle mechanics, raised 2026-09-04** — logic/riddle/physical-obstacle,
+  and what a tool could unlock besides simple traversal. Genuinely open,
+  needs its own brainstorming pass. See the dedicated Puzzle mechanics
+  section below.
 
 - ~~**UI consistency: universal Escape-to-close + aligned dialog chrome.**~~ **Shipped 2026-09-02 (0.18.1)**, extended to also cover click-outside per the same request. See BACKLOG_SHIPPED.md's "Bugs" section for the full audit and file list.
 - **Story / narrative** — game needs a real story; Timothy writes it himself, engineering support only.
@@ -218,6 +225,26 @@ note in the Combat pass ideas section below — worth investigating
 gear's contribution to effective power (via the balance simulator,
 same tool used earlier in this thread) rather than treating this as a
 level-curve problem specifically.
+
+**Update (2026-09-04), overall difficulty still open after the ability
+GCD rework + per-ability cooldowns:** Timothy's own words: "the game
+needs to get way harder. I kind of like how hard it is at level 1... but
+then you get way too strong. However I still have not tried it with
+ability cooldowns so that needs to go up." He hasn't yet played the
+0.23.1/0.23.2 changes shipped this same session (graduated per-ability
+cooldowns, the 5% ATB-knockback-chance change) - explicitly wants to do
+a fresh playthrough on the new build before deciding whether this is
+still open or was already meaningfully addressed. His own play log from
+this session (pre-0.23.1) confirmed the shape of the complaint precisely:
+genuinely dangerous at level 1 (two real deaths), then from level 4 on -
+once a full ability rotation plus stacked smith upgrades kicked in -
+essentially risk-free for the rest of the session (dozens of straight
+100%-HP wins, including 5-monster group fights, 4-8 second fight
+durations). Explicitly deferred, not tackled same-session - revisit once
+the fresh playthrough happens. Also connects to the still-open "partial
+walk-back of the upgrade-level uncap" item above (Multi-zone progression
+section) - unlimited smith upgrades are plausibly part of the same
+"too strong too fast" complaint.
 
 ## Multi-zone progression (big idea — needs its own design pass)
 
@@ -795,6 +822,36 @@ populate that dropdown with, possibly tied to hand-placed mini-dungeons
 specifically rather than bare map tiles. Explicitly flagged by him
 (again) as needing its own design pass before implementation - not
 ready to scope.
+
+## Puzzle mechanics, raised 2026-09-04 (needs its own brainstorming pass)
+
+Timothy's own words: "how could we put a puzzle in the game? Should it
+be logic, riddle, or something else? I know there are always puzzles
+like push the thing out of the way. Trying to think what our tools
+could unlock besides just going through an area now that you can get
+past something." Genuinely open, not designed at all yet - explicitly a
+"what should we build" question, not a bounded implementation task, so
+it needs a real brainstorming pass (not squeezed into an unrelated
+session) rather than a backlog write-up deciding it here.
+
+What's actually raised, as three separable threads:
+- **What kind of puzzle** — logic puzzle, riddle, a physical
+  push/move-the-obstacle mechanic (his own example), or something else
+  entirely. No direction picked.
+- **What a tool unlocks beyond simple traversal.** Today's tool-gating
+  system (`docs/superpowers/specs/2026-08-16-metroidvania-tool-gating-
+  design.md` — the mining pick and axe) only ever gates *walking past* a
+  terrain obstacle (thicket, mountain) to reach loot/shortcuts already
+  sitting on the other side. This asks whether a tool could gate solving
+  something instead of just reaching it — no such mechanic exists today.
+- **Where it'd live.** Not scoped to a specific screen/zone - could tie
+  into the still-open Multi-zone progression work (zones having distinct
+  gameplay loops beyond combat is already an open thread there) or stand
+  alone. Not decided.
+
+Raw idea only - no mechanic shape, no specific puzzle content, nothing
+implemented. Next step is a proper brainstorming session, not more
+backlog writing.
 
 ## In-game tutorials / mechanic explainers, raised 2026-08-28
 

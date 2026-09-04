@@ -24,6 +24,24 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-04
+
+### Added
+- Start screen redesign: the background scene now fills the entire
+  browser window edge-to-edge (`.start-scene` goes `position: fixed`
+  rather than being boxed inside the card's own rounded corners), the
+  card and its text are noticeably larger throughout, and the old inline
+  hero-emoji/skin-tone `<select>` pair on the new-game row is replaced
+  with a three-step flow: name entry, then a large-tile hero picker
+  (`js/screens/startScreen.js`) with big emoji tiles (no text labels),
+  live skin-tone swatches, a Shuffle button that re-rolls every tile's
+  displayed skin tone (never the plain, un-toned base glyph), and a 🎲
+  Random Character button that fills in a random hero, tone, and
+  generated name (`js/data/randomNames.js`, drawn from words already
+  used elsewhere in the game - monster/item/ability names). First DOM
+  test coverage this screen has ever had
+  (`tests/startScreenDom.test.js`).
+
 ## [0.23.2] - 2026-09-04
 
 ### Changed

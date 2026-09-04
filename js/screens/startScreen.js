@@ -1,5 +1,6 @@
-import { HERO_EMOJI_OPTIONS, DEFAULT_HERO_EMOJI, SKIN_TONES, isToneCapableEmoji, applySkinTone } from '../state.js';
+import { HERO_EMOJI_OPTIONS, SKIN_TONES, isToneCapableEmoji, applySkinTone } from '../state.js';
 import { MONSTERS } from '../data/monsters.js';
+import { generateRandomName } from '../data/randomNames.js';
 
 const SCENE_MONSTERS = [
   { id: 'dragon', top: 4, left: 36, size: 2.6, opacity: 0.55, duration: 5.2, delay: 0 },
@@ -14,6 +15,12 @@ const SCENE_MONSTERS = [
 ];
 
 const HORIZON = ['🌲', '⛰️', '🌳', '🏔️', '🌲', '🌳', '⛰️', '🌲', '🌳'];
+
+// Every skin tone except "Default" (the unmodified, plain-yellow glyph) -
+// tiles on the hero-pick grid always show a real skin tone, never the bare
+// yellow base, per Timothy's own call to randomize rather than leave them
+// uniform.
+const RANDOMIZABLE_TONES = SKIN_TONES.filter((tone) => tone.modifier);
 
 function renderScene() {
   const monsters = SCENE_MONSTERS.map(({ id, top, left, size, opacity, duration, delay }) => {
@@ -34,7 +41,19 @@ let rootEl = null;
 let slots = [];
 let callbacks = null;
 let confirmDeleteId = null;
-let newGameOpen = false;
+// Three-step new-game flow (raised 2026-09-03/04): 'closed' (just the save
+// list), 'name' (name entry only - no hero/tone controls here anymore),
+// 'hero' (the large-tile hero/skin-tone picker, replacing the old inline
+// emoji/tone <select> pair entirely). callbacks.onNewGame(name, heroEmoji)
+// only fires once 'hero' is confirmed.
+let newGameStep = 'closed';
+let newGameName = '';
+// emoji -> currently-shown tone modifier, re-rolled whenever the 'hero' step
+// is entered or Shuffle is pressed. Tone-incapable emoji (see
+// isToneCapableEmoji) always map to '' (no modifier available to show).
+let heroTileTones = {};
+let pickedHero = null;
+let pickedTone = '';
 
 function formatLastPlayed(timestamp) {
   const diffMin = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
@@ -65,29 +84,89 @@ function renderSlotRow(slot) {
   `;
 }
 
+function randomTone() {
+  return RANDOMIZABLE_TONES[Math.floor(Math.random() * RANDOMIZABLE_TONES.length)].modifier;
+}
+
+function rollHeroTileTones() {
+  heroTileTones = Object.fromEntries(
+    HERO_EMOJI_OPTIONS.map((emoji) => [emoji, isToneCapableEmoji(emoji) ? randomTone() : '']),
+  );
+}
+
+function renderHeroGrid() {
+  return HERO_EMOJI_OPTIONS.map((emoji) => {
+    const shown = applySkinTone(emoji, heroTileTones[emoji]);
+    const picked = emoji === pickedHero ? ' hero-tile-picked' : '';
+    return `<button type="button" class="hero-tile${picked}" data-hero="${emoji}" aria-label="Choose ${shown}">${shown}</button>`;
+  }).join('');
+}
+
+function renderToneSwatches() {
+  return SKIN_TONES.filter((tone) => tone.modifier).map((tone) => {
+    const picked = tone.modifier === pickedTone ? ' hero-tone-swatch-picked' : '';
+    return `<button type="button" class="hero-tone-swatch${picked}" data-tone="${tone.modifier}" aria-label="Skin tone ${tone.label}"></button>`;
+  }).join('');
+}
+
+function renderHeroPickStep() {
+  const toneRow = pickedHero
+    ? `<div class="hero-pick-tone-row">
+        <div class="hero-pick-avatar">${applySkinTone(pickedHero, pickedTone)}</div>
+        ${isToneCapableEmoji(pickedHero)
+          ? `<div class="hero-tone-swatches">${renderToneSwatches()}</div>`
+          : '<div class="hero-pick-no-tone">This hero has no skin-tone variant.</div>'}
+      </div>`
+    : '<div class="hero-pick-hint">Pick a hero above</div>';
+  return `
+    <div class="hero-pick-header">
+      <h2 class="hero-pick-title">Choose your hero</h2>
+      <button type="button" id="btn-shuffle-tones" title="Re-roll every tile's skin tone">🔀 Shuffle</button>
+    </div>
+    <div class="hero-grid">${renderHeroGrid()}</div>
+    ${toneRow}
+    <div class="hero-pick-footer">
+      <input type="text" id="hero-pick-name" value="${newGameName}" placeholder="Character name" />
+      <button type="button" id="btn-random-character">🎲 Random Character</button>
+      <button type="button" id="btn-back-to-name">&larr; Back</button>
+      <button type="button" id="btn-create-slot" ${pickedHero ? '' : 'disabled'}>Start Adventure</button>
+    </div>
+  `;
+}
+
 function render() {
   const slotRows = slots.map(renderSlotRow).join('');
-  const emojiOptions = HERO_EMOJI_OPTIONS.map((emoji) => `<option value="${emoji}">${emoji}</option>`).join('');
-  const toneOptions = SKIN_TONES.map((tone) => `<option value="${tone.modifier}">${tone.label}</option>`).join('');
-  const newGameSection = newGameOpen
-    ? `<div class="new-game-row">
-        <input type="text" id="new-game-name" placeholder="Character name" />
-        <select id="new-game-emoji" aria-label="Hero emoji">${emojiOptions}</select>
-        <select id="new-game-tone" aria-label="Skin tone">${toneOptions}</select>
+  let newGameSection;
+  if (newGameStep === 'name') {
+    newGameSection = `<div class="new-game-row">
+        <input type="text" id="new-game-name" placeholder="Character name" value="${newGameName}" />
         <button id="btn-create-slot">Create</button>
-      </div>`
-    : `<button id="btn-open-new-game">+ New Game</button>`;
+      </div>`;
+  } else if (newGameStep === 'closed') {
+    newGameSection = `<button id="btn-open-new-game">+ New Game</button>`;
+  } else {
+    newGameSection = '';
+  }
+
+  const bodyHtml = newGameStep === 'hero'
+    ? renderHeroPickStep()
+    : `<h1 class="start-title">Emoji RPG</h1>
+       ${slotRows || '<div class="no-slots">No saves yet.</div>'}
+       ${newGameSection}`;
 
   rootEl.innerHTML = `
     <div class="start-screen">
       ${renderScene()}
-      <div class="start-panel">
-        <h1 class="start-title">Emoji RPG</h1>
-        ${slotRows || '<div class="no-slots">No saves yet.</div>'}
-        ${newGameSection}
+      <div class="start-panel${newGameStep === 'hero' ? ' start-panel-hero-pick' : ''}">
+        ${bodyHtml}
       </div>
     </div>
   `;
+
+  if (newGameStep === 'hero') {
+    bindHeroPickStep();
+    return;
+  }
 
   slots.forEach((slot) => {
     rootEl.querySelector(`[data-continue="${slot.id}"]`).onclick = () => callbacks.onContinue(slot.id);
@@ -105,30 +184,70 @@ function render() {
     }
   });
 
-  if (newGameOpen) {
+  if (newGameStep === 'name') {
     const input = document.getElementById('new-game-name');
-    const emojiSelect = document.getElementById('new-game-emoji');
-    const toneSelect = document.getElementById('new-game-tone');
     input.focus();
-
-    const syncToneAvailability = () => {
-      const capable = isToneCapableEmoji(emojiSelect.value);
-      toneSelect.disabled = !capable;
-      if (!capable) toneSelect.value = '';
-    };
-    emojiSelect.onchange = syncToneAvailability;
-    syncToneAvailability();
-
     document.getElementById('btn-create-slot').onclick = () => {
-      const name = input.value.trim() || 'New Game';
-      const baseEmoji = emojiSelect.value || DEFAULT_HERO_EMOJI;
-      const heroEmoji = applySkinTone(baseEmoji, toneSelect.value);
-      callbacks.onNewGame(name, heroEmoji);
+      newGameName = input.value.trim() || 'New Game';
+      newGameStep = 'hero';
+      pickedHero = null;
+      pickedTone = '';
+      rollHeroTileTones();
+      render();
     };
   } else {
     document.getElementById('btn-open-new-game').onclick = () => {
-      newGameOpen = true;
+      newGameStep = 'name';
       render();
+    };
+  }
+}
+
+function pickHero(emoji) {
+  pickedHero = emoji;
+  pickedTone = heroTileTones[emoji] || '';
+  render();
+}
+
+function bindHeroPickStep() {
+  rootEl.querySelectorAll('[data-hero]').forEach((btn) => {
+    btn.onclick = () => pickHero(btn.dataset.hero);
+  });
+  rootEl.querySelectorAll('[data-tone]').forEach((btn) => {
+    btn.onclick = () => {
+      pickedTone = btn.dataset.tone;
+      render();
+    };
+  });
+
+  document.getElementById('btn-shuffle-tones').onclick = () => {
+    rollHeroTileTones();
+    if (pickedHero) pickedTone = heroTileTones[pickedHero] || '';
+    render();
+  };
+
+  const nameInput = document.getElementById('hero-pick-name');
+  nameInput.oninput = () => { newGameName = nameInput.value; };
+
+  document.getElementById('btn-random-character').onclick = () => {
+    rollHeroTileTones();
+    pickedHero = HERO_EMOJI_OPTIONS[Math.floor(Math.random() * HERO_EMOJI_OPTIONS.length)];
+    pickedTone = heroTileTones[pickedHero] || '';
+    newGameName = generateRandomName();
+    render();
+  };
+
+  document.getElementById('btn-back-to-name').onclick = () => {
+    newGameStep = 'name';
+    render();
+  };
+
+  const createBtn = document.getElementById('btn-create-slot');
+  if (pickedHero) {
+    createBtn.onclick = () => {
+      const name = newGameName.trim() || 'New Game';
+      const heroEmoji = applySkinTone(pickedHero, pickedTone);
+      callbacks.onNewGame(name, heroEmoji);
     };
   }
 }
@@ -138,7 +257,10 @@ export function mount(root, props) {
   slots = props.slots;
   callbacks = props.callbacks;
   confirmDeleteId = null;
-  newGameOpen = false;
+  newGameStep = 'closed';
+  newGameName = '';
+  pickedHero = null;
+  pickedTone = '';
   render();
 }
 

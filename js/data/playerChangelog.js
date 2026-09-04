@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.24.0',
+    date: '2026-09-04',
+    highlights: [
+      'New: the start screen got a redesign - the background now fills the whole window, everything\'s bigger, and creating a character walks you through a big, easy-to-see hero picker with skin tone swatches instead of a tiny dropdown.',
+      'New: a 🎲 Random Character button fills in a random hero, skin tone, and name for you.',
+    ],
+  },
+  {
     version: '0.23.2',
     date: '2026-09-04',
     highlights: [
