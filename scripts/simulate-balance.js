@@ -40,8 +40,8 @@
  * every time.
  */
 
-import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier, ATTACK_STREAK_RECOVERY_MS } from '../js/systems/combat.js';
-import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, getUnlockedAbilities } from '../js/systems/abilities.js';
+import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier, ATTACK_STREAK_RECOVERY_MS, abilityGcdMsForSpeed } from '../js/systems/combat.js';
+import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, getUnlockedAbilities, applyAbilityGcd } from '../js/systems/abilities.js';
 import { rollIncomingDamage, resolveParrySuccess, PARRY_COOLDOWN_MS } from '../js/systems/parry.js';
 import { chooseAction } from './simulateAbilityPolicy.js';
 import { MONSTERS } from '../js/data/monsters.js';
@@ -387,7 +387,6 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
   const unlockedAbilityCount = getUnlockedAbilities(build.level).length;
 
   for (let ticks = 1; ticks <= MAX_TICKS; ticks++) {
-    player.atb = tickGauge(player.atb, player.speed, 1);
     monster.atb = tickGauge(monster.atb, monster.speed, 1);
     // Mirrors battleScreen.js's tick(): the streak only resets passively
     // after a real-time idle stretch, decoupled from the ATB gauge.
@@ -430,7 +429,6 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
         if (parryCooldownMs <= 0) parryCooldownMs = PARRY_COOLDOWN_MS;
         result = resolveMonsterAttack(monster, player, Math.random, build.thornsPercent);
         player.hp = result.playerHp;
-        player.atb = result.playerAtb;
       }
       monster.atb = result.monsterAtb;
       monster.hp = result.monsterHp;
@@ -442,7 +440,6 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
       level: build.level,
       cooldowns: abilityCooldowns,
       buffActive: buffState.active,
-      ready: isReady(player.atb),
       attackOnCooldown: attackCooldownMs > 0,
     });
 
@@ -457,9 +454,8 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
         const result = resolveAbilityUse(player, applyDefenseDebuff(monster, monster.defenseDebuff), ability, buffState.active, Math.random, build.critChancePercent / 100);
         monster.hp = result.monsterHp;
         monster.atb = result.monsterAtb;
-        player.atb = result.playerAtb;
         applyOnHitEffects(build, player, monster, result.damage);
-        abilityCooldowns[ability.id] = ability.cooldownMs;
+        ({ cooldowns: abilityCooldowns } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(build.level), ability.id, abilityGcdMsForSpeed(player.speed)));
         attackStreak = 0;
         attackStreakIdleMs = 0;
         // Lacerate's self-retrigger (js/systems/abilities.js's `retrigger`
