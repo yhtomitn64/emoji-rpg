@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.24.4',
+    date: '2026-09-04',
+    highlights: [
+      'Fixed: the version number is now visible on the very first "New Game" screen, not just once you\'re playing.',
+    ],
+  },
+  {
     version: '0.24.3',
     date: '2026-09-04',
     highlights: [

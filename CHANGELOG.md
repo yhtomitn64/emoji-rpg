@@ -24,6 +24,20 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.24.4] - 2026-09-04
+
+### Fixed
+- The version footer ("v`<x.y.z>` · What's New") was invisible on the
+  start screen since the 0.24.0 redesign - `.start-scene`'s full-bleed
+  `position: fixed` background has no `z-index`-losing static siblings
+  to worry about on any other screen, but `#version-footer` (a later,
+  unpositioned sibling of `#app`) painted underneath it there. Raised
+  because Timothy wants to name save-file characters after the version
+  they were created in and needs the number visible up front. Gave
+  `#version-footer` `position: relative; z-index: 1` (`css/styles.css`),
+  matching `.start-panel`'s own stacking - no JS change, the footer was
+  already being rendered correctly, just hidden.
+
 ## [0.24.3] - 2026-09-04
 
 ### Fixed

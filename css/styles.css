@@ -1239,6 +1239,14 @@ button:focus-visible {
 }
 
 #version-footer {
+  /* Raised 2026-09-04: the 0.24.0 start-screen redesign made .start-scene
+     position: fixed, full-bleed - a static sibling with no z-index paints
+     underneath any positioned element regardless of z-index value, so it
+     silently hid this footer specifically on the start screen (every other
+     screen has no such fixed backdrop, so they were never affected).
+     Matches .start-panel's own z-index: 1 to stack above .start-scene's 0. */
+  position: relative;
+  z-index: 1;
   padding: 4px 8px;
   text-align: center;
   font-size: 0.75rem;
