@@ -85,9 +85,15 @@ jobs:
             exit 1
           fi
 
+      # Bumped from 20 to 22 2026-09-04: pinning wranglerVersion below to a
+      # current release (4.127.1) surfaced that recent wrangler requires
+      # Node >=22 - the unpinned "npx wrangler@latest" path never hit this
+      # because it silently fell back to installing an older wrangler@4.x
+      # that still worked on Node 20. Node 22 is also what local dev already
+      # runs, so nothing else in this repo needed adjusting for the bump.
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # The project had zero dependencies until jsdom was added for DOM
@@ -115,7 +121,10 @@ jobs:
           # wrangler@latest --version` first, which fails on current npm
           # (missing --yes) and falls back to an explicit `npm i wrangler@4`
           # install - harmless but wasted overhead every single run. Bump
-          # this occasionally; there's no auto-update mechanism.
+          # this occasionally; there's no auto-update mechanism. Whatever
+          # version this is pinned to must support the Node version above
+          # (setup-node) - 4.127.1 needs Node >=22, which is why that step
+          # was bumped from 20 in the same change.
           wranglerVersion: '4.127.1'
           # --branch is compared against the Pages project's own production-
           # branch setting (default "main" for a direct-upload project with

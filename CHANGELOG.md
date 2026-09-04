@@ -24,6 +24,18 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.24.3] - 2026-09-04
+
+### Fixed
+- The 0.24.2 wrangler pin (`wranglerVersion: '4.127.1'`) broke the live
+  deploy: that wrangler release requires Node >=22, but
+  `actions/setup-node@v7` was still pinned to Node 20, so the deploy
+  step failed outright (see the 0.24.2 entry below - the unpinned
+  behavior never hit this because it silently fell back to an older,
+  Node-20-compatible wrangler@4.x). Bumped `node-version: 20` → `22` in
+  `.github/workflows/deploy.yml` alongside the pin. Confirmed live via
+  `gh run watch` on the push that introduced this fix.
+
 ## [0.24.2] - 2026-09-04
 
 ### Changed
