@@ -34,6 +34,11 @@
     padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace;
   }
   #placeToolDungeonBtn.active { border-color: #fff; }
+  #superBossControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  #superBossControls select, #superBossControls button {
+    padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace;
+  }
+  #placeSuperBossBtn.active { border-color: #ff5757; color: #ff5757; }
   #checkControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
   #checkControls button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #checkStatus.ok { color: #6bbf6b; }
@@ -78,7 +83,14 @@
   reachability check yet. "Place Tool Dungeon Entrance"
   works the same way for whichever tool dungeon is selected in the dropdown
   next to it — copies paste into that entry's <code>screenId</code>/<code>x</code>/<code>y</code>
-  in <code>js/data/toolDungeons.js</code>. "Choose Repo Folder" +
+  in <code>js/data/toolDungeons.js</code>. "Place Super-Boss Marker" is the
+  same idea again for whichever superboss id is selected in its dropdown
+  (populated from <code>SUPER_BOSSES</code>' keys in
+  <code>js/data/superBosses.js</code>) — the "Has own dungeon" checkbox is
+  saved onto the marker alongside its position (<code>hasDungeon: true</code>
+  for a superboss fought behind its own dungeon entrance,
+  <code>false</code> for one fought on the spot in the open wilderness).
+  "Choose Repo Folder" +
   "Export All Changed to Files" write every changed wilderness screen (plus
   the dungeon and tool dungeon entrance positions) straight to disk in one
   click, instead of copy/pasting each screen by hand — needs Chrome or Edge.
@@ -109,6 +121,13 @@
   <button id="placeToolDungeonBtn">Place Tool Dungeon Entrance</button>
   <span id="toolDungeonReadout"></span>
   <button id="copyToolDungeonBtn">Copy position</button>
+</div>
+<div id="superBossControls" class="wilderness-only">
+  <select id="superBossSelect"></select>
+  <label><input type="checkbox" id="superBossHasDungeonCheckbox"> Has own dungeon</label>
+  <button id="placeSuperBossBtn">Place Super-Boss Marker</button>
+  <span id="superBossReadout"></span>
+  <button id="copySuperBossBtn">Copy position</button>
 </div>
 <div id="checkControls" class="wilderness-only">
   <button id="checkMapBtn">Check Map</button>

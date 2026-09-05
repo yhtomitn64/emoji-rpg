@@ -64,6 +64,10 @@ public API, no formal release process — commits land straight on
   parry timing zone) and `debuffDurationPercent` (shortens the new
   slow/stun debuffs) - the mechanics super-boss counter-items (Task 10)
   need. No item grants them yet.
+- Terrain painter: new "Place Super-Boss Marker" mode
+  (`tools/terrain-painter/`), same UX as today's "Place Tool Dungeon
+  Entrance" - pick a superboss id, click a tile, toggle open-world vs.
+  has-its-own-dungeon. Dev-only tool, not part of the deployed build.
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your

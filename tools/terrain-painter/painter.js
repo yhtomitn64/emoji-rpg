@@ -140,12 +140,19 @@ let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance
 let placingDungeon = false;
 let toolDungeonMarkers = {}; // toolId -> { screenId, x, y } (wilderness only)
 let placingToolDungeon = null; // toolId currently being placed, or null
+let superBossMarkers = {}; // superBossId -> { screenId, x, y, hasDungeon } (wilderness only)
+let placingSuperBoss = null; // superBossId currently being placed, or null
 let checkOverlay = null; // { toollessReached, tooledReached, frontier: Set<string> } | null (wilderness only)
-let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers } snapshots, oldest first
+let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers, superBossMarkers } snapshots, oldest first
 const UNDO_LIMIT = 30;
 
 const TOOL_DUNGEON_IDS = ['axe', 'pick', 'canoe', 'portal'];
 const TOOL_DUNGEON_MARKER_COLORS = { axe: '#5cb85c', pick: '#5bc0de', canoe: '#e0a83a', portal: '#b06fd6' };
+// Superboss ids are data-driven (SUPER_BOSSES' keys, loaded at init) rather
+// than a fixed small set like the tools above, so markers are colored by
+// hasDungeon instead of by id.
+const SUPER_BOSS_MARKER_COLOR_DUNGEON = '#ff5757';
+const SUPER_BOSS_MARKER_COLOR_OPEN = '#ffd23f';
 
 function cloneGrid(g) {
   return g.map((row) => row.slice());
@@ -164,6 +171,7 @@ function pushUndoSnapshot() {
     grid: cloneGrid(active.grid),
     dungeonMarker: dungeonMarker ? { ...dungeonMarker } : null,
     toolDungeonMarkers: cloneToolDungeonMarkers(toolDungeonMarkers),
+    superBossMarkers: cloneToolDungeonMarkers(superBossMarkers),
   });
   if (stack.length > UNDO_LIMIT) stack.shift();
 }
@@ -176,6 +184,7 @@ function undo() {
     grid = snapshot.grid;
     dungeonMarker = snapshot.dungeonMarker;
     toolDungeonMarkers = snapshot.toolDungeonMarkers || {};
+    superBossMarkers = snapshot.superBossMarkers || {};
   } else {
     singleGrid = snapshot.grid;
   }
@@ -345,6 +354,27 @@ function renderWilderness(ctx) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
   }
+
+  for (const [superBossId, pos] of Object.entries(superBossMarkers)) {
+    const world = localToWorld(pos.screenId, pos.x, pos.y);
+    if (!world) continue;
+    const cx = world.wx * CELL + CELL / 2;
+    const cy = world.wy * CELL + CELL / 2;
+    ctx.fillStyle = pos.hasDungeon ? SUPER_BOSS_MARKER_COLOR_DUNGEON : SUPER_BOSS_MARKER_COLOR_OPEN;
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(superBossId.slice(0, 2).toUpperCase(), cx, cy + 1);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
 }
 
 function renderSingleMap(ctx) {
@@ -411,7 +441,7 @@ function saveAutosave() {
   try {
     const singleMaps = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}').singleMaps || {};
     if (currentMapKey !== 'wilderness') singleMaps[currentMapKey] = singleGrid;
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker, toolDungeonMarkers, singleMaps }));
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker, toolDungeonMarkers, superBossMarkers, singleMaps }));
   } catch (err) {
     // localStorage may be unavailable (private browsing, quota) - painting still
     // works, it just won't survive a refresh. Nothing to do here.
@@ -706,6 +736,7 @@ async function init() {
     grid = savedRaw.grid;
     dungeonMarker = savedRaw.dungeonMarker;
     toolDungeonMarkers = savedRaw.toolDungeonMarkers || {};
+    superBossMarkers = savedRaw.superBossMarkers || {};
     autosaveStatus.textContent = 'Restored unsaved changes from your last session.';
   } else {
     grid = await loadAllScreens();
@@ -719,6 +750,17 @@ async function init() {
     for (const toolId of TOOL_DUNGEON_IDS) {
       const entry = toolDungeonsMod.TOOL_DUNGEON_ENTRANCES[toolId];
       toolDungeonMarkers[toolId] = { screenId: entry.screenId, x: entry.x, y: entry.y };
+    }
+  }
+  // Superboss ids are data-driven (unlike TOOL_DUNGEON_IDS' fixed 4), so
+  // SUPER_BOSS_IDS is captured here from whatever's currently in the
+  // registry and reused below to populate the mode-select dropdown.
+  const superBossesMod = await import('../../js/data/superBosses.js');
+  const SUPER_BOSS_IDS = Object.keys(superBossesMod.SUPER_BOSSES);
+  if (Object.keys(superBossMarkers).length === 0) {
+    for (const superBossId of SUPER_BOSS_IDS) {
+      const entry = superBossesMod.SUPER_BOSSES[superBossId];
+      superBossMarkers[superBossId] = { screenId: entry.screenId, x: entry.x, y: entry.y, hasDungeon: entry.hasDungeon };
     }
   }
 
@@ -742,6 +784,21 @@ async function init() {
     toolDungeonSelect.appendChild(opt);
   }
   toolDungeonSelect.addEventListener('change', updateToolDungeonReadout);
+
+  const superBossSelect = document.getElementById('superBossSelect');
+  const superBossHasDungeonCheckbox = document.getElementById('superBossHasDungeonCheckbox');
+  const superBossReadout = document.getElementById('superBossReadout');
+  function updateSuperBossReadout() {
+    const pos = superBossMarkers[superBossSelect.value];
+    superBossReadout.textContent = pos ? `${pos.screenId} (${pos.x}, ${pos.y}) hasDungeon=${pos.hasDungeon}` : 'not set';
+  }
+  for (const superBossId of SUPER_BOSS_IDS) {
+    const opt = document.createElement('option');
+    opt.value = superBossId;
+    opt.textContent = superBossId;
+    superBossSelect.appendChild(opt);
+  }
+  superBossSelect.addEventListener('change', updateSuperBossReadout);
 
   function currentPalette() {
     return currentMapKey === 'wilderness' ? WILDERNESS_PALETTE : SINGLE_MAPS[currentMapKey].palette;
@@ -781,6 +838,7 @@ async function init() {
       canvas.height = WORLD_H * CELL;
       updateDungeonReadout();
       updateToolDungeonReadout();
+      updateSuperBossReadout();
     } else {
       const cached = savedSingleMaps[key];
       const loaded = cached ? { grid: cached, w: cached[0].length, h: cached.length } : await loadSingleMap(key);
@@ -821,6 +879,12 @@ async function init() {
         toolDungeonMarkers[toolId] = { screenId: entry.screenId, x: entry.x, y: entry.y };
       }
       updateToolDungeonReadout();
+      const superBossesMod = await import('../../js/data/superBosses.js');
+      for (const superBossId of Object.keys(superBossesMod.SUPER_BOSSES)) {
+        const entry = superBossesMod.SUPER_BOSSES[superBossId];
+        superBossMarkers[superBossId] = { screenId: entry.screenId, x: entry.x, y: entry.y, hasDungeon: entry.hasDungeon };
+      }
+      updateSuperBossReadout();
     } else {
       const loaded = await loadSingleMap(currentMapKey);
       singleGrid = loaded.grid;
@@ -838,6 +902,7 @@ async function init() {
     if (!undo()) return;
     updateDungeonReadout();
     updateToolDungeonReadout();
+    updateSuperBossReadout();
     saveAutosave();
     render(ctx);
   }
@@ -860,10 +925,13 @@ async function init() {
 
   const placeDungeonBtn = document.getElementById('placeDungeonBtn');
   const placeToolDungeonBtn = document.getElementById('placeToolDungeonBtn');
+  const placeSuperBossBtn = document.getElementById('placeSuperBossBtn');
   placeDungeonBtn.addEventListener('click', () => {
     placingDungeon = !placingDungeon;
     placingToolDungeon = null;
+    placingSuperBoss = null;
     placeToolDungeonBtn.classList.remove('active');
+    placeSuperBossBtn.classList.remove('active');
     placeDungeonBtn.classList.toggle('active', placingDungeon);
     canvas.classList.toggle('placing-dungeon', placingDungeon);
   });
@@ -882,7 +950,9 @@ async function init() {
   placeToolDungeonBtn.addEventListener('click', () => {
     placingToolDungeon = placingToolDungeon ? null : toolDungeonSelect.value;
     placingDungeon = false;
+    placingSuperBoss = null;
     placeDungeonBtn.classList.remove('active');
+    placeSuperBossBtn.classList.remove('active');
     placeToolDungeonBtn.classList.toggle('active', Boolean(placingToolDungeon));
     canvas.classList.toggle('placing-dungeon', Boolean(placingToolDungeon));
   });
@@ -891,6 +961,28 @@ async function init() {
     const pos = toolDungeonMarkers[toolDungeonSelect.value];
     if (!pos) return;
     const text = `{ screenId: '${pos.screenId}', x: ${pos.x}, y: ${pos.y} }`;
+    try {
+      await navigator.clipboard.writeText(text);
+      autosaveStatus.textContent = `Copied: ${text}`;
+    } catch (err) {
+      autosaveStatus.textContent = `Clipboard blocked - copy manually: ${text}`;
+    }
+  });
+
+  placeSuperBossBtn.addEventListener('click', () => {
+    placingSuperBoss = placingSuperBoss ? null : superBossSelect.value;
+    placingDungeon = false;
+    placingToolDungeon = null;
+    placeDungeonBtn.classList.remove('active');
+    placeToolDungeonBtn.classList.remove('active');
+    placeSuperBossBtn.classList.toggle('active', Boolean(placingSuperBoss));
+    canvas.classList.toggle('placing-dungeon', Boolean(placingSuperBoss));
+  });
+
+  document.getElementById('copySuperBossBtn').addEventListener('click', async () => {
+    const pos = superBossMarkers[superBossSelect.value];
+    if (!pos) return;
+    const text = `{ screenId: '${pos.screenId}', x: ${pos.x}, y: ${pos.y}, hasDungeon: ${pos.hasDungeon} }`;
     try {
       await navigator.clipboard.writeText(text);
       autosaveStatus.textContent = `Copied: ${text}`;
@@ -965,6 +1057,21 @@ async function init() {
       }
       placingToolDungeon = null;
       placeToolDungeonBtn.classList.remove('active');
+      canvas.classList.remove('placing-dungeon');
+      render(ctx);
+      return;
+    }
+    if (currentMapKey === 'wilderness' && placingSuperBoss) {
+      pushUndoSnapshot();
+      const local = worldToLocal(x, y);
+      if (local) {
+        superBossMarkers[placingSuperBoss] = { ...local, hasDungeon: superBossHasDungeonCheckbox.checked };
+        updateSuperBossReadout();
+        checkOverlay = null; // stale as soon as a marker moves
+        saveAutosave();
+      }
+      placingSuperBoss = null;
+      placeSuperBossBtn.classList.remove('active');
       canvas.classList.remove('placing-dungeon');
       render(ctx);
       return;

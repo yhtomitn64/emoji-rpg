@@ -92,6 +92,17 @@ included.
   whichever tool dungeon (axe/pick/canoe) is selected in the dropdown next
   to it. **Copy position** pastes into that tool's entry
   (`screenId`/`x`/`y`) in `js/data/toolDungeons.js`.
+- **Place Super-Boss Marker** (wilderness only) — same idea again, for
+  whichever superboss id is selected in the dropdown next to it (populated
+  from `SUPER_BOSSES`' keys in `js/data/superBosses.js`). The **Has own
+  dungeon** checkbox is saved onto the marker alongside its position —
+  check it for a superboss fought behind its own dungeon entrance
+  (`hasDungeon: true`), leave it unchecked for one fought on the spot in
+  the open wilderness (`hasDungeon: false`). **Copy position** pastes
+  `{ screenId, x, y, hasDungeon }` for that superboss id. Markers render as
+  a filled circle, colored by `hasDungeon` (red = has its own dungeon,
+  yellow = open-wilderness encounter), labeled with the first two letters
+  of the superboss id.
 - **Check Map** (wilderness only) — flood-fills outward from the town
   entrance and tints the canvas: no tint = freely walkable, yellow = only
   reachable with a tool (axe/pick/boat), red = not reachable even with
