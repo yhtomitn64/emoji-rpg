@@ -66,8 +66,8 @@ of the three-session balance queue above — separate initiative):**
   entry in the Multi-zone progression section below (under the original
   uncap bullet).
 - ~~**Deploy workflow: pin the wrangler CLI version**~~ **shipped
-  2026-09-04 (0.24.2)** — the minor CI cleanup (`--commit-dirty=true`)
-  is still deferred, not urgent.
+  2026-09-04 (0.24.2, hotfixed as 0.24.3 the same day)** — the minor CI
+  cleanup (`--commit-dirty=true`) is still deferred, not urgent.
   See the Infrastructure / deployment section below.
 - **Puzzle mechanics, raised 2026-09-04** — water picked as the flavor to
   explore first; a first brainstorming pass this same session captured
@@ -117,7 +117,8 @@ of the three-session balance queue above — separate initiative):**
 - **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first).
 - **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
 - ~~**Ability global-cooldown rework**~~ — **shipped 2026-09-03/04 (0.23.0, graduated per-ability cooldowns in 0.23.1)**, stale "not yet executed" note found while doing an unrelated backlog pass 2026-09-04. Removed the player ATB "swing timer" gate on abilities 1-4 in favor of a shared, speed-scaled global cooldown (Attack's own decay system, monster ATB, Super Scream, Lacerate's retrigger, and parry all left untouched, as planned). See `docs/superpowers/plans/2026-09-03-ability-gcd-rework.md` (spec: `docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md`) for the original design; same underlying idea as the "Slower combat / reconsider the timing-minigame layer" bullet in Combat pass ideas above.
-- **Bugs raised 2026-09-03, neither investigated yet** — an old save (level 11) shows far more smith-upgrade levels available than expected before max level, cause unknown (level-gated at all, or just a long-lived save with saved-up gold?); the "NEW MAX!" battle callout overlaps other text and is hard to read, no fix decided. See "Bugs / open questions, raised 2026-09-03" below.
+- **Bug raised 2026-09-03, not investigated yet** — an old save (level 11) shows far more smith-upgrade levels available than expected before max level, cause unknown (level-gated at all, or just a long-lived save with saved-up gold?). See "Bugs / open questions, raised 2026-09-03" below.
+- ~~**"NEW MAX!" battle callout overlaps other text, hard to read**~~ — **shipped 2026-09-04 (0.24.5)**, alongside the broader damage-number-stacking fix it turned out to share a root cause with. See the Bugs / open questions section below.
 
 ## Story / narrative
 
@@ -1565,17 +1566,24 @@ constant) means it keeps working as damage numbers grow across NG+
 cycles with zero retuning. Test coverage added in
 `tests/battleScreenDom.test.js` (two quick hits land in different
 columns; a hit's own New Max! badge doesn't share a column with its
-number) - jsdom can't verify real pixel non-overlap, so a live look is
-still the final check before this is fully confirmed fixed.
+number). Confirmed live 2026-09-04 via a `?debug=level10` test character
+(`js/systems/debugCharacters.js`, added the same session) - Timothy
+played real battles against it and confirmed the fix looks right.
 
 ## Infrastructure / deployment
 
 ### Deploy workflow: reuse more between builds, pin the wrangler version, raised 2026-09-04
-~~The wrangler-version-pin half~~ **shipped 2026-09-04 (0.24.2)** —
-`wranglerVersion: '4.127.1'` added to the `cloudflare/wrangler-action@v4`
-step. The build-cache investigation below found nothing else to fix (the
-stall was a one-off, not a caching gap), and the `--commit-dirty=true`
-cosmetic cleanup is still explicitly deferred, not part of this fix.
+~~The wrangler-version-pin half~~ **shipped 2026-09-04 (0.24.2, hotfixed
+same day as 0.24.3)** — `wranglerVersion: '4.127.1'` added to the
+`cloudflare/wrangler-action@v4` step. That pin broke the very next
+deploy: 4.127.1 requires Node >=22, but `actions/setup-node@v7` was
+still on Node 20 (the old unpinned behavior had silently masked this by
+falling back to an older, Node-20-compatible wrangler release) - fixed
+by bumping `node-version` to 22 in the same workflow, confirmed live via
+`gh run watch`. The build-cache investigation below found nothing else
+to fix (the stall was a one-off, not a caching gap), and the
+`--commit-dirty=true` cosmetic cleanup is still explicitly deferred, not
+part of this fix.
 
 Timothy, after watching a deploy stall ~10 minutes at a plain `npm ci`
 step, then a retry succeed cleanly through the same steps: "is there a
