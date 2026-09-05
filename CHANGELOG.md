@@ -32,6 +32,9 @@ public API, no formal release process — commits land straight on
   `superBossEntrance` (leads to a superboss's own dungeon), and their
   `mapScreen.js` rendering/resolution wiring - part of the super-boss
   pass.
+- `main.js` now resolves `superBossBattle`/`enterSuperBossDungeon` tile
+  actions and handles exiting a superboss's own dungeon back to its
+  entrance - completes the super-boss pass's placement plumbing.
 
 ## [0.25.2] - 2026-09-05
 

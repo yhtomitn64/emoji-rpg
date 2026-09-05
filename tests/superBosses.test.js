@@ -35,3 +35,11 @@ test('superBossMarker and superBossEntrance tile kinds exist and are walkable', 
   assert.equal(TILES.superBossEntrance.walkable, true);
   assert.equal(TILES.superBossEntrance.action, 'enterSuperBossDungeon');
 });
+
+test('a hasDungeon SUPER_BOSSES entry always names a distinct dungeonMapId, never reused across entries', () => {
+  const dungeonMapIds = Object.values(SUPER_BOSSES)
+    .filter((entry) => entry.hasDungeon)
+    .map((entry) => entry.dungeonMapId);
+  const uniqueIds = new Set(dungeonMapIds);
+  assert.equal(uniqueIds.size, dungeonMapIds.length, 'each hasDungeon superboss must have its own unique dungeonMapId');
+});

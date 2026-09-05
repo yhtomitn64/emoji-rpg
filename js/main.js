@@ -20,6 +20,7 @@ import { pickDungeonMap } from './maps/toolDungeons/pickDungeon.js';
 import { canoeDungeonMap } from './maps/toolDungeons/canoeDungeon.js';
 import { portalDungeonMap } from './maps/toolDungeons/portalDungeon.js';
 import { TOOL_DUNGEON_ENTRANCES } from './data/toolDungeons.js';
+import { SUPER_BOSSES } from './data/superBosses.js';
 import { centerMap } from './maps/wilderness/center.js';
 import { northMap } from './maps/wilderness/north.js';
 import { southMap } from './maps/wilderness/south.js';
@@ -134,6 +135,12 @@ const WORLD_GRID = buildWorldGrid(MAPS);
 // second test ever fails, center.js's @ moved and this constant is now
 // stale.
 const TOWN_ENTRANCE = { x: 14, y: 12 };
+
+function findSuperBossAt(screenId, x, y) {
+  return Object.values(SUPER_BOSSES).find(
+    (entry) => entry.screenId === screenId && entry.x === x && entry.y === y
+  );
+}
 
 let state = null;
 let activeSlotId = null;
@@ -527,6 +534,11 @@ function handleTileAction(action) {
         return enterMap(toolEntrance.screenId, { x: toolEntrance.x, y: toolEntrance.y });
       }
     }
+    for (const superBoss of Object.values(SUPER_BOSSES)) {
+      if (superBoss.hasDungeon && state.map === superBoss.dungeonMapId) {
+        return enterMap(superBoss.screenId, { x: superBoss.x, y: superBoss.y });
+      }
+    }
     return;
   }
   if (action === 'enterShop') return goToShop();
@@ -538,6 +550,16 @@ function handleTileAction(action) {
   }
   if (action === 'guardianBattle') {
     handleEncounter([MAPS[state.map].guardianMonsterId]);
+    return;
+  }
+  if (action === 'superBossBattle') {
+    const superBoss = findSuperBossAt(state.map, state.position.x, state.position.y);
+    if (superBoss) handleEncounter([superBoss.monsterId]);
+    return;
+  }
+  if (action === 'enterSuperBossDungeon') {
+    const superBoss = findSuperBossAt(state.map, state.position.x, state.position.y);
+    if (superBoss) return enterMap(superBoss.dungeonMapId);
     return;
   }
   if (action === 'exitMiniDungeon') return handleExitMiniDungeon();
