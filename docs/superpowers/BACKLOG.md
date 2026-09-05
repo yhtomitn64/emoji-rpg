@@ -120,6 +120,58 @@ of the three-session balance queue above — separate initiative):**
 - **Bug raised 2026-09-03, not investigated yet** — an old save (level 11) shows far more smith-upgrade levels available than expected before max level, cause unknown (level-gated at all, or just a long-lived save with saved-up gold?). See "Bugs / open questions, raised 2026-09-03" below.
 - ~~**"NEW MAX!" battle callout overlaps other text, hard to read**~~ — **shipped 2026-09-04 (0.24.5)**, alongside the broader damage-number-stacking fix it turned out to share a root cause with. See the Bugs / open questions section below.
 
+**New threads raised 2026-09-04, overnight session (0.25.0 shipped the
+same-day items below; these are the ones left open):**
+- **Lacerate's retrigger window can drop if another ability is pressed in
+  between** — "seems like sometimes if I do another ability in between
+  hitting 3 and hitting again for the timing then I don't get the buff."
+  Explicitly deferred by Timothy ("for after"). Not investigated - check
+  `lacerateRetriggerOpen`/`openLacerateRetriggerWindow` in
+  `js/screens/battleScreen.js` for whether another ability's own
+  cooldown/GCD handling clears it.
+- **Ring slots (ring1/ring2) have no upgrade path at all** — raised as a
+  bug ("power rings can't be upgraded at the smith"), turned out to be
+  intentional/documented (`js/screens/smithScreen.js`'s `hasUpgradePath`
+  check, "Ring slots have no upgrade material defined anywhere in the
+  game... skip the select/button entirely rather than show a control
+  that can never work"). Fixing it for real means adding a new material
+  item with `upgradeSlot: 'ring'` and picking which monster drops it - a
+  content decision, not a code fix, so left to Timothy rather than
+  picked unilaterally.
+- **Make Lacerate's retrigger buff visually distinct from Super Scream's
+  buff** — both currently read as the same generic buff effect. Raw
+  idea, not designed.
+- **Battle group size should keep climbing further, and the battle
+  window/monster-count cap should grow too** — "the more you kill
+  enemies the more chances there are for them to come in packs" (i.e.
+  `groupSpawnChance` scaling with total kills, not just NG+ cycle) "and
+  also let's make battle window larger as well as bump up number that
+  can show to like 8 after you have killed enough." Distinct from (and
+  layered on top of) the per-species size ramp shipped this session
+  (`killCountSizeCap`) - that ramp caps the roll, this is about raising
+  `GROUP_SIZE_MAX_CAP`/`GROUP_SIZE_MAX_BASE` itself past today's ceiling
+  of 6, plus the battle screen's own layout needing to actually fit that
+  many monster zones. Not designed - needs both a balance pass (does 8
+  monsters trivialize AoE abilities?) and a layout pass.
+- **Guardian HP bump needs a real tuning pass** — the +50% shipped this
+  session (0.25.0) was a same-night straight multiply based on two
+  telemetry playthroughs both showing Axe Guardian dying in 7-9s at
+  85-100% HP remaining; attack/defense untouched on purpose. Revisit
+  with `scripts/simulate-balance.js` once played for real - may need
+  more, less, or an attack/defense adjustment instead of just HP.
+- **"Everything feels pretty easy so far" (fresh telemetry through
+  level ~14 / early NG+1, shared 2026-09-04)** — re-raises the same
+  complaint as "The player outpaces near-town/far-corner content" below,
+  already investigated 2026-09-02 and found to be a structural dead end
+  (no static near-town monster stat block can be both safe at L1 and
+  threatening at L9+). Deliberately **not** re-attempted as a monster
+  stat rebalance overnight - would just re-tread already-rejected
+  ground. The two backlog items most likely to actually move this
+  (dev-facing tunable balance-config layer, player-facing difficulty
+  presets - both "Not started" above) are the more promising path;
+  worth a proper look next real tuning session rather than more ad hoc
+  stat pushes.
+
 ## Story / narrative
 
 ### The game needs an actual story
