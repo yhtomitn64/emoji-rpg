@@ -97,6 +97,17 @@ test('resolveParryAttempt is false above the zone (unreachable in practice, but 
   assert.equal(resolveParryAttempt(PARRY_ZONE_END_PERCENT + 1), false);
 });
 
+test('resolveParryAttempt widens the zone when given a positive bonus', () => {
+  const justBeforeDefaultZone = PARRY_ZONE_START_PERCENT - 1;
+  assert.equal(resolveParryAttempt(justBeforeDefaultZone), false);
+  assert.equal(resolveParryAttempt(justBeforeDefaultZone, 10), true, 'a 10-point bonus should widen the zone to catch this');
+});
+
+test('resolveParryAttempt with no bonus behaves exactly as before', () => {
+  assert.equal(resolveParryAttempt(PARRY_ZONE_START_PERCENT), true);
+  assert.equal(resolveParryAttempt(PARRY_ZONE_START_PERCENT - 1), false);
+});
+
 function fixedRng(values) {
   let i = 0;
   return () => values[i++];

@@ -25,6 +25,7 @@ const STAT_KEYS = [
   'attack', 'defense', 'maxHp', 'speed', 'enemySlowPercent',
   'lifestealPercent', 'extraSwingChance', 'elementalProcChance', 'elementalProcDamage',
   'critChancePercent', 'thornsPercent',
+  'parryWindowBonusPercent', 'debuffDurationPercent',
 ];
 
 function zeroStats() {

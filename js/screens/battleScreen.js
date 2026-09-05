@@ -1431,7 +1431,7 @@ function attemptParry() {
       // mid-wind-up is the whole point of this rework (see the design
       // doc's Purpose section).
       if (resolveMonsterWindup(mc, true, { requireZone: false, playHeroEffect: false })) anyParried = true;
-    } else if (resolveParryAttempt(windupElapsedPercent(mc.windup))) {
+    } else if (resolveParryAttempt(windupElapsedPercent(mc.windup), playerEffectBonuses.parryWindowBonusPercent)) {
       if (resolveMonsterWindup(mc, true, { playHeroEffect: false })) anyParried = true;
     }
   }
@@ -1828,11 +1828,12 @@ function monsterAttack(monster, special = null) {
 // not attempted (resolveMonsterWindup never calls monsterAttack on a
 // successful parry).
 function applySpecialAttackEffect(monster, special) {
+  const durationMs = Math.round(special.durationMs * (1 - playerEffectBonuses.debuffDurationPercent / 100));
   if (special.type === 'slow') {
-    playerSlowDebuff = createPlayerSlowDebuff(special.slowPercent, special.durationMs);
+    playerSlowDebuff = createPlayerSlowDebuff(special.slowPercent, durationMs);
     log.push(`${monster.name}'s attack slows you down!`);
   } else if (special.type === 'stun') {
-    playerStunDebuff = createPlayerStunDebuff(special.durationMs);
+    playerStunDebuff = createPlayerStunDebuff(durationMs);
     log.push(`${monster.name}'s attack leaves you reeling!`);
   } else if (special.type === 'cooldownOverload') {
     ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(
@@ -1858,7 +1859,7 @@ function resolveMonsterWindup(monster, parried, { requireZone = true, playHeroEf
   const special = monster.pendingSpecialAttack;
   monster.pendingSpecialAttack = null;
   const index = monsterCombatants.indexOf(monster);
-  if (parried && (!requireZone || resolveParryAttempt(elapsedPercent))) {
+  if (parried && (!requireZone || resolveParryAttempt(elapsedPercent, playerEffectBonuses.parryWindowBonusPercent))) {
     const { damage, isCrit } = rollIncomingDamage(monster, playerCombatant);
     const result = resolveParrySuccess(monster, damage);
     monster.hp = result.monsterHp;

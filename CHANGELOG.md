@@ -55,6 +55,10 @@ public API, no formal release process — commits land straight on
   simulator use the identical roll. New `--special-attack
   monsterId=<json array>` CLI flag lets a candidate boss kit be explored
   the same way `--set` already explores flat stat overrides.
+- Two new equippable stat fields, `parryWindowBonusPercent` (widens the
+  parry timing zone) and `debuffDurationPercent` (shortens the new
+  slow/stun debuffs) - the mechanics super-boss counter-items (Task 10)
+  need. No item grants them yet.
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your
