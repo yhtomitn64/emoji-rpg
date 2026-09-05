@@ -153,24 +153,76 @@ same-day items below; these are the ones left open):**
   of 6, plus the battle screen's own layout needing to actually fit that
   many monster zones. Not designed - needs both a balance pass (does 8
   monsters trivialize AoE abilities?) and a layout pass.
-- **Guardian HP bump needs a real tuning pass** — the +50% shipped this
-  session (0.25.0) was a same-night straight multiply based on two
-  telemetry playthroughs both showing Axe Guardian dying in 7-9s at
-  85-100% HP remaining; attack/defense untouched on purpose. Revisit
-  with `scripts/simulate-balance.js` once played for real - may need
-  more, less, or an attack/defense adjustment instead of just HP.
+- ~~**Guardian HP bump needs a real tuning pass**~~ — **shipped 2026-09-05
+  (0.25.1)**: Axe/Pick/Boat/Portal Guardians and the Dragon each got a
+  real per-target-level stat pass (attack/defense too, not just HP),
+  validated against a throwaway Monte Carlo script built on the real
+  combat/abilities/parry functions and reconciled against Timothy's own
+  telemetry first. See that version's CHANGELOG.md entry for the numbers
+  and methodology (including a real finding: `scripts/simulate-balance.js`'s
+  damage math is byte-identical to the shipped game, but its simulated
+  player has zero reaction latency, making its own win-rate/HP-remaining
+  output systematically optimistic vs. real play - worth remembering for
+  any future tuning pass that leans on it).
 - **"Everything feels pretty easy so far" (fresh telemetry through
   level ~14 / early NG+1, shared 2026-09-04)** — re-raises the same
   complaint as "The player outpaces near-town/far-corner content" below,
   already investigated 2026-09-02 and found to be a structural dead end
   (no static near-town monster stat block can be both safe at L1 and
-  threatening at L9+). Deliberately **not** re-attempted as a monster
-  stat rebalance overnight - would just re-tread already-rejected
-  ground. The two backlog items most likely to actually move this
-  (dev-facing tunable balance-config layer, player-facing difficulty
-  presets - both "Not started" above) are the more promising path;
-  worth a proper look next real tuning session rather than more ad hoc
-  stat pushes.
+  threatening at L9+). **Two concrete answers now exist, neither built
+  yet** - see the two dedicated entries immediately below (distance-based
+  wilderness scaling, and the special/super-boss pass) - rather than the
+  dev-facing balance-config-layer/difficulty-presets route floated
+  earlier, which is still valid but more speculative.
+- **Distance-from-town wilderness difficulty rings — designed, not yet
+  built.** Full design agreed 2026-09-04/05 in a brainstorming session
+  (not written up as a formal spec doc): wilderness monster stats scale
+  by how far the player's current tile is from town's own fixed exit
+  anchor (`center` screen, tile 14,12 - `TOWN_ENTRANCE` in
+  `js/systems/world.js`), banded into rings (0-9 tiles baseline, 10-19,
+  20-29, 30+), each ring multiplying whatever monster already spawns
+  there rather than replacing the existing near-town/far-corner species
+  split. Confirmed buildable with data already on `state` - no new field
+  needed (`screenToGlobal`/`globalToScreen` in `js/systems/worldGrid.js`
+  already do the local→global conversion; distance is Chebyshev/Euclidean
+  between that and the town anchor's own global position). Only
+  meaningful in the open wilderness cluster - town/dungeons are separate
+  map clusters with no comparable distance. Explicitly **not** paired
+  with any gold/gear/economy changes - Timothy deferred that whole
+  thread ("let's hold off on changing any gold related/gear stuff for
+  now"). First-pass multiplier curve floated in discussion (~x1.0 → x1.3
+  → x1.6 → x2.0+ per ring) but never validated - needs the same
+  simulator-plus-reconciliation treatment the guardian pass got before
+  committing real numbers.
+- **Special/super-boss pass + map editor dungeon-drawing, raised
+  2026-09-05 - the next thing to pick up.** "There is not much
+  interesting in the world to try and fight besides the regular game" -
+  wants ~10 hand-placed (not randomly spawned) optional super-bosses,
+  each roughly a 3000+ HP wall requiring full best-in-slot gear, every
+  potion, and real ability/parry play to clear, dropping loot better
+  than anything currently in the game (today's best is Mythic-tier
+  upgrades of existing gear - this implies a new tier or genuinely new
+  unique items, not yet designed). Timothy wants to place these himself
+  via `tools/terrain-painter/` once it's extended to support it - it
+  already places the four tool-dungeon entrances (just used tonight to
+  place the Portal Dungeon, 0.25.2) and paints existing dungeon
+  interiors, but doesn't yet support (a) dropping a new kind of
+  standalone "super-boss" encounter marker anywhere in the wilderness
+  (distinct from the tool-guardian pattern - these aren't tied to a
+  specific required tool), or (b) drawing brand-new named dungeon
+  interiors from scratch for the bosses that should have one (some may
+  be open-wilderness encounters, others gated behind their own small
+  dungeon - Timothy's call per boss). Needs real design work before
+  implementation: what "even better awesome loot" actually looks like
+  (ties into the still-unresolved economy/itemization thread from
+  2026-09-04, deliberately shelved that same session), the map-editor
+  UI/data-model changes (a new entrance-marker type + dungeon-authoring
+  workflow parallel to the existing tool-dungeon one), and the same
+  Monte-Carlo-plus-telemetry-reconciliation tuning approach the guardian
+  pass established for hitting a real "requires everything you've got"
+  difficulty bar. Timothy is starting a fresh session for this rather
+  than continuing here - see this repo's own session handoff/kickoff
+  prompt for the fuller brief.
 
 ## Story / narrative
 
