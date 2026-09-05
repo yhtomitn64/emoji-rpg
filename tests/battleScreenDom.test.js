@@ -722,6 +722,42 @@ test('battleScreen DOM', async (t) => {
     assert.equal(badge, null, 'an already-unbeatable recorded best should show no badge');
   });
 
+  // Raised 2026-09-04 from a screen recording: two hits landing close
+  // together used to spawn their floating "-N" numbers at the exact same
+  // point, fully overlapping for their whole 1.4s lifetime. showDamageNumber
+  // now gives every popup on a zone its own horizontal column via
+  // claimPopupColumn() - this exercises that through a real double-Attack
+  // rather than reaching into the unexported allocator.
+  await t.test('two damage numbers landing close together on the same target end up in different columns, not stacked', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    // attackStreak is now 1, so the cooldown this hit set is
+    // attackCooldownMsForStreak(1) = 500 + 1*200 = 700ms, ticking down
+    // 300ms per tick() - clears on the 3rd tick (900ms). Waited well past
+    // that but still comfortably inside the number's own 1400ms lifetime.
+    await new Promise((resolve) => setTimeout(resolve, 950));
+    click(root.querySelector('#btn-attack'));
+    const numbers = document.querySelectorAll('.battle-damage-number');
+    assert.equal(numbers.length, 2, 'expected both hits\' numbers still on stage at once');
+    assert.notEqual(numbers[0].style.left, numbers[1].style.left,
+      'two concurrent damage numbers on the same target must not share a horizontal position');
+  });
+
+  // The New Max! badge fires from the very same hit as its own damage
+  // number (recordPlayerDamage calls playNewMaxEffect right after
+  // showDamageNumber) - the closest-possible timing for two *different*
+  // popup kinds to collide, and exactly the case claimPopupColumn's shared
+  // per-zone tracking (not two independent per-kind counters) is for.
+  await t.test('a New Max! badge and its own hit\'s damage number land in different columns', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    const numberEl = document.querySelector('.battle-damage-number');
+    const badgeEl = document.querySelector('.battle-perfect-timing-badge-max');
+    assert.ok(numberEl && badgeEl, 'expected both a damage number and a NEW MAX! badge on a fresh battle\'s first hit');
+    assert.notEqual(numberEl.style.left, badgeEl.style.left,
+      'a damage number and a badge on the same target must not share a horizontal position');
+  });
+
   await t.test('the DPS meter reads DPS: 0.0 immediately on mount, before any damage is dealt', async () => {
     const { root } = await mountBattle(['boar']);
     assert.equal(root.querySelector('#battle-dps').textContent, 'DPS: 0.0');

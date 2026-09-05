@@ -1,0 +1,918 @@
+<title>Battle Popup Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== Design tokens — the LAB chrome (this tool's own UI) =====
+     The battle-dialog replica below is a separate, deliberately
+     theme-locked system (see .replica-* rules) — it's a functional
+     copy of Emoji RPG's real, fixed-dark battle screen, not something
+     that should repaint for a light-mode viewer. Only the lab chrome
+     around it (this page's actual "product") follows the viewer's
+     theme via the tokens here. */
+  :root {
+    --bg: #f4f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef1f4;
+    --border: #d7dde3;
+    --text: #1a2027;
+    --text-dim: #5b6672;
+    --accent: #0891b2;
+    --accent-strong: #0e7490;
+    --danger: #d1453b;
+    --danger-bg: #fbe9e8;
+    --success: #1a8f5e;
+    --success-bg: #e7f6ee;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1116;
+      --surface: #161b22;
+      --surface-2: #1c222a;
+      --border: #2a323c;
+      --text: #e6e8eb;
+      --text-dim: #8b95a1;
+      --accent: #7dd3fc;
+      --accent-strong: #38bdf8;
+      --danger: #ff6b62;
+      --danger-bg: #3a1a18;
+      --success: #3ddc84;
+      --success-bg: #123322;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1116;
+    --surface: #161b22;
+    --surface-2: #1c222a;
+    --border: #2a323c;
+    --text: #e6e8eb;
+    --text-dim: #8b95a1;
+    --accent: #7dd3fc;
+    --accent-strong: #38bdf8;
+    --danger: #ff6b62;
+    --danger-bg: #3a1a18;
+    --success: #3ddc84;
+    --success-bg: #123322;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.5;
+  }
+  .page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 20px 64px;
+  }
+
+  header.masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin: 4px 0 0;
+    text-wrap: balance;
+  }
+  .dek {
+    color: var(--text-dim);
+    max-width: 62ch;
+    margin: 10px 0 26px;
+    font-size: 0.98rem;
+  }
+  .dek code {
+    font-family: var(--mono);
+    background: var(--surface-2);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+
+  /* ---- Scheme picker ---- */
+  .scheme-picker {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .scheme-btn {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .scheme-btn:hover { border-color: var(--accent); color: var(--text); }
+  .scheme-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #06222c;
+  }
+  .scheme-btn:focus-visible, .trigger-btn:focus-visible, .theme-toggle:focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: 2px;
+  }
+  .scheme-note {
+    font-size: 0.86rem;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+  .scheme-note b { color: var(--text); }
+
+  .spacing-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    margin-bottom: 22px;
+  }
+  .spacing-control input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  .spacing-control .val { color: var(--text); min-width: 3.2em; text-align: right; }
+
+  /* ---- Stage frame (holds the replica + collision monitor) ---- */
+  .stage-frame {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .monitor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .monitor-pill {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .monitor-pill.clear { background: var(--success-bg); color: var(--success); border-color: transparent; }
+  .monitor-pill.hit { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
+  .hit-count {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+
+  /* ---- Battle replica: theme-locked, matches css/styles.css exactly ---- */
+  .replica-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 6px 0 2px;
+    background:
+      radial-gradient(ellipse at 50% 0%, #1d1d1d 0%, #101010 70%);
+    border-radius: 8px;
+    overflow: visible;
+  }
+  .battle-stage {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    margin: 18px 0;
+    font-family: sans-serif; /* matches the real game's global `* { font-family: sans-serif }` */
+  }
+  .replica-card {
+    display: flex;
+    gap: 16px;
+    background: #1b1b1b;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: visible;
+  }
+  .replica-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .replica-monster-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 18px;
+    flex-wrap: wrap;
+    min-height: 108px;
+  }
+  .replica-combatant { text-align: center; position: relative; }
+  .replica-emoji { font-size: 3rem; line-height: 1; }
+  .replica-name { font-weight: 600; margin-top: 4px; color: #eee; font-size: 0.95rem; }
+  .replica-divider { font-size: 1.3rem; color: #555; align-self: center; }
+  .replica-hp-bar { width: 130px; background: #333; border-radius: 4px; height: 10px; margin: 4px auto 0; overflow: hidden; }
+  .replica-hp-fill { height: 100%; background: #c0392b; }
+  .replica-hp-fill.hero { background: #27ae60; }
+  .replica-hp-text { font-size: 0.72rem; color: #aaa; margin-top: 2px; }
+  .replica-atb-bar { width: 130px; background: #222; border-radius: 4px; height: 6px; margin: 4px auto 0; overflow: hidden; }
+  .replica-atb-fill { height: 100%; background: #f1c40f; width: 38%; }
+
+  .replica-sidebar {
+    width: 168px;
+    flex-shrink: 0;
+    background: #131313;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+  }
+  .replica-log-label { font-size: 0.66rem; text-transform: uppercase; color: #888; margin-bottom: 6px; letter-spacing: 0.06em; font-family: sans-serif; }
+  .replica-dps { font-size: 0.72rem; color: #7dd3fc; margin-bottom: 6px; font-family: sans-serif; }
+  .replica-log { flex: 1; overflow-y: auto; font-size: 0.72rem; line-height: 1.5; color: #ccc; max-height: 210px; font-family: sans-serif; }
+  .replica-log div { margin-bottom: 2px; }
+  .replica-log div.fresh { color: #fff; }
+
+  .replica-action-bar {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid #2a2a2a;
+  }
+  .replica-ability {
+    width: 34px; height: 34px;
+    border-radius: 6px;
+    background: #262626;
+    border: 1px solid #3a3a3a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    color: #ddd;
+  }
+
+  /* ---- Floating popups (the thing under test) ---- */
+  .pl-popup {
+    position: absolute;
+    left: 0; top: 0;
+    transform: translate(-50%, 0);
+    pointer-events: none;
+    font-family: sans-serif;
+    font-weight: 700;
+    white-space: nowrap;
+    will-change: transform, opacity;
+  }
+  .pl-num { font-size: 1.5rem; color: #ff5555; }
+  .pl-num.crit { font-size: 2.3rem; color: #ffb020; text-shadow: 0 0 6px rgba(255,176,32,.85), 0 0 14px rgba(255,120,0,.6); }
+  .pl-badge { font-size: 1.35rem; letter-spacing: 1px; color: #7dd3fc; text-shadow: 0 0 8px rgba(125,211,252,.9), 0 0 18px rgba(56,189,248,.6); }
+  .pl-badge.parry { color: #ffd35c; text-shadow: 0 0 8px rgba(255,211,92,.9), 0 0 18px rgba(255,171,0,.6); }
+  .pl-badge.max { color: #c084fc; text-shadow: 0 0 8px rgba(192,132,252,.9), 0 0 18px rgba(147,51,234,.6); }
+  .pl-popup.collide { outline: 2px dashed var(--danger); outline-offset: 3px; border-radius: 3px; }
+
+  @keyframes pl-float { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, -90px) scale(1); } }
+  @keyframes pl-float-crit { 0% { opacity: 1; transform: translate(-50%,0) scale(1.4);} 20% { opacity:1; transform: translate(-50%,-10px) scale(1);} 100% { opacity:0; transform: translate(-50%,-110px) scale(1);} }
+  @keyframes pl-pop { 0% { opacity:0; transform: translate(-50%,0) scale(.3);} 25% { opacity:1; transform: translate(-50%,0) scale(1.3);} 40% { opacity:1; transform: translate(-50%,0) scale(1);} 100% { opacity:0; transform: translate(-50%,-20px) scale(1);} }
+
+  /* ---- Scenario triggers ---- */
+  .trigger-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 6px; }
+  .trigger-btn {
+    font-family: var(--sans);
+    font-size: 0.86rem;
+    font-weight: 600;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .trigger-btn:hover { border-color: var(--accent-strong); }
+  .trigger-btn .k { display: block; font-family: var(--mono); font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; }
+  .clear-btn { font-family: var(--mono); font-size: 0.76rem; color: var(--text-dim); background: none; border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; cursor: pointer; }
+
+  /* ---- Legend ---- */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin: 26px 0 6px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .legend span.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+  /* ---- Run log ---- */
+  h2.section {
+    font-size: 0.95rem;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin: 34px 0 10px;
+  }
+  .run-log {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .run-log .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .run-log .row:last-child { border-bottom: none; }
+  .run-log .row:nth-child(even) { background: var(--surface-2); }
+  .run-log .empty { color: var(--text-dim); padding: 14px 12px; font-style: italic; }
+  .run-log .verdict.clear { color: var(--success); }
+  .run-log .verdict.hit { color: var(--danger); }
+
+  .theme-toggle {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 10px;
+    cursor: pointer;
+    height: fit-content;
+  }
+
+  footer.note {
+    margin-top: 40px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div>
+      <div class="eyebrow">Emoji RPG · combat UI</div>
+      <h1>Battle Popup Lab</h1>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button">force: system</button>
+  </header>
+  <p class="dek">
+    A working replica of the real battle dialog, wired to the same
+    spawn math as <code>showDamageNumber()</code> and
+    <code>playPerfectTimingEffect()</code> in <code>battleScreen.js</code>.
+    Pick a placement scheme, fire a scenario, and watch whether any two
+    popups' boxes actually intersect — measured live, not eyeballed.
+  </p>
+
+  <div class="scheme-picker" role="tablist" aria-label="Placement scheme">
+    <button class="scheme-btn active" data-scheme="buggy">01 Current (buggy)</button>
+    <button class="scheme-btn" data-scheme="fan">02 Side-by-side fan</button>
+    <button class="scheme-btn" data-scheme="queue">03 Vertical queue</button>
+    <button class="scheme-btn" data-scheme="merge">04 Merge into total</button>
+  </div>
+  <div class="scheme-note" id="schemeNote"></div>
+  <div class="spacing-control" id="spacingControl" hidden>
+    <span>extra gap between popups</span>
+    <input type="range" id="spacingSlider" min="0" max="40" step="2" value="10" aria-label="Extra gap between popups, in pixels, on top of their measured width">
+    <span class="val" id="spacingVal">10px</span>
+  </div>
+
+  <div class="stage-frame">
+    <div class="monitor-row">
+      <span class="monitor-pill" id="monitorPill">— idle —</span>
+      <span class="hit-count" id="runCount">0 scenarios run this session</span>
+    </div>
+    <div class="replica-wrap">
+      <div class="battle-stage" id="battleStage">
+        <div class="replica-card">
+          <div class="replica-main">
+            <div class="replica-monster-row" id="monsterRow"></div>
+            <div class="replica-combatant" id="heroZone">
+              <div class="replica-emoji">🧙</div>
+              <div class="replica-name">You</div>
+              <div class="replica-hp-bar"><div class="replica-hp-fill hero" style="width:82%"></div></div>
+              <div class="replica-hp-text">HP 33/40</div>
+            </div>
+          </div>
+          <div class="replica-sidebar">
+            <div class="replica-log-label">Battle Log</div>
+            <div class="replica-dps" id="dpsLine">DPS: 0.0</div>
+            <div class="replica-log" id="logPanel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="replica-action-bar">
+      <div class="replica-ability">🗡️</div>
+      <div class="replica-ability">🩸</div>
+      <div class="replica-ability">🛡️</div>
+      <div class="replica-ability">👊</div>
+      <div class="replica-ability">🧪</div>
+      <div class="replica-ability">🏃</div>
+    </div>
+  </div>
+
+  <div class="trigger-row">
+    <button class="trigger-btn" data-scenario="single">Single Hit<span class="k">1 hit · 1 target</span></button>
+    <button class="trigger-btn" data-scenario="double">Double Hit (fast)<span class="k">2 hits, 150ms apart</span></button>
+    <button class="trigger-btn" data-scenario="critmax">Crit → New Max!<span class="k">crit + badge, same instant</span></button>
+    <button class="trigger-btn" data-scenario="flurry">5-Hit Flurry<span class="k">ability rotation, ~1s</span></button>
+    <button class="trigger-btn" data-scenario="group">Group Fight<span class="k">3 targets, simultaneous</span></button>
+    <button class="trigger-btn" data-scenario="everything">Everything At Once<span class="k">hit + crit + New Max! + Parry!</span></button>
+    <button class="clear-btn" id="clearBtn" type="button">Reset stage</button>
+  </div>
+
+  <div class="legend">
+    <div><span class="swatch" style="background:#ff5555"></span>Hit damage</div>
+    <div><span class="swatch" style="background:#ffb020"></span>Crit damage</div>
+    <div><span class="swatch" style="background:#7dd3fc"></span>Perfect! (timing hit)</div>
+    <div><span class="swatch" style="background:#ffd35c"></span>Parry!</div>
+    <div><span class="swatch" style="background:#c084fc"></span>New Max!</div>
+  </div>
+
+  <h2 class="section">Run log</h2>
+  <div class="run-log" id="runLog">
+    <div class="empty">Fire a scenario above — every run gets timestamped here with its scheme and verdict.</div>
+  </div>
+
+  <footer class="note">
+    Collision test: every 40ms while any popup is on stage, each pair of
+    live <code>.pl-popup</code> elements is checked for real
+    <code>getBoundingClientRect()</code> intersection (not just "spawned
+    at the same point" — a false negative if two boxes cross mid-flight
+    without ever sharing a spawn frame would defeat the point). A frame
+    that finds an intersection outlines both boxes in red for that
+    instant, so you can see exactly which two elements it was.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MONSTERS = [
+    { name: 'Ghost Apple Supreme', emoji: '👻', hp: 141, maxHp: 170 },
+    { name: 'Jurassic Jerky', emoji: '🦴', hp: 9, maxHp: 60 },
+    { name: 'Super Mean Meatloaf', emoji: '🍖', hp: 103, maxHp: 180 }
+  ];
+  var ABILITY_NAMES = ['Sever', 'Impale', 'Attack'];
+
+  var schemeNotes = {
+    buggy: 'Reproduces <b>today’s real code</b> exactly: every damage number spawns at the zone’s top edge, every badge spawns dead-center of the zone — always the same point, no matter how many are already there. This is the actual source of the "‑14 / ‑15 stacked" moment from the recording.',
+    fan: 'Every popup targeting a zone — normal hit, crit, or a Perfect!/Parry!/New Max! badge — shares <b>one list</b> for that zone. A new popup measures its own real rendered width, checks how far the busier of the two sides (left/right) already reaches, and places itself just past that edge. No two live popups of any kind ever share a horizontal column, so a number\'s 90px upward drift can\'t cross into a badge sitting above it — there\'s nothing to cross. Widens automatically for a bigger crit font or a 4-digit hit; the slider only adds extra breathing room on top of that.',
+    queue: 'Same shared-awareness idea, stacked vertically instead of side-by-side: each new popup reserves its own measured height above whatever\'s already stacked, rather than a flat per-slot step — so a big crit doesn\'t get crowded by the fixed gap sized for small hits. Trade-off vs. the fan: everything stays centered on the target, but a flurry stacks tall instead of wide.',
+    merge: 'The most different option: hits landing within ~600ms of each other on the same target don’t spawn separate numbers at all — they update one running-total popup in place. Zero possibility of overlap between numbers, but you lose the "each hit gets its own number" feel.'
+  };
+
+  var state = {
+    scheme: 'buggy',
+    fanSpacing: 10,
+    zones: new Map(), // el -> { live: [...], mergeEl, mergeTotal, mergeTimer } - see zoneRecord()
+    runsThisSession: 0,
+    collisionRafId: null,
+    collisionActiveUntil: 0
+  };
+
+  var stageEl = document.getElementById('battleStage');
+  var monsterRowEl = document.getElementById('monsterRow');
+  var heroZoneEl = document.getElementById('heroZone');
+  var logPanelEl = document.getElementById('logPanel');
+  var dpsLineEl = document.getElementById('dpsLine');
+  var monitorPillEl = document.getElementById('monitorPill');
+  var runCountEl = document.getElementById('runCount');
+  var runLogEl = document.getElementById('runLog');
+  var schemeNoteEl = document.getElementById('schemeNote');
+
+  function zoneRecord(zoneEl) {
+    if (!state.zones.has(zoneEl)) {
+      // live: every currently-on-stage popup for this zone, of ANY kind
+      // (number, crit, badge) - one shared list is what makes them mutually
+      // aware. mergeEl/mergeTotal/mergeTimer are only used by the "merge"
+      // scheme's running-total number.
+      state.zones.set(zoneEl, { live: [], mergeEl: null, mergeTotal: 0, mergeTimer: null });
+    }
+    return state.zones.get(zoneEl);
+  }
+
+  function stageRelativeRect(zoneEl) {
+    var zr = zoneEl.getBoundingClientRect();
+    var sr = stageEl.getBoundingClientRect();
+    return {
+      left: zr.left - sr.left, top: zr.top - sr.top,
+      width: zr.width, height: zr.height,
+      centerX: zr.left - sr.left + zr.width / 2
+    };
+  }
+
+  // Minimum breathing room between two adjacent popups' *measured* edges -
+  // not the whole offset (that used to be a flat guessed step, which is
+  // exactly what broke down for a 4-digit hit or a big crit font-size).
+  // Real clearance now comes from each popup's actual rendered width.
+  var MIN_GAP = 10;
+
+  // Creates the element and measures its real rendered width/height before
+  // it's positioned anywhere - width depends only on font/content, not on
+  // left/top, so this is safe to read immediately after appendChild and
+  // before we've decided where it goes.
+  function measure(cls, text) {
+    var el = document.createElement('div');
+    el.className = 'pl-popup ' + cls;
+    el.textContent = text;
+    stageEl.appendChild(el);
+    var box = el.getBoundingClientRect();
+    return { el: el, width: box.width, height: box.height };
+  }
+
+  function place(el, x, y, animName, durationMs) {
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.animation = animName + ' ' + durationMs + 'ms ease-out forwards';
+    setTimeout(function () { el.remove(); }, durationMs + 30);
+  }
+
+  // The actual "aware of each other" allocator, shared by every popup kind
+  // (normal hit, crit, Perfect!/Parry!/New Max! badges alike). Every live
+  // popup for this zone - regardless of kind - occupies an exclusive
+  // horizontal column for its whole life: a new popup goes on whichever
+  // side (left/right of the target) currently reaches out less far, placed
+  // just past that side's furthest live edge plus MIN_GAP. Because no two
+  // live popups ever share a column, it doesn't matter that damage numbers
+  // drift 90px upward over their lifetime while badges sit still - there's
+  // no shared x for them to collide along, so vertical motion can't cause
+  // a crossing the way same-column "lanes" could.
+  function claimColumn(rec, halfWidth) {
+    var leftEdge = 0, rightEdge = 0;
+    rec.live.forEach(function (entry) {
+      if (entry.side === 'L' && entry.edge > leftEdge) leftEdge = entry.edge;
+      if (entry.side === 'R' && entry.edge > rightEdge) rightEdge = entry.edge;
+    });
+    var side = leftEdge <= rightEdge ? 'L' : 'R';
+    var priorEdge = side === 'L' ? leftEdge : rightEdge;
+    var gap = state.fanSpacing != null ? Math.max(MIN_GAP, state.fanSpacing) : MIN_GAP;
+    var offset = (priorEdge === 0 ? gap * 0.4 : priorEdge + gap) + halfWidth;
+    return { side: side, offset: offset, edge: offset + halfWidth };
+  }
+
+  function registerLive(rec, entry, durationMs) {
+    rec.live.push(entry);
+    setTimeout(function () {
+      var i = rec.live.indexOf(entry);
+      if (i !== -1) rec.live.splice(i, 1);
+    }, durationMs + 30);
+  }
+
+  function spawnNumber(zoneEl, amount, isCrit) {
+    var rec = zoneRecord(zoneEl);
+    var rect = stageRelativeRect(zoneEl);
+    var DURATION = 1400;
+    var cls = isCrit ? 'pl-num crit' : 'pl-num';
+    var anim = isCrit ? 'pl-float-crit' : 'pl-float';
+
+    if (state.scheme === 'buggy') {
+      var m0 = measure(cls, '-' + amount);
+      place(m0.el, rect.centerX, rect.top + 10, anim, DURATION);
+      return;
+    }
+
+    if (state.scheme === 'merge') {
+      if (rec.mergeEl && rec.mergeTimer) {
+        rec.mergeTotal += amount;
+        rec.mergeEl.textContent = '-' + rec.mergeTotal;
+        clearTimeout(rec.mergeTimer);
+        rec.mergeEl.style.animation = 'none';
+        void rec.mergeEl.offsetWidth;
+        rec.mergeEl.style.animation = 'pl-float ' + DURATION + 'ms ease-out forwards';
+        rec.mergeTimer = setTimeout(function () { rec.mergeEl.remove(); rec.mergeEl = null; rec.mergeTotal = 0; }, DURATION);
+        return;
+      }
+      rec.mergeTotal = amount;
+      var mm = measure('pl-num' + (isCrit ? ' crit' : ''), '-' + amount);
+      place(mm.el, rect.centerX, rect.top - 6, 'pl-float', DURATION);
+      rec.mergeEl = mm.el;
+      rec.mergeTimer = setTimeout(function () { mm.el.remove(); rec.mergeEl = null; rec.mergeTotal = 0; }, DURATION);
+      return;
+    }
+
+    var baseY = rect.top - 6;
+    var m = measure(cls, '-' + amount);
+    if (state.scheme === 'fan') {
+      var claim = claimColumn(rec, m.width / 2);
+      var x = rect.centerX + (claim.side === 'L' ? -claim.offset : claim.offset);
+      place(m.el, x, baseY, anim, DURATION);
+      registerLive(rec, { side: claim.side, edge: claim.edge }, DURATION);
+    } else { // queue - stack straight up; each popup still reserves its
+             // own full height (not a flat step) so a big crit number
+             // doesn't get crowded by the fixed-size popup above it.
+      var stackTop = 0;
+      rec.live.forEach(function (e) { if (e.stack > stackTop) stackTop = e.stack; });
+      var y = baseY - stackTop;
+      place(m.el, rect.centerX, y, anim, DURATION);
+      registerLive(rec, { stack: stackTop + m.height + MIN_GAP }, DURATION);
+    }
+  }
+
+  function spawnBadge(zoneEl, text, variant) {
+    var rec = zoneRecord(zoneEl);
+    var rect = stageRelativeRect(zoneEl);
+    var DURATION = 900;
+    var cls = 'pl-badge' + (variant ? ' ' + variant : '');
+    var m = measure(cls, text);
+
+    if (state.scheme === 'buggy') {
+      place(m.el, rect.centerX, rect.top + rect.height / 2, 'pl-pop', DURATION);
+      return;
+    }
+    var baseY = rect.top - 34;
+    if (state.scheme === 'fan') {
+      var claim = claimColumn(rec, m.width / 2);
+      var x = rect.centerX + (claim.side === 'L' ? -claim.offset : claim.offset);
+      place(m.el, x, baseY, 'pl-pop', DURATION);
+      registerLive(rec, { side: claim.side, edge: claim.edge }, DURATION);
+    } else {
+      var stackTop = 0;
+      rec.live.forEach(function (e) { if (e.stack > stackTop) stackTop = e.stack; });
+      var y = baseY - stackTop;
+      place(m.el, rect.centerX, y, 'pl-pop', DURATION);
+      registerLive(rec, { stack: stackTop + m.height + MIN_GAP }, DURATION);
+    }
+  }
+
+  // ---- Battle log + HP wiring, for authenticity + correlation ----
+  function logLine(text, fresh) {
+    var d = document.createElement('div');
+    if (fresh) d.className = 'fresh';
+    d.textContent = text;
+    logPanelEl.insertBefore(d, logPanelEl.firstChild);
+    Array.from(logPanelEl.children).forEach(function (c, i) { if (i > 0) c.className = ''; });
+    while (logPanelEl.children.length > 7) logPanelEl.removeChild(logPanelEl.lastChild);
+  }
+  var dps = 0;
+  function bumpDps(amount) {
+    dps = Math.min(99.9, dps + amount * 0.6);
+    dpsLineEl.textContent = 'DPS: ' + dps.toFixed(1);
+  }
+
+  function buildMonsterZones(count) {
+    monsterRowEl.innerHTML = '';
+    state.zones.clear();
+    var zones = [];
+    for (var i = 0; i < count; i++) {
+      var m = MONSTERS[i % MONSTERS.length];
+      var z = document.createElement('div');
+      z.className = 'replica-combatant';
+      z.innerHTML =
+        '<div class="replica-emoji">' + m.emoji + '</div>' +
+        '<div class="replica-name">' + m.name + '</div>' +
+        '<div class="replica-hp-bar"><div class="replica-hp-fill" style="width:' + Math.round(100 * m.hp / m.maxHp) + '%"></div></div>' +
+        '<div class="replica-hp-text">HP ' + m.hp + '/' + m.maxHp + '</div>' +
+        '<div class="replica-atb-bar"><div class="replica-atb-fill"></div></div>';
+      monsterRowEl.appendChild(z);
+      zones.push(z);
+    }
+    return zones;
+  }
+
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  var scenarios = {
+    single: function () {
+      var z = buildMonsterZones(1)[0];
+      var m = MONSTERS[0];
+      var dmg = 12;
+      logLine('You use ' + pick(ABILITY_NAMES) + ' on ' + m.name + ' for ' + dmg + '.', true);
+      spawnNumber(z, dmg, false);
+      bumpDps(dmg);
+    },
+    double: function () {
+      var z = buildMonsterZones(1)[0];
+      var m = MONSTERS[0];
+      logLine('You use Sever on ' + m.name + ' for 15.', true);
+      spawnNumber(z, 14, false);
+      bumpDps(14);
+      setTimeout(function () {
+        logLine('You use Sever on ' + m.name + ' for 15.', true);
+        spawnNumber(z, 15, false);
+        bumpDps(15);
+      }, 150);
+    },
+    critmax: function () {
+      var z = buildMonsterZones(1)[0];
+      var m = MONSTERS[0];
+      logLine('Critical! You hit ' + m.name + ' for 41!', true);
+      spawnNumber(z, 41, true);
+      spawnBadge(z, 'NEW MAX!', 'max');
+      bumpDps(41);
+    },
+    flurry: function () {
+      var z = buildMonsterZones(1)[0];
+      var m = MONSTERS[0];
+      var hits = [7, 9, 6, 13, 8];
+      hits.forEach(function (dmg, i) {
+        setTimeout(function () {
+          var crit = i === 3;
+          logLine((crit ? 'Critical! You hit ' : 'You hit ') + m.name + ' for ' + dmg + (crit ? '!' : '.'), true);
+          spawnNumber(z, dmg, crit);
+          if (crit) spawnBadge(z, 'PERFECT!', null);
+          bumpDps(dmg);
+        }, i * 190);
+      });
+    },
+    group: function () {
+      var zones = buildMonsterZones(3);
+      zones.forEach(function (z, i) {
+        var m = MONSTERS[i % MONSTERS.length];
+        var dmg = 8 + i * 4;
+        setTimeout(function () {
+          logLine('You use Attack on ' + m.name + ' for ' + dmg + '.', true);
+          spawnNumber(z, dmg, i === 1);
+          bumpDps(dmg);
+        }, i * 60);
+      });
+      setTimeout(function () {
+        logLine('You parry the incoming attack!', true);
+        spawnBadge(heroZoneEl, 'PARRY!', 'parry');
+      }, 260);
+    },
+    // The literal worst case: a normal hit, a crit, a New Max! badge, and
+    // a Parry! badge all landing within one beat - two zones, four popups,
+    // zero gap between most of them.
+    everything: function () {
+      var z = buildMonsterZones(1)[0];
+      var m = MONSTERS[0];
+      logLine('You hit ' + m.name + ' for 9.', true);
+      spawnNumber(z, 9, false);
+      bumpDps(9);
+      setTimeout(function () {
+        logLine('Critical! You hit ' + m.name + ' for 2847!', true);
+        spawnNumber(z, 2847, true);
+        spawnBadge(z, 'NEW MAX!', 'max');
+        bumpDps(2847);
+      }, 90);
+      setTimeout(function () {
+        logLine('You parry the incoming attack!', true);
+        spawnBadge(heroZoneEl, 'PARRY!', 'parry');
+      }, 140);
+    }
+  };
+
+  // ---- Collision monitor: real getBoundingClientRect intersection ----
+  function rectsOverlap(a, b) {
+    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  }
+  function runCollisionCheck() {
+    var popups = Array.from(stageEl.querySelectorAll('.pl-popup'));
+    popups.forEach(function (p) { p.classList.remove('collide'); });
+    var found = 0;
+    for (var i = 0; i < popups.length; i++) {
+      for (var j = i + 1; j < popups.length; j++) {
+        if (rectsOverlap(popups[i].getBoundingClientRect(), popups[j].getBoundingClientRect())) {
+          popups[i].classList.add('collide');
+          popups[j].classList.add('collide');
+          found++;
+        }
+      }
+    }
+    if (popups.length === 0 && performance.now() > state.collisionActiveUntil) {
+      state.collisionRafId = null;
+      return;
+    }
+    if (found > 0) {
+      monitorPillEl.textContent = '⚠ overlap detected ×' + found;
+      monitorPillEl.className = 'monitor-pill hit';
+      state.currentRunHadCollision = true;
+    }
+    state.collisionRafId = requestAnimationFrame(runCollisionCheck);
+  }
+  function armCollisionMonitor(watchMs) {
+    state.currentRunHadCollision = false;
+    monitorPillEl.textContent = 'watching…';
+    monitorPillEl.className = 'monitor-pill';
+    state.collisionActiveUntil = performance.now() + watchMs;
+    if (!state.collisionRafId) state.collisionRafId = requestAnimationFrame(runCollisionCheck);
+    clearTimeout(state.finalizeTimer);
+    state.finalizeTimer = setTimeout(function () {
+      if (!state.currentRunHadCollision) {
+        monitorPillEl.textContent = '✓ no overlap';
+        monitorPillEl.className = 'monitor-pill clear';
+      }
+      recordRun();
+    }, watchMs);
+  }
+
+  function recordRun() {
+    state.runsThisSession++;
+    runCountEl.textContent = state.runsThisSession + ' scenario' + (state.runsThisSession === 1 ? '' : 's') + ' run this session';
+    if (runLogEl.querySelector('.empty')) runLogEl.innerHTML = '';
+    var row = document.createElement('div');
+    row.className = 'row';
+    var verdict = state.currentRunHadCollision ? 'hit' : 'clear';
+    row.innerHTML =
+      '<span>' + state.lastSchemeLabel + ' · ' + state.lastScenarioLabel + '</span>' +
+      '<span class="verdict ' + verdict + '">' + (verdict === 'hit' ? '⚠ overlap' : '✓ clear') + '</span>';
+    runLogEl.insertBefore(row, runLogEl.firstChild);
+  }
+
+  var scenarioLabels = {
+    single: 'Single Hit', double: 'Double Hit (fast)', critmax: 'Crit → New Max!',
+    flurry: '5-Hit Flurry', group: 'Group Fight', everything: 'Everything At Once'
+  };
+  var schemeLabels = { buggy: 'Current (buggy)', fan: 'Side-by-side fan', queue: 'Vertical queue', merge: 'Merge into total' };
+
+  document.querySelectorAll('.trigger-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.getAttribute('data-scenario');
+      state.lastScenarioLabel = scenarioLabels[key];
+      state.lastSchemeLabel = schemeLabels[state.scheme];
+      scenarios[key]();
+      var watch = key === 'flurry' ? 2600 : key === 'group' ? 2000 : 1900;
+      armCollisionMonitor(watch);
+    });
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', function () {
+    buildMonsterZones(1);
+    dps = 0;
+    dpsLineEl.textContent = 'DPS: 0.0';
+    logPanelEl.innerHTML = '';
+    monitorPillEl.textContent = '— idle —';
+    monitorPillEl.className = 'monitor-pill';
+  });
+
+  var spacingControlEl = document.getElementById('spacingControl');
+  var spacingSliderEl = document.getElementById('spacingSlider');
+  var spacingValEl = document.getElementById('spacingVal');
+
+  document.querySelectorAll('.scheme-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.scheme-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.scheme = btn.getAttribute('data-scheme');
+      schemeNoteEl.innerHTML = schemeNotes[state.scheme];
+      spacingControlEl.hidden = state.scheme !== 'fan';
+    });
+  });
+
+  spacingSliderEl.addEventListener('input', function () {
+    state.fanSpacing = Number(spacingSliderEl.value);
+    spacingValEl.textContent = state.fanSpacing + 'px';
+  });
+
+  var themeToggle = document.getElementById('themeToggle');
+  var themeModes = ['system', 'light', 'dark'];
+  var themeIdx = 0;
+  themeToggle.addEventListener('click', function () {
+    themeIdx = (themeIdx + 1) % themeModes.length;
+    var mode = themeModes[themeIdx];
+    if (mode === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', mode);
+    themeToggle.textContent = 'force: ' + mode;
+  });
+
+  // Initial state
+  buildMonsterZones(1);
+  schemeNoteEl.innerHTML = schemeNotes.buggy;
+  logLine('A wild Ghost Apple Supreme appears!', false);
+})();
+</script>

@@ -91,9 +91,8 @@ let lastTickAt = 0;
 let cooldownWipeAnimFrameId = null;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
-let liveDamageNumbers = [];
 let liveSwingSprites = [];
-let livePerfectBadges = [];
+let livePopups = []; // damage numbers + Perfect!/Parry!/New Max! badges together: { el, timeoutId, zoneEl, side, edge } - see claimPopupColumn() below
 // DPS meter (raised 2026-08-31, see BACKLOG.md's "New Max damage!" +
 // DPS-meter entry): battleElapsedMs only advances inside tick(), and
 // pauseBattle()/resumeBattle() already stop/restart tick()'s own interval -
@@ -861,6 +860,47 @@ function updateMenu() {
 
 const DAMAGE_NUMBER_DURATION_MS = 1400;
 const CRIT_SHAKE_DURATION_MS = 340;
+const POPUP_MIN_GAP_PX = 20;
+
+// A damage number and a Perfect!/Parry!/New Max! badge on the same target
+// used to spawn at fixed points with no idea the other existed - two hits
+// landing within DAMAGE_NUMBER_DURATION_MS rendered exactly on top of each
+// other for their whole lifetime (Timothy's recording, 2026-09-04: "-14"
+// stacked dead-center on "-15"), and a crit's own badge could land inside
+// its own number's flight path too. Fixed by giving every popup on a given
+// zone - number or badge alike - an *exclusive* horizontal column: each
+// asks claimPopupColumn() which side (left/right of the target) is
+// currently less crowded, then sits just past that side's furthest live
+// edge. Because no two live popups ever share a column, it doesn't matter
+// that damage numbers drift up to 110px upward over their lifetime while
+// badges sit still - there's no shared x for the drift to cross through.
+// Widths are measured from the real rendered element (not guessed), so a
+// 4-digit hit or a big crit automatically claims the room it actually
+// needs - see docs/superpowers/BACKLOG.md's "Battle Popup Lab" writeup for
+// the interactive mockup this was designed and approved against.
+
+function claimPopupColumn(zoneEl, halfWidth) {
+  let leftEdge = 0;
+  let rightEdge = 0;
+  for (const popup of livePopups) {
+    if (popup.zoneEl !== zoneEl) continue;
+    if (popup.side === 'L' && popup.edge > leftEdge) leftEdge = popup.edge;
+    if (popup.side === 'R' && popup.edge > rightEdge) rightEdge = popup.edge;
+  }
+  const side = leftEdge <= rightEdge ? 'L' : 'R';
+  const priorEdge = side === 'L' ? leftEdge : rightEdge;
+  const offset = (priorEdge === 0 ? POPUP_MIN_GAP_PX * 0.4 : priorEdge + POPUP_MIN_GAP_PX) + halfWidth;
+  return { side, offset, edge: offset + halfWidth };
+}
+
+function registerPopup(el, zoneEl, claim, durationMs) {
+  const entry = { el, zoneEl, side: claim.side, edge: claim.edge };
+  entry.timeoutId = setTimeout(() => {
+    el.remove();
+    livePopups = livePopups.filter((p) => p !== entry);
+  }, durationMs);
+  livePopups.push(entry);
+}
 
 function showDamageNumber(zoneEl, amount, isCrit) {
   // Fixed-positioned on <body> (from the zone's live screen position) rather
@@ -870,15 +910,17 @@ function showDamageNumber(zoneEl, amount, isCrit) {
   const numberEl = document.createElement('div');
   numberEl.textContent = `-${amount}`;
   numberEl.className = 'battle-damage-number' + (isCrit ? ' battle-damage-number-crit' : '');
-  numberEl.style.left = `${rect.left + rect.width / 2}px`;
-  numberEl.style.top = `${rect.top + 10}px`;
   numberEl.style.animationDuration = `${DAMAGE_NUMBER_DURATION_MS}ms`;
+  // Appended before positioning so getBoundingClientRect() below reflects
+  // this specific number's own real rendered width (font-size differs for
+  // a crit, and digit count differs hit to hit) - width doesn't depend on
+  // left/top, so measuring here and positioning a line later is safe.
   document.body.appendChild(numberEl);
-  const timeoutId = setTimeout(() => {
-    numberEl.remove();
-    liveDamageNumbers = liveDamageNumbers.filter((n) => n.timeoutId !== timeoutId);
-  }, DAMAGE_NUMBER_DURATION_MS);
-  liveDamageNumbers.push({ el: numberEl, timeoutId });
+  const claim = claimPopupColumn(zoneEl, numberEl.getBoundingClientRect().width / 2);
+  const centerX = rect.left + rect.width / 2;
+  numberEl.style.left = `${claim.side === 'L' ? centerX - claim.offset : centerX + claim.offset}px`;
+  numberEl.style.top = `${rect.top - 6}px`;
+  registerPopup(numberEl, zoneEl, claim, DAMAGE_NUMBER_DURATION_MS);
 }
 
 const PERFECT_TIMING_BADGE_MS = 900;
@@ -889,22 +931,22 @@ const PERFECT_TIMING_BADGE_MS = 900;
 // reason: escapes the dialog's `overflow: hidden` so it can rise clear of it.
 // `text`/`variantClass` let a landed parry reuse the same pop animation with
 // its own wording and color (see playParryEffect) instead of the generic
-// ability-timing-hit "PERFECT!" look.
+// ability-timing-hit "PERFECT!" look. Shares showDamageNumber's column
+// allocator (claimPopupColumn) so a badge and a number on the same target
+// never land on each other either - see that function's own comment.
 function playPerfectTimingEffect(zoneEl, text = 'PERFECT!', variantClass = null) {
   if (!zoneEl) return;
   const rect = zoneEl.getBoundingClientRect();
   const badgeEl = document.createElement('div');
   badgeEl.textContent = text;
   badgeEl.className = variantClass ? `battle-perfect-timing-badge ${variantClass}` : 'battle-perfect-timing-badge';
-  badgeEl.style.left = `${rect.left + rect.width / 2}px`;
-  badgeEl.style.top = `${rect.top + rect.height / 2}px`;
   badgeEl.style.animationDuration = `${PERFECT_TIMING_BADGE_MS}ms`;
   document.body.appendChild(badgeEl);
-  const timeoutId = setTimeout(() => {
-    badgeEl.remove();
-    livePerfectBadges = livePerfectBadges.filter((b) => b.timeoutId !== timeoutId);
-  }, PERFECT_TIMING_BADGE_MS);
-  livePerfectBadges.push({ el: badgeEl, timeoutId });
+  const claim = claimPopupColumn(zoneEl, badgeEl.getBoundingClientRect().width / 2);
+  const centerX = rect.left + rect.width / 2;
+  badgeEl.style.left = `${claim.side === 'L' ? centerX - claim.offset : centerX + claim.offset}px`;
+  badgeEl.style.top = `${rect.top - 34}px`;
+  registerPopup(badgeEl, zoneEl, claim, PERFECT_TIMING_BADGE_MS);
 }
 
 // Raised 2026-08-28: "that dialog moving for in battle stuff is too much" -
@@ -2130,16 +2172,11 @@ export function unmount() {
   window.removeEventListener('keydown', handleKeydown);
   unbindExplainerEscape?.();
   unbindExplainerBackdrop?.();
-  liveDamageNumbers.forEach(({ el, timeoutId }) => {
+  livePopups.forEach(({ el, timeoutId }) => {
     clearTimeout(timeoutId);
     el.remove();
   });
-  liveDamageNumbers = [];
-  livePerfectBadges.forEach(({ el, timeoutId }) => {
-    clearTimeout(timeoutId);
-    el.remove();
-  });
-  livePerfectBadges = [];
+  livePopups = [];
   liveSwingSprites.forEach(({ el, timeoutId }) => {
     clearTimeout(timeoutId);
     el.remove();

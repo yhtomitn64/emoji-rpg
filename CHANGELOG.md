@@ -24,6 +24,34 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.24.5] - 2026-09-04
+
+### Fixed
+- Floating battle popups (damage numbers, crits, and the Perfect!/Parry!/
+  New Max! badges) no longer stack on top of each other. Raised from a
+  screen recording: two hits landing close together spawned their "-N"
+  numbers at the exact same fixed point, fully overlapping for their
+  whole 1.4s lifetime, and a badge could land inside its own number's
+  flight path too - `showDamageNumber`/`playPerfectTimingEffect`
+  (`js/screens/battleScreen.js`) always positioned from the target's
+  rect alone, with no idea what else was already on screen for that
+  target. Fixed with a shared per-zone allocator, `claimPopupColumn`:
+  every popup for a zone - damage number, crit, or badge alike - measures
+  its own real rendered width, then claims an exclusive horizontal column
+  just past whichever side (left/right of the target) is currently less
+  crowded. Because no two live popups ever share a column, a number's
+  upward drift can't cross into a badge sitting above it - there's no
+  shared x left for it to cross through - and because widths are measured
+  rather than guessed, a 4-digit hit or a bigger crit font claims exactly
+  the room it needs with no manual retuning as damage numbers grow across
+  NG+ cycles. Designed and approved against an interactive mockup
+  (`docs/superpowers/scratch/battle-popup-lab.html`, published as an
+  Artifact) comparing four placement schemes side by side with a live
+  overlap detector; Timothy picked the "side-by-side fan" scheme with a
+  20px minimum gap (`POPUP_MIN_GAP_PX`). The old `liveDamageNumbers`/
+  `livePerfectBadges` tracking arrays are merged into one `livePopups`
+  list, since the allocator needs every kind visible to work at all.
+
 ## [0.24.4] - 2026-09-04
 
 ### Fixed

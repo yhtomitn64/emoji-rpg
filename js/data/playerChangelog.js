@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.24.5',
+    date: '2026-09-04',
+    highlights: [
+      'Fixed: hit numbers, crits, and Perfect!/Parry!/New Max! callouts no longer stack on top of each other in battle - they now fan out so every one stays readable.',
+    ],
+  },
+  {
     version: '0.24.4',
     date: '2026-09-04',
     highlights: [

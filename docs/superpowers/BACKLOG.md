@@ -1534,18 +1534,39 @@ and whether there's a migration gap for saves made before whatever
 gating (if any) was introduced. Look at `js/systems/inventory.js`'s
 `MAX_UPGRADE_LEVEL`/`upgradeKey` and `js/screens/smithScreen.js` first.
 
-### "NEW MAX!" callout overlaps other battle text, hard to read
+### ~~"NEW MAX!" callout overlaps other battle text, hard to read~~ — shipped 2026-09-04 (0.24.5)
 Timothy: "the text that comes up for 'new Max' should come up outside
 the battle dialog or not overlap other text as it's hard to read now. I
 don't know a good solution like making it bigger and higher up over the
-mob or something?" This is the `playPerfectTimingEffect(zoneEl, 'NEW
-MAX!', 'battle-perfect-timing-badge-max')` badge in
-`js/screens/battleScreen.js` (shipped 2026-08-31, see `BACKLOG_SHIPPED.md`
-for the original "New Max damage!" progression-callout feature). No
-solution decided yet - Timothy floated "bigger and higher up over the
-mob" as one option, not a commitment. Needs a look at what it currently
-overlaps (likely the battle log or damage numbers, given where it
-renders) before picking a fix.
+mob or something?" This turned out broader than just the New Max! badge -
+Timothy sent a screen recording, which also showed two damage numbers
+("-14"/"-15") stacked exactly on top of each other. Root cause in both
+cases: `showDamageNumber`/`playPerfectTimingEffect`
+(`js/screens/battleScreen.js`) always positioned from the target's own
+rect alone, with no idea what else was already on screen for that same
+target.
+
+Explored via an interactive mockup published as an Artifact
+(`docs/superpowers/scratch/battle-popup-lab.html`, "Battle Popup Lab") -
+a working replica of the real battle dialog with four candidate
+placement schemes (current/buggy, side-by-side fan, vertical queue,
+merge-into-total) and a live collision detector, iterated live with
+Timothy over several rounds (spacing slider, then cross-kind awareness
+once he asked what happens when a number, crit, New Max!, and Parry! all
+land at once). Landed on **side-by-side fan, 20px minimum gap**.
+
+Shipped as `claimPopupColumn` in `js/screens/battleScreen.js`: every
+popup for a zone - damage number, crit, or badge alike - now shares one
+list, measures its own real rendered width, and claims an exclusive
+horizontal column past whichever side is currently less crowded. No two
+live popups ever share a column, so a number's upward drift can't cross
+into a badge sitting above it, and measuring real width (not a guessed
+constant) means it keeps working as damage numbers grow across NG+
+cycles with zero retuning. Test coverage added in
+`tests/battleScreenDom.test.js` (two quick hits land in different
+columns; a hit's own New Max! badge doesn't share a column with its
+number) - jsdom can't verify real pixel non-overlap, so a live look is
+still the final check before this is fully confirmed fixed.
 
 ## Infrastructure / deployment
 
