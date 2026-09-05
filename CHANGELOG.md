@@ -24,6 +24,45 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-09-05
+
+### Changed
+- Tool-dungeon guardians (Axe/Pick/Boat/Portal) and the Dragon got a real
+  per-target-level tuning pass, replacing the same-night +50%-HP-only
+  stopgap from 0.25.0: axeGuardian→L5 (260/34/10/9), pickGuardian→L7
+  (320/42/13/10, no longer an identical twin of axeGuardian now that they
+  target different levels), boatGuardian→L9 (420/56/18/11), portalGuardian→
+  L10 (500/58/19/12, though its map entrance is still unplaced -
+  `TOOL_DUNGEON_ENTRANCES.portal` - so this is inert for now), and
+  dragon→L11 (600/58/22/13), the hardest of the five by design. Numbers
+  came from a throwaway Monte Carlo script built on the real
+  `js/systems/combat.js`/`abilities.js`/`parry.js` functions (same
+  approach as `scripts/simulate-balance.js`), run against Timothy's own
+  real telemetry gear at each target level, targeting ~48-53% average HP
+  remaining for a well-geared player - a deliberately under-geared player
+  at the same level now loses outright instead of scraping by. Reconciled
+  the simulator itself against a real logged fight first: its damage math
+  is byte-identical to the shipped game, but its simulated player has zero
+  reaction latency (acts every single 300ms tick), making its own
+  win-rate/HP-remaining/duration readout systematically optimistic vs.
+  real play - accounted for by tuning well below what the simulator calls
+  a "comfortable" result.
+- `getBossTierStats`/`getNgPlusCombatOverrides` tests updated for the new
+  dragon base stats (their own multiplier math is unchanged).
+
+### Removed
+- Mini-dungeons (the random cave rooms with a guaranteed gold+item
+  treasure) no longer get discovered on new steps - "the random dungeons
+  offering more gold is so silly... let's drop that mechanic for now."
+  Gated behind a single `MINI_DUNGEONS_ENABLED = false` flag
+  (`js/systems/miniDungeons.js`) rather than touching each wilderness map
+  file's own `miniDungeonChance` - flip it back to `true` to fully restore
+  the feature. Entrances already recorded on an existing save still work;
+  this only stops new ones from appearing. The underlying cap/chokepoint/
+  chance logic (`wouldRevealMiniDungeon`, split out from
+  `shouldRevealMiniDungeon` for this) stays fully tested independent of
+  the flag, so re-enabling it later isn't a leap of faith.
+
 ## [0.25.0] - 2026-09-04
 
 ### Added

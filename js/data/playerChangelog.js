@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.25.1',
+    date: '2026-09-05',
+    highlights: [
+      'Changed: the Axe, Pick, Boat, and Portal Guardians, and the Dragon, are all noticeably tougher now and tuned to specific levels - expect a real fight, not a quick stomp, and bring potions.',
+      'Removed (for now): the random mini-dungeon treasure rooms no longer appear while exploring - may return later in a different form.',
+    ],
+  },
+  {
     version: '0.25.0',
     date: '2026-09-04',
     highlights: [

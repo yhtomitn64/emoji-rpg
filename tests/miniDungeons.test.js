@@ -11,6 +11,7 @@ import {
   recordMiniDungeonEntrance,
   markTreasureTaken,
   shouldRevealMiniDungeon,
+  wouldRevealMiniDungeon,
   pickMiniDungeonVariant,
   rollMiniDungeonTreasure,
 } from '../js/systems/miniDungeons.js';
@@ -62,30 +63,51 @@ test('isTreasureTaken reflects the treasureTaken flag and is false for unrecorde
   assert.equal(isTreasureTaken(taken, 'north', 5, 6), true);
 });
 
-test('shouldRevealMiniDungeon returns false for a tile that already has an entrance, even under the cap', () => {
+// wouldRevealMiniDungeon holds the real cap/chokepoint/chance logic,
+// deliberately tested here independent of MINI_DUNGEONS_ENABLED (see that
+// flag's own comment in miniDungeons.js) - re-enabling the flag later
+// relies on this logic still being correct, not just on the flag flipping.
+test('wouldRevealMiniDungeon returns false for a tile that already has an entrance, even under the cap', () => {
   const miniDungeons = recordMiniDungeonEntrance({}, 'north', 5, 6, 'miniDungeonA');
-  assert.equal(shouldRevealMiniDungeon(miniDungeons, 'north', 5, 6, 1, () => 0), false);
+  assert.equal(wouldRevealMiniDungeon(miniDungeons, 'north', 5, 6, 1, () => 0), false);
 });
 
-test('shouldRevealMiniDungeon returns false once the screen is at the cap, even for a fresh tile', () => {
+test('wouldRevealMiniDungeon returns false once the screen is at the cap, even for a fresh tile', () => {
   const miniDungeons = recordMiniDungeonEntrance({}, 'north', 5, 6, 'miniDungeonA');
-  assert.equal(shouldRevealMiniDungeon(miniDungeons, 'north', 9, 9, 1, () => 0), false);
+  assert.equal(wouldRevealMiniDungeon(miniDungeons, 'north', 9, 9, 1, () => 0), false);
 });
 
-test('shouldRevealMiniDungeon returns false when chance is 0, even for a fresh tile under the cap', () => {
-  assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 0, () => 0), false);
+test('wouldRevealMiniDungeon returns false when chance is 0, even for a fresh tile under the cap', () => {
+  assert.equal(wouldRevealMiniDungeon({}, 'north', 5, 6, 0, () => 0), false);
 });
 
-test('shouldRevealMiniDungeon returns true for a fresh tile under the cap when the roll hits', () => {
-  assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0), true);
+test('wouldRevealMiniDungeon returns true for a fresh tile under the cap when the roll hits', () => {
+  assert.equal(wouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0), true);
 });
 
-test('shouldRevealMiniDungeon returns false on a screen chokepoint even when everything else says yes - raised 2026-08-28', () => {
-  assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0, () => true), false);
+test('wouldRevealMiniDungeon returns false on a screen chokepoint even when everything else says yes - raised 2026-08-28', () => {
+  assert.equal(wouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0, () => true), false);
 });
 
-test('shouldRevealMiniDungeon defaults to never treating a tile as a chokepoint when isChokepoint is omitted', () => {
-  assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0), true);
+test('wouldRevealMiniDungeon defaults to never treating a tile as a chokepoint when isChokepoint is omitted', () => {
+  assert.equal(wouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0), true);
+});
+
+// Raised 2026-09-05: "the random dungeons offering more gold is so silly...
+// let's drop that mechanic for now... leave the plumbing for the future."
+// shouldRevealMiniDungeon layers MINI_DUNGEONS_ENABLED on top of
+// wouldRevealMiniDungeon - even an otherwise-perfect roll (fresh tile,
+// under cap, guaranteed chance, no chokepoint - the exact scenario the
+// "returns true" test above covers) now returns false end to end.
+test('shouldRevealMiniDungeon returns false for an otherwise-perfect roll while MINI_DUNGEONS_ENABLED is off', () => {
+  assert.equal(shouldRevealMiniDungeon({}, 'north', 5, 6, 1, () => 0), false);
+});
+
+test('shouldRevealMiniDungeon still consumes its rng() roll while disabled, so later rolls in the same discovery sequence keep their position', () => {
+  let calls = 0;
+  const rng = () => { calls += 1; return 0; };
+  shouldRevealMiniDungeon({}, 'north', 5, 6, 1, rng);
+  assert.equal(calls, 1);
 });
 
 test('pickMiniDungeonVariant picks by index across the full range', () => {

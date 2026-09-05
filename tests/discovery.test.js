@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveStepDiscovery } from '../js/systems/discovery.js';
-import { recordMiniDungeonEntrance, getMiniDungeonEntrance } from '../js/systems/miniDungeons.js';
+import { recordMiniDungeonEntrance, hasMiniDungeonEntrance } from '../js/systems/miniDungeons.js';
 import { hasCache } from '../js/systems/caches.js';
 
 test('resolveStepDiscovery returns none for a non-encounter tile regardless of rolls', () => {
@@ -22,16 +22,22 @@ test('resolveStepDiscovery re-enters an already-discovered mini-dungeon without 
   assert.equal(result.miniDungeons, undefined);
 });
 
-test('resolveStepDiscovery discovers and records a fresh mini-dungeon entrance when the roll hits', () => {
+// Raised 2026-09-05: "the random dungeons offering more gold is so silly...
+// let's drop that mechanic for now" - MINI_DUNGEONS_ENABLED
+// (js/systems/miniDungeons.js) means an otherwise-hit mini-dungeon roll no
+// longer reveals one; it still consumes its own rng() call (so later rolls
+// in the sequence - the cache roll here - keep their position), then falls
+// through to try the cache next, same as any other miss would.
+test('resolveStepDiscovery never enters a mini-dungeon while MINI_DUNGEONS_ENABLED is off, even when that roll would have hit', () => {
   const state = { miniDungeons: {}, caches: {} };
-  const mapConfig = { id: 'north', miniDungeonChance: 0.5, cacheChance: 1 };
+  const mapConfig = { id: 'north', miniDungeonChance: 0.5, cacheChance: 0 };
   const tile = { encounter: true };
-  const values = [0.1, 0.5];
+  const values = [0.1, 0.1]; // mini-dungeon roll (would hit: 0.1 < 0.5), then the cache roll (misses: cacheChance is 0)
   let i = 0;
   const rng = () => values[i++];
   const result = resolveStepDiscovery(state, mapConfig, 5, 5, tile, rng);
-  assert.equal(result.outcome, 'enterMiniDungeon');
-  assert.deepEqual(getMiniDungeonEntrance(result.miniDungeons, 'north', 5, 5), { variantId: 'miniDungeonC', treasureTaken: false });
+  assert.deepEqual(result, { outcome: 'none' });
+  assert.equal(hasMiniDungeonEntrance(state.miniDungeons, 'north', 5, 5), false);
 });
 
 test('resolveStepDiscovery falls through to a cache when the mini-dungeon roll misses', () => {
@@ -67,11 +73,15 @@ test('resolveStepDiscovery never places a mini-dungeon on a screen chokepoint, e
   assert.deepEqual(result, { outcome: 'none' });
 });
 
-test('resolveStepDiscovery still places a mini-dungeon on a non-chokepoint tile when the roll hits', () => {
+// Was "still places a mini-dungeon on a non-chokepoint tile when the roll
+// hits" before MINI_DUNGEONS_ENABLED went off (2026-09-05) - the
+// chokepoint-avoidance logic itself is still covered, unaffected by the
+// flag, by wouldRevealMiniDungeon's own tests in tests/miniDungeons.test.js.
+test('resolveStepDiscovery still never enters a mini-dungeon on a non-chokepoint tile, while MINI_DUNGEONS_ENABLED is off', () => {
   const state = { miniDungeons: {}, caches: {} };
   const mapConfig = { id: 'north', miniDungeonChance: 1, cacheChance: 0 };
   const tile = { encounter: true };
   const isChokepoint = (x, y) => x === 9 && y === 9;
   const result = resolveStepDiscovery(state, mapConfig, 5, 5, tile, () => 0, isChokepoint);
-  assert.equal(result.outcome, 'enterMiniDungeon');
+  assert.deepEqual(result, { outcome: 'none' });
 });

@@ -59,7 +59,7 @@ test('near-town, far-corner, dungeon, and dragon monsters have the savage-early-
     goblin: { hp: 67, attack: 15, defense: 2, speed: 4, xp: 22, goldRange: [5, 13] },
     direWolf: { hp: 100, attack: 19, defense: 3, speed: 6, xp: 32, goldRange: [8, 15] },
     spider: { hp: 85, attack: 17, defense: 2, speed: 5, xp: 29, goldRange: [7, 14] },
-    dragon: { hp: 150, attack: 34, defense: 12, speed: 11, xp: 200, goldRange: [65, 100] },
+    dragon: { hp: 600, attack: 58, defense: 22, speed: 13, xp: 200, goldRange: [65, 100] },
     orc: { hp: 180, attack: 32, defense: 8, speed: 8, xp: 60, goldRange: [18, 28] },
     wraith: { hp: 170, attack: 32, defense: 4, speed: 11, xp: 63, goldRange: [18, 30] },
   };

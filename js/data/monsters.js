@@ -87,22 +87,35 @@ export const MONSTERS = {
   // wilderness encounter, but well under dungeon-tier (orc/wraith) so an
   // early gate doesn't require end-game gear.
   //
-  // HP raised 2026-09-04 (+50% across all four, "the guardians should have
-  // way more HP" - queued explicitly, pending a real tuning pass): two full
-  // telemetry playthroughs this session both show axeGuardian dying in
-  // 7-9s at ~85-100% HP remaining, the same as an ordinary scorpion/
-  // direWolf fight - a guaranteed-tool guaranteed-reward encounter reading
-  // as no tougher than the wilderness roster it's meant to sit above.
-  // attack/defense left untouched on purpose - this only stretches the
-  // fight out (more hits needed), it doesn't add real danger, since a
-  // proper danger pass runs into the same structural near-town-scaling
-  // dead end already investigated and documented in BACKLOG.md's "The
-  // player outpaces near-town/far-corner content" section. Revisit with
-  // scripts/simulate-balance.js once a real playtest confirms this reads
-  // right, not just longer.
+  // Retuned 2026-09-05 to a real per-tool target level, replacing the
+  // same-night +50%-HP-only stopgap: "for axe which is first we should
+  // target user having got to like level 5 and tune that boss for that.
+  // Then for pick I think a few levels more than that and then canoe more
+  // than that." axeGuardian(L5)/pickGuardian(L7)/boatGuardian(L9) each got
+  // their own attack/defense pass, not just more HP - axe and pick used to
+  // share an identical stat block despite now targeting different levels,
+  // so they diverge for the first time here.
+  //
+  // Numbers came from a throwaway Monte Carlo script built on the real
+  // js/systems/combat.js|abilities.js|parry.js functions (same approach as
+  // scripts/simulate-balance.js), run against Timothy's own real telemetry
+  // gear at each target level - not hand-guessed. Important calibration
+  // caveat found while doing this: the simulator's simulated player has
+  // zero reaction latency (acts every single 300ms tick, no hesitation),
+  // which makes its win-rate/HP-remaining output systematically optimistic
+  // - a real level-7 player's logged axeGuardian fight (old stats) ran
+  // ~2x longer and ended at 78% HP where the simulator would have shown
+  // ~99% for the identical matchup. So every number below was tuned to
+  // land around 48-53% average HP remaining *in the simulator* for a
+  // well-geared build (several potions burned, 7-15s), deliberately well
+  // below a "comfortable" simulator result, expecting real play to run
+  // harder still. A deliberately under-geared player at the same level
+  // (starter/base Iron, no upgrades, no accessory) loses these fights
+  // outright rather than scraping by - gearing up before attempting one
+  // now actually matters.
   axeGuardian: {
     id: 'axeGuardian', name: 'Axe Guardian', emoji: '🪓',
-    hp: 210, attack: 18, defense: 5, speed: 7,
+    hp: 260, attack: 34, defense: 10, speed: 9,
     xp: 45, goldRange: [15, 25],
     dropTable: [{ itemId: 'axe', chance: 1 }],
     forceFullBattle: true,
@@ -110,7 +123,7 @@ export const MONSTERS = {
   },
   pickGuardian: {
     id: 'pickGuardian', name: 'Pick Guardian', emoji: '⛏️',
-    hp: 210, attack: 18, defense: 5, speed: 7,
+    hp: 320, attack: 42, defense: 13, speed: 10,
     xp: 45, goldRange: [15, 25],
     dropTable: [{ itemId: 'miningPick', chance: 1 }],
     forceFullBattle: true,
@@ -118,10 +131,12 @@ export const MONSTERS = {
   },
   // Sits behind a gate meant to require axe + pick already (Timothy's map
   // design, not enforced in code - see TOOL_DUNGEON_ENTRANCES's boat entry
-  // placement), so a step tougher than the axe/pick guardians.
+  // placement), so a step tougher than the axe/pick guardians. Retuned
+  // 2026-09-05 for a level-9 target - see axeGuardian's own comment above
+  // for the methodology.
   boatGuardian: {
     id: 'boatGuardian', name: 'Boat Guardian', emoji: '🛶',
-    hp: 265, attack: 24, defense: 7, speed: 8,
+    hp: 420, attack: 56, defense: 18, speed: 11,
     xp: 55, goldRange: [18, 28],
     dropTable: [{ itemId: 'boat', chance: 1 }],
     forceFullBattle: true,
@@ -132,17 +147,30 @@ export const MONSTERS = {
   // boatGuardian, since "free repeatable trip to/from town from
   // anywhere" is the strongest of the four tools. See
   // docs/superpowers/specs/2026-09-01-portal-scroll-design.md.
+  //
+  // Retuned 2026-09-05 for a level-10 target (one above boatGuardian, one
+  // below the dragon) - its map entrance is still unplaced
+  // (TOOL_DUNGEON_ENTRANCES.portal has screenId: null in
+  // js/data/toolDungeons.js, "I don't even remember how to get it...
+  // waiting for me to place via map editor"), so this is inert until
+  // Timothy actually places it, but reaching it implies already having
+  // collected axe+pick+boat - see axeGuardian's own comment above for the
+  // shared methodology.
   portalGuardian: {
     id: 'portalGuardian', name: 'Portal Guardian', emoji: '🌌',
-    hp: 315, attack: 28, defense: 9, speed: 9,
+    hp: 500, attack: 58, defense: 19, speed: 12,
     xp: 65, goldRange: [22, 32],
     dropTable: [{ itemId: 'portalCircle', chance: 1 }],
     forceFullBattle: true,
     attackStyle: 'melee',
   },
+  // Retuned 2026-09-05 for a level-11 target, the hardest of the five
+  // bosses by design (lowest win rate / most potions burned in the
+  // simulator of any fight in this pass) - see axeGuardian's own comment
+  // above for the full methodology.
   dragon: {
     id: 'dragon', name: 'Dragon', emoji: '🐉',
-    hp: 150, attack: 34, defense: 12, speed: 11,
+    hp: 600, attack: 58, defense: 22, speed: 13,
     xp: 200, goldRange: [65, 100],
     dropTable: [
       { itemId: 'dragonScaleMail', chance: 0.6 },
