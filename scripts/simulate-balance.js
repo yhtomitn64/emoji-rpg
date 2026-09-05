@@ -40,7 +40,7 @@
  * every time.
  */
 
-import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier, ATTACK_STREAK_RECOVERY_MS, abilityGcdMsForSpeed } from '../js/systems/combat.js';
+import { tickGauge, isReady, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, attackStreakMultiplier, attackKnockbackMultiplier, ATTACK_STREAK_RECOVERY_MS, abilityGcdMsForSpeed, rollSpecialAttack, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff } from '../js/systems/combat.js';
 import { ABILITIES, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, getUnlockedAbilities, applyAbilityGcd } from '../js/systems/abilities.js';
 import { rollIncomingDamage, resolveParrySuccess, PARRY_COOLDOWN_MS } from '../js/systems/parry.js';
 import { chooseAction } from './simulateAbilityPolicy.js';
@@ -89,6 +89,18 @@ function parseArgs(argv) {
       const [path, rawValue] = argv[++i].split('=');
       const [monsterId, stat] = path.split('.');
       (opts.overrides[monsterId] ||= {})[stat] = Number(rawValue);
+    } else if (argv[i] === '--special-attack') {
+      // Separate flag from --set: --set's `monsterId.stat=value` coerces
+      // value with Number(), which can't express a specialAttacks array.
+      // `monsterId=<json>` instead, following the same "split the raw arg,
+      // build up opts.overrides" shape as --set above.
+      const raw = argv[++i];
+      const eqIndex = raw.indexOf('=');
+      if (eqIndex === -1) {
+        throw new Error(`--special-attack expects monsterId=<json array>, got ${JSON.stringify(raw)}`);
+      }
+      const monsterId = raw.slice(0, eqIndex);
+      (opts.overrides[monsterId] ||= {}).specialAttacks = JSON.parse(raw.slice(eqIndex + 1));
     }
   }
   return opts;
@@ -328,6 +340,14 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
  *     stats. Mirrors battleScreen.js's playerEffectBonuses/
  *     applyOnHitEffects exactly - see makeBuild() and applyOnHitEffects()
  *     below.
+ *   - A superboss's specialAttacks (slow/cooldownOverload) - added
+ *     2026-09-05 (Task 8 of the superboss-pass plan) so a boss's kit isn't
+ *     silently invisible to this file's numbers. Rolled via combat.js's
+ *     shared rollSpecialAttack (the exact function battleScreen.js's
+ *     windup-start roll now also calls) at the same point this file already
+ *     resolves a monster's turn - see the isReady(monster.atb) block below.
+ *     'stun' has NO simulator-side model (see that block's own comment) -
+ *     a known conservative gap, flagged in this file's report output too.
  *
  * What's still hand-rolled here (AI policy layer, not combat math): the
  * "drink a potion when below 40% HP" decision and the potion cooldown loop
@@ -343,7 +363,11 @@ const ATTACK_COOLDOWN_MS = 500; // matches battleScreen.js's ATTACK_COOLDOWN_MS
  *     as a stand-in for a human's windup-timing skill the same way
  *     TIMING_HIT_RATE stands in for ability-timing skill, and the cooldown
  *     starts whether or not that roll succeeds (see PARRY_LAND_RATE_DEFAULT
- *     below and --parry-rate in parseArgs).
+ *     below and --parry-rate in parseArgs). A superboss's specialAttacks
+ *     are rolled and resolved in that same single step, since there's no
+ *     multi-tick windup here to roll at the *start* of and resolve later
+ *     the way battleScreen.js's pendingSpecialAttack does.
+ *   - A monster special attack's 'stun' type - see the isReady block below.
  */
 // Mirrors battleScreen.js's applyOnHitEffects exactly: lifesteal heals the
 // player as a percent of the hit's real (already-decayed) damage; elemental
@@ -371,10 +395,13 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
     hp: monsterStats.hp, maxHp: monsterStats.hp,
     attack: monsterStats.attack, defense: monsterStats.defense, speed: monsterStats.speed, atb: 0,
     defenseDebuff: null,
+    specialAttacks: monsterStats.specialAttacks || [],
   };
 
   let potions = build.potions;
   let potionsUsed = 0;
+  let specialAttacksLanded = 0;
+  let specialAttacksParried = 0;
 
   // Real-time-style state, same shape battleScreen.js keeps at module scope
   // - reset fresh per simulated battle here since each trial is independent.
@@ -384,6 +411,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
   let attackCooldownMs = 0;
   let attackStreakIdleMs = 0;
   let parryCooldownMs = 0;
+  let playerSlowDebuff = null; // mirrors battleScreen.js's own module-scope playerSlowDebuff (a landed 'slow' special sets this, see the isReady block below)
   const unlockedAbilityCount = getUnlockedAbilities(build.level).length;
 
   for (let ticks = 1; ticks <= MAX_TICKS; ticks++) {
@@ -402,6 +430,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
     abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
     buffState = tickBuff(buffState, 300);
     monster.defenseDebuff = tickDefenseDebuff(monster.defenseDebuff, 300);
+    playerSlowDebuff = tickPlayerSlowDebuff(playerSlowDebuff, 300);
 
     if (potions > 0 && player.hp < player.maxHp * POTION_THRESHOLD) {
       potions--;
@@ -420,20 +449,44 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
       // Cooldown-gated to match battleScreen.js's attemptParry (2026-09-02
       // multi-mob-parry-cooldown rework): an attempt is only even possible
       // off cooldown, and starts the cooldown whether it lands or not.
+      // Rolled once per resolved monster turn - see this function's own
+      // header comment for why there's no separate windup-start roll here.
+      const special = rollSpecialAttack(monster.specialAttacks);
       let result;
       if (parryCooldownMs <= 0 && Math.random() < parryLandRate) {
         parryCooldownMs = PARRY_COOLDOWN_MS;
         const { damage } = rollIncomingDamage(monster, player, Math.random);
         result = resolveParrySuccess(monster, damage);
+        // A parried special attack is negated entirely, same as a parried
+        // normal hit (battleScreen.js's resolveMonsterWindup: "negate it") -
+        // counted for report visibility only, no gameplay effect.
+        if (special) specialAttacksParried++;
       } else {
         if (parryCooldownMs <= 0) parryCooldownMs = PARRY_COOLDOWN_MS;
         result = resolveMonsterAttack(monster, player, Math.random, build.thornsPercent);
         player.hp = result.playerHp;
+        if (special) {
+          specialAttacksLanded++;
+          if (special.type === 'slow') {
+            playerSlowDebuff = createPlayerSlowDebuff(special.slowPercent, special.durationMs);
+          } else if (special.type === 'cooldownOverload') {
+            ({ cooldowns: abilityCooldowns } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(build.level), null, special.gcdMs));
+          }
+          // 'stun' has no simulator-side equivalent yet: chooseAction()
+          // already only acts once per 300ms tick, close to the real
+          // ~1-1.5s stun's own action-suppression window, so leaving it
+          // unmodeled is a known conservative gap - it makes the sim
+          // slightly MORE optimistic against a stun-heavy boss than real
+          // play, on top of this file's existing zero-reaction-latency
+          // optimism (see this file's header comment). Surfaced in the
+          // report output (see main()'s own note) rather than silently
+          // ignored.
+        }
       }
       monster.atb = result.monsterAtb;
       monster.hp = result.monsterHp;
-      if (player.hp <= 0) return { outcome: 'lost', hpLeft: 0, potionsUsed, ticks };
-      if (monster.hp <= 0) return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
+      if (player.hp <= 0) return { outcome: 'lost', hpLeft: 0, potionsUsed, ticks, specialAttacksLanded, specialAttacksParried };
+      if (monster.hp <= 0) return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks, specialAttacksLanded, specialAttacksParried };
     }
 
     const action = chooseAction({
@@ -455,7 +508,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
         monster.hp = result.monsterHp;
         monster.atb = result.monsterAtb;
         applyOnHitEffects(build, player, monster, result.damage);
-        ({ cooldowns: abilityCooldowns } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(build.level), ability.id, abilityGcdMsForSpeed(player.speed)));
+        ({ cooldowns: abilityCooldowns } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(build.level), ability.id, abilityGcdMsForSpeed(applyPlayerSlowDebuff(player.speed, playerSlowDebuff))));
         attackStreak = 0;
         attackStreakIdleMs = 0;
         // Lacerate's self-retrigger (js/systems/abilities.js's `retrigger`
@@ -470,7 +523,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
           monster.defenseDebuff = createDefenseDebuff(ability);
         }
         if (monster.hp <= 0) {
-          return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
+          return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks, specialAttacksLanded, specialAttacksParried };
         }
       }
     } else if (action.kind === 'attack') {
@@ -485,7 +538,7 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
       monster.atb = result.monsterAtb;
       applyOnHitEffects(build, player, monster, result.damage, streakMultiplier);
       if (monster.hp <= 0) {
-        return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
+        return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks, specialAttacksLanded, specialAttacksParried };
       }
       // Extra-swing chance (Swift Strike Charm / Windfury Ring): one bonus
       // swing per real attack, exempt from the spam-decay streak - mirrors
@@ -500,12 +553,12 @@ function simulateBattle(build, monsterStats, parryLandRate = PARRY_LAND_RATE_DEF
         monster.atb = bonusResult.monsterAtb;
         applyOnHitEffects(build, player, monster, bonusResult.damage, 1);
         if (monster.hp <= 0) {
-          return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks };
+          return { outcome: 'won', hpLeft: player.hp / player.maxHp, potionsUsed, ticks, specialAttacksLanded, specialAttacksParried };
         }
       }
     }
   }
-  return { outcome: 'stalemate', hpLeft: player.hp / player.maxHp, potionsUsed, ticks: MAX_TICKS };
+  return { outcome: 'stalemate', hpLeft: player.hp / player.maxHp, potionsUsed, ticks: MAX_TICKS, specialAttacksLanded, specialAttacksParried };
 }
 
 function runMatchup(build, monsterStats, trials, parryLandRate) {
@@ -513,6 +566,8 @@ function runMatchup(build, monsterStats, trials, parryLandRate) {
   let stalemates = 0;
   let hpLeftOnWin = 0;
   let potionsUsed = 0;
+  let specialAttacksLanded = 0;
+  let specialAttacksParried = 0;
 
   for (let i = 0; i < trials; i++) {
     const result = simulateBattle(build, monsterStats, parryLandRate);
@@ -523,6 +578,8 @@ function runMatchup(build, monsterStats, trials, parryLandRate) {
       stalemates++;
     }
     potionsUsed += result.potionsUsed;
+    specialAttacksLanded += result.specialAttacksLanded;
+    specialAttacksParried += result.specialAttacksParried;
   }
 
   return {
@@ -530,6 +587,11 @@ function runMatchup(build, monsterStats, trials, parryLandRate) {
     stalemateRate: stalemates / trials,
     avgHpLeftOnWin: wins > 0 ? hpLeftOnWin / wins : 0,
     avgPotions: potionsUsed / trials,
+    // Totals (not per-trial averages) across every trial in this matchup -
+    // 0/0 for the vast majority of monsters with no specialAttacks, only
+    // surfaced in the report line when non-zero (see the specialNote below).
+    specialAttacksLanded,
+    specialAttacksParried,
   };
 }
 
@@ -563,6 +625,12 @@ function main() {
   }
 
   console.log(`Balance simulation — ${trials} trials per matchup, parry land rate ${parryRate}\n`);
+  console.log(
+    'Note: monster specialAttacks (slow/cooldownOverload) are modeled below ' +
+    '("special landed X, parried Y" on any matchup line where they fired). ' +
+    "'stun' has no simulator-side equivalent yet - a known conservative gap, " +
+    'see simulateBattle()\'s own comment.\n'
+  );
 
   console.log('Monster stats under test:');
   for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
@@ -581,11 +649,14 @@ function main() {
     for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
       const r = runMatchup(build, monsters[id], trials, parryRate);
       const stalemateNote = r.stalemateRate > 0 ? `  (stalemate ${pct(r.stalemateRate)})` : '';
+      const specialNote = (r.specialAttacksLanded + r.specialAttacksParried) > 0
+        ? `  (special landed ${r.specialAttacksLanded}, parried ${r.specialAttacksParried})`
+        : '';
       console.log(
         build.name.padEnd(38) +
         monsters[id].name.padEnd(22) +
         pct(r.winRate) + '   ' + pct(r.avgHpLeftOnWin) + '    ' + r.avgPotions.toFixed(1) +
-        stalemateNote
+        stalemateNote + specialNote
       );
     }
     console.log('-'.repeat(88));

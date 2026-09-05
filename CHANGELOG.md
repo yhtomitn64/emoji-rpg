@@ -48,6 +48,13 @@ public API, no formal release process — commits land straight on
   negates the effect exactly like it negates damage, a missed one lets
   it land alongside the normal hit. No monster uses this yet (that's the
   super-boss pass's worked example).
+- `scripts/simulate-balance.js` can now model a monster's special attacks
+  (slow/cooldownOverload; stun is a known unmodeled gap, noted in its
+  report output) - `rollSpecialAttack` promoted from `battleScreen.js` to
+  a shared `js/systems/combat.js` export so both the real game and the
+  simulator use the identical roll. New `--special-attack
+  monsterId=<json array>` CLI flag lets a candidate boss kit be explored
+  the same way `--set` already explores flat stat overrides.
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your

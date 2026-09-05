@@ -253,6 +253,19 @@ export function resolveMonsterAttack(monster, player, rng = Math.random, thornsP
   };
 }
 
+// Mutually exclusive, first-match-wins roll through a monster's own
+// specialAttacks list (empty for every non-superboss monster today) -
+// returns the chosen config or null for a plain attack this turn. Shared
+// between the real game (js/screens/battleScreen.js's windup-start roll)
+// and scripts/simulate-balance.js's headless matchup sim, so both roll the
+// exact same odds instead of the sim quietly drifting from a re-derived copy.
+export function rollSpecialAttack(specialAttacks, rng = Math.random) {
+  for (const special of specialAttacks) {
+    if (rng() < special.chancePerTurn) return special;
+  }
+  return null;
+}
+
 export function resolvePotionUse(player, healAmount, rng = Math.random, critChanceBonus = 0) {
   const isCrit = rollCrit(rng, critChanceBonus);
   const heal = applyCritMultiplier(healAmount, isCrit);
