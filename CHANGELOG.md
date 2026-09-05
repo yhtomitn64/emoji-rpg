@@ -24,6 +24,24 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-09-05
+
+### Added
+- The Portal Dungeon entrance is placed on the map for the first time
+  (`southSouthwest`, tile 16,17 - `js/data/toolDungeons.js`'s
+  `TOOL_DUNGEON_ENTRANCES.portal`, previously `screenId: null`, i.e.
+  unreachable), placed via `tools/terrain-painter/`. Small island (grass +
+  mountain) carved out of the surrounding lake so the entrance sits on
+  walkable ground, and the mountain-wall divider through that stretch
+  swapped to thicket. Completes the full tool progression end to end: town
+  → axe → pick → boat → portal → dragon, all placed and reachable.
+
+### Fixed
+- `toolDungeonMaps.test.js`'s null-screenId invariant test no longer
+  depends on some real `TOOL_DUNGEON_ENTRANCES` entry staying unplaced
+  forever (it relied on portal being the last one) - now pins the same
+  invariant down with a synthetic entry instead.
+
 ## [0.25.1] - 2026-09-05
 
 ### Changed

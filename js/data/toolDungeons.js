@@ -24,6 +24,6 @@ export const TOOL_DUNGEON_ENTRANCES = {
   // null entry here is inert until it's filled in - never reachable, never
   // a crash (see tests/toolDungeonMaps.test.js's null-placeholder test).
   portal: {
-    screenId: null, x: null, y: null, mapId: 'portalDungeon', tileKind: 'portalDungeonEntrance',
+    screenId: 'southSouthwest', x: 16, y: 17, mapId: 'portalDungeon', tileKind: 'portalDungeonEntrance',
   },
 };

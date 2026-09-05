@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.25.2',
+    date: '2026-09-05',
+    highlights: [
+      'New: the Portal Dungeon can finally be found and reached out in the wilderness - the full tool progression, town through the Dragon, is now complete.',
+    ],
+  },
+  {
     version: '0.25.1',
     date: '2026-09-05',
     highlights: [
