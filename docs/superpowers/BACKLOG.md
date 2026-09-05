@@ -1229,6 +1229,21 @@ through in a dedicated future combat pass rather than one-off adds.
 (A number of items originally captured here have since shipped — see
 BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
 
+- **Bigger battle dialog, raised 2026-09-05.** Timothy's own words: "can
+  we make the whole battle dialog bigger. enemies, effects and all.
+  Scale to some percent of the whole window?" Currently `.battle-screen`
+  and its contents (`css/styles.css`) are sized to a fixed layout, not
+  scaled relative to the viewport. Raw idea, "for later" — not yet
+  designed: needs a pass on what "some percent of the whole window"
+  means concretely (a max-width/height cap? a CSS `clamp()`/viewport-unit
+  scale on the whole `.battle-screen-stack`? does it also need to
+  preserve the existing jsdom-test fallback viewport size
+  `js/screens/mapScreen.js`'s `DEFAULT_VIEWPORT_TILES_WIDE/TALL` assume
+  for its own unrelated tile-count math?) and whether monster/hero emoji,
+  HP/ATB bars, and effect animations all scale together or the dialog
+  frame just gets more breathing room around the same fixed-size
+  contents.
+
 - **Slower combat with fewer, harder-hitting swings; also reconsidering
   the parry/attack timing minigame, raised 2026-08-30.** Timothy's own
   words: "Maybe we slow down combat and have fewer but harder hitting
