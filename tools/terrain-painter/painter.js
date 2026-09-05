@@ -1,4 +1,5 @@
 import { TOOL_UNLOCK_KINDS, floodFillReachable, checkProgression } from './reachability.js';
+import { MONSTERS } from '../../js/data/monsters.js';
 
 const SCREEN_W = 30;
 const SCREEN_H = 22;
@@ -32,6 +33,7 @@ const TILE_COLORS = {
   townEntrance: '#d9534f',
   exit: '#8a6d3b',
   boss: '#8b0000',
+  guardian: '#8c7853',
   caveFloor: '#5a5248',
   caveWall: '#2e2a26',
   cavePool: '#1f3f5c',
@@ -46,7 +48,7 @@ const TILE_COLORS = {
 const CHAR_FOR_KIND = {
   grass: '.', tree: '#', water: '~', mountainWall: 'W', mountain: 'M', mountainCache: 'K',
   thicket: 'T', thicketCache: 'X', townEntrance: '@',
-  exit: 'E', boss: 'B',
+  exit: 'E', boss: 'B', guardian: 'G',
   caveFloor: '.', caveWall: '#', cavePool: '~',
   miniDungeonEntrance: 'E', miniDungeonTreasure: 'T',
 };
@@ -57,10 +59,13 @@ const MINI_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'cavePool', 'miniDungeonE
 // "New Dungeon" blank-canvas mode's palette (Task 12) - a superboss's own
 // dungeon interior, styled as a proper cave (caveFloor/caveWall, matching
 // js/tiles.js) rather than the grass/tree look the older dragon/tool
-// dungeons happen to reuse, but still exits/ends the same way those do
-// (exit door, boss encounter tile). All four kinds already have colors/
-// chars/icons/labels defined above - no new tile kind needed.
-const NEW_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'exit', 'boss'];
+// dungeons happen to reuse, but still exits/ends the same way every real
+// tool-dungeon file does: an exit door and a guardian encounter tile
+// (action: 'guardianBattle', which generically reads
+// MAPS[state.map].guardianMonsterId - not 'boss'/'bossBattle', which is
+// wired specifically to the one real dragon fight's own handler in
+// js/main.js and would be unsafe to reuse for an arbitrary new dungeon).
+const NEW_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'exit', 'guardian'];
 // Mirrors buildLegendRowsText's own IDENTIFIER_KEY test - a new dungeon's
 // map id becomes both a MAPS registry key and a file's exported const
 // name (Task 13), so it has to be a legal bare JS identifier.
@@ -72,7 +77,7 @@ const JS_IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const PALETTE_ICONS = {
   grass: '🟩', tree: '🌲', water: '🟦', mountainWall: '🗻',
   mountain: '⛰️', mountainCache: '⛰️⭐', thicket: '🌳', thicketCache: '🌳⭐',
-  exit: '🚪', boss: '🐉',
+  exit: '🚪', boss: '🐉', guardian: '⚔️',
   caveFloor: '⬛', caveWall: '🪨', cavePool: '💧',
   miniDungeonEntrance: '🪜', miniDungeonTreasure: '💰',
 };
@@ -82,7 +87,7 @@ const PALETTE_LABELS = {
   mountainWall: 'Mountain (permanent wall)',
   mountain: 'Mountain (needs pick)', mountainCache: 'Mountain (needs pick, has reward)',
   thicket: 'Thicket (needs axe)', thicketCache: 'Thicket (needs axe, has reward)',
-  exit: 'Exit', boss: 'Boss',
+  exit: 'Exit', boss: 'Boss', guardian: 'Guardian',
   caveFloor: 'Cave Floor', caveWall: 'Cave Wall', cavePool: 'Cave Pool',
   miniDungeonEntrance: 'Entrance', miniDungeonTreasure: 'Treasure',
 };
@@ -643,6 +648,61 @@ async function exportAllToFiles() {
   return `Wrote ${written} changed file(s)${changedFiles.length ? ': ' + changedFiles.join(', ') : ''}. ${unchanged} already up to date.`;
 }
 
+// --- Bulk export via the Node authoring server (Task 13) --------------------
+// Same job as exportAllToFiles() above, minus the dungeon-entrance/
+// tool-dungeon-entrance patching (no server endpoint for those - both are
+// already placed and stable on this branch; use "Choose Repo Folder" +
+// the File System Access flow above for the rare case either needs to
+// move again). Works in any browser, not just Chrome/Edge, since it never
+// touches showDirectoryPicker.
+let serverAvailable = null; // null = not checked yet, else boolean
+
+async function checkServerAvailable() {
+  try {
+    const res = await fetch('/api/patch-wilderness', { method: 'OPTIONS' });
+    return res.ok;
+  } catch (err) {
+    return false; // no server reachable at all (e.g. plain python3 -m http.server, or file://)
+  }
+}
+
+async function postJson(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try { message = (await res.json()).error || message; } catch (err) { /* non-JSON error body - keep the status */ }
+    throw new Error(`${path}: ${message}`);
+  }
+  return res.json();
+}
+
+async function exportAllToServer() {
+  let written = 0;
+  let unchanged = 0;
+  const changedFiles = [];
+
+  for (const id of Object.keys(GRID_LAYOUT)) {
+    const { changed } = await postJson('/api/patch-wilderness', { screenId: id, legendRowsText: exportScreen(id) });
+    if (changed) { written++; changedFiles.push(id); } else unchanged++;
+  }
+
+  // Only markers that have actually been placed (a real screenId, not the
+  // registry's inert null-placeholder) have anything meaningful to write -
+  // see js/data/superBosses.js's own doc comment on that placeholder shape.
+  for (const [superBossId, pos] of Object.entries(superBossMarkers)) {
+    if (pos.screenId === null) continue;
+    const entry = { screenId: pos.screenId, x: pos.x, y: pos.y, hasDungeon: pos.hasDungeon };
+    const { changed } = await postJson('/api/patch-superboss', { superBossId, entry });
+    if (changed) { written++; changedFiles.push(`superboss ${superBossId}`); } else unchanged++;
+  }
+
+  return `Wrote ${written} changed file(s)${changedFiles.length ? ': ' + changedFiles.join(', ') : ''}. ${unchanged} already up to date. (Dungeon/tool-dungeon entrance positions aren't wired to the server - use "Choose Repo Folder" for those.)`;
+}
+
 function findTownEntrance() {
   for (let y = 0; y < WORLD_H; y++) {
     for (let x = 0; x < WORLD_W; x++) {
@@ -737,6 +797,7 @@ async function init() {
   const autosaveStatus = document.getElementById('autosaveStatus');
   const wildernessOnlyEls = document.querySelectorAll('.wilderness-only');
   const singleMapOnlyEls = document.querySelectorAll('.single-map-only');
+  const newDungeonOnlyEls = document.querySelectorAll('.new-dungeon-only');
   const paletteDiv = document.getElementById('palette');
   const exportSelect = document.getElementById('exportSelect');
 
@@ -843,6 +904,13 @@ async function init() {
   async function switchMap(key) {
     currentMapKey = key;
     setModeVisibility();
+    // Gated separately from setModeVisibility's wilderness-vs-single-map
+    // split - "Save New Dungeon to Server" only makes sense for a
+    // SINGLE_MAPS entry created via the "New Dungeon" button (isNewDungeon:
+    // true, Task 12), never for an existing single map like the dragon
+    // dungeon or a mini-dungeon variant that already has its own file.
+    const isNewDungeon = key !== 'wilderness' && Boolean(SINGLE_MAPS[key] && SINGLE_MAPS[key].isNewDungeon);
+    newDungeonOnlyEls.forEach((el) => { el.style.display = isNewDungeon ? '' : 'none'; });
     rebuildPalette();
     if (key === 'wilderness') {
       canvas.width = WORLD_W * CELL;
@@ -1187,8 +1255,25 @@ async function init() {
   const exportAllBtn = document.getElementById('exportAllBtn');
   const exportAllStatus = document.getElementById('exportAllStatus');
 
-  if (!window.showDirectoryPicker) {
-    repoStatus.textContent = 'Not supported in this browser (needs Chrome or Edge) — use "Copy LEGEND/ROWS" per screen instead.';
+  // Feature-detect the Node authoring server (Task 13) before falling back
+  // to the older File System Access flow - see checkServerAvailable's own
+  // comment for why an OPTIONS preflight is what distinguishes "server
+  // running" from "no server, or a plain static file server."
+  serverAvailable = await checkServerAvailable();
+
+  if (serverAvailable) {
+    chooseRepoBtn.style.display = 'none';
+    repoStatus.textContent = 'Using the local authoring server (node tools/terrain-painter/server.js) — writes go straight to disk, no folder picker needed.';
+    exportAllBtn.addEventListener('click', async () => {
+      exportAllStatus.textContent = 'Writing…';
+      try {
+        exportAllStatus.textContent = await exportAllToServer();
+      } catch (err) {
+        exportAllStatus.textContent = `Failed: ${err.message}`;
+      }
+    });
+  } else if (!window.showDirectoryPicker) {
+    repoStatus.textContent = 'Not supported in this browser (start the Node authoring server, or use Chrome/Edge for the folder-picker fallback) — use "Copy LEGEND/ROWS" per screen instead.';
     chooseRepoBtn.disabled = true;
     exportAllBtn.disabled = true;
   } else {
@@ -1210,6 +1295,62 @@ async function init() {
       }
     });
   }
+
+  // "Save New Dungeon to Server" (Task 13) - the one save path a brand-new
+  // dungeon (Task 12's "New Dungeon" mode) actually needs: there's no
+  // existing file to patch, so this is server-only (the create-dungeon
+  // endpoint), with no File System Access fallback offered - createFile()-
+  // via-FSA-with-a-user-picked-parent-directory would be a second, mostly-
+  // redundant code path for what should be a rare authoring action.
+  const saveNewDungeonBtn = document.getElementById('saveNewDungeonBtn');
+  const saveNewDungeonStatus = document.getElementById('saveNewDungeonStatus');
+  saveNewDungeonBtn.addEventListener('click', async () => {
+    const def = SINGLE_MAPS[currentMapKey];
+    if (!def || !def.isNewDungeon) return; // button's own visibility already guards this; belt-and-suspenders against a stale click mid-mode-switch
+    if (!serverAvailable) {
+      alert('Saving a new dungeon needs the Node authoring server running (node tools/terrain-painter/server.js) - there is no existing file to patch, so there is no File System Access fallback for this action.');
+      return;
+    }
+
+    let exitPos = null;
+    let exitCount = 0;
+    let guardianCount = 0;
+    for (let y = 0; y < singleMapH; y++) {
+      for (let x = 0; x < singleMapW; x++) {
+        if (singleGrid[y][x] === 'exit') { exitCount++; exitPos = { x, y }; }
+        if (singleGrid[y][x] === 'guardian') guardianCount++;
+      }
+    }
+    if (exitCount !== 1) {
+      alert(`New dungeon needs exactly one 'exit' tile placed (found ${exitCount}) - that's where the player starts.`);
+      return;
+    }
+    if (guardianCount === 0) {
+      alert(`New dungeon needs at least one 'guardian' tile placed - otherwise there's no fight in it at all.`);
+      return;
+    }
+
+    const guardianMonsterId = prompt('Guardian monster id (a key from MONSTERS in js/data/monsters.js, e.g. "axeGuardian"):');
+    if (guardianMonsterId === null) return; // cancelled
+    if (!MONSTERS[guardianMonsterId]) {
+      alert(`"${guardianMonsterId}" isn't a known monster id in js/data/monsters.js's MONSTERS.`);
+      return;
+    }
+
+    saveNewDungeonStatus.textContent = 'Saving…';
+    try {
+      await postJson('/api/create-dungeon', {
+        mapId: currentMapKey,
+        legendRowsText: exportSingleMap(),
+        startX: exitPos.x,
+        startY: exitPos.y,
+        guardianMonsterId,
+      });
+      saveNewDungeonStatus.textContent = `Saved js/maps/superBosses/${currentMapKey}.js and registered it in js/main.js.`;
+    } catch (err) {
+      saveNewDungeonStatus.textContent = `Failed: ${err.message}`;
+    }
+  });
 }
 
 init();

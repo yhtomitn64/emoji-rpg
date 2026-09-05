@@ -71,7 +71,18 @@ public API, no formal release process — commits land straight on
 - Terrain painter: new "New Dungeon" mode - start a blank canvas at a
   chosen size using the existing dungeon tile palette, for authoring a
   brand-new dungeon interior from scratch (super-boss dungeons, not
-  just editing an existing map file).
+  just editing an existing map file). Its palette uses the `guardian`
+  tile kind (action `guardianBattle`, the same mechanism every real
+  tool-dungeon file already uses), not `boss` - `boss` is wired
+  specifically to the one real dragon fight and would be unsafe to reuse
+  here; `guardian` is now a fully paintable tile kind in the painter
+  (colors/char/icon/label) for the first time.
+- `tools/terrain-painter/server.js` - a small Node dev server (built-in
+  `http`/`fs` only, no new dependency) that serves the painter and
+  writes changes straight to disk, including creating brand-new dungeon
+  files and registering them in `main.js`. Works in any browser, not
+  just Chrome/Edge. The old File System Access flow remains as a
+  fallback.
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your

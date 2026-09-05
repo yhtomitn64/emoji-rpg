@@ -91,15 +91,26 @@
   saved onto the marker alongside its position (<code>hasDungeon: true</code>
   for a superboss fought behind its own dungeon entrance,
   <code>false</code> for one fought on the spot in the open wilderness).
-  "Choose Repo Folder" +
-  "Export All Changed to Files" write every changed wilderness screen (plus
-  the dungeon and tool dungeon entrance positions) straight to disk in one
-  click, instead of copy/pasting each screen by hand — needs Chrome or Edge.
-  "New Dungeon" starts a brand-new, blank dungeon interior from scratch
-  (for a superboss's own dungeon) instead of loading an existing map file —
-  prompts for a map id and a width/height, then switches into the same
-  painting view used for every other dungeon, filled with cave floor tiles
-  ready to paint over.
+  "Export All Changed to Files" writes every changed wilderness screen
+  (plus the superboss marker positions) straight to disk in one click,
+  instead of copy/pasting each screen by hand — if
+  <code>node tools/terrain-painter/server.js</code> is running, it uses
+  that automatically; otherwise it falls back to "Choose Repo Folder" +
+  the File System Access API (Chrome/Edge only). "New Dungeon" starts a
+  brand-new, blank dungeon interior from scratch (for a superboss's own
+  dungeon) instead of loading an existing map file — prompts for a map id
+  and a width/height, then switches into the same painting view used for
+  every other dungeon, filled with cave floor tiles ready to paint over.
+  Its palette is caveFloor/caveWall/exit/guardian — one <code>exit</code>
+  tile (where the player starts) and at least one <code>guardian</code>
+  tile (the fight itself, via <code>guardianBattle</code> — not
+  <code>boss</code>, which is wired specifically to the one real dragon
+  fight) are required before "Save New Dungeon to Server" will write it
+  to <code>js/maps/superBosses/</code> and register it in
+  <code>js/main.js</code> — it also asks for the guardian's monster id
+  (a key from <code>MONSTERS</code> in <code>js/data/monsters.js</code>)
+  and needs the Node server running (no File System Access fallback,
+  since there's no existing file to patch).
 </p>
 </details>
 <div id="mapControls">
@@ -148,6 +159,10 @@
 <div class="bulk-export-row wilderness-only">
   <button id="exportAllBtn">Export All Changed to Files</button>
   <span id="exportAllStatus"></span>
+</div>
+<div class="bulk-export-row single-map-only new-dungeon-only">
+  <button id="saveNewDungeonBtn" title="Write this brand-new dungeon to js/maps/superBosses/ and register it in js/main.js (needs the Node authoring server)">Save New Dungeon to Server</button>
+  <span id="saveNewDungeonStatus"></span>
 </div>
 <div id="exportRow">
   <span class="wilderness-only">
