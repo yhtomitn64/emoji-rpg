@@ -189,7 +189,7 @@ async function handleCreateDungeon(req, res) {
   // whole game until hand-fixed. Re-saving a dungeon this same flow already
   // created is fine (that's `alreadyRegisteredByUs`, which skips the
   // main.js write entirely below) - only a foreign binding is rejected.
-  if (!alreadyRegisteredByUs && new RegExp(`\\b${mapId}Map\\b`).test(mainText)) {
+  if (!alreadyRegisteredByUs && new RegExp(`\\b${escapeRegExp(mapId)}Map\\b`).test(mainText)) {
     throw new Error(`main.js already has a '${mapId}Map' binding from a different import - choose a different mapId.`);
   }
 
