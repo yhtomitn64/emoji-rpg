@@ -48,6 +48,11 @@ public API, no formal release process — commits land straight on
   negates the effect exactly like it negates damage, a missed one lets
   it land alongside the normal hit. No monster uses this yet (that's the
   super-boss pass's worked example).
+- 4 new unique-effect items for super-boss guaranteed drops
+  (placeholder names, `js/data/items.js`): 2 using the new
+  parry-window/debuff-duration mechanics, 2 at a higher ceiling than
+  today's best (`emberRing`/`windfuryRing`). Not yet assigned to any
+  superboss's drop table.
 - `scripts/simulate-balance.js` can now model a monster's special attacks
   (slow/cooldownOverload; stun is a known unmodeled gap, noted in its
   report output) - `rollSpecialAttack` promoted from `battleScreen.js` to

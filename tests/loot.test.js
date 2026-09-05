@@ -297,3 +297,20 @@ test('a dropTable entry with an explicit tier is applied directly, bypassing the
   assert.equal(drop.item, 'ironSword');
   assert.equal(drop.tier, 'apex');
 });
+
+const NEW_SUPERBOSS_UNIQUE_IDS = ['parryMasterRing', 'unshakenCharm', 'ferocityFang', 'stormringOfHaste'];
+
+test('the new super-boss unique items exist with real slots and stats, and are excluded from the regular unique-drop pool', () => {
+  for (const id of NEW_SUPERBOSS_UNIQUE_IDS) {
+    assert.ok(ITEMS[id], `${id} must exist in ITEMS`);
+    assert.ok(ITEMS[id].slot, `${id} must have a slot`);
+    assert.ok(Object.keys(ITEMS[id].stats || {}).length > 0, `${id} must grant at least one stat`);
+    assert.equal(ITEMS[id].price, 0, `${id} must be a found-only item (price 0)`);
+  }
+});
+
+test('new super-boss unique items are NOT in the regular random unique-drop pool', () => {
+  for (const id of NEW_SUPERBOSS_UNIQUE_IDS) {
+    assert.ok(!UNIQUE_EFFECT_ITEM_IDS.includes(id), `${id} must stay exclusive to superboss guaranteed drops`);
+  }
+});
