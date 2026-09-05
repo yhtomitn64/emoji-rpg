@@ -41,6 +41,13 @@ public API, no formal release process — commits land straight on
   since guaranteed super-boss drops bypass the random toughness roll
   entirely.
 
+### Changed
+- Mythic-tier item drops are no longer flatly impossible before your
+  first NG+ cycle - a small new pre-NG+ chance exists (~0.1-0.4% by
+  monster toughness), and the NG+1+ band now scales up per cycle
+  (×1.5/cycle starting at NG+2) instead of staying fixed at the NG+1
+  numbers forever. `js/systems/itemQuality.js`.
+
 ## [0.25.2] - 2026-09-05
 
 ### Added
