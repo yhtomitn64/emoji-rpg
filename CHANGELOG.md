@@ -24,6 +24,11 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- New empty `SUPER_BOSSES` registry (`js/data/superBosses.js`) - the
+  data model super-bosses will be placed into. Part of the super-boss
+  pass, see `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+
 ## [0.25.2] - 2026-09-05
 
 ### Added
