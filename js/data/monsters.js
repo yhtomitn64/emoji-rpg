@@ -86,9 +86,23 @@ export const MONSTERS = {
   // guaranteed-reward mini-boss should feel tougher than an ordinary
   // wilderness encounter, but well under dungeon-tier (orc/wraith) so an
   // early gate doesn't require end-game gear.
+  //
+  // HP raised 2026-09-04 (+50% across all four, "the guardians should have
+  // way more HP" - queued explicitly, pending a real tuning pass): two full
+  // telemetry playthroughs this session both show axeGuardian dying in
+  // 7-9s at ~85-100% HP remaining, the same as an ordinary scorpion/
+  // direWolf fight - a guaranteed-tool guaranteed-reward encounter reading
+  // as no tougher than the wilderness roster it's meant to sit above.
+  // attack/defense left untouched on purpose - this only stretches the
+  // fight out (more hits needed), it doesn't add real danger, since a
+  // proper danger pass runs into the same structural near-town-scaling
+  // dead end already investigated and documented in BACKLOG.md's "The
+  // player outpaces near-town/far-corner content" section. Revisit with
+  // scripts/simulate-balance.js once a real playtest confirms this reads
+  // right, not just longer.
   axeGuardian: {
     id: 'axeGuardian', name: 'Axe Guardian', emoji: '🪓',
-    hp: 140, attack: 18, defense: 5, speed: 7,
+    hp: 210, attack: 18, defense: 5, speed: 7,
     xp: 45, goldRange: [15, 25],
     dropTable: [{ itemId: 'axe', chance: 1 }],
     forceFullBattle: true,
@@ -96,7 +110,7 @@ export const MONSTERS = {
   },
   pickGuardian: {
     id: 'pickGuardian', name: 'Pick Guardian', emoji: '⛏️',
-    hp: 140, attack: 18, defense: 5, speed: 7,
+    hp: 210, attack: 18, defense: 5, speed: 7,
     xp: 45, goldRange: [15, 25],
     dropTable: [{ itemId: 'miningPick', chance: 1 }],
     forceFullBattle: true,
@@ -107,7 +121,7 @@ export const MONSTERS = {
   // placement), so a step tougher than the axe/pick guardians.
   boatGuardian: {
     id: 'boatGuardian', name: 'Boat Guardian', emoji: '🛶',
-    hp: 175, attack: 24, defense: 7, speed: 8,
+    hp: 265, attack: 24, defense: 7, speed: 8,
     xp: 55, goldRange: [18, 28],
     dropTable: [{ itemId: 'boat', chance: 1 }],
     forceFullBattle: true,
@@ -120,7 +134,7 @@ export const MONSTERS = {
   // docs/superpowers/specs/2026-09-01-portal-scroll-design.md.
   portalGuardian: {
     id: 'portalGuardian', name: 'Portal Guardian', emoji: '🌌',
-    hp: 210, attack: 28, defense: 9, speed: 9,
+    hp: 315, attack: 28, defense: 9, speed: 9,
     xp: 65, goldRange: [22, 32],
     dropTable: [{ itemId: 'portalCircle', chance: 1 }],
     forceFullBattle: true,

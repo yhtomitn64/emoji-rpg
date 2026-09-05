@@ -6,6 +6,22 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.25.0',
+    date: '2026-09-04',
+    highlights: [
+      'New: Impale, Sever, and Lacerate now each draw their own distinct mark on the enemy instead of an emoji flying across the screen - a crossing thrust, an axe arc, and raking claws with falling drops. Attack punches with a shockwave ring instead of a slash.',
+      'New: hitting a second target (Sever\'s bonus hit, or anything widened by Faultline) now lands a beat after the first, with its own visible swing, instead of happening invisibly at the same instant.',
+      'New: the Attack button now has a ring that traces itself in as it cools down, so you can see exactly when it\'s back at full power.',
+      'New: your character now appears as a silhouette in battle instead of facing you head-on.',
+      'New: healing at the well now shows a blue ring closing in on you (skipped if you\'re already at full health).',
+      'Fixed: parrying multiple monsters at once no longer stacks several PARRY! badges on top of each other.',
+      'Fixed: buying more than one new piece of gear in the shop no longer makes the earlier "equip now?" prompt disappear - each stays queued until you answer it, and there\'s now a single ✕ to dismiss them all.',
+      'Changed: Iron gear costs quite a bit more than Cloth now - you\'ll want to gear up in Cloth first.',
+      'Changed: a monster type\'s first pack encounter now starts small and grows the more of that monster you\'ve killed, instead of sometimes throwing a big pack at you right away.',
+      'Changed: the Axe/Pick/Boat/Portal Guardians have a lot more HP now.',
+    ],
+  },
+  {
     version: '0.24.6',
     date: '2026-09-04',
     highlights: [

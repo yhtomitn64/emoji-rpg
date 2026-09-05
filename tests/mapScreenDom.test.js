@@ -437,7 +437,11 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
     // 3 extra slots - 0.01/0.4/0.7 into the same 3-species table picks index
     // 0/1/2 ('boar'/'bat'/'snake'). Confirmed this sequence actually produces
     // ['boar', 'boar', 'bat', 'snake'] against Task 1 + this task's own
-    // call-site change, both applied.
+    // call-site change, both applied. monsterKillCounts is 20, not the bare
+    // threshold of 10 - killCountSizeCap (js/systems/groupEncounters.js,
+    // added 2026-09-04) pins a species' very first eligible encounter to
+    // GROUP_SIZE_MIN regardless of the size roll, only reaching this test's
+    // intended max of 4 once 10 kills past the threshold have landed.
     const sequence = [0.5, 0.5, 0.01, 0.99, 0.01, 0.01, 0.99, 0.01, 0.4, 0.7];
     let i = 0;
     Math.random = () => sequence[Math.min(i++, sequence.length - 1)];
@@ -455,7 +459,7 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
       const worldGrid = buildWorldGrid(maps);
       const state = baseState({
         position: { x: 0, y: 1 },
-        monsterKillCounts: { boar: 10, bat: 10, snake: 10 },
+        monsterKillCounts: { boar: 20, bat: 20, snake: 20 },
       });
       const { mount } = await import('../js/screens/mapScreen.js');
       const root = createRoot();
@@ -487,6 +491,10 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
     // roll (must be < groupSpawnChance(2) = 0.5), (7) size roll (0.99 ->
     // effectiveGroupSizeMax(2, 900) = min(6, 4 + 2 + floor(900/300)) = 6),
     // then (8)-(12) one species pick per of the 5 extra slots.
+    // monsterKillCounts is 30, not the bare threshold of 10 -
+    // killCountSizeCap (js/systems/groupEncounters.js, added 2026-09-04)
+    // only reaches this test's intended max of 6 once 20 kills past the
+    // threshold have landed (see that function's own comment).
     const sequence = [0.5, 0.5, 0.01, 0.99, 0.01, 0.01, 0.99, 0.01, 0.4, 0.7, 0.2, 0.99];
     let i = 0;
     Math.random = () => sequence[Math.min(i++, sequence.length - 1)];
@@ -504,7 +512,7 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
       const worldGrid = buildWorldGrid(maps);
       const state = baseState({
         position: { x: 0, y: 1 },
-        monsterKillCounts: { boar: 10, bat: 10, snake: 10 },
+        monsterKillCounts: { boar: 30, bat: 30, snake: 30 },
         ngPlusCycle: 2,
         zone1Steps: 900,
       });

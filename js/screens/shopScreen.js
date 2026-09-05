@@ -16,17 +16,33 @@ const GEAR_BUY_QUANTITIES = [1];
 let rootEl = null;
 let state = null;
 let callbacks = null;
-let pendingEquip = null;
+// A queue, not a single slot (raised 2026-09-04: "if you buy multiple the
+// equip now should stay up for all of them you bought so you can buy 4
+// pieces then equip them all") - buying a second not-yet-equipped item used
+// to silently overwrite the first one's prompt, dropping it with no way
+// back short of digging through Inventory. Keyed by itemId (deduped in
+// buyItem below) rather than index, so a click's dataset always names the
+// right row even after another row is removed in between renders.
+let pendingEquipQueue = [];
 let sellDuplicatesMessage = null;
 
 function renderEquipPrompt() {
-  if (!pendingEquip) return '';
-  const item = ITEMS[pendingEquip];
-  const deltaText = formatStatDelta(getItemStatDelta(state, pendingEquip));
-  return `<div class="shop-equip-prompt">
-    <span>Equip ${item.emoji} ${item.name} now?${deltaText ? ` (${deltaText})` : ''}</span>
-    <button id="btn-equip-prompt-yes">Equip</button>
-    <button id="btn-equip-prompt-no">Not now</button>
+  if (pendingEquipQueue.length === 0) return '';
+  const rows = pendingEquipQueue.map((itemId) => {
+    const item = ITEMS[itemId];
+    const deltaText = formatStatDelta(getItemStatDelta(state, itemId));
+    return `<div class="shop-equip-prompt">
+      <span>Equip ${item.emoji} ${item.name} now?${deltaText ? ` (${deltaText})` : ''}</span>
+      <button data-equip-yes="${itemId}">Equip</button>
+      <button data-equip-no="${itemId}">Not now</button>
+    </div>`;
+  }).join('');
+  return `<div class="shop-equip-prompt-banner">
+    <div class="shop-equip-prompt-banner-head">
+      <span>Equip your new gear?</span>
+      <button class="shop-equip-prompt-close-all" id="btn-equip-prompt-close-all" aria-label="Dismiss all equip prompts">✕</button>
+    </div>
+    ${rows}
   </div>`;
 }
 
@@ -111,23 +127,33 @@ function render() {
       sellDuplicatesMessage = result.soldCount === 0
         ? 'No duplicates to sell.'
         : `Sold ${result.soldCount} duplicate item${result.soldCount === 1 ? '' : 's'} for ${result.goldEarned}g.`;
-      pendingEquip = null;
+      pendingEquipQueue = [];
       callbacks.onPurchase();
       render();
     };
   }
-  if (pendingEquip) {
-    document.getElementById('btn-equip-prompt-yes').onclick = () => {
-      const slot = ITEMS[pendingEquip].slot;
+  rootEl.querySelectorAll('button[data-equip-yes]').forEach((btn) => {
+    btn.onclick = () => {
+      const itemId = btn.dataset.equipYes;
+      const slot = ITEMS[itemId].slot;
       const replacedItemId = state.equipment[slot] || null;
-      Object.assign(state, equipItem(state, pendingEquip, slot));
-      logEvent('gear_equipped', { itemId: pendingEquip, slot, tier: null, upgradeLevel: getUpgradeLevel(state, pendingEquip, undefined), replacedItemId, ngPlusCycle: state.ngPlusCycle });
-      pendingEquip = null;
+      Object.assign(state, equipItem(state, itemId, slot));
+      logEvent('gear_equipped', { itemId, slot, tier: null, upgradeLevel: getUpgradeLevel(state, itemId, undefined), replacedItemId, ngPlusCycle: state.ngPlusCycle });
+      pendingEquipQueue = pendingEquipQueue.filter((id) => id !== itemId);
       callbacks.onPurchase();
       render();
     };
-    document.getElementById('btn-equip-prompt-no').onclick = () => {
-      pendingEquip = null;
+  });
+  rootEl.querySelectorAll('button[data-equip-no]').forEach((btn) => {
+    btn.onclick = () => {
+      pendingEquipQueue = pendingEquipQueue.filter((id) => id !== btn.dataset.equipNo);
+      render();
+    };
+  });
+  const closeAllEquipPromptsBtn = document.getElementById('btn-equip-prompt-close-all');
+  if (closeAllEquipPromptsBtn) {
+    closeAllEquipPromptsBtn.onclick = () => {
+      pendingEquipQueue = [];
       render();
     };
   }
@@ -143,7 +169,9 @@ function buyItem(itemId, quantity = 1) {
   let next = spendGold(state, item.price * quantity);
   next = addItem(next, itemId, quantity);
   Object.assign(state, next);
-  pendingEquip = (item.slot && state.equipment[item.slot] !== itemId) ? itemId : null;
+  if (item.slot && state.equipment[item.slot] !== itemId && !pendingEquipQueue.includes(itemId)) {
+    pendingEquipQueue.push(itemId);
+  }
   sellDuplicatesMessage = null;
   callbacks.onPurchase();
   render();
@@ -168,7 +196,7 @@ function sellItem(itemId, tier) {
   let next = removeItem(state, itemId, 1, tier); // tier undefined for the Plain row's button, 'fine'/'superior' for a tiered row's
   next = addGold(next, sellPrice(ITEMS[itemId].price));
   Object.assign(state, next);
-  pendingEquip = null;
+  pendingEquipQueue = [];
   sellDuplicatesMessage = null;
   callbacks.onPurchase();
   render();
@@ -178,7 +206,7 @@ export function mount(root, props) {
   rootEl = root;
   state = props.state;
   callbacks = props.callbacks;
-  pendingEquip = null;
+  pendingEquipQueue = [];
   sellDuplicatesMessage = null;
   render();
   window.addEventListener('keydown', handleKeydown);

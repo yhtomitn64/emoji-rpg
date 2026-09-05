@@ -484,6 +484,25 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   font-size: 3rem;
   line-height: 1;
 }
+/* Raised 2026-09-04: "seems silly when fighting the character is staring
+   back at the player... we should probably see the back of their head but
+   there is no emoji for that." No emoji base exists for a rear view, so
+   this fakes it on the existing chosen emoji instead - a full silhouette
+   (grayscale + darkened, not the flatter pure-black first cut from the
+   mockup pass) plus a soft glow so it still reads clearly against the dark
+   battle background rather than just going murky. A class, not an ID
+   selector on #battle-hero-emoji directly, and defined here (before
+   .battle-hit-flash/.battle-parry-flash further down) on purpose: those two
+   also set their own `filter` on this same element when the hero is hit or
+   lands a parry, and need to win over this base look for their own brief
+   flash rather than being silently overridden by a higher-specificity rule -
+   equal specificity + later source order already gives them that, this
+   silhouette just needs to not fight it. Tabled for later, per Timothy's own
+   note: real custom back-view art per hero option, possibly via an image
+   model on his other machine - this CSS trick ships first. */
+.battle-hero-silhouette {
+  filter: grayscale(1) brightness(0.45) drop-shadow(0 0 8px rgba(74, 222, 128, 0.35));
+}
 .battle-name {
   font-weight: 600;
   margin-top: 4px;
@@ -798,6 +817,37 @@ button:disabled {
   pointer-events: none;
   background: conic-gradient(rgba(231, 76, 60, 0.5) calc(var(--pct, 0) * 1%), transparent calc(var(--pct, 0) * 1%));
 }
+/* Attack-only (actionButtonHtml's readyRing) - raised 2026-09-04: "seems
+   silly... doesn't let you know when it's at full power again... maybe a
+   border that slowly draws until full." A thin ring traces itself in around
+   the button as the red wipe above empties out, closing into a full glowing
+   loop exactly when Attack comes off cooldown - a second, always-visible
+   signal alongside the wipe rather than a replacement for it. Same --pct
+   value/meaning as the wipe (remaining-cooldown percent, smoothed by
+   animateCooldownWipes) - stroke-dashoffset just reads it inverted (100% ->
+   fully undrawn, 0% -> fully closed) since a ring drawing in should empty
+   out right after swinging, not start full. */
+.battle-ability-ready-ring {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.battle-ability-ready-ring circle {
+  fill: none;
+  stroke: #4ade80;
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* 2*pi*25 (the circle's own r=25), rounded. */
+  stroke-dasharray: 157;
+  stroke-dashoffset: calc(157 * var(--pct, 0) / 100);
+  transform: rotate(-90deg);
+  transform-origin: 28px 28px;
+  filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.6));
+}
 .battle-ability-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -855,9 +905,37 @@ button:focus-visible {
   gap: 4px;
   justify-content: flex-end;
 }
+/* Wraps one row per queued purchase (see shopScreen.js's pendingEquipQueue).
+   Deliberately not .screen-close-x's absolute-positioned corner style - that
+   class assumes one per overlay panel, anchored to the panel's own corner
+   (see its own comment further down); reusing it here rendered a second
+   circular X almost on top of the real "leave shop" one, right under the
+   heading. This dismiss-all X is just an inline flex child of its own small
+   header row instead, so it can never overlap anything else on the screen. */
+.shop-equip-prompt-banner {
+  margin-bottom: 10px;
+}
+.shop-equip-prompt-banner-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+.shop-equip-prompt-close-all {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  line-height: 20px;
+  text-align: center;
+  font-size: 0.8rem;
+  border-radius: 50%;
+}
 .shop-equip-prompt {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 10px; margin-bottom: 10px; gap: 12px;
+  padding: 8px 10px; margin-bottom: 8px; gap: 12px;
   background: rgba(74, 222, 128, 0.12);
   border: 1px solid #4ade80;
   border-radius: 6px;
@@ -1204,6 +1282,49 @@ button:focus-visible {
   font-size: 4rem;
 }
 
+/* Well healing effect (js/screens/mapScreen.js's playWellHealEffect) - a
+   blue ring collapses onto the player's own tile as they heal, ending in a
+   soft glow bloom right as it lands. Same translate(-50%,-50%) centering
+   trick as .map-levelup-rays above, positive z-index (not that one's -1)
+   since this should read as arriving ON the character, not glowing out
+   from behind them. */
+@keyframes map-well-heal-ring {
+  0% { transform: translate(-50%, -50%) scale(24); opacity: 0.9; border-width: 2px; }
+  70% { opacity: 0.9; border-width: 4px; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; border-width: 6px; }
+}
+.map-well-heal-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 4px solid rgba(90, 170, 255, 0.9);
+  background: radial-gradient(circle, rgba(90, 170, 255, 0.25), transparent 70%);
+  pointer-events: none;
+  z-index: 2;
+  animation: map-well-heal-ring 1.1s cubic-bezier(0.3, 0.6, 0.3, 1) forwards;
+}
+@keyframes map-well-heal-glow {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; }
+}
+.map-well-heal-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 190, 255, 0.55), transparent 70%);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.3);
+  animation: map-well-heal-glow 700ms ease-out 750ms forwards;
+}
+
 .stats-slot {
   padding: 4px 0;
   border-bottom: 1px solid #333;
@@ -1339,55 +1460,175 @@ button:focus-visible {
 .battle-swing-trail {
   z-index: 36;
 }
-/* Basic Attack's own hit mark, raised 2026-09-04: Timothy's own read on the
-   old traveling-weapon-emoji sprite (a 4rem dagger flying from the hero's
-   own portrait, rotating a full 360deg over 1.5s) was "looks so silly
-   spinning around" - and because that sprite's animation starts centered
-   exactly on the hero's own zone before it travels, the same effect was
-   also covering the "You" label for its opening frames (a separate bug
-   report, same root cause). This replaces Attack's swing specifically
-   (Stab/Chop/Slash/Sweep/Super Scream keep their own existing emoji-sprite
-   swings, untouched - not part of either complaint) with a CSS-drawn slash
-   mark that appears directly on the monster being hit, never touching the
-   hero's own zone at all. No image/sprite asset - same emoji+CSS-only
-   pipeline every other battle effect in this file already uses.
-   scaleX 0->1 with transform-origin left reads as the blade's edge
-   "drawing" the cut across the target rather than just fading in. */
-@keyframes battle-attack-slash {
-  0% { transform: translate(-50%, -50%) rotate(-35deg) scaleX(0); opacity: 0; }
-  15% { opacity: 1; }
-  55% { transform: translate(-50%, -50%) rotate(-35deg) scaleX(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) rotate(-35deg) scaleX(1); opacity: 0; }
+/* Ability hit-mark decals, raised 2026-09-04: Timothy's own read on the old
+   traveling-weapon-emoji sprites (a big emoji flying from the hero's own
+   portrait, rotating in transit) was "no more emoji's for the attacks...
+   swords flying around" - and Attack's own sprite in particular briefly
+   covered the "You" label since its animation started centered on the
+   hero's own zone. Replaced (after a full mockup pass - see the published
+   Battle FX & Shop Lab artifact) with one CSS-drawn decal per ability,
+   drawn directly on the monster being hit, never touching the hero's own
+   zone at all. No image/sprite asset - same emoji+CSS-only pipeline every
+   other battle effect in this file already uses. Sweep/Super Scream keep
+   their own existing traveling-sprite/no-swing behavior, untouched.
+
+   Impale: two crossing strokes, thrust-straight-in. scaleX 0->1 reads as
+   the blade's edge "drawing" the cut rather than fading in - same trick
+   the old basic-Attack slash mark used. --angle is set inline per element
+   (js/screens/battleScreen.js's playImpaleDecal) since each stroke needs
+   its own fixed rotation baked into the same transform the scaleX
+   progression animates - see that function's own comment for why a
+   separately-animated `scale` property doesn't work here. */
+@keyframes battle-impale-stroke {
+  0% { transform: translate(-50%, -50%) rotate(var(--angle)) scaleX(0); opacity: 0; }
+  25% { opacity: 1; }
+  55% { transform: translate(-50%, -50%) rotate(var(--angle)) scaleX(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--angle)) scaleX(1); opacity: 0; }
 }
-.battle-attack-slash {
+.battle-impale-stroke {
   position: fixed;
-  width: 110px;
-  height: 6px;
-  border-radius: 3px;
+  width: 44px;
+  height: 3px;
+  border-radius: 2px;
   background: linear-gradient(90deg, transparent, #fff 15%, #fff 85%, transparent);
-  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.7);
   pointer-events: none;
-  transform-origin: center;
-  animation: battle-attack-slash 260ms ease-out forwards;
+  animation: battle-impale-stroke 300ms ease-out forwards;
   z-index: 37;
   will-change: transform, opacity;
 }
-/* A crit gets a second, offset stroke crossing the first into an X, plus a
-   brighter/wider mark - same "escalate, don't just repeat" idea as the old
-   sprite's afterimage trail on a crit. */
-.battle-attack-slash-crit {
-  width: 130px;
-  height: 8px;
-  box-shadow: 0 0 12px 4px rgba(255, 215, 0, 0.85);
+/* Crit (or a Faultline-widened hit) steps up to four of these strokes
+   (js/screens/battleScreen.js's playImpaleDecal) instead of two, each
+   bigger/thicker via this class - "quad piercing and bigger and thicker,"
+   not just a size bump on the same two strokes. */
+.battle-impale-stroke-big {
+  width: 60px;
+  height: 5px;
+  background: linear-gradient(90deg, transparent, #fff 10%, #ffe9a8 50%, #fff 90%, transparent);
+  box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.85);
 }
-.battle-attack-slash-crit-second {
-  animation-name: battle-attack-slash-crit-second;
+
+/* Sever: a curved arc swinging down from overhead, like the axe's own edge
+   caught mid-swing. border-top/border-right on a circle, rotated in from
+   overhead, reads as a crescent blade arc without any SVG. */
+@keyframes battle-sever-arc {
+  0% { transform: translate(-50%, -55%) rotate(-110deg) scale(0.5); opacity: 0; }
+  30% { opacity: 1; }
+  65% { transform: translate(-50%, -55%) rotate(30deg) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -55%) rotate(30deg) scale(1); opacity: 0; }
 }
-@keyframes battle-attack-slash-crit-second {
-  0% { transform: translate(-50%, -50%) rotate(35deg) scaleX(0); opacity: 0; }
+.battle-sever-arc {
+  position: fixed;
+  width: 70px;
+  height: 70px;
+  border: 4px solid transparent;
+  border-top-color: #b8824a;
+  border-right-color: #b8824a;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(184, 130, 74, 0.7));
+  animation: battle-sever-arc 380ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  z-index: 37;
+  will-change: transform, opacity;
+}
+/* Crit/empowered: a second, bigger/brighter arc a beat after the first
+   (js/screens/battleScreen.js's playSeverDecal) - "escalate, don't just
+   repeat," same idea the old crit afterimage trail used. */
+.battle-sever-arc-big {
+  width: 90px;
+  height: 90px;
+  border-width: 6px;
+  filter: drop-shadow(0 0 9px rgba(184, 130, 74, 0.9));
+}
+
+/* Lacerate: three raking claw strokes plus a couple of drops falling from
+   the cut - a direct visual callback to its own delayed bleed tick
+   (js/screens/battleScreen.js's playLacerateDecal combines both options
+   from the mockup pass rather than picking just one). */
+@keyframes battle-lacerate-claw-1 {
+  0% { transform: translate(calc(-50% - 8px), calc(-50% - 10px)) rotate(38deg) scaleX(0); opacity: 0; }
+  25% { opacity: 1; }
+  55% { transform: translate(calc(-50% - 8px), calc(-50% - 10px)) rotate(38deg) scaleX(1); opacity: 1; }
+  100% { transform: translate(calc(-50% - 8px), calc(-50% - 10px)) rotate(38deg) scaleX(1); opacity: 0; }
+}
+@keyframes battle-lacerate-claw-2 {
+  0% { transform: translate(-50%, -50%) rotate(38deg) scaleX(0); opacity: 0; }
+  25% { opacity: 1; }
+  55% { transform: translate(-50%, -50%) rotate(38deg) scaleX(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(38deg) scaleX(1); opacity: 0; }
+}
+@keyframes battle-lacerate-claw-3 {
+  0% { transform: translate(calc(-50% + 8px), calc(-50% + 10px)) rotate(38deg) scaleX(0); opacity: 0; }
+  25% { opacity: 1; }
+  55% { transform: translate(calc(-50% + 8px), calc(-50% + 10px)) rotate(38deg) scaleX(1); opacity: 1; }
+  100% { transform: translate(calc(-50% + 8px), calc(-50% + 10px)) rotate(38deg) scaleX(1); opacity: 0; }
+}
+.battle-lacerate-claw {
+  position: fixed;
+  width: 54px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #d43f3f 20%, #ff9a8a 80%, transparent);
+  box-shadow: 0 0 5px 1px rgba(212, 63, 63, 0.7);
+  pointer-events: none;
+  z-index: 37;
+  will-change: transform, opacity;
+}
+.battle-lacerate-claw-1 { animation: battle-lacerate-claw-1 400ms ease-out forwards; }
+.battle-lacerate-claw-2 { animation: battle-lacerate-claw-2 400ms ease-out forwards; }
+.battle-lacerate-claw-3 { animation: battle-lacerate-claw-3 400ms ease-out forwards; }
+.battle-lacerate-claw-big {
+  height: 4px;
+  box-shadow: 0 0 9px 2px rgba(212, 63, 63, 0.9);
+}
+@keyframes battle-lacerate-drop {
+  0% { opacity: 0; translate: 0 0; }
   15% { opacity: 1; }
-  55% { transform: translate(-50%, -50%) rotate(35deg) scaleX(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) rotate(35deg) scaleX(1); opacity: 0; }
+  100% { opacity: 0; translate: 0 26px; }
+}
+.battle-lacerate-drop {
+  position: fixed;
+  width: 4px;
+  height: 6px;
+  border-radius: 50% 50% 50% 0;
+  background: #d43f3f;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 37;
+  animation: battle-lacerate-drop 620ms ease-in forwards;
+  will-change: transform, opacity;
+}
+.battle-lacerate-drop-1 { transform: translate(calc(-50% - 10px), -50%); }
+.battle-lacerate-drop-2 { transform: translate(calc(-50% + 4px), -50%); }
+.battle-lacerate-drop-3 { transform: translate(calc(-50% + 14px), -50%); }
+
+/* Basic Attack's own hit mark: a shockwave ring on the target - swapped
+   2026-09-04 from an earlier white slash-mark version after a mockup pass
+   turned up "i like shockwave ring" as the preferred punch effect. The
+   target's own zone already shakes on every hit regardless
+   (js/screens/battleScreen.js's playHitEffect, battle-hit-shake), so this
+   needs no shake of its own. */
+@keyframes battle-attack-ring {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; border-width: 1px; }
+}
+.battle-attack-ring {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid #ffd54a;
+  pointer-events: none;
+  animation: battle-attack-ring 380ms ease-out forwards;
+  z-index: 37;
+  will-change: transform, opacity;
+}
+/* Crit/empowered: a second ring a beat after the first, same "escalate,
+   don't just repeat" idea as Sever's own crit arc above. */
+.battle-attack-ring-big {
+  border-width: 4px;
+  box-shadow: 0 0 10px 3px rgba(255, 215, 74, 0.6);
 }
 .map-flee-emoji {
   position: fixed;

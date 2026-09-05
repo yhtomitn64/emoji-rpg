@@ -175,7 +175,7 @@ test('shopScreen DOM - equip prompt telemetry', async (t) => {
 
     const buyBtn = root.querySelector('button[data-item="ironSword"][data-qty="1"]');
     click(buyBtn);
-    const equipYesBtn = root.querySelector('#btn-equip-prompt-yes');
+    const equipYesBtn = root.querySelector('button[data-equip-yes="ironSword"]');
     assert.ok(equipYesBtn, 'expected the equip prompt to appear after buying an unequipped gear item');
     click(equipYesBtn);
 

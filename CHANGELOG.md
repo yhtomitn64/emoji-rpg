@@ -24,6 +24,77 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-09-04
+
+### Added
+- Ability hit effects for Impale/Sever/Lacerate/Attack replaced the old
+  traveling-glyph swing sprite with a decal drawn directly on the target,
+  matching Attack's own earlier slash-mark approach - `playImpaleDecal`
+  (two crossing strokes, four bigger/thicker ones on crit or while
+  Faultline's widen buff is active), `playSeverDecal` (a curved arc, a
+  second bigger one on crit/empowered), `playLacerateDecal` (three
+  raking claw strokes plus falling drops, tying the visual to its own
+  delayed bleed tick), and `playAttackImpact` (a shockwave ring,
+  replacing the white slash mark Attack briefly had). `swingKeyframesFor`/
+  `swingSpriteEmoji`/`SWING_DURATION_MS` removed - Sweep keeps its own
+  traveling-sprite system unchanged. `tools/animation-lab/` is left as-is
+  for now, disconnected from these four abilities.
+- Extra-target hits (Sever's own bonus target, or any ability widened by
+  Faultline's buff) now land `EXTRA_TARGET_STAGGER_MS` (140ms) apart with
+  their own swing effect, instead of resolving instantly with only a hit
+  flash and no swing at all.
+- Attack's own action button gets an always-visible SVG "ready ring"
+  (`actionButtonHtml`'s `readyRing` option) that traces itself in as its
+  cooldown counts down, closing into a full glowing loop exactly when
+  it's usable again - the four abilities already had their own
+  cooldown-wipe/retrigger-glow signal, Attack didn't.
+- Spamming Attack now also floors the shared ability GCD (not just
+  Attack's own already-growing cooldown) via a new
+  `attackStreakGcdBonusMs` growth term - previously a player could spam
+  Attack at full speed while still firing an ability the instant its own
+  cooldown expired, undercutting the GCD's own point.
+- The hero's own battle emoji renders as a flat grayscale silhouette with
+  a soft glow (`.battle-hero-silhouette`) instead of the full-color emoji
+  facing the player - "the character is staring back at the player" with
+  no back-of-head emoji available to draw instead. Real custom back-view
+  art per hero option is tabled for later.
+- Resting at the well (only when it actually heals - already-full-HP
+  stays a no-op) now plays a collapsing blue ring + landing glow on the
+  player's own map tile (`playWellHealEffect`), instead of silently
+  setting HP to max.
+
+### Fixed
+- Multi-mob parries no longer stack one PARRY! badge/flash per monster
+  parried in the same press - `resolveMonsterWindup` gained a
+  `playHeroEffect` option so `attemptParry`'s multi-mob loop can suppress
+  the per-monster call and fire one shared effect instead.
+- Buying a second (or third, fourth...) unequipped gear item in the shop
+  no longer silently overwrites the previous item's "equip now?" prompt -
+  `pendingEquip` became `pendingEquipQueue`, rendering one prompt row per
+  queued item plus a dismiss-all ✕ on the banner. That ✕ was originally
+  built reusing `.screen-close-x` (the shop's own top-right "Leave"
+  button's style) and rendered nearly on top of it - fixed to a small
+  inline button scoped to its own banner instead.
+
+### Changed
+- Iron Helm/Armor/Greaves now cost ~4.5x their Cloth equivalent (70g/
+  90g/65g, up from 35g/45g/30g) instead of ~2.2x, so a fresh run walks
+  through the Cloth tier before Iron is affordable rather than skipping
+  it. First-pass numbers, not yet played against a full run.
+- A monster species' first eligible group encounter is now pinned to the
+  minimum group size (`killCountSizeCap`), climbing by one every 5
+  further kills of that species until it catches up to whatever the
+  existing NG+/zone1Steps escalation already allows - previously a
+  species crossing the group-spawn kill threshold could immediately roll
+  anywhere up to an already-escalated max from unrelated grinding.
+- Tool-dungeon guardians (Axe/Pick/Boat/Portal) got +50% HP (140→210,
+  175→265, 210→315) - two telemetry playthroughs this session both
+  showed Axe Guardian dying in 7-9s at 85-100% HP remaining, no tougher
+  than an ordinary wilderness fight despite being a guaranteed-tool
+  guaranteed-reward encounter. Attack/defense untouched - this only
+  extends the fight, it doesn't add real danger. Pending a real tuning
+  pass with `scripts/simulate-balance.js`.
+
 ## [0.24.6] - 2026-09-04
 
 ### Added

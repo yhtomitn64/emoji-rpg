@@ -849,6 +849,32 @@ export function playLevelUpEffect() {
   }, LEVEL_UP_EFFECT_DURATION_MS);
 }
 
+const WELL_HEAL_EFFECT_DURATION_MS = 1100;
+
+// Raised 2026-09-04, "Ring + Warm Landing Glow" from the mockup pass: resting
+// at the well used to just silently set HP to max with no on-screen effect
+// at all. handleUseWell() (js/main.js) already skips calling this whenever
+// the player is already at full HP ("if at full health than no circle"), so
+// this only ever needs to handle the "actually healed" case. Same
+// grab-the-already-rendered-player-cell approach as playLevelUpEffect above.
+export function playWellHealEffect() {
+  const playerCell = rootEl?.querySelector('.map-tile-player');
+  if (!playerCell) return;
+
+  const ring = document.createElement('div');
+  ring.className = 'map-well-heal-ring';
+  playerCell.appendChild(ring);
+
+  const glow = document.createElement('div');
+  glow.className = 'map-well-heal-glow';
+  playerCell.appendChild(glow);
+
+  setTimeout(() => {
+    ring.remove();
+    glow.remove();
+  }, WELL_HEAL_EFFECT_DURATION_MS);
+}
+
 const MONSTER_FLEE_EFFECT_DURATION_MS = 700;
 const MONSTER_FLEE_DISTANCE_PX = 120;
 

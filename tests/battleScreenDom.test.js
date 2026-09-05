@@ -85,6 +85,15 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#btn-ability-chop'), null); // unlocks at 4
   });
 
+  // Raised 2026-09-04: "seems silly when fighting the character is staring
+  // back at the player" - the hero's own emoji gets a silhouette look in
+  // battle only (css/styles.css's .battle-hero-silhouette), never on the
+  // overworld map where facing the player is normal.
+  await t.test('the hero\'s own battle emoji gets the silhouette styling class', async () => {
+    const { root } = await mountBattle(['boar']);
+    assert.equal(root.querySelector('#battle-hero-emoji').classList.contains('battle-hero-silhouette'), true);
+  });
+
   // Raised 2026-08-31: with pause now able to freeze mid-battle specifically
   // so a player can go read tooltips (see the mid-battle pause entry in
   // BACKLOG_SHIPPED.md), every action button needs an actual "what this
@@ -103,6 +112,27 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#btn-ability-slash').title, /bleeds for extra damage/);
     assert.match(root.querySelector('#btn-ability-sweep').title, /every living enemy/);
     assert.match(root.querySelector('#btn-ability-superScream').title, /boosts all your damage/);
+  });
+
+  // Raised 2026-09-04: "seems silly... doesn't let you know when it's at
+  // full power again... maybe a border that slowly draws until full." Scoped
+  // to just the Attack button - the four abilities already show their own
+  // cooldown-wipe overlay and (Lacerate) a retrigger glow.
+  await t.test('only the Attack button gets a ready-ring, present even before it has ever been on cooldown', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
+    assert.ok(root.querySelector('#btn-attack-ready-ring'), 'Attack should always render its ready-ring, even at rest');
+    assert.equal(root.querySelector('#btn-attack-ready-ring circle').getAttribute('cx'), '28');
+    assert.equal(root.querySelector('#btn-parry-ready-ring'), null, 'Parry should not get a ready-ring');
+    assert.equal(root.querySelector('#btn-ability-stab-ready-ring'), null, 'abilities should not get a ready-ring');
+  });
+
+  await t.test('the Attack ready-ring tracks the same --pct as its cooldown-wipe overlay', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    const wipePct = Number(root.querySelector('#btn-attack-wipe').style.getPropertyValue('--pct'));
+    const ringPct = Number(root.querySelector('#btn-attack-ready-ring').style.getPropertyValue('--pct'));
+    assert.ok(wipePct > 0, 'sanity check: Attack should actually be on cooldown after a real press');
+    assert.equal(ringPct, wipePct, 'the ready-ring should start at the same remaining-cooldown percent as the wipe');
   });
 
   await t.test('clicking Attack deals damage to the target monster', async () => {
@@ -302,6 +332,11 @@ test('battleScreen DOM', async (t) => {
     const hpText = (i) => root.querySelector(`#battle-monster-hp-text-${i}`).textContent;
     const before = [hpText(0), hpText(1), hpText(2)];
     click(root.querySelector('#btn-ability-chop'));
+    // The extra target now lands EXTRA_TARGET_STAGGER_MS after the primary
+    // one, not in the same synchronous click handler - see
+    // playerUseAbility's own comment in battleScreen.js for why (staggering
+    // multi-target hits so they read as independent swings).
+    await new Promise((resolve) => setTimeout(resolve, 200));
     const after = [hpText(0), hpText(1), hpText(2)];
     const hitCount = after.filter((text, i) => text !== before[i]).length;
     assert.equal(hitCount, 2, 'Sever should hit exactly the selected target plus one other');
@@ -324,6 +359,9 @@ test('battleScreen DOM', async (t) => {
 
     const before = [hpText(0), hpText(1), hpText(2)];
     click(root.querySelector('#btn-ability-stab'));
+    // See the plain Sever test above for why this needs to wait out
+    // EXTRA_TARGET_STAGGER_MS now.
+    await new Promise((resolve) => setTimeout(resolve, 200));
     const after = [hpText(0), hpText(1), hpText(2)];
     const hitCount = after.filter((text, i) => text !== before[i]).length;
     assert.equal(hitCount, 2, 'Impale should hit its target plus one extra while the widen buff is active');
@@ -349,6 +387,9 @@ test('battleScreen DOM', async (t) => {
 
     const before = [hpText(0), hpText(1), hpText(2), hpText(3)];
     click(root.querySelector('#btn-ability-chop'));
+    // Two extra targets now, each staggered EXTRA_TARGET_STAGGER_MS apart -
+    // see the plain Sever test above for why. Margin for both.
+    await new Promise((resolve) => setTimeout(resolve, 400));
     const after = [hpText(0), hpText(1), hpText(2), hpText(3)];
     const hitCount = after.filter((text, i) => text !== before[i]).length;
     assert.equal(hitCount, 3, 'Sever should hit its target plus its own extra plus one more from the widen buff');
@@ -462,6 +503,22 @@ test('battleScreen DOM', async (t) => {
     assert.equal((log.match(/You parry/g) || []).length, 3, 'all three monsters mid-wind-up should be parried, even this early');
   });
 
+  // Raised 2026-09-04: "when you parry multi mob the parries all overlap and
+  // look bad" - each parried monster used to fire its own PARRY! badge/flash
+  // on the hero's own zone, so three landing at once stacked three badges on
+  // top of each other. Only one shared badge/flash should appear regardless
+  // of how many monsters got parried in the same press.
+  await t.test('multi-mob parry shows only one shared PARRY! badge, not one per monster', async () => {
+    const { root } = await mountBattle(['boar', 'boar', 'boar'], {
+      monsterOverrides: [{ speed: 1000 }, { speed: 1000 }, { speed: 1000 }],
+    });
+    const fill0 = root.querySelector('#battle-monster-atb-fill-0');
+    await waitForWindupStart(fill0);
+    keydown('s');
+    assert.equal((root.querySelector('#battle-log').textContent.match(/You parry/g) || []).length, 3);
+    assert.equal(document.querySelectorAll('.battle-perfect-timing-badge-parry').length, 1, 'expected exactly one PARRY! badge even though three monsters landed');
+  });
+
   await t.test('clicking a monster\'s ATB bar to parry also respects the shared cooldown', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     const fill = root.querySelector('#battle-monster-atb-fill-0');
@@ -526,26 +583,29 @@ test('battleScreen DOM', async (t) => {
     assert.match(log, /Retribution Charm reflects/);
   });
 
-  await t.test('clicking Attack spawns a CSS slash mark on the target, not a traveling weapon-emoji sprite', async () => {
+  await t.test('clicking Attack spawns a shockwave ring on the target, not a traveling weapon-emoji sprite', async () => {
     // Raised 2026-09-04: Timothy's own read on the old traveling-weapon-emoji
     // sprite was "looks so silly spinning around" - also, since that sprite's
     // animation started centered on the hero's own zone before traveling, it
     // briefly covered the "You" label too (a separate bug report, same root
-    // cause). Replaced with a CSS-drawn slash mark that appears directly on
-    // the monster - see .battle-attack-slash in css/styles.css.
+    // cause). First replaced with a CSS-drawn slash mark, then (same day, a
+    // later mockup pass - "i like shockwave ring") replaced again with
+    // playAttackImpact's ring - see .battle-attack-ring in css/styles.css.
     const { root } = await mountBattle(['boar']);
     click(root.querySelector('#btn-attack'));
-    assert.ok(document.querySelector('.battle-attack-slash'), 'expected a slash-mark element on a basic Attack');
+    assert.ok(document.querySelector('.battle-attack-ring'), 'expected a shockwave-ring element on a basic Attack');
     assert.equal(document.querySelector('.battle-swing-sprite'), null, 'Attack should no longer spawn the old emoji sprite');
   });
 
-  await t.test('using Chop spawns a swing sprite carrying Chop\'s own icon, not the equipped weapon\'s', async () => {
+  await t.test('using Chop spawns a crescent-arc decal on the target, not a traveling swing sprite', async () => {
+    // Raised 2026-09-04: replaced the traveling axe-emoji sprite with
+    // playSeverDecal's own curved arc, drawn directly on the target - see
+    // .battle-sever-arc in css/styles.css.
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
     // Every ability resolves synchronously post-rotation-v2 (js/systems/abilities.js) - no timing-meter wait needed for any of them.
     click(root.querySelector('#btn-ability-chop'));
-    const sprite = document.querySelector('.battle-swing-sprite');
-    assert.ok(sprite, 'expected a swing sprite element on using Chop');
-    assert.equal(sprite.textContent, '🪓');
+    assert.ok(document.querySelector('.battle-sever-arc'), 'expected a Sever arc decal element on using Chop');
+    assert.equal(document.querySelector('.battle-swing-sprite'), null, 'Chop should no longer spawn the old emoji sprite');
   });
 
   await t.test('using Sweep hits each target in sequence with a single traveling swing sprite, not all at once', async () => {
@@ -588,30 +648,33 @@ test('battleScreen DOM', async (t) => {
     await new Promise((resolve) => setTimeout(resolve, 900));
   });
 
-  // Attack's own swing was replaced by a CSS slash mark (playAttackSlash,
-  // 2026-09-04) - it has no traveling sprite to grow an afterimage trail on,
-  // so a crit escalates by crossing a second stroke over the first instead
-  // (see .battle-attack-slash-crit-second in css/styles.css).
-  await t.test('a crit Attack gets a second crossed slash stroke', async () => {
+  // Attack's own hit mark has no traveling sprite to grow an afterimage
+  // trail on, so a crit escalates by spawning a second, bigger ring a beat
+  // after the first instead (playAttackImpact, js/screens/battleScreen.js).
+  await t.test('a crit Attack spawns a second, bigger shockwave ring', async () => {
     const originalRandom = Math.random;
     // Forces every rollCrit() roll (js/systems/combat.js's CRIT_CHANCE = 0.1) to land as a crit.
     Math.random = () => 0.01;
     try {
       const { root } = await mountBattle(['boar']);
       click(root.querySelector('#btn-attack'));
-      assert.ok(document.querySelector('.battle-attack-slash-crit-second'), 'a crit Attack should spawn the second crossed stroke');
+      const rings = document.querySelectorAll('.battle-attack-ring');
+      assert.equal(rings.length, 2, 'a crit Attack should spawn a second ring alongside the first');
+      assert.ok([...rings].every((ring) => ring.classList.contains('battle-attack-ring-big')), 'both rings should carry the bigger crit styling');
     } finally {
       Math.random = originalRandom;
     }
   });
 
-  await t.test('a non-crit Attack has no second crossed slash stroke', async () => {
+  await t.test('a non-crit Attack spawns only one, normal-sized shockwave ring', async () => {
     const originalRandom = Math.random;
     Math.random = () => 0.99; // never satisfies rollCrit()'s < 0.1 check
     try {
       const { root } = await mountBattle(['boar']);
       click(root.querySelector('#btn-attack'));
-      assert.equal(document.querySelector('.battle-attack-slash-crit-second'), null, 'a non-crit Attack should not spawn a second stroke');
+      const rings = document.querySelectorAll('.battle-attack-ring');
+      assert.equal(rings.length, 1, 'a non-crit Attack should spawn only one ring');
+      assert.equal(rings[0].classList.contains('battle-attack-ring-big'), false);
     } finally {
       Math.random = originalRandom;
     }

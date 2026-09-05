@@ -558,6 +558,7 @@ function handleUseWell() {
   state.player.hp = effectiveMaxHp;
   persist();
   renderHud();
+  mapScreen.playWellHealEffect();
   showFlavorBanner('You rest at the well and feel fully restored.');
 }
 

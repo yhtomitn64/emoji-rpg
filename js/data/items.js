@@ -16,16 +16,24 @@ export const ITEMS = {
 
   // Head
   clothCap: { id: 'clothCap', name: 'Cloth Cap', emoji: '🧢', slot: 'head', price: 15, stats: { defense: 1 } },
-  ironHelm: { id: 'ironHelm', name: 'Iron Helm', emoji: '⛑️', slot: 'head', price: 35, stats: { defense: 3 } },
+  // Raised 2026-09-04: "iron gear should cost way more to force you to get
+  // all the cloth first" - was 35g (~2.3x Cloth Cap), barely a speed bump
+  // over just saving up straight for Iron. Bumped to a real gap (~4.7x
+  // Cloth Cap) across all three Iron pieces below so a fresh run walks
+  // through the Cloth tier before Iron is affordable, rather than skipping
+  // it. First-pass numbers - not yet run through a playthrough to confirm
+  // the early-game pacing actually lands right; revisit if it reads as too
+  // slow instead.
+  ironHelm: { id: 'ironHelm', name: 'Iron Helm', emoji: '⛑️', slot: 'head', price: 70, stats: { defense: 3 } },
 
   // Body
   clothTunic: { id: 'clothTunic', name: 'Cloth Tunic', emoji: '👕', slot: 'body', price: 20, stats: { defense: 2, maxHp: 4 } },
-  ironArmor: { id: 'ironArmor', name: 'Iron Armor', emoji: '🥋', slot: 'body', price: 45, stats: { defense: 5, maxHp: 8 } },
+  ironArmor: { id: 'ironArmor', name: 'Iron Armor', emoji: '🥋', slot: 'body', price: 90, stats: { defense: 5, maxHp: 8 } }, // see ironHelm's comment above
   dragonScaleMail: { id: 'dragonScaleMail', name: 'Dragon Scale Mail', emoji: '🐲', slot: 'body', price: 0, stats: { defense: 12, maxHp: 18 } },
 
   // Legs
   clothPants: { id: 'clothPants', name: 'Cloth Pants', emoji: '👖', slot: 'legs', price: 15, stats: { defense: 1, speed: 1 } },
-  ironGreaves: { id: 'ironGreaves', name: 'Iron Greaves', emoji: '🦵', slot: 'legs', price: 30, stats: { defense: 3 } },
+  ironGreaves: { id: 'ironGreaves', name: 'Iron Greaves', emoji: '🦵', slot: 'legs', price: 65, stats: { defense: 3 } }, // see ironHelm's comment above
   windGreaves: { id: 'windGreaves', name: 'Wind Greaves', emoji: '👢', slot: 'legs', price: 40, stats: { defense: 1, speed: 4 } },
 
   // Accessory

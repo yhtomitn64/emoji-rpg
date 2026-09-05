@@ -163,6 +163,27 @@ export const ABILITY_GCD_BASE_MS = 1150;
 export const ABILITY_GCD_MS_PER_SPEED = 30;
 export const ABILITY_GCD_FLOOR_MS = 500;
 
+// Raised 2026-09-04: "if you spam attack it slows down the global cooldown
+// all abilities are tied to" - until now, Attack's own spam-decay (streak
+// multiplier/knockback/cooldown above) was entirely independent of the
+// abilities' shared GCD, so a player could spam Attack at full speed AND
+// still fire an ability the instant its own cooldown expired, undercutting
+// the GCD's own point. battleScreen.js applies this on every real Attack
+// press (not an extraSwingChance bonus swing) via abilities.js's
+// applyAbilityGcd with no specific ability id, the same "floor every
+// unlocked ability's cooldown up to at least this" mechanism a real ability
+// use already applies to its GCD siblings. Smaller per-streak growth than
+// Attack's own cooldown (100ms vs 200ms) - "slight," not a full second
+// throttle - since this is a secondary pressure on top of Attack's own
+// already-growing cooldown, not the main lever. First-pass number, not yet
+// played against a real rotation to confirm it reads as a small nudge
+// rather than actually locking abilities out.
+export const ATTACK_STREAK_GCD_GROWTH_MS = 100;
+
+export function attackStreakGcdBonusMs(streak) {
+  return streak * ATTACK_STREAK_GCD_GROWTH_MS;
+}
+
 export function abilityGcdMsForSpeed(speed) {
   return Math.max(ABILITY_GCD_FLOOR_MS, ABILITY_GCD_BASE_MS - speed * ABILITY_GCD_MS_PER_SPEED);
 }
