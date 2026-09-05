@@ -1,7 +1,7 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { ATTACK_FALLOFF_EXPLAINER } from '../data/abilityExplainers.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, abilityGcdMsForSpeed, attackStreakGcdBonusMs } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, abilityGcdMsForSpeed, attackStreakGcdBonusMs, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, applyAbilityGcd } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
@@ -73,6 +73,8 @@ let abilityCooldowns = {};
 let abilityCooldownTotals = {};
 let buffState = createBuffState();
 let widenBuffState = null;
+let playerSlowDebuff = null;
+let playerStunDebuff = null;
 let lacerateRetriggerOpen = false;
 let lacerateRetriggerStartedAt = null;
 let abilityActionInFlight = false;
@@ -489,7 +491,7 @@ function recomputeEffectBonuses() {
   if (playerCombatant) {
     playerCombatant.attack = state.player.attack + playerEffectBonuses.attack;
     playerCombatant.defense = state.player.defense + playerEffectBonuses.defense;
-    playerCombatant.speed = state.player.speed + playerEffectBonuses.speed;
+    playerCombatant.speed = applyPlayerSlowDebuff(state.player.speed + playerEffectBonuses.speed, playerSlowDebuff);
     playerCombatant.maxHp = state.player.maxHp + playerEffectBonuses.maxHp;
   }
 }
@@ -592,7 +594,7 @@ function closeFalloffExplainer() {
 }
 
 function openItemMenu() {
-  if (battleOver || battlePaused || itemMenuOpen) return;
+  if (battleOver || battlePaused || itemMenuOpen || playerStunDebuff) return;
   if (!hasUsableLoadoutItem()) {
     log.push('No usable items loaded.');
     updateLog();
@@ -1584,7 +1586,7 @@ function playerAttack() {
   // without it, clicking a still-visible-but-inert button during the
   // post-battle pause would re-run a real attack against an already-over
   // battle and call checkOutcome() -> endBattle() a second time.
-  if (battleOver || battlePaused) return;
+  if (battleOver || battlePaused || playerStunDebuff) return;
   if (abilityActionInFlight || attackCooldownMs > 0) return;
   resolveOneAttack(true);
   updateHpBars();
@@ -1615,7 +1617,7 @@ function playerAttack() {
 
 async function playerUseAbility(abilityId) {
   // See playerAttack's own comment on this same guard.
-  if (battleOver || battlePaused) return;
+  if (battleOver || battlePaused || playerStunDebuff) return;
   // Deliberately checked, and acted on, before the abilityActionInFlight
   // guard below - a well-timed Lacerate re-press must land even while
   // Lacerate's own prior press is still "in flight" (it isn't, by the time
@@ -1885,6 +1887,8 @@ function tick() {
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
   widenBuffState = tickDefenseDebuff(widenBuffState, 300);
+  playerSlowDebuff = tickPlayerSlowDebuff(playerSlowDebuff, 300);
+  playerStunDebuff = tickPlayerStunDebuff(playerStunDebuff, 300);
   activeBuffs = tickActiveBuffs(activeBuffs, 300);
   recomputeEffectBonuses();
 
@@ -2167,6 +2171,8 @@ export function mount(root, props) {
   activeBuffs = createActiveBuffs();
   guaranteedCritNextHit = false;
   secondWindAvailable = false;
+  playerSlowDebuff = null;
+  playerStunDebuff = null;
   recomputeEffectBonuses();
   playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));

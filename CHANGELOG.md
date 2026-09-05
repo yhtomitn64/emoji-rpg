@@ -40,6 +40,9 @@ public API, no formal release process — commits land straight on
   explicit `tier` field applied directly (`js/systems/loot.js`) - needed
   since guaranteed super-boss drops bypass the random toughness roll
   entirely.
+- New player-side slow/stun debuff primitives (`js/systems/combat.js`)
+  and their tick/guard wiring in the battle screen - foundation for the
+  super-boss special-attack system (not yet triggerable by any monster).
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your

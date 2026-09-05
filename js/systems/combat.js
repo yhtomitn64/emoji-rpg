@@ -56,6 +56,40 @@ export function applyEnemySlow(speed, slowPercent) {
   return Math.max(1, Math.round(speed * (1 - slowPercent / 100)));
 }
 
+// Player-side counterpart to applyEnemySlow above - a superboss special
+// attack (js/screens/battleScreen.js) slows the PLAYER instead of the
+// player slowing a monster, same math, opposite direction. null means "no
+// debuff active" (same convention as abilities.js's createDefenseDebuff/
+// tickDefenseDebuff), not an {active: false} object.
+export function createPlayerSlowDebuff(slowPercent, durationMs) {
+  return { slowPercent, remainingMs: durationMs };
+}
+
+export function tickPlayerSlowDebuff(debuff, dt) {
+  if (!debuff) return null;
+  const remainingMs = Math.max(0, debuff.remainingMs - dt);
+  return remainingMs === 0 ? null : { ...debuff, remainingMs };
+}
+
+export function applyPlayerSlowDebuff(speed, debuff) {
+  if (!debuff) return speed;
+  return applyEnemySlow(speed, debuff.slowPercent);
+}
+
+// Blocks Attack/ability/item actions while active (js/screens/
+// battleScreen.js's own guards) - Flee is deliberately NOT blocked, so a
+// missed parry against a superboss's special attack costs you a beat of
+// action, not the ability to disengage.
+export function createPlayerStunDebuff(durationMs) {
+  return { remainingMs: durationMs };
+}
+
+export function tickPlayerStunDebuff(debuff, dt) {
+  if (!debuff) return null;
+  const remainingMs = Math.max(0, debuff.remainingMs - dt);
+  return remainingMs === 0 ? null : { remainingMs };
+}
+
 export const CRIT_CHANCE = 0.1;
 export const CRIT_MULTIPLIER = 1.5;
 

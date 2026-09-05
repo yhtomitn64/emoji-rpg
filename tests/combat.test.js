@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, rollKnockback, ATB_KNOCKBACK_CHANCE, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS, attackFalloffJustTriggered, ABILITY_GCD_BASE_MS, ABILITY_GCD_MS_PER_SPEED, ABILITY_GCD_FLOOR_MS, abilityGcdMsForSpeed } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, rollKnockback, ATB_KNOCKBACK_CHANCE, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS, attackFalloffJustTriggered, ABILITY_GCD_BASE_MS, ABILITY_GCD_MS_PER_SPEED, ABILITY_GCD_FLOOR_MS, abilityGcdMsForSpeed, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -321,4 +321,32 @@ test('abilityGcdMsForSpeed never drops below the floor, however high speed goes'
 test('abilityGcdMsForSpeed matches the base/per-speed/floor formula directly', () => {
   assert.equal(abilityGcdMsForSpeed(0), ABILITY_GCD_BASE_MS);
   assert.equal(abilityGcdMsForSpeed(20), Math.max(ABILITY_GCD_FLOOR_MS, ABILITY_GCD_BASE_MS - 20 * ABILITY_GCD_MS_PER_SPEED));
+});
+
+test('createPlayerSlowDebuff then applyPlayerSlowDebuff reduces speed by the given percent', () => {
+  const debuff = createPlayerSlowDebuff(20, 3000);
+  assert.equal(applyPlayerSlowDebuff(20, debuff), 16); // same math as applyEnemySlow(20, 20) => round(20 * 0.8)
+});
+
+test('applyPlayerSlowDebuff with no debuff returns speed unchanged', () => {
+  assert.equal(applyPlayerSlowDebuff(20, null), 20);
+});
+
+test('tickPlayerSlowDebuff expires to null exactly at zero remaining', () => {
+  let debuff = createPlayerSlowDebuff(20, 300);
+  debuff = tickPlayerSlowDebuff(debuff, 300);
+  assert.equal(debuff, null);
+});
+
+test('tickPlayerSlowDebuff on null stays null', () => {
+  assert.equal(tickPlayerSlowDebuff(null, 300), null);
+});
+
+test('createPlayerStunDebuff then tickPlayerStunDebuff counts down to null', () => {
+  let debuff = createPlayerStunDebuff(1000);
+  assert.ok(debuff);
+  debuff = tickPlayerStunDebuff(debuff, 700);
+  assert.equal(debuff.remainingMs, 300);
+  debuff = tickPlayerStunDebuff(debuff, 700);
+  assert.equal(debuff, null);
 });
