@@ -222,7 +222,22 @@ same-day items below; these are the ones left open):**
   pass established for hitting a real "requires everything you've got"
   difficulty bar. Timothy is starting a fresh session for this rather
   than continuing here - see this repo's own session handoff/kickoff
-  prompt for the fuller brief.
+  prompt for the fuller brief. **Design done, spec written** - see
+  `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+- **Ring/charm idea backlog, raised 2026-09-05 in passing while approving
+  the super-boss pass spec above** - three risk/reward accessory ideas,
+  none designed yet, explicitly not part of the super-boss pass itself:
+  (1) a ring that suppresses random wilderness/dungeon encounters entirely
+  (pure convenience/QoL, no combat-balance angle to it); (2) a ring that
+  deliberately makes monsters harder (an opt-in difficulty-up accessory -
+  presumably paired with better rewards for wearing it, which needs its
+  own design rather than just a flat downside); (3) a ring/charm that
+  raises loot-drop chance/quality odds directly (would touch
+  `js/systems/itemQuality.js`/`js/systems/loot.js` - the same files the
+  super-boss pass's new tier and the Mythic drop-rate rework above land
+  in, so this should be designed *after* those two ship and reconcile
+  against whatever rates they settle on, not compound blindly on top of
+  today's numbers).
 
 ## Story / narrative
 
