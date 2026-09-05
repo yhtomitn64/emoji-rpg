@@ -68,6 +68,10 @@ public API, no formal release process — commits land straight on
   (`tools/terrain-painter/`), same UX as today's "Place Tool Dungeon
   Entrance" - pick a superboss id, click a tile, toggle open-world vs.
   has-its-own-dungeon. Dev-only tool, not part of the deployed build.
+- Terrain painter: new "New Dungeon" mode - start a blank canvas at a
+  chosen size using the existing dungeon tile palette, for authoring a
+  brand-new dungeon interior from scratch (super-boss dungeons, not
+  just editing an existing map file).
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your

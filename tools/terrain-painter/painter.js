@@ -54,6 +54,17 @@ const CHAR_FOR_KIND = {
 const WILDERNESS_PALETTE = ['grass', 'tree', 'water', 'mountainWall', 'mountain', 'mountainCache', 'thicket', 'thicketCache'];
 const DUNGEON_PALETTE = ['grass', 'tree', 'thicket', 'exit', 'boss'];
 const MINI_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'cavePool', 'miniDungeonEntrance', 'miniDungeonTreasure'];
+// "New Dungeon" blank-canvas mode's palette (Task 12) - a superboss's own
+// dungeon interior, styled as a proper cave (caveFloor/caveWall, matching
+// js/tiles.js) rather than the grass/tree look the older dragon/tool
+// dungeons happen to reuse, but still exits/ends the same way those do
+// (exit door, boss encounter tile). All four kinds already have colors/
+// chars/icons/labels defined above - no new tile kind needed.
+const NEW_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'exit', 'boss'];
+// Mirrors buildLegendRowsText's own IDENTIFIER_KEY test - a new dungeon's
+// map id becomes both a MAPS registry key and a file's exported const
+// name (Task 13), so it has to be a legal bare JS identifier.
+const JS_IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 // Icon shown on the palette button; hovering shows PALETTE_LABELS' full description.
 // A star suffix marks the "has reward" variant of a tool-gated tile, since the base
@@ -864,10 +875,63 @@ async function init() {
   }
   mapSelect.addEventListener('change', () => switchMap(mapSelect.value));
 
+  // "New Dungeon" (Task 12) - starts a blank paintable dungeon interior
+  // from scratch, for a superboss's own dungeon, instead of only ever
+  // being able to load+edit an existing map file. Registers a new
+  // SINGLE_MAPS entry at runtime and primes switchMap's own cache
+  // (savedSingleMaps) with the blank grid so switchMap picks it up
+  // exactly like an already-in-progress edit - it never calls
+  // loadSingleMap, since there's no file to load yet.
+  document.getElementById('newDungeonBtn').addEventListener('click', async () => {
+    const id = prompt('New dungeon map id (must be a legal JS identifier - becomes both the exported const name and the Map dropdown key, e.g. "shadowKeepDungeon"):');
+    if (id === null) return; // cancelled
+    if (!JS_IDENTIFIER_RE.test(id)) {
+      alert(`"${id}" isn't a legal JS identifier (letters/digits/_/$ only, can't start with a digit).`);
+      return;
+    }
+    if (SINGLE_MAPS[id] || id === 'wilderness') {
+      alert(`"${id}" is already in use - pick a different id.`);
+      return;
+    }
+    const widthRaw = prompt('Width in cells:', '14');
+    if (widthRaw === null) return;
+    const heightRaw = prompt('Height in cells:', '8');
+    if (heightRaw === null) return;
+    const width = Number(widthRaw);
+    const height = Number(heightRaw);
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+      alert('Width and height must be positive whole numbers.');
+      return;
+    }
+
+    SINGLE_MAPS[id] = {
+      label: `${id} (new)`,
+      palette: NEW_DUNGEON_PALETTE,
+      defaultKind: 'caveFloor',
+      isNewDungeon: true, // Task 13's server creates a file here instead of patching one
+    };
+    savedSingleMaps[id] = Array(height).fill(null).map(() => Array(width).fill('caveFloor'));
+
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = SINGLE_MAPS[id].label;
+    mapSelect.appendChild(opt);
+    mapSelect.value = id;
+
+    undoStacks[id] = [];
+    await switchMap(id);
+    saveAutosave();
+    autosaveStatus.textContent = `Created new blank dungeon "${id}" (${width}x${height}).`;
+  });
+
   await switchMap('wilderness');
 
   document.getElementById('resetFromFilesBtn').addEventListener('click', async () => {
     if (!confirm('Discard all unexported changes on the current map and reload the real file from disk?')) return;
+    if (currentMapKey !== 'wilderness' && SINGLE_MAPS[currentMapKey].isNewDungeon) {
+      autosaveStatus.textContent = 'This is a brand-new dungeon with no file on disk yet - nothing to reset from.';
+      return;
+    }
     if (currentMapKey === 'wilderness') {
       grid = await loadAllScreens();
       const stateMod = await import('../../js/state.js');

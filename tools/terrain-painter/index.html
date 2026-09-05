@@ -13,6 +13,7 @@
   details#helpDetails p { margin-top: 8px; }
   #mapControls { margin-top: 12px; font-size: 12px; }
   #mapControls select { background: #222; color: #eee; border: 2px solid #444; font-family: monospace; padding: 4px; }
+  #mapControls button { margin-left: 8px; padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #palette { margin-top: 12px; }
   #palette button {
     margin-right: 4px; margin-bottom: 4px; padding: 6px 12px;
@@ -94,11 +95,17 @@
   "Export All Changed to Files" write every changed wilderness screen (plus
   the dungeon and tool dungeon entrance positions) straight to disk in one
   click, instead of copy/pasting each screen by hand — needs Chrome or Edge.
+  "New Dungeon" starts a brand-new, blank dungeon interior from scratch
+  (for a superboss's own dungeon) instead of loading an existing map file —
+  prompts for a map id and a width/height, then switches into the same
+  painting view used for every other dungeon, filled with cave floor tiles
+  ready to paint over.
 </p>
 </details>
 <div id="mapControls">
   <label for="mapSelect">Map:</label>
   <select id="mapSelect"></select>
+  <button id="newDungeonBtn" title="Start a brand-new blank dungeon interior at a chosen size">New Dungeon</button>
 </div>
 <div id="palette"></div>
 <div id="brushControls">
