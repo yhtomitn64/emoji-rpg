@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SUPER_BOSSES } from '../js/data/superBosses.js';
+import { TILES } from '../js/tiles.js';
 
 test('every SUPER_BOSSES entry has the required shape', () => {
   for (const [id, entry] of Object.entries(SUPER_BOSSES)) {
@@ -23,4 +24,14 @@ test('a not-yet-placed SUPER_BOSSES entry (null screenId) is inert everywhere th
   const placeholder = { id: 'someSuperBoss', monsterId: 'someMonster', screenId: null, x: null, y: null, hasDungeon: false, dungeonMapId: null };
   assert.equal(placeholder.screenId, null);
   assert.notEqual(typeof 'anyRealScreenId', typeof placeholder.screenId);
+});
+
+test('superBossMarker and superBossEntrance tile kinds exist and are walkable', () => {
+  assert.ok(TILES.superBossMarker, 'TILES.superBossMarker must exist');
+  assert.equal(TILES.superBossMarker.walkable, true);
+  assert.equal(TILES.superBossMarker.action, 'superBossBattle');
+
+  assert.ok(TILES.superBossEntrance, 'TILES.superBossEntrance must exist');
+  assert.equal(TILES.superBossEntrance.walkable, true);
+  assert.equal(TILES.superBossEntrance.action, 'enterSuperBossDungeon');
 });

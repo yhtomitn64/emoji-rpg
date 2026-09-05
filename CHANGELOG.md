@@ -28,6 +28,10 @@ public API, no formal release process — commits land straight on
 - New empty `SUPER_BOSSES` registry (`js/data/superBosses.js`) - the
   data model super-bosses will be placed into. Part of the super-boss
   pass, see `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+- Two new tile kinds, `superBossMarker` (open-wilderness encounter) and
+  `superBossEntrance` (leads to a superboss's own dungeon), and their
+  `mapScreen.js` rendering/resolution wiring - part of the super-boss
+  pass.
 
 ## [0.25.2] - 2026-09-05
 
