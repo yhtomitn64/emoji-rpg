@@ -16,7 +16,15 @@ export function monsterToughness(monster) {
 
 function lerp(min, max, t) { return min + (max - min) * t; }
 
-export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.5 };
+// New top tier for guaranteed super-boss drops, above mythic - name and
+// multiplier are both first-pass placeholders (Timothy writes the real
+// name; the multiplier is tuned via the simulator alongside each
+// superboss's own stat block, same as every number in this pass). Never
+// reachable via rollQualityTier's random roll (superbosses are
+// forceFullBattle, so isToughnessEligible excludes them) - only assigned
+// via an explicit `tier` field on a dropTable entry (see loot.js's
+// rollDrop).
+export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.5, apex: 1.9 };
 
 // Retuned 2026-08-31 from the original 1.35 launch value (see
 // docs/superpowers/BACKLOG.md's Mythic-tier entry for the full story):
@@ -83,5 +91,6 @@ export function tierLabel(tier) {
   if (tier === 'fine') return 'Fine ';
   if (tier === 'superior') return 'Superior ';
   if (tier === 'mythic') return 'Mythic ';
+  if (tier === 'apex') return 'Apex ';
   return '';
 }

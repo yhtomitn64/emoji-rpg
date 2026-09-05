@@ -281,3 +281,19 @@ test('POTION_DROP_POOL only contains real potion item ids', () => {
 test('POTION_DROP_CHANCE is a small positive fraction', () => {
   assert.ok(POTION_DROP_CHANCE > 0 && POTION_DROP_CHANCE < 1);
 });
+
+test('a dropTable entry with an explicit tier is applied directly, bypassing the random roll', () => {
+  const monster = {
+    hp: 3200, attack: 70, defense: 30, speed: 14, xp: 500, goldRange: [150, 220],
+    forceFullBattle: true,
+    dropTable: [{ itemId: 'ironSword', chance: 1, tier: 'apex' }],
+  };
+  // rng() always returns 0 - if the explicit tier were NOT honored, the
+  // toughness-eligibility exclusion (forceFullBattle) would still block
+  // any tier from ever being set, so this specifically pins down that the
+  // explicit `tier` field wins regardless of what rollQualityTier would
+  // have rolled.
+  const drop = rollDrop(monster, () => 0, 0);
+  assert.equal(drop.item, 'ironSword');
+  assert.equal(drop.tier, 'apex');
+});

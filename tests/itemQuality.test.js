@@ -127,3 +127,9 @@ test('RING_TOUGHNESS_FLOOR and BOSS_MYTHIC_CHANCE match the documented starting 
   assert.equal(RING_TOUGHNESS_FLOOR, 0.6);
   assert.equal(BOSS_MYTHIC_CHANCE, 0.25);
 });
+
+test('apex is a real quality tier, above mythic', () => {
+  assert.ok(QUALITY_TIER_MULTIPLIERS.apex, 'apex tier must exist');
+  assert.ok(QUALITY_TIER_MULTIPLIERS.apex > QUALITY_TIER_MULTIPLIERS.mythic, 'apex must multiply more than mythic');
+  assert.equal(tierLabel('apex'), 'Apex ');
+});

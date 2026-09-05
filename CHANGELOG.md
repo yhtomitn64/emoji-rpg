@@ -35,6 +35,11 @@ public API, no formal release process — commits land straight on
 - `main.js` now resolves `superBossBattle`/`enterSuperBossDungeon` tile
   actions and handles exiting a superboss's own dungeon back to its
   entrance - completes the super-boss pass's placement plumbing.
+- New `apex` item-quality tier above `mythic` (placeholder name/value,
+  `js/systems/itemQuality.js`), and a `dropTable` entry can now carry an
+  explicit `tier` field applied directly (`js/systems/loot.js`) - needed
+  since guaranteed super-boss drops bypass the random toughness roll
+  entirely.
 
 ## [0.25.2] - 2026-09-05
 
