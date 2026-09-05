@@ -30,6 +30,19 @@ export function createSlot(name, heroEmoji = DEFAULT_HERO_EMOJI, storage = globa
   return { id, state };
 }
 
+// Overwrites (not appends) any existing entry with this exact id, unlike
+// createSlot's always-fresh generateSlotId() - used by
+// js/systems/debugCharacters.js so revisiting the same debug URL always
+// resets that slot back to its canonical hardcoded state instead of
+// layering onto whatever got left over from a previous test session.
+export function upsertSlot(id, name, state, storage = globalThis.localStorage) {
+  const now = Date.now();
+  const entries = readRegistry(storage).filter((entry) => entry.id !== id);
+  entries.push({ id, name, createdAt: now, lastPlayed: now, level: state.player.level, ngPlusCycle: state.ngPlusCycle });
+  writeRegistry(entries, storage);
+  saveState(state, id, storage);
+}
+
 export function deleteSlot(id, storage = globalThis.localStorage) {
   const entries = readRegistry(storage).filter((entry) => entry.id !== id);
   writeRegistry(entries, storage);

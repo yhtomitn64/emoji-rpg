@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.24.6] - 2026-09-04
+
+### Added
+- Local-testing-only debug characters, reached via a `?debug=<key>` URL
+  param (`js/systems/debugCharacters.js`) - raised while verifying the
+  0.24.5 popup-collision fix needed a character with every ability
+  unlocked and didn't want to keep hand-pasting a console script.
+  `?debug=level10` upserts a "[Debug] level10" save (level 10, all 5
+  abilities unlocked, Iron gear at the NG+0 upgrade cap, all 3 tools) into
+  the normal save-slot list - picked, played, and deleted exactly like
+  any real save, and a complete no-op for anyone who hasn't typed the
+  param. `saveSlots.js` gained `upsertSlot` (create-or-overwrite at a
+  fixed id) to support this, distinct from `createSlot`'s always-fresh
+  generated id.
+
 ## [0.24.5] - 2026-09-04
 
 ### Fixed

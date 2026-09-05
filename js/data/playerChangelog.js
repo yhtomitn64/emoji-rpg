@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.24.6',
+    date: '2026-09-04',
+    highlights: [
+      'Behind-the-scenes: a local-testing-only debug character option - nothing to see here.',
+    ],
+  },
+  {
     version: '0.24.5',
     date: '2026-09-04',
     highlights: [

@@ -69,6 +69,7 @@ import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDun
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
+import { applyDebugCharacterFromUrl } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
 import { pickMonsterVariant } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
@@ -1055,5 +1056,6 @@ function promptPostDeathTravel() {
 }
 
 migrateLegacySave();
+applyDebugCharacterFromUrl();
 mountStartScreen();
 renderVersionFooter();
