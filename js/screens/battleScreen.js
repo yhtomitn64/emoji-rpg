@@ -157,6 +157,8 @@ function buildMonsterCombatant(monsterId, overrides, bonuses) {
     defenseDebuff: null,
     pendingDelayedHit: null,
     deathStyle: null,
+    specialAttacks: monster.specialAttacks || [],
+    pendingSpecialAttack: null,
   };
 }
 
@@ -209,6 +211,16 @@ function pickRandomOtherLivingIndices(excludeIndex, count) {
     pool.splice(poolIndex, 1);
   }
   return picked;
+}
+
+// Mutually exclusive, first-match-wins roll through a monster's own
+// specialAttacks list (empty for every non-superboss monster today) -
+// returns the chosen config or null for a plain attack this turn.
+function rollSpecialAttack(specialAttacks) {
+  for (const special of specialAttacks) {
+    if (Math.random() < special.chancePerTurn) return special;
+  }
+  return null;
 }
 
 function openLacerateRetriggerWindow() {
@@ -1796,7 +1808,7 @@ function applyMonsterAttackImpact(monster, result) {
   checkOutcome();
 }
 
-function monsterAttack(monster) {
+function monsterAttack(monster, special = null) {
   const result = resolveMonsterAttack(monster, playerCombatant, Math.random, playerEffectBonuses.thornsPercent);
   playerCombatant.hp = result.playerHp;
   if (playerCombatant.hp <= 0 && secondWindAvailable) {
@@ -1818,6 +1830,28 @@ function monsterAttack(monster) {
   // unreliable - real regression from adding the projectile animation,
   // not his timing.
   applyMonsterAttackImpact(monster, result);
+  if (special) applySpecialAttackEffect(monster, special);
+}
+
+// Applies a superboss's special-attack effect on top of the normal hit
+// that already landed above - only reached when the parry was missed or
+// not attempted (resolveMonsterWindup never calls monsterAttack on a
+// successful parry).
+function applySpecialAttackEffect(monster, special) {
+  if (special.type === 'slow') {
+    playerSlowDebuff = createPlayerSlowDebuff(special.slowPercent, special.durationMs);
+    log.push(`${monster.name}'s attack slows you down!`);
+  } else if (special.type === 'stun') {
+    playerStunDebuff = createPlayerStunDebuff(special.durationMs);
+    log.push(`${monster.name}'s attack leaves you reeling!`);
+  } else if (special.type === 'cooldownOverload') {
+    ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(
+      abilityCooldowns, getUnlockedAbilities(state.player.level), null, special.gcdMs, abilityCooldownTotals
+    ));
+    log.push(`${monster.name}'s attack disrupts your rotation!`);
+  }
+  updateLog();
+  updateMenu();
 }
 
 // playHeroEffect: false lets a caller resolving several monsters in one
@@ -1831,13 +1865,17 @@ function resolveMonsterWindup(monster, parried, { requireZone = true, playHeroEf
   if (!monster.windup.active) return false;
   const elapsedPercent = windupElapsedPercent(monster.windup);
   monster.windup = createWindupState();
+  const special = monster.pendingSpecialAttack;
+  monster.pendingSpecialAttack = null;
   const index = monsterCombatants.indexOf(monster);
   if (parried && (!requireZone || resolveParryAttempt(elapsedPercent))) {
     const { damage, isCrit } = rollIncomingDamage(monster, playerCombatant);
     const result = resolveParrySuccess(monster, damage);
     monster.hp = result.monsterHp;
     monster.atb = result.monsterAtb;
-    log.push(`You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
+    log.push(special
+      ? `You parry ${monster.name}'s strange attack and negate it, striking back for ${result.reflectedDamage}!`
+      : `You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
     // Same ordering fix as playerAttack/playerUseAbility: play the hit effect
     // before updateHpBars() hides a killed monster's slot. isCrit is `true`
     // here (not a rolled crit) so a landed parry gets the same shake/flash
@@ -1851,7 +1889,7 @@ function resolveMonsterWindup(monster, parried, { requireZone = true, playHeroEf
     updateMenu();
     return true;
   }
-  monsterAttack(monster);
+  monsterAttack(monster, special);
   updateAtbBars();
   updateMenu();
   return false;
@@ -1897,6 +1935,11 @@ function tick() {
     mc.atb = tickGauge(mc.atb, mc.speed, 1);
     if (isReady(mc.atb) && !mc.windup.active) {
       mc.windup = startWindup();
+      mc.pendingSpecialAttack = rollSpecialAttack(mc.specialAttacks);
+      if (mc.pendingSpecialAttack) {
+        log.push(`${mc.name} winds up for something different...`);
+        updateLog();
+      }
       // Kick off the real-time fill animation at the exact instant the
       // windup starts, rather than waiting for the next updateAtbBars()
       // poll - see the battle-windup-fill comment in css/styles.css.

@@ -43,6 +43,11 @@ public API, no formal release process — commits land straight on
 - New player-side slow/stun debuff primitives (`js/systems/combat.js`)
   and their tick/guard wiring in the battle screen - foundation for the
   super-boss special-attack system (not yet triggerable by any monster).
+- Monsters can now define `specialAttacks` (slow/stun/cooldownOverload),
+  telegraphed through the existing parry wind-up - a successful parry
+  negates the effect exactly like it negates damage, a missed one lets
+  it land alongside the normal hit. No monster uses this yet (that's the
+  super-boss pass's worked example).
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your
