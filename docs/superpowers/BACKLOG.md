@@ -1277,51 +1277,6 @@ through in a dedicated future combat pass rather than one-off adds.
 (A number of items originally captured here have since shipped — see
 BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
 
-- **Bigger battle dialog, raised 2026-09-05, narrowed 2026-09-05.**
-  Timothy's own words: "can we make the whole battle dialog bigger.
-  enemies, effects and all. Scale to some percent of the whole window?"
-  Currently `.battle-screen` and its contents (`css/styles.css`) are
-  sized to a fixed layout, not scaled relative to the viewport.
-
-  A brainstorming pass (mockups: "Battle Dialog Scale Lab" artifact,
-  https://claude.ai/code/artifact/09a2b949-cbc1-4302-b1cf-ad023507b476)
-  resolved the two open questions and narrowed this to three concrete
-  options, still awaiting Timothy's pick before this becomes a build
-  task:
-
-  - Resolved: the jsdom fallback concern doesn't apply here.
-    `DEFAULT_VIEWPORT_TILES_WIDE/TALL` exists only because
-    `mapScreen.js`'s camera *measures the real rendered pixel size* of
-    its own element in JS - jsdom returns 0 for that. A battle-dialog
-    scale is pure CSS (a `clamp()` on viewport units, same shape as
-    `.battle-screen-stack`'s existing `max-width: min(92vw, 860px)`),
-    with no JS measurement step to break.
-  - Resolved: "some percent of the whole window" concretely means a
-    `clamp()`-driven scale factor with a floor at today's current fixed
-    size and a ceiling well short of edge-to-edge (mapScreen's own
-    camera never goes fully edge-to-edge either) - the lab's live slider
-    previews a 1x-at-laptop-width to ~1.7x-at-large-monitor curve as a
-    concrete starting point.
-  - **Option A - frame only.** Just widen the existing `max-width`
-    clamp on `.battle-screen-stack`. Trivial, but doesn't match "enemies,
-    effects and all" - the fight itself never changes size, only the
-    dark space around it grows.
-  - **Option B - everything scales together (recommended).** A single
-    `transform: scale(var(--battle-scale))` on the whole
-    `.battle-screen-stack`, `--battle-scale` driven by a viewport-`vmin`
-    `clamp()`. Because CSS transforms compose, every descendant - emoji,
-    HP/ATB bars, action buttons, and every hit-effect decal's own
-    `translate()`/`rotate()` - scales for free, with zero changes needed
-    to the effects system itself. Small effort (~10-20 lines of CSS plus
-    one wrapper to reserve the scaled layout box so it doesn't overlap
-    the HUD/footer).
-  - **Option C - per-element clamps.** Give every fixed-px rule (emoji
-    font-size, each bar's width/height, every effect's pixel offsets)
-    its own `clamp()`. Large surface area (dozens of call sites across
-    `css/styles.css` and the effect keyframes, each needing its own
-    hand-tuned curve to stay proportional to the others) for no real
-    advantage over B here - not recommended.
-
 - **Slower combat with fewer, harder-hitting swings; also reconsidering
   the parry/attack timing minigame, raised 2026-08-30.** Timothy's own
   words: "Maybe we slow down combat and have fewer but harder hitting

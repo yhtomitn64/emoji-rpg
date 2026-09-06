@@ -852,6 +852,32 @@ param threaded through to `removeItem`. See CHANGELOG.
 
 ## Combat pass ideas
 
+### ~~Bigger battle dialog~~ Shipped 2026-09-06
+Raised 2026-09-05: "can we make the whole battle dialog bigger. enemies,
+effects and all. Scale to some percent of the whole window?" A
+brainstorming pass (mockups: "Battle Dialog Scale Lab" artifact,
+https://claude.ai/code/artifact/09a2b949-cbc1-4302-b1cf-ad023507b476)
+narrowed this to three options; Timothy picked **Option B - everything
+scales together**, and confirmed the hero/monster arrangement should
+stay as today's vertical stack (hero below monster), not switch to the
+mock's side-by-side layout as part of this pass.
+
+Shipped as a new `--battle-scale` custom property on
+`.battle-screen-stack` (`css/styles.css`): a `clamp()` on viewport
+`vmin` ramping from 1x (today's exact current size) to 1.7x (a
+large-monitor ceiling), applied via `transform: scale()`. Because CSS
+transforms compose, every descendant - emoji, HP/ATB bars, action
+buttons, every hit-effect decal's own `translate()`/`rotate()` - scales
+for free, with zero changes to the effects system itself or to
+`battleScreen.js`. `#overlay`'s `overflow-y: auto` was made explicit
+`overflow: auto` as a scroll safety net for the rare near-square window
+where the scaled (transform, not layout-box) width can exceed the
+viewport even though the unscaled layout box still fit - transforms
+don't grow an ancestor's centering/overflow calculations the way a real
+size change would, so this is a deliberately lighter fix than a
+dedicated reserving wrapper, verified visually rather than via
+`npm run test` (pure CSS, no DOM behavior changed). See CHANGELOG.
+
 ### ~~Remove the crit/parry dialog-shake, give parry its own clear visual~~ Shipped 2026-08-29
 Raised 2026-08-28: "remove the crit/parry or whatever else animation that
 is on the battle window. Too much animation now... just keep character

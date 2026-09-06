@@ -226,10 +226,29 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
    panel's real content is wider (dialog or action bar), and the other
    one is guaranteed to match it exactly - not just "close," a browser
    quirk away from lining up. */
+/* Raised 2026-09-05: "can we make the whole battle dialog bigger. enemies,
+   effects and all. Scale to some percent of the whole window?" - narrowed
+   in the "Battle Dialog Scale Lab" mockup to Option B, everything scales
+   together. `--battle-scale` ramps from 1x (today's exact current size, at
+   or below a typical laptop window) to 1.7x (a large-monitor ceiling, well
+   short of edge-to-edge). A single `transform: scale()` on this stack is
+   the whole change - CSS transforms compose, so every descendant (emoji,
+   HP/ATB bars, action buttons, every hit-effect decal's own
+   translate()/rotate()) scales for free with zero changes to the effects
+   system itself. `transform-origin: top center` anchors growth at the top
+   edge (roughly where the dialog already sits once centered) so it grows
+   downward/outward rather than symmetrically off both edges. Transforms
+   don't grow the actual layout box, so on a near-square window the visual
+   footprint can still exceed the viewport at the top of the scale range -
+   #overlay's explicit `overflow-x/y: auto` (below) is the safety net for
+   that case rather than a dedicated reserving wrapper. */
 .battle-screen-stack {
   display: flex;
   flex-direction: column;
   max-width: min(92vw, 860px);
+  --battle-scale: clamp(1, calc((100vmin - 700px) / 500px + 1), 1.7);
+  transform: scale(var(--battle-scale));
+  transform-origin: top center;
   /* Anchors .battle-pause-btn/.battle-paused-overlay below, which need to
      span the dialog AND the action bar together (raised 2026-08-31: "gray
      out the whole battle dialog and container dialog window ... not just
@@ -1281,7 +1300,12 @@ button:focus-visible {
   top: 0; left: 0; right: 0; bottom: 0;
   align-items: center;
   justify-content: center;
-  overflow-y: auto;
+  /* overflow-x explicit (not left to the browser's auto-upgrade quirk) so
+     the scaled battle dialog (.battle-screen-stack's --battle-scale) can
+     always be scrolled into view horizontally too, on the rare near-square
+     window where its transform-scaled visual width exceeds the viewport
+     even though its unscaled layout box still fit. */
+  overflow: auto;
   background: rgba(0, 0, 0, 0.4);
   /* Above #item-pickup-toast's z-index: 30 - the toast's 1.2s fade can
      still be playing when the player opens the inventory screen right

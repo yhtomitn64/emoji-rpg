@@ -24,6 +24,27 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-09-06
+
+### Changed
+- **Battle dialog now scales with window size**: `.battle-screen-stack`
+  (`css/styles.css`) gets a new `--battle-scale` custom property, a
+  `clamp()` on viewport `vmin` ramping from 1x (today's exact current
+  size, at or below a typical laptop window) to 1.7x (a large-monitor
+  ceiling), applied via `transform: scale()`. Because CSS transforms
+  compose, everything inside the dialog - hero/monster emoji, HP/ATB
+  bars, action buttons, and every hit-effect decal's own
+  `translate()`/`rotate()` - scales together with zero changes to the
+  effects system itself. `#overlay`'s `overflow-y: auto` is now explicit
+  `overflow: auto` as a scroll safety net for the rare near-square window
+  where the scaled (transform, not layout-box) width could exceed the
+  viewport. This is Option B ("everything scales together") from the
+  "Battle Dialog Scale Lab" design artifact, resolving the
+  "Bigger battle dialog" backlog entry
+  (`docs/superpowers/BACKLOG.md`) - hero/monster stay in their existing
+  vertical stack (hero below monster), per Timothy's answer that this
+  pass shouldn't also change that layout.
+
 ## [0.26.1] - 2026-09-05
 
 ### Changed

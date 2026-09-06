@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.2',
+    date: '2026-09-06',
+    highlights: [
+      'Changed: the battle screen now scales up on bigger windows/monitors - enemies, effects, and all - instead of staying a fixed size.',
+    ],
+  },
+  {
     version: '0.26.1',
     date: '2026-09-05',
     highlights: [
