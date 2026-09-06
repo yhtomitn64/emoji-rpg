@@ -175,9 +175,19 @@ same-day items below; these are the ones left open):**
   wilderness scaling, and the special/super-boss pass) - rather than the
   dev-facing balance-config-layer/difficulty-presets route floated
   earlier, which is still valid but more speculative.
-- **Distance-from-town wilderness difficulty rings — designed, not yet
-  built.** Full design agreed 2026-09-04/05 in a brainstorming session
-  (not written up as a formal spec doc): wilderness monster stats scale
+- **Distance-from-town wilderness difficulty rings — designed, on hold
+  pending playtest, raised 2026-09-06.** Timothy, 2026-09-06: "Do we
+  really need the difficulty rings after we did a tuning pass already?
+  Maybe I need to play the game first. Then we get back on that." The
+  guardian/dragon tuning pass (0.25.1) and the super-boss content pass
+  (0.26.0) both landed since this was designed (2026-09-04/05) and may
+  already have addressed what "everything feels too easy" was pointing
+  at - don't build this next session; wait for Timothy to actually play
+  a stretch of the current build and confirm the complaint still holds
+  before picking this back up. Design below is unchanged/still valid if
+  and when that happens. Full design agreed 2026-09-04/05 in a
+  brainstorming session (not written up as a formal spec doc): wilderness
+  monster stats scale
   by how far the player's current tile is from town's own fixed exit
   anchor (`center` screen, tile 14,12 - `TOWN_ENTRANCE` in
   `js/systems/world.js`), banded into rings (0-9 tiles baseline, 10-19,
