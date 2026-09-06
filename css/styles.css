@@ -950,6 +950,103 @@ button:focus-visible {
   color: #4ade80;
   font-size: 0.8rem;
 }
+
+/* Shop redesign (raised 2026-09-05, "Battle FX & Shop Lab" artifact section
+   05, Option A "card grid" - the one marked Selected in that mockup): bigger
+   emoji, one Buy button per item instead of four, category tabs instead of
+   one long list, and a shared 1x/5x/10x/100x qty toggle that every
+   consumable's Buy button reads (gear ignores it - see shopScreen.js's
+   CONSUMABLE_BUY_QUANTITIES comment). */
+.shop-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0;
+}
+.shop-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.shop-tab {
+  margin: 0;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  background: #2a2a2a;
+  color: #ccc;
+}
+.shop-tab.active {
+  border-color: #4ade80;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+}
+.shop-qty-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #aaa;
+}
+.shop-qty-btn {
+  margin: 0;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  border-radius: 6px;
+}
+.shop-qty-btn.active {
+  background: #4ade80;
+  color: #0c1a10;
+  border-color: #4ade80;
+  font-weight: 600;
+}
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.item-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 12px 10px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+}
+.item-card-emoji {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+.item-card-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.item-card-meta {
+  font-size: 0.76rem;
+  color: #aaa;
+}
+.item-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-top: 4px;
+}
+.item-card-actions button {
+  margin: 0;
+  width: 100%;
+}
+.item-card-buy {
+  background: #35633a;
+  border-color: #4ade80;
+  font-weight: 600;
+}
 .slot-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 12px 0; border-bottom: 1px solid #444;

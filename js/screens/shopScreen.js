@@ -6,16 +6,29 @@ import { logEvent } from '../systems/telemetry.js';
 // Raised 2026-08-29: "you never really need to buy more than 1 equipment
 // item, the only thing that really needs multiples is the potions." Bulk
 // quantities only make sense for stackable consumables - equipping is a
-// one-copy-at-a-time slot, so a Buy 5x/10x/100x on a sword just clutters
-// the row with buttons that are never useful (worst case, buying extras
-// unequipped, which Sell Duplicate Gear above now exists specifically to
-// clean back up).
+// one-copy-at-a-time slot, so buying a sword 5x/10x/100x at once just means
+// buying extras that sit unequipped (worst case, Sell Duplicate Gear above
+// exists specifically to clean those back up). This is why the shared qty
+// toggle below (design: docs, "Battle FX & Shop Lab" artifact, section 05)
+// is ignored for gear cards - only a consumable's Buy button ever reads it.
 const CONSUMABLE_BUY_QUANTITIES = [1, 5, 10, 100];
-const GEAR_BUY_QUANTITIES = [1];
+
+const CATEGORY_TABS = [
+  { key: 'weapon', label: 'Weapons' },
+  { key: 'armor', label: 'Armor' },
+  { key: 'potion', label: 'Potions' },
+];
+
+function categoryOf(item) {
+  if (item.type === 'consumable') return 'potion';
+  return item.slot === 'weapon' ? 'weapon' : 'armor';
+}
 
 let rootEl = null;
 let state = null;
 let callbacks = null;
+let activeCategory = 'weapon';
+let selectedQty = 1;
 // A queue, not a single slot (raised 2026-09-04: "if you buy multiple the
 // equip now should stay up for all of them you bought so you can buy 4
 // pieces then equip them all") - buying a second not-yet-equipped item used
@@ -79,28 +92,53 @@ function tieredSellRowsHtml(itemId) {
   }).join('');
 }
 
+// Option A ("card grid") from the "Battle FX & Shop Lab" artifact, section
+// 05: bigger emoji, one Buy button per item instead of four, category tabs
+// instead of one long list.
+function itemCardHtml(itemId) {
+  const item = ITEMS[itemId];
+  const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId && !entry.tier);
+  const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
+  // Tier-aware: only the Plain copy is "this card, equipped" - a worn Fine/
+  // Superior copy is a different (better) item than what the shop sells.
+  const isEquipped = item.slot && state.equipment[item.slot] === itemId && !state.equipmentTiers?.[item.slot];
+  const isConsumable = item.type === 'consumable';
+  const buyQty = isConsumable ? selectedQty : 1; // see CONSUMABLE_BUY_QUANTITIES's comment above
+  const affordable = maxAffordableQuantity(state.player.gold, item.price, buyQty) === buyQty;
+  const buyLabel = isConsumable && buyQty !== 1 ? `Buy ${buyQty}x` : 'Buy';
+  const metaBits = [`${item.price}g`];
+  if (ownedQty > 0) metaBits.push(`own ${ownedQty}`);
+  if (isEquipped) metaBits.push('✓ Equipped');
+  return `<div class="item-card">
+    <span class="item-card-emoji">${item.emoji}</span>
+    <span class="item-card-name" title="${describeItem(state, itemId)}">${item.name}</span>
+    <span class="item-card-meta">${metaBits.join(' · ')}</span>
+    <div class="item-card-actions">
+      <button class="item-card-buy" data-item="${itemId}" data-qty="${buyQty}" ${affordable ? '' : 'disabled'}>${buyLabel}</button>
+      <button class="item-card-sell" data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
+    </div>
+  </div>`;
+}
+
+function tabsHtml() {
+  return CATEGORY_TABS.map(({ key, label }) =>
+    `<button class="shop-tab ${key === activeCategory ? 'active' : ''}" data-cat="${key}">${label}</button>`
+  ).join('');
+}
+
+function qtyToggleHtml() {
+  return CONSUMABLE_BUY_QUANTITIES.map((qty) =>
+    `<button class="shop-qty-btn ${qty === selectedQty ? 'active' : ''}" data-qty="${qty}">${qty}×</button>`
+  ).join('');
+}
+
 function render() {
-  const rows = SHOP_CATALOG.map((itemId) => {
-    const item = ITEMS[itemId];
-    const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId && !entry.tier);
-    const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
-    // Tier-aware: only the Plain copy is "this row, equipped" - a worn Fine/
-    // Superior copy is a different (better) item than what the shop sells.
-    const isEquipped = item.slot && state.equipment[item.slot] === itemId && !state.equipmentTiers?.[item.slot];
-    const buyQuantities = item.type === 'consumable' ? CONSUMABLE_BUY_QUANTITIES : GEAR_BUY_QUANTITIES;
-    const buyButtons = buyQuantities.map((qty) => {
-      const affordable = maxAffordableQuantity(state.player.gold, item.price, qty) === qty;
-      const label = qty === 1 ? 'Buy' : `Buy ${qty}x`;
-      return `<button data-item="${itemId}" data-qty="${qty}" ${affordable ? '' : 'disabled'}>${label}</button>`;
-    }).join('');
-    return `<div class="shop-row">
-      <span title="${describeItem(state, itemId)}">${item.emoji} ${item.name} — ${item.price}g${ownedQty > 0 ? ` (own ${ownedQty})` : ''}${isEquipped ? ' ✓ Equipped' : ''}</span>
-      <span class="shop-row-buttons">
-        ${buyButtons}
-        <button data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
-      </span>
-    </div>${item.slot ? tieredSellRowsHtml(itemId) : ''}`;
-  }).join('');
+  const categoryItemIds = SHOP_CATALOG.filter((itemId) => categoryOf(ITEMS[itemId]) === activeCategory);
+  const cardsHtml = categoryItemIds.map(itemCardHtml).join('');
+  const tieredHtml = categoryItemIds
+    .filter((itemId) => ITEMS[itemId].slot)
+    .map((itemId) => tieredSellRowsHtml(itemId))
+    .join('');
 
   rootEl.innerHTML = `
     <div class="shop-screen">
@@ -108,11 +146,22 @@ function render() {
       <h2>Shop (Gold: ${state.player.gold})</h2>
       ${renderEquipPrompt()}
       ${renderSellDuplicatesControl()}
-      ${rows}
+      <div class="shop-toolbar">
+        <div class="shop-tabs">${tabsHtml()}</div>
+        <div class="shop-qty-toggle"><span class="shop-qty-label">Buy qty:</span>${qtyToggleHtml()}</div>
+      </div>
+      <div class="item-grid">${cardsHtml}</div>
+      ${tieredHtml}
       <button id="btn-leave">Leave</button>
     </div>
   `;
 
+  rootEl.querySelectorAll('.shop-tab').forEach((btn) => {
+    btn.onclick = () => { activeCategory = btn.dataset.cat; render(); };
+  });
+  rootEl.querySelectorAll('.shop-qty-btn').forEach((btn) => {
+    btn.onclick = () => { selectedQty = Number(btn.dataset.qty); render(); };
+  });
   rootEl.querySelectorAll('button[data-item]').forEach((btn) => {
     btn.onclick = () => buyItem(btn.dataset.item, Number(btn.dataset.qty));
   });
@@ -208,6 +257,8 @@ export function mount(root, props) {
   callbacks = props.callbacks;
   pendingEquipQueue = [];
   sellDuplicatesMessage = null;
+  activeCategory = 'weapon';
+  selectedQty = 1;
   render();
   window.addEventListener('keydown', handleKeydown);
 }
