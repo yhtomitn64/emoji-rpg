@@ -13,6 +13,7 @@
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, extname, resolve, sep } from 'node:path';
+import { MONSTERS } from '../../js/data/monsters.js';
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..');
 
@@ -161,8 +162,20 @@ async function handlePatchWilderness(req, res) {
   res.end(JSON.stringify({ changed: patched !== originalText }));
 }
 
+// Not a production security boundary (loopback-only, dev-only tool) - this
+// is defense in depth against a malformed request body (a stale client, a
+// hand-crafted curl, a future painter.js bug) silently corrupting a real
+// game source file with e.g. a non-numeric x/y or a truthy-but-not-boolean
+// hasDungeon interpolated straight into generated JS.
+function validateSuperBossEntry(entry) {
+  if (!Number.isInteger(entry?.x)) throw new Error(`superBoss entry.x must be an integer, got ${JSON.stringify(entry?.x)}`);
+  if (!Number.isInteger(entry?.y)) throw new Error(`superBoss entry.y must be an integer, got ${JSON.stringify(entry?.y)}`);
+  if (typeof entry?.hasDungeon !== 'boolean') throw new Error(`superBoss entry.hasDungeon must be a boolean, got ${JSON.stringify(entry?.hasDungeon)}`);
+}
+
 async function handlePatchSuperBoss(req, res) {
   const { superBossId, entry } = await readJsonBody(req);
+  validateSuperBossEntry(entry);
   const filePath = join(REPO_ROOT, 'js', 'data', 'superBosses.js');
   const originalText = await readFile(filePath, 'utf8');
   const patched = patchSuperBossEntry(originalText, superBossId, entry);
@@ -178,6 +191,12 @@ async function handlePatchSuperBoss(req, res) {
 async function handleCreateDungeon(req, res) {
   const { mapId, legendRowsText, startX, startY, guardianMonsterId } = await readJsonBody(req);
   if (!JS_IDENTIFIER_RE.test(mapId)) throw new Error(`'${mapId}' isn't a legal JS identifier - refusing to use it as a file/registry name`);
+  // Same defense-in-depth rationale as validateSuperBossEntry above - these
+  // three values get interpolated straight into a generated dungeon file's
+  // source text below.
+  if (!Number.isInteger(startX)) throw new Error(`startX must be an integer, got ${JSON.stringify(startX)}`);
+  if (!Number.isInteger(startY)) throw new Error(`startY must be an integer, got ${JSON.stringify(startY)}`);
+  if (!MONSTERS[guardianMonsterId]) throw new Error(`'${guardianMonsterId}' is not a real monster id in js/data/monsters.js`);
 
   const mainPath = join(REPO_ROOT, 'js', 'main.js');
   let mainText = await readFile(mainPath, 'utf8');
