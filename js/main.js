@@ -84,7 +84,9 @@ import { PLAYER_CHANGELOG } from './data/playerChangelog.js';
 import * as mechanicExplainerScreen from './screens/mechanicExplainerScreen.js';
 import { ABILITY_EXPLAINERS } from './data/abilityExplainers.js';
 
+import { superBossOneDungeonMap } from './maps/superBosses/superBossOneDungeon.js';
 const MAPS = {
+  superBossOneDungeon: superBossOneDungeonMap,
   town: townMap,
   dungeon: dungeonMap,
   center: centerMap,

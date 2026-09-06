@@ -234,4 +234,39 @@ export const MONSTERS = {
     attackStyle: 'ranged', projectileEmoji: '🍖',
     isElite: true,
   },
+
+  // Super-boss pass worked example - see
+  // docs/superpowers/specs/2026-09-05-superboss-pass-design.md. Placeholder
+  // codename only (superBossOne) - not a creative name, rename freely
+  // before this ships.
+  //
+  // hp retuned 3200 -> 1050 from the plan's starting candidate after
+  // running scripts/simulate-balance.js (which got a new SUPER_BOSS_MATCHUP_IDS,
+  // generic over any isSuperBoss monster) against every existing build:
+  // at 3200 hp even the top-of-the-game "maxed Mythic L12 (NG+2, +rings)"
+  // build (79hp/41atk/43def, every slot Mythic+3, both superboss-only
+  // rings) won 0% of the time - unwinnable, not "brutal". 1050 hp (attack/
+  // defense left at the candidate's own 70/30, close to Dragon tier 1's
+  // 73/28) converged that same build to a stable 27% win rate / 29% avg HP
+  // remaining on a win / 5.3 of 6 potions used (5000 trials) - within the
+  // spec's 15-30% target band, well below the guardian pass's 48-53%
+  // comfort band, with heavy potion use and a real ~73% loss rate. Every
+  // other build tested (up through "veteran L11 (full iron)" and the
+  // Mythic-no-rings variant) loses outright (0%) - confirms this requires
+  // genuinely full best-in-slot gear, not just high level. See
+  // task-14-report.md for the full simulator output this was based on.
+  superBossOne: {
+    id: 'superBossOne', name: 'Super Boss One [PLACEHOLDER NAME]', emoji: '💀',
+    hp: 1050, attack: 70, defense: 30, speed: 14,
+    xp: 500, goldRange: [150, 220],
+    dropTable: [{ itemId: 'ferocityFang', chance: 1, tier: 'apex' }],
+    isSuperBoss: true,
+    forceFullBattle: true,
+    specialAttacks: [
+      { type: 'stun', chancePerTurn: 0.25, durationMs: 1200 },
+      { type: 'slow', chancePerTurn: 0.25, slowPercent: 25, durationMs: 4000 },
+      { type: 'cooldownOverload', chancePerTurn: 0.2, gcdMs: 6000 },
+    ],
+    attackStyle: 'melee',
+  },
 };

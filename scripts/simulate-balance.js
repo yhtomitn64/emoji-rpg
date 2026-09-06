@@ -303,6 +303,12 @@ const BUILDS = [
 
 const MATCHUPS = ['boar', 'bat', 'snake', 'goblin', 'direWolf', 'spider', 'orc', 'wraith', 'jurassicJerky'];
 const BOSS_TIER_MATCHUP_IDS = Array.from({ length: MAX_BOSS_TIER + 1 }, (_, tier) => `dragonTier${tier}`);
+// Generic over every monster flagged isSuperBoss, so a future superboss
+// (this plan calls for ~10 total, only one shipped now) gets a real
+// `--set`/`--special-attack` matchup row automatically the moment it's
+// added to js/data/monsters.js, the same way BOSS_TIER_MATCHUP_IDS is
+// generic over dragon tiers - no per-boss hardcoding needed here.
+const SUPER_BOSS_MATCHUP_IDS = Object.values(MONSTERS).filter((m) => m.isSuperBoss).map((m) => m.id);
 
 // --- Battle simulation -------------------------------------------------
 
@@ -608,6 +614,9 @@ function main() {
   for (const id of MATCHUPS) {
     monsters[id] = { ...MONSTERS[id], ...(overrides[id] || {}) };
   }
+  for (const id of SUPER_BOSS_MATCHUP_IDS) {
+    monsters[id] = { ...MONSTERS[id], ...(overrides[id] || {}) };
+  }
   const dragonBase = { ...MONSTERS.dragon, ...(overrides.dragon || {}) };
   for (const [tier, id] of BOSS_TIER_MATCHUP_IDS.entries()) {
     const tierStats = getBossTierStats(dragonBase, tier);
@@ -633,7 +642,7 @@ function main() {
   );
 
   console.log('Monster stats under test:');
-  for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
+  for (const id of [...MATCHUPS, ...SUPER_BOSS_MATCHUP_IDS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
     const m = monsters[id];
     console.log(`  ${m.name.padEnd(22)} hp ${String(m.hp).padStart(3)}  atk ${String(m.attack).padStart(2)}  def ${String(m.defense).padStart(2)}  spd ${String(m.speed).padStart(2)}`);
   }
@@ -646,7 +655,7 @@ function main() {
   console.log('\n' + 'build'.padEnd(38) + 'monster'.padEnd(22) + '  win   HP left  potions');
   console.log('-'.repeat(88));
   for (const build of BUILDS) {
-    for (const id of [...MATCHUPS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
+    for (const id of [...MATCHUPS, ...SUPER_BOSS_MATCHUP_IDS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
       const r = runMatchup(build, monsters[id], trials, parryRate);
       const stalemateNote = r.stalemateRate > 0 ? `  (stalemate ${pct(r.stalemateRate)})` : '';
       const specialNote = (r.specialAttacksLanded + r.specialAttacksParried) > 0

@@ -24,65 +24,55 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-09-05
+
 ### Added
-- New empty `SUPER_BOSSES` registry (`js/data/superBosses.js`) - the
-  data model super-bosses will be placed into. Part of the super-boss
-  pass, see `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
-- Two new tile kinds, `superBossMarker` (open-wilderness encounter) and
-  `superBossEntrance` (leads to a superboss's own dungeon), and their
-  `mapScreen.js` rendering/resolution wiring - part of the super-boss
-  pass.
-- `main.js` now resolves `superBossBattle`/`enterSuperBossDungeon` tile
-  actions and handles exiting a superboss's own dungeon back to its
-  entrance - completes the super-boss pass's placement plumbing.
-- New `apex` item-quality tier above `mythic` (placeholder name/value,
-  `js/systems/itemQuality.js`), and a `dropTable` entry can now carry an
-  explicit `tier` field applied directly (`js/systems/loot.js`) - needed
-  since guaranteed super-boss drops bypass the random toughness roll
-  entirely.
-- New player-side slow/stun debuff primitives (`js/systems/combat.js`)
-  and their tick/guard wiring in the battle screen - foundation for the
-  super-boss special-attack system (not yet triggerable by any monster).
-- Monsters can now define `specialAttacks` (slow/stun/cooldownOverload),
-  telegraphed through the existing parry wind-up - a successful parry
-  negates the effect exactly like it negates damage, a missed one lets
-  it land alongside the normal hit. No monster uses this yet (that's the
-  super-boss pass's worked example).
-- 4 new unique-effect items for super-boss guaranteed drops
-  (placeholder names, `js/data/items.js`): 2 using the new
-  parry-window/debuff-duration mechanics, 2 at a higher ceiling than
-  today's best (`emberRing`/`windfuryRing`). Not yet assigned to any
-  superboss's drop table.
-- `scripts/simulate-balance.js` can now model a monster's special attacks
-  (slow/cooldownOverload; stun is a known unmodeled gap, noted in its
-  report output) - `rollSpecialAttack` promoted from `battleScreen.js` to
-  a shared `js/systems/combat.js` export so both the real game and the
-  simulator use the identical roll. New `--special-attack
-  monsterId=<json array>` CLI flag lets a candidate boss kit be explored
-  the same way `--set` already explores flat stat overrides.
-- Two new equippable stat fields, `parryWindowBonusPercent` (widens the
-  parry timing zone) and `debuffDurationPercent` (shortens the new
-  slow/stun debuffs) - the mechanics super-boss counter-items (Task 10)
-  need. No item grants them yet.
-- Terrain painter: new "Place Super-Boss Marker" mode
-  (`tools/terrain-painter/`), same UX as today's "Place Tool Dungeon
-  Entrance" - pick a superboss id, click a tile, toggle open-world vs.
-  has-its-own-dungeon. Dev-only tool, not part of the deployed build.
-- Terrain painter: new "New Dungeon" mode - start a blank canvas at a
-  chosen size using the existing dungeon tile palette, for authoring a
-  brand-new dungeon interior from scratch (super-boss dungeons, not
-  just editing an existing map file). Its palette uses the `guardian`
-  tile kind (action `guardianBattle`, the same mechanism every real
-  tool-dungeon file already uses), not `boss` - `boss` is wired
-  specifically to the one real dragon fight and would be unsafe to reuse
-  here; `guardian` is now a fully paintable tile kind in the painter
-  (colors/char/icon/label) for the first time.
-- `tools/terrain-painter/server.js` - a small Node dev server (built-in
-  `http`/`fs` only, no new dependency) that serves the painter and
-  writes changes straight to disk, including creating brand-new dungeon
-  files and registering them in `main.js`. Works in any browser, not
-  just Chrome/Edge. The old File System Access flow remains as a
-  fallback.
+- **The super-boss system**, plus its first worked example. A new
+  `js/data/superBosses.js` registry, two new wilderness tile kinds
+  (`superBossMarker` for an open-world encounter, `superBossEntrance` for
+  a superboss with its own dungeon) with their rendering/resolution
+  wiring, and `main.js` tile-action handling for entering/exiting a
+  superboss's own dungeon. See
+  `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+- **`superBossOne` [PLACEHOLDER NAME]** - the first hand-placed superboss:
+  a 1050 HP encounter that only a fully-decked NG+ build (every slot
+  Mythic-tier and maxed, both superboss-only rings) can realistically
+  win, and even then not comfortably - tuned via `scripts/
+  simulate-balance.js` to a real ~27% win rate / ~29% average HP
+  remaining on a win, heavy potion use, well below the guardian pass's
+  own 48-53% comfort band. Every lesser build tested loses outright.
+  Fought behind its own small dungeon
+  (`js/maps/superBosses/superBossOneDungeon.js`, two rooms and a
+  corridor), entered from the far-southeast wilderness. Drops a
+  guaranteed Apex-tier Ferocity Fang. First of ~10 planned - the rest are
+  future content using this same system.
+- A new monster special-attack system: `specialAttacks` (stun / slow /
+  cooldown-overload), telegraphed through the existing parry wind-up - a
+  successful parry negates the effect exactly like it negates damage, a
+  missed one lets it land alongside the normal hit. New player-side
+  slow/stun debuff primitives (`js/systems/combat.js`) and their
+  tick/guard wiring in the battle screen support this; `superBossOne`
+  above is the first (and so far only) monster that uses it.
+- A new `apex` item-quality tier above `mythic` (placeholder name/value),
+  and a `dropTable` entry can now carry an explicit `tier` field applied
+  directly instead of randomly rolled - needed since a guaranteed
+  superboss drop bypasses the random toughness roll entirely.
+- 4 new unique-effect items for superboss guaranteed drops (placeholder
+  names): 2 using new parry-window/debuff-duration stats
+  (`parryWindowBonusPercent`, `debuffDurationPercent`), 2 at a higher
+  ceiling than today's best (`emberRing`/`windfuryRing`).
+- New map-editor tooling (`tools/terrain-painter/`) to author and place
+  superbosses, used end-to-end to build and place `superBossOne` above: a
+  "Place Super-Boss Marker" mode (same UX as the existing "Place Tool
+  Dungeon Entrance"), a "New Dungeon" blank-canvas mode to paint a
+  brand-new dungeon interior from scratch (using the `guardian` tile
+  kind, not `boss`, which stays reserved for the one real dragon fight),
+  and a small local Node authoring server (`tools/terrain-painter/
+  server.js`, built-in `http`/`fs` only) that writes every change -
+  including a brand-new dungeon file and its `main.js` registration -
+  straight to disk in any browser, replacing the old
+  `python3 -m http.server` + File System Access permission dance. Dev-only,
+  never part of the deployed build.
 
 ### Changed
 - Mythic-tier item drops are no longer flatly impossible before your
@@ -90,6 +80,14 @@ public API, no formal release process — commits land straight on
   monster toughness), and the NG+1+ band now scales up per cycle
   (×1.5/cycle starting at NG+2) instead of staying fixed at the NG+1
   numbers forever. `js/systems/itemQuality.js`.
+- `scripts/simulate-balance.js` can now model a monster's special attacks
+  (slow/cooldown-overload; stun remains a known unmodeled gap, noted in
+  its own report output - the simulated player has zero reaction latency
+  to begin with, so its numbers already read as systematically easier
+  than real play) and is generic over any `isSuperBoss` monster, so
+  `--set`/`--special-attack` work against a superboss's own matchup row
+  automatically, the same way they already do for the dragon's tiers.
+  Used to tune `superBossOne` above.
 
 ## [0.25.2] - 2026-09-05
 
