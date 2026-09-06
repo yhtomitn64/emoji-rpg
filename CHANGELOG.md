@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-09-05
+
+### Changed
+- **Shop screen redesign**: `js/screens/shopScreen.js` now renders a card
+  grid (bigger emoji per item) with Weapons/Armor/Potions category tabs
+  and a single Buy button per item, instead of one long list of rows with
+  up to four Buy-quantity buttons each. A shared 1x/5x/10x/100x qty toggle
+  applies to every consumable's Buy button at once; gear still only ever
+  buys 1 at a time regardless of the toggle (per the existing
+  no-bulk-gear rule, raised 2026-08-29). This is Option A ("card grid")
+  from the "Battle FX & Shop Lab" design artifact's section 05, the
+  option marked Selected there - the mockup itself was never wired into
+  the real game before now. Sell (including the Fine/Superior tiered
+  sell rows) and the post-purchase equip prompt are unchanged.
+
 ## [0.26.0] - 2026-09-05
 
 ### Added

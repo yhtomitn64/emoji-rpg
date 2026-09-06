@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.1',
+    date: '2026-09-05',
+    highlights: [
+      'Changed: the Shop has a new look - bigger item art, Weapons/Armor/Potions tabs instead of one long list, and a single Buy button per item with a shared quantity toggle (1x/5x/10x/100x) for potions.',
+    ],
+  },
+  {
     version: '0.26.0',
     date: '2026-09-05',
     highlights: [
