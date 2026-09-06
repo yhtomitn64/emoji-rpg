@@ -6,6 +6,7 @@ import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS } from '../js/data/items.js';
 import { superBossOneDungeonMap } from '../js/maps/superBosses/superBossOneDungeon.js';
 import { isWalkableAt } from '../js/systems/world.js';
+import { pickVariantOverrides } from '../js/systems/monsterVariants.js';
 
 // Ported from tests/toolDungeonMaps.test.js, which doesn't export its own
 // assertValidMap/assertFullyReachable helpers - same logic, reused here so
@@ -195,6 +196,28 @@ test('every SUPER_BOSSES entry whose monster has specialAttacks defines them wit
       assert.equal(typeof special.chancePerTurn, 'number');
       assert.ok(special.chancePerTurn > 0 && special.chancePerTurn <= 1, `${monster.id}'s ${special.type} chancePerTurn must be in (0, 1]`);
     }
+  }
+});
+
+// This is the seam js/main.js's handleEncounter itself actually calls
+// (js/systems/monsterVariants.js's pickVariantOverrides) - main.js has no
+// exports of its own (it runs full app bootstrap at module scope), so this
+// is the closest testable point to "does a real encounter ever vary
+// superBossOne's stats". Guards against a regression where a repeatable,
+// fleeable superboss's stats could drift +/-15% via the normal variant
+// roll and be farmed by fleeing until a weak roll appears (see the
+// handleEncounter comment above where this is called).
+test("superBossOne's effective combat stats never vary across many simulated encounter constructions (forceFullBattle exempts it from the variant roll)", () => {
+  const monster = MONSTERS.superBossOne;
+  assert.equal(monster.forceFullBattle, true, 'this test assumes superBossOne is forceFullBattle - update it if that ever changes');
+  for (let i = 0; i < 200; i++) {
+    const overrides = pickVariantOverrides(monster, Math.random);
+    assert.equal(overrides, null, 'superBossOne must never receive a rolled variant override');
+    const effective = { ...monster, ...(overrides || {}) };
+    assert.equal(effective.hp, monster.hp);
+    assert.equal(effective.attack, monster.attack);
+    assert.equal(effective.defense, monster.defense);
+    assert.equal(effective.name, monster.name);
   }
 });
 

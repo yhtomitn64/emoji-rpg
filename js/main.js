@@ -72,7 +72,7 @@ import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { applyDebugCharacterFromUrl } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
-import { pickMonsterVariant } from './systems/monsterVariants.js';
+import { pickVariantOverrides } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
 import { TOWN_PORTAL_POSITION, hasPortalTool, dropPortal, markReturnPending } from './systems/portal.js';
@@ -820,7 +820,9 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
   // fights always pass their own explicit tier overrides, so this branch
   // never fires for those. Each monster in the group independently rolls a
   // named stat variant (js/systems/monsterVariants.js).
-  const variantOverridesList = monsterOverridesList || monsterIds.map((monsterId) => pickMonsterVariant(MONSTERS[monsterId]));
+  // forceFullBattle monsters (tool guardians, superbosses) are exempt from
+  // the variant roll - see pickVariantOverrides in monsterVariants.js.
+  const variantOverridesList = monsterOverridesList || monsterIds.map((monsterId) => pickVariantOverrides(MONSTERS[monsterId]));
   const ngPlusOverridesList = monsterIds.map((monsterId, i) => {
     const overrides = variantOverridesList[i];
     const preScaled = { ...MONSTERS[monsterId], ...(overrides || {}) };
