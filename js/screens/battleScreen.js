@@ -771,7 +771,10 @@ function abilityButtonEntries() {
       const elapsedPercent = Math.min(100, ((performance.now() - lacerateRetriggerStartedAt) / ability.retrigger.windowMs) * 100);
       return elapsedPercent >= ability.retrigger.sweetSpotStartPercent && elapsedPercent <= ability.retrigger.sweetSpotEndPercent;
     })();
-    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, retriggerWindowOpen });
+    // playerStunDebuff already blocks playerUseAbility itself (see its own
+    // guard) - this just makes the button render disabled to match, instead
+    // of looking clickable and silently no-oping while stunned.
+    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, retriggerWindowOpen }) || !!playerStunDebuff;
     const cooldownActive = cooldownRemaining > 0;
     const cooldownPct = cooldownActive ? (cooldownRemaining / (abilityCooldownTotals[ability.id] || ability.cooldownMs)) * 100 : 0;
     const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
@@ -843,7 +846,9 @@ function updateMenu() {
       icon: '👊',
       key: 'a',
       title: `Attack (a) — basic swing, no cooldown at first; repeated spam decays its damage toward a floor and eventually adds a brief cooldown${attackDecaySuffix}`,
-      disabled: attackCooldownMs > 0,
+      // playerStunDebuff already blocks playerAttack itself (see its own
+      // guard) - this just makes the button render disabled to match.
+      disabled: attackCooldownMs > 0 || !!playerStunDebuff,
       cooldownPct: attackCooldownPct,
       readyRing: true,
     })}
@@ -1828,7 +1833,10 @@ function monsterAttack(monster, special = null) {
 // not attempted (resolveMonsterWindup never calls monsterAttack on a
 // successful parry).
 function applySpecialAttackEffect(monster, special) {
-  const durationMs = Math.round(special.durationMs * (1 - playerEffectBonuses.debuffDurationPercent / 100));
+  // Clamped to 0: a future item/upgrade combination pushing
+  // debuffDurationPercent past 100 should floor the debuff at "instant",
+  // not go negative.
+  const durationMs = Math.max(0, Math.round(special.durationMs * (1 - playerEffectBonuses.debuffDurationPercent / 100)));
   if (special.type === 'slow') {
     playerSlowDebuff = createPlayerSlowDebuff(special.slowPercent, durationMs);
     log.push(`${monster.name}'s attack slows you down!`);

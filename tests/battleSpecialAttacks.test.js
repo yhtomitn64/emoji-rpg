@@ -115,4 +115,37 @@ test('battle special attacks', async (t) => {
     // test.js already follows (e.g. its shared-parry-cooldown test).
     assert.equal(root.querySelector('#btn-ability-stab').disabled, true, 'stab should be pushed onto cooldown by the special attack');
   });
+
+  // Raised in the superboss final-review pass: playerStunDebuff already
+  // blocked playerAttack/playerUseAbility (js/screens/battleScreen.js's own
+  // guards), but the Attack/ability buttons rendered fully clickable while
+  // stunned, giving zero visual feedback for a silent no-op press. Mirrors
+  // the cooldownOverload test above closely - same mount/wait shape, a
+  // different special-attack type and a real click attempted mid-debuff.
+  await t.test('an unparried stun special creates a live debuff that blocks a subsequent Attack press and renders Attack disabled', async () => {
+    const { click } = await import('./helpers/dom.js');
+    const { root } = await mountBattle(['boar'], {
+      monsterOverrides: [{ speed: 1000, specialAttacks: [{ type: 'stun', chancePerTurn: 1, durationMs: 3000 }] }],
+    });
+    assert.equal(root.querySelector('#btn-attack').disabled, false, 'Attack should start off cooldown/unstunned');
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    await waitForWindupStart(fill);
+    // +400 (not +200): tick()'s own isWindupComplete poll only runs every
+    // 300ms, so the actual resolution can land up to just under one full
+    // tick period after PARRY_WINDUP_DURATION_MS elapses - same buffer the
+    // other unparried-hit waits in this file already use.
+    await new Promise((resolve) => setTimeout(resolve, PARRY_WINDUP_DURATION_MS + 400));
+    // (a) the debuff actually landed.
+    assert.match(root.querySelector('#battle-log').textContent, /leaves you reeling/);
+    // (c) the button renders disabled while stunned - re-queried, not the
+    // reference from above, since updateMenu() replaced it wholesale.
+    assert.equal(root.querySelector('#btn-attack').disabled, true, 'Attack should render disabled while playerStunDebuff is live');
+    // (b) a press attempted during the stun window is a real no-op: no new
+    // "You hit" log line, and the monster's own HP text is unchanged.
+    const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
+    const logBefore = root.querySelector('#battle-log').textContent;
+    click(root.querySelector('#btn-attack'));
+    assert.equal(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore, 'a stunned Attack press must not damage the monster');
+    assert.equal(root.querySelector('#battle-log').textContent, logBefore, 'a stunned Attack press must not add a new log line');
+  });
 });
