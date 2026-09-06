@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.0',
+    date: '2026-09-05',
+    highlights: [
+      'New: the first super-boss has been placed in the world - a genuinely brutal optional fight for players with the best gear and every potion, guarding its own small dungeon out in the far reaches of the map. It drops loot better than anything else in the game. Watch for its telegraphed special attacks and parry them - a missed parry lets the effect land alongside the hit.',
+      'Changed: Mythic-tier gear can now (rarely) drop before your first New Game+ cycle, and keeps getting more common each cycle after that instead of capping out at New Game+1.',
+    ],
+  },
+  {
     version: '0.25.2',
     date: '2026-09-05',
     highlights: [

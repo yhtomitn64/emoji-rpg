@@ -76,8 +76,9 @@ export function windupElapsedPercent(windupState, now = Date.now()) {
   return Math.min(100, (windupElapsedMs(windupState, now) / PARRY_WINDUP_DURATION_MS) * 100);
 }
 
-export function resolveParryAttempt(elapsedPercent) {
-  return elapsedPercent >= PARRY_ZONE_START_PERCENT && elapsedPercent <= PARRY_ZONE_END_PERCENT;
+export function resolveParryAttempt(elapsedPercent, windowBonusPercent = 0) {
+  const start = Math.max(PARRY_ZONE_END_PERCENT - 50, PARRY_ZONE_START_PERCENT - windowBonusPercent);
+  return elapsedPercent >= start && elapsedPercent <= PARRY_ZONE_END_PERCENT;
 }
 
 export function rollIncomingDamage(monster, player, rng = Math.random) {

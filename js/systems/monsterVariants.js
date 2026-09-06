@@ -19,3 +19,15 @@ export function pickMonsterVariant(baseMonster, rng = Math.random) {
     attack: Math.round(baseMonster.attack * tier.attackMultiplier),
   };
 }
+
+// forceFullBattle monsters (tool guardians, superbosses) never roll a
+// variant - their stats are the tuned target (via
+// scripts/simulate-balance.js, which never modeled variant rolling), and a
+// repeatable, fleeable superboss would otherwise let a bad roll be farmed
+// away by fleeing and re-triggering the encounter until a weak variant
+// appears. Null means "use the monster's own base stats unchanged" -
+// handleEncounter's downstream spread (`{ ...MONSTERS[id], ...overrides }`)
+// already treats a null/absent override that way.
+export function pickVariantOverrides(baseMonster, rng = Math.random) {
+  return baseMonster.forceFullBattle ? null : pickMonsterVariant(baseMonster, rng);
+}

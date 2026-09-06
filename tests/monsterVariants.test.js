@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { VARIANT_TIERS, pickMonsterVariant } from '../js/systems/monsterVariants.js';
+import { VARIANT_TIERS, pickMonsterVariant, pickVariantOverrides } from '../js/systems/monsterVariants.js';
 
 const baseMonster = { name: 'Mean Meatball', hp: 67, attack: 10 };
 
@@ -38,4 +38,17 @@ test('pickMonsterVariant always returns integer hp/attack', () => {
     assert.equal(Number.isInteger(variant.hp), true);
     assert.equal(Number.isInteger(variant.attack), true);
   }
+});
+
+test('pickVariantOverrides returns null (no variant) for a forceFullBattle monster, across the whole rng range', () => {
+  const forceFullBattleMonster = { ...baseMonster, forceFullBattle: true };
+  for (const rngValue of [0, 0.2, 0.4, 0.6, 0.8, 0.999]) {
+    assert.equal(pickVariantOverrides(forceFullBattleMonster, () => rngValue), null);
+  }
+});
+
+test('pickVariantOverrides rolls a normal variant for a monster without forceFullBattle', () => {
+  const variant = pickVariantOverrides(baseMonster, () => 0);
+  assert.equal(variant.name, 'Puny Mean Meatball');
+  assert.equal(variant.hp, Math.round(67 * 0.85));
 });

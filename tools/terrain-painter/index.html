@@ -13,6 +13,7 @@
   details#helpDetails p { margin-top: 8px; }
   #mapControls { margin-top: 12px; font-size: 12px; }
   #mapControls select { background: #222; color: #eee; border: 2px solid #444; font-family: monospace; padding: 4px; }
+  #mapControls button { margin-left: 8px; padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #palette { margin-top: 12px; }
   #palette button {
     margin-right: 4px; margin-bottom: 4px; padding: 6px 12px;
@@ -34,6 +35,11 @@
     padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace;
   }
   #placeToolDungeonBtn.active { border-color: #fff; }
+  #superBossControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  #superBossControls select, #superBossControls button {
+    padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace;
+  }
+  #placeSuperBossBtn.active { border-color: #ff5757; color: #ff5757; }
   #checkControls { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
   #checkControls button { padding: 4px 8px; background: #222; color: #eee; border: 2px solid #444; cursor: pointer; font-family: monospace; }
   #checkStatus.ok { color: #6bbf6b; }
@@ -78,15 +84,39 @@
   reachability check yet. "Place Tool Dungeon Entrance"
   works the same way for whichever tool dungeon is selected in the dropdown
   next to it — copies paste into that entry's <code>screenId</code>/<code>x</code>/<code>y</code>
-  in <code>js/data/toolDungeons.js</code>. "Choose Repo Folder" +
-  "Export All Changed to Files" write every changed wilderness screen (plus
-  the dungeon and tool dungeon entrance positions) straight to disk in one
-  click, instead of copy/pasting each screen by hand — needs Chrome or Edge.
+  in <code>js/data/toolDungeons.js</code>. "Place Super-Boss Marker" is the
+  same idea again for whichever superboss id is selected in its dropdown
+  (populated from <code>SUPER_BOSSES</code>' keys in
+  <code>js/data/superBosses.js</code>) — the "Has own dungeon" checkbox is
+  saved onto the marker alongside its position (<code>hasDungeon: true</code>
+  for a superboss fought behind its own dungeon entrance,
+  <code>false</code> for one fought on the spot in the open wilderness).
+  "Export All Changed to Files" writes every changed wilderness screen
+  (plus the superboss marker positions) straight to disk in one click,
+  instead of copy/pasting each screen by hand — if
+  <code>node tools/terrain-painter/server.js</code> is running, it uses
+  that automatically; otherwise it falls back to "Choose Repo Folder" +
+  the File System Access API (Chrome/Edge only). "New Dungeon" starts a
+  brand-new, blank dungeon interior from scratch (for a superboss's own
+  dungeon) instead of loading an existing map file — prompts for a map id
+  and a width/height, then switches into the same painting view used for
+  every other dungeon, filled with cave floor tiles ready to paint over.
+  Its palette is caveFloor/caveWall/exit/guardian — one <code>exit</code>
+  tile (where the player starts) and at least one <code>guardian</code>
+  tile (the fight itself, via <code>guardianBattle</code> — not
+  <code>boss</code>, which is wired specifically to the one real dragon
+  fight) are required before "Save New Dungeon to Server" will write it
+  to <code>js/maps/superBosses/</code> and register it in
+  <code>js/main.js</code> — it also asks for the guardian's monster id
+  (a key from <code>MONSTERS</code> in <code>js/data/monsters.js</code>)
+  and needs the Node server running (no File System Access fallback,
+  since there's no existing file to patch).
 </p>
 </details>
 <div id="mapControls">
   <label for="mapSelect">Map:</label>
   <select id="mapSelect"></select>
+  <button id="newDungeonBtn" title="Start a brand-new blank dungeon interior at a chosen size">New Dungeon</button>
 </div>
 <div id="palette"></div>
 <div id="brushControls">
@@ -110,6 +140,13 @@
   <span id="toolDungeonReadout"></span>
   <button id="copyToolDungeonBtn">Copy position</button>
 </div>
+<div id="superBossControls" class="wilderness-only">
+  <select id="superBossSelect"></select>
+  <label><input type="checkbox" id="superBossHasDungeonCheckbox"> Has own dungeon</label>
+  <button id="placeSuperBossBtn">Place Super-Boss Marker</button>
+  <span id="superBossReadout"></span>
+  <button id="copySuperBossBtn">Copy position</button>
+</div>
 <div id="checkControls" class="wilderness-only">
   <button id="checkMapBtn">Check Map</button>
   <span id="checkStatus"></span>
@@ -122,6 +159,10 @@
 <div class="bulk-export-row wilderness-only">
   <button id="exportAllBtn">Export All Changed to Files</button>
   <span id="exportAllStatus"></span>
+</div>
+<div class="bulk-export-row single-map-only new-dungeon-only">
+  <button id="saveNewDungeonBtn" title="Write this brand-new dungeon to js/maps/superBosses/ and register it in js/main.js (needs the Node authoring server)">Save New Dungeon to Server</button>
+  <span id="saveNewDungeonStatus"></span>
 </div>
 <div id="exportRow">
   <span class="wilderness-only">

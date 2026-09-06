@@ -148,6 +148,7 @@ test('getItemEffectiveStats returns unrounded base stats at upgrade level 0', ()
     attack: 3, defense: 0, maxHp: 0, speed: 0, enemySlowPercent: 0,
     lifestealPercent: 0, extraSwingChance: 0, elementalProcChance: 0, elementalProcDamage: 0,
     critChancePercent: 0, thornsPercent: 0,
+    parryWindowBonusPercent: 0, debuffDurationPercent: 0,
   });
 });
 
@@ -587,4 +588,13 @@ test('reforgeToMythic throws when short on gold or essence', () => {
   };
   assert.throws(() => reforgeToMythic({ ...base, player: { gold: 0 }, inventory: [{ itemId: 'mythicEssence', quantity: 5 }] }, 'weapon'));
   assert.throws(() => reforgeToMythic({ ...base, player: { gold: 500 }, inventory: [] }, 'weapon'));
+});
+
+test('getEquipmentBonuses recognizes parryWindowBonusPercent and debuffDurationPercent as real stat keys', () => {
+  const bonuses = getEquipmentBonuses({
+    equipment: {}, // no item equipped - just confirm the KEYS exist on the zero-object
+    equipmentTiers: {},
+  });
+  assert.ok('parryWindowBonusPercent' in bonuses, 'parryWindowBonusPercent must be a recognized stat key');
+  assert.ok('debuffDurationPercent' in bonuses, 'debuffDurationPercent must be a recognized stat key');
 });

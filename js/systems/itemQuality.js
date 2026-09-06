@@ -16,8 +16,6 @@ export function monsterToughness(monster) {
 
 function lerp(min, max, t) { return min + (max - min) * t; }
 
-export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.5 };
-
 // Retuned 2026-08-31 from the original 1.35 launch value (see
 // docs/superpowers/BACKLOG.md's Mythic-tier entry for the full story):
 // scripts/simulate-balance.js was extended to actually model the Rung-3
@@ -36,14 +34,38 @@ export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.
 // (1.5 tier x 1.75 upgrade-level-3) now tops out at 2.625x base, vs.
 // Superior's 2.1x ceiling. Still not verified against real playtesting -
 // re-check with the simulator again if this stops feeling right.
+//
+// New top tier for guaranteed super-boss drops, above mythic - name and
+// multiplier are both first-pass placeholders (Timothy writes the real
+// name; the multiplier is tuned via the simulator alongside each
+// superboss's own stat block, same as every number in this pass). Never
+// reachable via rollQualityTier's random roll (superbosses are
+// forceFullBattle, so isToughnessEligible excludes them) - only assigned
+// via an explicit `tier` field on a dropTable entry (see loot.js's
+// rollDrop).
+export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.5, apex: 1.9 };
+
+// Very small but nonzero pre-NG+ Mythic band, and per-cycle growth for
+// NG+1 and beyond, replacing the old flat 0%-before-NG+1-then-forever-
+// fixed shape. First-pass placeholder numbers, same spirit as the
+// ability-GCD constants that shipped as "a starting point, not final
+// tuning" - this is drop-rarity feel, not combat difficulty, so it isn't
+// gated on simulator validation like the combat numbers elsewhere in this
+// pass.
+export const PRE_NG_PLUS_MYTHIC_CHANCE_MIN = 0.001;
+export const PRE_NG_PLUS_MYTHIC_CHANCE_MAX = 0.004;
 export const MYTHIC_TIER_CHANCE_MIN = 0.005;
 export const MYTHIC_TIER_CHANCE_MAX = 0.02;
+// Matches the exponential-uncapped style ngPlus.js's own
+// NG_PLUS_DROP_CHANCE_MULTIPLIER/NG_PLUS_COMBAT_MULTIPLIER already use.
+// Growth starts at NG+2 (MYTHIC_TIER_NG_PLUS_GROWTH ** (cycle - 1)), so
+// NG+1 reproduces today's exact band unchanged.
+export const MYTHIC_TIER_NG_PLUS_GROWTH = 1.5;
 
-// Only reachable once ngPlusCycle >= 1 - the mythic band sits at the low end
-// of the same single roll Fine/Superior already use, so ngPlusCycle=0 (the
-// default) reproduces today's exact thresholds with zero behavior change.
 export function rollQualityTier(toughness, rng = Math.random, ngPlusCycle = 0) {
-  const mythicChance = ngPlusCycle >= 1 ? lerp(MYTHIC_TIER_CHANCE_MIN, MYTHIC_TIER_CHANCE_MAX, toughness) : 0;
+  const mythicChance = ngPlusCycle >= 1
+    ? lerp(MYTHIC_TIER_CHANCE_MIN, MYTHIC_TIER_CHANCE_MAX, toughness) * (MYTHIC_TIER_NG_PLUS_GROWTH ** (ngPlusCycle - 1))
+    : lerp(PRE_NG_PLUS_MYTHIC_CHANCE_MIN, PRE_NG_PLUS_MYTHIC_CHANCE_MAX, toughness);
   const superiorChance = lerp(0.02, 0.10, toughness);
   const fineChance = lerp(0.10, 0.25, toughness);
   const roll = rng();
@@ -83,5 +105,6 @@ export function tierLabel(tier) {
   if (tier === 'fine') return 'Fine ';
   if (tier === 'superior') return 'Superior ';
   if (tier === 'mythic') return 'Mythic ';
+  if (tier === 'apex') return 'Apex ';
   return '';
 }

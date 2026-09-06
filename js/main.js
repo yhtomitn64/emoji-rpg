@@ -20,6 +20,7 @@ import { pickDungeonMap } from './maps/toolDungeons/pickDungeon.js';
 import { canoeDungeonMap } from './maps/toolDungeons/canoeDungeon.js';
 import { portalDungeonMap } from './maps/toolDungeons/portalDungeon.js';
 import { TOOL_DUNGEON_ENTRANCES } from './data/toolDungeons.js';
+import { SUPER_BOSSES } from './data/superBosses.js';
 import { centerMap } from './maps/wilderness/center.js';
 import { northMap } from './maps/wilderness/north.js';
 import { southMap } from './maps/wilderness/south.js';
@@ -71,7 +72,7 @@ import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
 import { applyDebugCharacterFromUrl } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
-import { pickMonsterVariant } from './systems/monsterVariants.js';
+import { pickVariantOverrides } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
 import { TOWN_PORTAL_POSITION, hasPortalTool, dropPortal, markReturnPending } from './systems/portal.js';
@@ -83,7 +84,9 @@ import { PLAYER_CHANGELOG } from './data/playerChangelog.js';
 import * as mechanicExplainerScreen from './screens/mechanicExplainerScreen.js';
 import { ABILITY_EXPLAINERS } from './data/abilityExplainers.js';
 
+import { superBossOneDungeonMap } from './maps/superBosses/superBossOneDungeon.js';
 const MAPS = {
+  superBossOneDungeon: superBossOneDungeonMap,
   town: townMap,
   dungeon: dungeonMap,
   center: centerMap,
@@ -134,6 +137,12 @@ const WORLD_GRID = buildWorldGrid(MAPS);
 // second test ever fails, center.js's @ moved and this constant is now
 // stale.
 const TOWN_ENTRANCE = { x: 14, y: 12 };
+
+function findSuperBossAt(screenId, x, y) {
+  return Object.values(SUPER_BOSSES).find(
+    (entry) => entry.screenId === screenId && entry.x === x && entry.y === y
+  );
+}
 
 let state = null;
 let activeSlotId = null;
@@ -527,6 +536,11 @@ function handleTileAction(action) {
         return enterMap(toolEntrance.screenId, { x: toolEntrance.x, y: toolEntrance.y });
       }
     }
+    for (const superBoss of Object.values(SUPER_BOSSES)) {
+      if (superBoss.hasDungeon && state.map === superBoss.dungeonMapId) {
+        return enterMap(superBoss.screenId, { x: superBoss.x, y: superBoss.y });
+      }
+    }
     return;
   }
   if (action === 'enterShop') return goToShop();
@@ -538,6 +552,16 @@ function handleTileAction(action) {
   }
   if (action === 'guardianBattle') {
     handleEncounter([MAPS[state.map].guardianMonsterId]);
+    return;
+  }
+  if (action === 'superBossBattle') {
+    const superBoss = findSuperBossAt(state.map, state.position.x, state.position.y);
+    if (superBoss) handleEncounter([superBoss.monsterId]);
+    return;
+  }
+  if (action === 'enterSuperBossDungeon') {
+    const superBoss = findSuperBossAt(state.map, state.position.x, state.position.y);
+    if (superBoss) return enterMap(superBoss.dungeonMapId);
     return;
   }
   if (action === 'exitMiniDungeon') return handleExitMiniDungeon();
@@ -796,7 +820,9 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
   // fights always pass their own explicit tier overrides, so this branch
   // never fires for those. Each monster in the group independently rolls a
   // named stat variant (js/systems/monsterVariants.js).
-  const variantOverridesList = monsterOverridesList || monsterIds.map((monsterId) => pickMonsterVariant(MONSTERS[monsterId]));
+  // forceFullBattle monsters (tool guardians, superbosses) are exempt from
+  // the variant roll - see pickVariantOverrides in monsterVariants.js.
+  const variantOverridesList = monsterOverridesList || monsterIds.map((monsterId) => pickVariantOverrides(MONSTERS[monsterId]));
   const ngPlusOverridesList = monsterIds.map((monsterId, i) => {
     const overrides = variantOverridesList[i];
     const preScaled = { ...MONSTERS[monsterId], ...(overrides || {}) };

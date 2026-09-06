@@ -234,4 +234,67 @@ export const MONSTERS = {
     attackStyle: 'ranged', projectileEmoji: '🍖',
     isElite: true,
   },
+
+  // Super-boss pass worked example - see
+  // docs/superpowers/specs/2026-09-05-superboss-pass-design.md. Placeholder
+  // codename only (superBossOne) - not a creative name, rename freely
+  // before this ships.
+  //
+  // Retuned TWICE from the plan's starting candidate (hp 3200/atk 70/def 30)
+  // after running scripts/simulate-balance.js (which got a new
+  // SUPER_BOSS_MATCHUP_IDS, generic over any isSuperBoss monster) against
+  // every existing build - see task-14-report.md for both full simulator
+  // passes:
+  //   1st pass (reverted): held attack/defense fixed at the candidate's own
+  //   70/30 and swept hp down to 1050 to hit a 15-30% HP-remaining target.
+  //   Review caught that this made the "hardest fight in the game" measure
+  //   out WEAKER than the already-shipping Dragon tier 1 (1200hp/73atk/
+  //   28def) and tier 2 (2400/91/34) - holding attack/defense fixed forced
+  //   hp down to a small number because 70 attack vs. the maxed build's 43
+  //   defense only left the player ~6 unparried hits of survival budget,
+  //   turning the fight into a parry coin-flip instead of a grueling wall.
+  //   2nd pass (this one): held hp >= 3000 (comfortably above Dragon tier
+  //   2's 2400) and swept attack/defense DOWN instead (55/24, vs. the
+  //   maxed build's 41atk/43def - a much smaller damage-per-hit, buying
+  //   real survival time across a genuinely high HP pool). Converged to
+  //   hp: 3000, attack: 55, defense: 24 - the maxed Mythic L12 (NG+2,
+  //   +rings) build (79hp/41atk/43def, every slot Mythic+3, both
+  //   superboss-only rings) lands 10% win rate / 17% avg HP remaining on a
+  //   win / 6.0 of 6 potions used (5000 trials, 0% stalemateRate) -
+  //   meaningfully BELOW its 18% win rate against Dragon tier 1 (so this
+  //   really is the harder fight), within the spec's 15-30% band, with
+  //   maxed-out potion use and a real ~90% loss rate. "veteran L11 (full
+  //   iron)" and the Mythic-no-rings variant both still lose outright
+  //   (0%). Sanity-checked across pickMonsterVariant's +/-15% roll range
+  //   (defense untouched, hp/attack scaled together): Puny lands ~100%
+  //   win, Savage ~0% - a wide swing, but the same qualitative shape every
+  //   guardian already has today under this same variant system (not a
+  //   new gap this task introduced - see task-14-report.md for the full
+  //   numbers and discussion). NG+1/NG+2: the maxed build cannot beat this
+  //   fight once IT is also NG+1/NG+2-scaled (0% at both cycles) - flagged
+  //   in task-14-report.md as a real, separate finding about the
+  //   post-NG+1 game overall rather than something this task's scope
+  //   covers fixing.
+  //
+  //   Post-review addendum: the variant-roll sanity check above is now
+  //   purely historical context, not live behavior - a later fix in this
+  //   same branch exempted every forceFullBattle monster (this one and all
+  //   four tool guardians) from pickMonsterVariant entirely (see
+  //   js/systems/monsterVariants.js's pickVariantOverrides), so
+  //   superBossOne's stats above are exactly what a real encounter always
+  //   uses, never +/-15% varied.
+  superBossOne: {
+    id: 'superBossOne', name: 'Super Boss One [PLACEHOLDER NAME]', emoji: '💀',
+    hp: 3000, attack: 55, defense: 24, speed: 14,
+    xp: 500, goldRange: [150, 220],
+    dropTable: [{ itemId: 'ferocityFang', chance: 1, tier: 'apex' }],
+    isSuperBoss: true,
+    forceFullBattle: true,
+    specialAttacks: [
+      { type: 'stun', chancePerTurn: 0.25, durationMs: 1200 },
+      { type: 'slow', chancePerTurn: 0.25, slowPercent: 25, durationMs: 4000 },
+      { type: 'cooldownOverload', chancePerTurn: 0.2, gcdMs: 6000 },
+    ],
+    attackStyle: 'melee',
+  },
 };

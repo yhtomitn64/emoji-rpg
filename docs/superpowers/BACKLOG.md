@@ -222,7 +222,70 @@ same-day items below; these are the ones left open):**
   pass established for hitting a real "requires everything you've got"
   difficulty bar. Timothy is starting a fresh session for this rather
   than continuing here - see this repo's own session handoff/kickoff
-  prompt for the fuller brief.
+  prompt for the fuller brief. **Design done, spec written** - see
+  `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+  **System + first worked example shipped 2026-09-05 (0.26.0):** the
+  registry, tile kinds, dungeon-authoring tooling, special-attack system,
+  and `apex` item tier all landed, plus `superBossOne` itself, hand-placed
+  and tuned to `hp: 3000, attack: 55, defense: 24` (10% win rate/17% avg
+  HP remaining/6.0 potions used for the maxed build - see CHANGELOG's
+  0.26.0 entry for the full methodology). Only the first of ~10 planned
+  bosses - the rest are future content on this same system. Four concrete
+  follow-ups came out of the final whole-branch review before this shipped
+  (raised 2026-09-05), captured as their own bullets below rather than
+  blocking this branch on them:
+  - **NG+1/NG+2 ceiling on `superBossOne`.** The maxed best-in-slot build
+    (every slot Mythic+3, both superboss-only rings) cannot beat
+    `superBossOne` once it's also NG+1/NG+2-scaled (0% win rate at both
+    cycles per the simulator - see the in-code comment above
+    `MONSTERS.superBossOne`). Confirmed as a pre-existing characteristic
+    shared with the already-shipped Dragon tier 2, not a defect specific
+    to this monster, and accepted for now per Timothy's own live guidance
+    during this review pass: the real bar is "never one-shot despite best
+    gear," not raw win-rate at NG+ - an "unbeatable for now" ceiling is
+    fine, to be revisited via future chase-gear/itemization work rather
+    than retuned away today. Same open thread as the existing "Boss tier /
+    NG+ cycle ceiling" bullet further down (Multi-zone progression
+    section) - worth deciding together whenever chase gear is designed.
+  - **Click-vs-keyboard parry timing asymmetry, sharpened by superbosses.**
+    A mistimed mouse click on the ATB bar/parry hint skips the zone-timing
+    check (`resolveParryAttempt`/`windupElapsedPercent` in
+    `js/screens/battleScreen.js`) that the keyboard parry shortcut (`s`)
+    enforces - click-parrying is strictly easier than keyboard-parrying.
+    Pre-existing in the codebase before this pass, but now also decides
+    whether a superboss's `stun`/`slow`/`cooldownOverload` special attack
+    lands, not just whether damage is reflected - worth fixing before more
+    superbosses ship and lean on it further.
+  - **Three of the four new superboss unique items are unassigned.**
+    `parryMasterRing`, `unshakenCharm`, and `stormringOfHaste` (
+    `js/data/items.js`) exist as an extensible drop pool - a deliberate
+    design decision this pass, so future superbosses have ready-made
+    guaranteed drops to assign - but only `ferocityFang` is actually wired
+    to a monster's `dropTable` today, so the other three are currently
+    unreachable in real play. Assign them to superbosses as more get
+    authored.
+  - **`stun` is unmodeled in `scripts/simulate-balance.js`'s superboss
+    simulation.** Only `slow` and `cooldownOverload` are modeled in the
+    simulator's superboss matchup path - a known, documented gap from when
+    the simulator was extended to cover special attacks at all. Worth
+    closing if a future superboss leans heavily on `stun` (as
+    `superBossOne` itself does - 25% chance/turn), since today's win-rate
+    numbers for any stun-heavy fight are measured without the simulator
+    ever actually losing a turn to it.
+- **Ring/charm idea backlog, raised 2026-09-05 in passing while approving
+  the super-boss pass spec above** - three risk/reward accessory ideas,
+  none designed yet, explicitly not part of the super-boss pass itself:
+  (1) a ring that suppresses random wilderness/dungeon encounters entirely
+  (pure convenience/QoL, no combat-balance angle to it); (2) a ring that
+  deliberately makes monsters harder (an opt-in difficulty-up accessory -
+  presumably paired with better rewards for wearing it, which needs its
+  own design rather than just a flat downside); (3) a ring/charm that
+  raises loot-drop chance/quality odds directly (would touch
+  `js/systems/itemQuality.js`/`js/systems/loot.js` - the same files the
+  super-boss pass's new tier and the Mythic drop-rate rework above land
+  in, so this should be designed *after* those two ship and reconcile
+  against whatever rates they settle on, not compound blindly on top of
+  today's numbers).
 
 ## Story / narrative
 
@@ -1213,6 +1276,21 @@ Several related mid-combat ideas, raised together as things to think
 through in a dedicated future combat pass rather than one-off adds.
 (A number of items originally captured here have since shipped — see
 BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
+
+- **Bigger battle dialog, raised 2026-09-05.** Timothy's own words: "can
+  we make the whole battle dialog bigger. enemies, effects and all.
+  Scale to some percent of the whole window?" Currently `.battle-screen`
+  and its contents (`css/styles.css`) are sized to a fixed layout, not
+  scaled relative to the viewport. Raw idea, "for later" — not yet
+  designed: needs a pass on what "some percent of the whole window"
+  means concretely (a max-width/height cap? a CSS `clamp()`/viewport-unit
+  scale on the whole `.battle-screen-stack`? does it also need to
+  preserve the existing jsdom-test fallback viewport size
+  `js/screens/mapScreen.js`'s `DEFAULT_VIEWPORT_TILES_WIDE/TALL` assume
+  for its own unrelated tile-count math?) and whether monster/hero emoji,
+  HP/ATB bars, and effect animations all scale together or the dialog
+  frame just gets more breathing room around the same fixed-size
+  contents.
 
 - **Slower combat with fewer, harder-hitting swings; also reconsidering
   the parry/attack timing minigame, raised 2026-08-30.** Timothy's own

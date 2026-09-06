@@ -24,6 +24,71 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-09-05
+
+### Added
+- **The super-boss system**, plus its first worked example. A new
+  `js/data/superBosses.js` registry, two new wilderness tile kinds
+  (`superBossMarker` for an open-world encounter, `superBossEntrance` for
+  a superboss with its own dungeon) with their rendering/resolution
+  wiring, and `main.js` tile-action handling for entering/exiting a
+  superboss's own dungeon. See
+  `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+- **`superBossOne` [PLACEHOLDER NAME]** - the first hand-placed superboss:
+  a 3000 HP / 55 attack / 24 defense encounter that only a fully-decked
+  NG+ build (every slot Mythic-tier and maxed, both superboss-only rings)
+  can realistically win, and even then not comfortably - tuned via
+  `scripts/simulate-balance.js` to a real ~10% win rate / ~17% average
+  HP remaining on a win / 6.0 of 6 potions used, well below the guardian
+  pass's own 48-53% comfort band. Every lesser build tested loses
+  outright. Fought behind its own small dungeon
+  (`js/maps/superBosses/superBossOneDungeon.js`, two rooms and a
+  corridor), entered from the far-southeast wilderness. Drops a
+  guaranteed Apex-tier Ferocity Fang. First of ~10 planned - the rest are
+  future content using this same system.
+- A new monster special-attack system: `specialAttacks` (stun / slow /
+  cooldown-overload), telegraphed through the existing parry wind-up - a
+  successful parry negates the effect exactly like it negates damage, a
+  missed one lets it land alongside the normal hit. New player-side
+  slow/stun debuff primitives (`js/systems/combat.js`) and their
+  tick/guard wiring in the battle screen support this; `superBossOne`
+  above is the first (and so far only) monster that uses it.
+- A new `apex` item-quality tier above `mythic` (placeholder name/value),
+  and a `dropTable` entry can now carry an explicit `tier` field applied
+  directly instead of randomly rolled - needed since a guaranteed
+  superboss drop bypasses the random toughness roll entirely.
+- 4 new unique-effect items for superboss guaranteed drops (placeholder
+  names): 2 using new parry-window/debuff-duration stats
+  (`parryWindowBonusPercent`, `debuffDurationPercent`), 2 at a higher
+  ceiling than today's best (`emberRing`/`windfuryRing`).
+- New map-editor tooling (`tools/terrain-painter/`) to author and place
+  superbosses, used end-to-end to build and place `superBossOne` above: a
+  "Place Super-Boss Marker" mode (same UX as the existing "Place Tool
+  Dungeon Entrance"), a "New Dungeon" blank-canvas mode to paint a
+  brand-new dungeon interior from scratch (using the `guardian` tile
+  kind, not `boss`, which stays reserved for the one real dragon fight),
+  and a small local Node authoring server (`tools/terrain-painter/
+  server.js`, built-in `http`/`fs` only) that writes every change -
+  including a brand-new dungeon file and its `main.js` registration -
+  straight to disk in any browser, replacing the old
+  `python3 -m http.server` + File System Access permission dance. Dev-only,
+  never part of the deployed build.
+
+### Changed
+- Mythic-tier item drops are no longer flatly impossible before your
+  first NG+ cycle - a small new pre-NG+ chance exists (~0.1-0.4% by
+  monster toughness), and the NG+1+ band now scales up per cycle
+  (×1.5/cycle starting at NG+2) instead of staying fixed at the NG+1
+  numbers forever. `js/systems/itemQuality.js`.
+- `scripts/simulate-balance.js` can now model a monster's special attacks
+  (slow/cooldown-overload; stun remains a known unmodeled gap, noted in
+  its own report output - the simulated player has zero reaction latency
+  to begin with, so its numbers already read as systematically easier
+  than real play) and is generic over any `isSuperBoss` monster, so
+  `--set`/`--special-attack` work against a superboss's own matchup row
+  automatically, the same way they already do for the dragon's tiers.
+  Used to tune `superBossOne` above.
+
 ## [0.25.2] - 2026-09-05
 
 ### Added

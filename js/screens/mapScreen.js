@@ -11,6 +11,7 @@ import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGatePr
 import { rollEncounterGroup } from '../systems/groupEncounters.js';
 import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.js';
 import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
+import { SUPER_BOSSES } from '../data/superBosses.js';
 import { hasAnyQuestReady } from '../systems/quests.js';
 import { TOWN_PORTAL_POSITION } from '../systems/portal.js';
 import { playSfx } from '../systems/audio.js';
@@ -95,6 +96,8 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.axeDungeonEntrance,
   TILES.pickDungeonEntrance,
   TILES.canoeDungeonEntrance,
+  TILES.superBossEntrance,
+  TILES.superBossMarker,
   TILES.miniDungeonEntrance,
   TILES.miniDungeonTreasure,
   // The town interior's own action tiles - previously missing from this
@@ -125,6 +128,8 @@ const GRASS_CONTEXT_MARKERS = new Set([
   TILES.axeDungeonEntrance,
   TILES.pickDungeonEntrance,
   TILES.canoeDungeonEntrance,
+  TILES.superBossEntrance,
+  TILES.superBossMarker,
   TILES.shop,
   TILES.smith,
   TILES.questBoard,
@@ -253,6 +258,11 @@ function tileAt(screenConfig, x, y) {
   for (const toolEntrance of Object.values(TOOL_DUNGEON_ENTRANCES)) {
     if (screenConfig.id === toolEntrance.screenId && x === toolEntrance.x && y === toolEntrance.y) {
       return TILES[toolEntrance.tileKind];
+    }
+  }
+  for (const superBoss of Object.values(SUPER_BOSSES)) {
+    if (screenConfig.id === superBoss.screenId && x === superBoss.x && y === superBoss.y) {
+      return TILES[superBoss.hasDungeon ? 'superBossEntrance' : 'superBossMarker'];
     }
   }
   if (state.portal && screenConfig.id === state.portal.originScreenId && x === state.portal.originX && y === state.portal.originY) {

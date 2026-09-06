@@ -58,4 +58,6 @@ export const TILES = {
   portalOrigin: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToTown', description: 'A swirling portal — steps through to town' },
   portalReturn: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToOrigin', description: 'A swirling portal — steps through back where you left it' },
   guardian: { emoji: '⚔️', walkable: true, encounter: false, action: 'guardianBattle', description: 'A guardian blocks the way — defeat it to claim its tool' },
+  superBossMarker: { emoji: '💀', walkable: true, encounter: false, action: 'superBossBattle', description: 'A powerful presence looms here - only the best-prepared should approach' },
+  superBossEntrance: { emoji: '🌋', walkable: true, encounter: false, action: 'enterSuperBossDungeon', description: 'A guarded passage - something far stronger than a guardian lies beyond' },
 };

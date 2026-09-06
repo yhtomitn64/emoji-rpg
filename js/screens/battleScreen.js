@@ -1,7 +1,7 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { ATTACK_FALLOFF_EXPLAINER } from '../data/abilityExplainers.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, abilityGcdMsForSpeed, attackStreakGcdBonusMs } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, abilityGcdMsForSpeed, attackStreakGcdBonusMs, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff, rollSpecialAttack } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, applyAbilityGcd } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
@@ -73,6 +73,8 @@ let abilityCooldowns = {};
 let abilityCooldownTotals = {};
 let buffState = createBuffState();
 let widenBuffState = null;
+let playerSlowDebuff = null;
+let playerStunDebuff = null;
 let lacerateRetriggerOpen = false;
 let lacerateRetriggerStartedAt = null;
 let abilityActionInFlight = false;
@@ -155,6 +157,8 @@ function buildMonsterCombatant(monsterId, overrides, bonuses) {
     defenseDebuff: null,
     pendingDelayedHit: null,
     deathStyle: null,
+    specialAttacks: monster.specialAttacks || [],
+    pendingSpecialAttack: null,
   };
 }
 
@@ -489,7 +493,7 @@ function recomputeEffectBonuses() {
   if (playerCombatant) {
     playerCombatant.attack = state.player.attack + playerEffectBonuses.attack;
     playerCombatant.defense = state.player.defense + playerEffectBonuses.defense;
-    playerCombatant.speed = state.player.speed + playerEffectBonuses.speed;
+    playerCombatant.speed = applyPlayerSlowDebuff(state.player.speed + playerEffectBonuses.speed, playerSlowDebuff);
     playerCombatant.maxHp = state.player.maxHp + playerEffectBonuses.maxHp;
   }
 }
@@ -592,7 +596,7 @@ function closeFalloffExplainer() {
 }
 
 function openItemMenu() {
-  if (battleOver || battlePaused || itemMenuOpen) return;
+  if (battleOver || battlePaused || itemMenuOpen || playerStunDebuff) return;
   if (!hasUsableLoadoutItem()) {
     log.push('No usable items loaded.');
     updateLog();
@@ -767,7 +771,10 @@ function abilityButtonEntries() {
       const elapsedPercent = Math.min(100, ((performance.now() - lacerateRetriggerStartedAt) / ability.retrigger.windowMs) * 100);
       return elapsedPercent >= ability.retrigger.sweetSpotStartPercent && elapsedPercent <= ability.retrigger.sweetSpotEndPercent;
     })();
-    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, retriggerWindowOpen });
+    // playerStunDebuff already blocks playerUseAbility itself (see its own
+    // guard) - this just makes the button render disabled to match, instead
+    // of looking clickable and silently no-oping while stunned.
+    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, retriggerWindowOpen }) || !!playerStunDebuff;
     const cooldownActive = cooldownRemaining > 0;
     const cooldownPct = cooldownActive ? (cooldownRemaining / (abilityCooldownTotals[ability.id] || ability.cooldownMs)) * 100 : 0;
     const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
@@ -839,7 +846,9 @@ function updateMenu() {
       icon: '👊',
       key: 'a',
       title: `Attack (a) — basic swing, no cooldown at first; repeated spam decays its damage toward a floor and eventually adds a brief cooldown${attackDecaySuffix}`,
-      disabled: attackCooldownMs > 0,
+      // playerStunDebuff already blocks playerAttack itself (see its own
+      // guard) - this just makes the button render disabled to match.
+      disabled: attackCooldownMs > 0 || !!playerStunDebuff,
       cooldownPct: attackCooldownPct,
       readyRing: true,
     })}
@@ -1427,7 +1436,7 @@ function attemptParry() {
       // mid-wind-up is the whole point of this rework (see the design
       // doc's Purpose section).
       if (resolveMonsterWindup(mc, true, { requireZone: false, playHeroEffect: false })) anyParried = true;
-    } else if (resolveParryAttempt(windupElapsedPercent(mc.windup))) {
+    } else if (resolveParryAttempt(windupElapsedPercent(mc.windup), playerEffectBonuses.parryWindowBonusPercent)) {
       if (resolveMonsterWindup(mc, true, { playHeroEffect: false })) anyParried = true;
     }
   }
@@ -1584,7 +1593,7 @@ function playerAttack() {
   // without it, clicking a still-visible-but-inert button during the
   // post-battle pause would re-run a real attack against an already-over
   // battle and call checkOutcome() -> endBattle() a second time.
-  if (battleOver || battlePaused) return;
+  if (battleOver || battlePaused || playerStunDebuff) return;
   if (abilityActionInFlight || attackCooldownMs > 0) return;
   resolveOneAttack(true);
   updateHpBars();
@@ -1615,7 +1624,7 @@ function playerAttack() {
 
 async function playerUseAbility(abilityId) {
   // See playerAttack's own comment on this same guard.
-  if (battleOver || battlePaused) return;
+  if (battleOver || battlePaused || playerStunDebuff) return;
   // Deliberately checked, and acted on, before the abilityActionInFlight
   // guard below - a well-timed Lacerate re-press must land even while
   // Lacerate's own prior press is still "in flight" (it isn't, by the time
@@ -1794,7 +1803,7 @@ function applyMonsterAttackImpact(monster, result) {
   checkOutcome();
 }
 
-function monsterAttack(monster) {
+function monsterAttack(monster, special = null) {
   const result = resolveMonsterAttack(monster, playerCombatant, Math.random, playerEffectBonuses.thornsPercent);
   playerCombatant.hp = result.playerHp;
   if (playerCombatant.hp <= 0 && secondWindAvailable) {
@@ -1816,6 +1825,32 @@ function monsterAttack(monster) {
   // unreliable - real regression from adding the projectile animation,
   // not his timing.
   applyMonsterAttackImpact(monster, result);
+  if (special) applySpecialAttackEffect(monster, special);
+}
+
+// Applies a superboss's special-attack effect on top of the normal hit
+// that already landed above - only reached when the parry was missed or
+// not attempted (resolveMonsterWindup never calls monsterAttack on a
+// successful parry).
+function applySpecialAttackEffect(monster, special) {
+  // Clamped to 0: a future item/upgrade combination pushing
+  // debuffDurationPercent past 100 should floor the debuff at "instant",
+  // not go negative.
+  const durationMs = Math.max(0, Math.round(special.durationMs * (1 - playerEffectBonuses.debuffDurationPercent / 100)));
+  if (special.type === 'slow') {
+    playerSlowDebuff = createPlayerSlowDebuff(special.slowPercent, durationMs);
+    log.push(`${monster.name}'s attack slows you down!`);
+  } else if (special.type === 'stun') {
+    playerStunDebuff = createPlayerStunDebuff(durationMs);
+    log.push(`${monster.name}'s attack leaves you reeling!`);
+  } else if (special.type === 'cooldownOverload') {
+    ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(
+      abilityCooldowns, getUnlockedAbilities(state.player.level), null, special.gcdMs, abilityCooldownTotals
+    ));
+    log.push(`${monster.name}'s attack disrupts your rotation!`);
+  }
+  updateLog();
+  updateMenu();
 }
 
 // playHeroEffect: false lets a caller resolving several monsters in one
@@ -1829,13 +1864,17 @@ function resolveMonsterWindup(monster, parried, { requireZone = true, playHeroEf
   if (!monster.windup.active) return false;
   const elapsedPercent = windupElapsedPercent(monster.windup);
   monster.windup = createWindupState();
+  const special = monster.pendingSpecialAttack;
+  monster.pendingSpecialAttack = null;
   const index = monsterCombatants.indexOf(monster);
-  if (parried && (!requireZone || resolveParryAttempt(elapsedPercent))) {
+  if (parried && (!requireZone || resolveParryAttempt(elapsedPercent, playerEffectBonuses.parryWindowBonusPercent))) {
     const { damage, isCrit } = rollIncomingDamage(monster, playerCombatant);
     const result = resolveParrySuccess(monster, damage);
     monster.hp = result.monsterHp;
     monster.atb = result.monsterAtb;
-    log.push(`You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
+    log.push(special
+      ? `You parry ${monster.name}'s strange attack and negate it, striking back for ${result.reflectedDamage}!`
+      : `You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
     // Same ordering fix as playerAttack/playerUseAbility: play the hit effect
     // before updateHpBars() hides a killed monster's slot. isCrit is `true`
     // here (not a rolled crit) so a landed parry gets the same shake/flash
@@ -1849,7 +1888,7 @@ function resolveMonsterWindup(monster, parried, { requireZone = true, playHeroEf
     updateMenu();
     return true;
   }
-  monsterAttack(monster);
+  monsterAttack(monster, special);
   updateAtbBars();
   updateMenu();
   return false;
@@ -1885,6 +1924,8 @@ function tick() {
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
   widenBuffState = tickDefenseDebuff(widenBuffState, 300);
+  playerSlowDebuff = tickPlayerSlowDebuff(playerSlowDebuff, 300);
+  playerStunDebuff = tickPlayerStunDebuff(playerStunDebuff, 300);
   activeBuffs = tickActiveBuffs(activeBuffs, 300);
   recomputeEffectBonuses();
 
@@ -1893,6 +1934,11 @@ function tick() {
     mc.atb = tickGauge(mc.atb, mc.speed, 1);
     if (isReady(mc.atb) && !mc.windup.active) {
       mc.windup = startWindup();
+      mc.pendingSpecialAttack = rollSpecialAttack(mc.specialAttacks);
+      if (mc.pendingSpecialAttack) {
+        log.push(`${mc.name} winds up for something different...`);
+        updateLog();
+      }
       // Kick off the real-time fill animation at the exact instant the
       // windup starts, rather than waiting for the next updateAtbBars()
       // poll - see the battle-windup-fill comment in css/styles.css.
@@ -2167,6 +2213,8 @@ export function mount(root, props) {
   activeBuffs = createActiveBuffs();
   guaranteedCritNextHit = false;
   secondWindAvailable = false;
+  playerSlowDebuff = null;
+  playerStunDebuff = null;
   recomputeEffectBonuses();
   playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));

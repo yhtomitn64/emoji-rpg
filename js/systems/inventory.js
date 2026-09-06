@@ -25,6 +25,7 @@ const STAT_KEYS = [
   'attack', 'defense', 'maxHp', 'speed', 'enemySlowPercent',
   'lifestealPercent', 'extraSwingChance', 'elementalProcChance', 'elementalProcDamage',
   'critChancePercent', 'thornsPercent',
+  'parryWindowBonusPercent', 'debuffDurationPercent',
 ];
 
 function zeroStats() {
@@ -50,6 +51,8 @@ export const STAT_LABELS = {
   elementalProcDamage: 'Elemental Proc Damage',
   critChancePercent: 'Crit Chance %',
   thornsPercent: 'Thorns %',
+  parryWindowBonusPercent: 'Parry Window',
+  debuffDurationPercent: 'Debuff Resist',
 };
 
 export function formatStatDelta(delta) {
