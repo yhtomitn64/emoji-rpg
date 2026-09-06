@@ -633,6 +633,27 @@ function main() {
     };
   }
 
+  // Superbosses get their own NG+1 AND NG+2 rows (not just NG+2 like the
+  // regular MATCHUPS above) - a superboss is meant to be attemptable well
+  // before NG+2, so its NG+1 numbers matter on their own, not just as a
+  // waypoint to NG+2. The real game applies getNgPlusCombatOverrides
+  // unconditionally via handleEncounter for every monster in an encounter,
+  // superbosses included (see js/data/superBosses.js's own doc comment
+  // and the design spec's "NG+ scaling requires no new code" section) -
+  // this was missing before, so a build reported as "(NG+2)" against a
+  // superboss was actually being tested against its NG+0 stats.
+  const SUPER_BOSS_NG_PLUS_MATCHUP_IDS = SUPER_BOSS_MATCHUP_IDS.flatMap((id) => [`${id}NgPlus1`, `${id}NgPlus2`]);
+  for (const id of SUPER_BOSS_MATCHUP_IDS) {
+    for (const cycle of [1, 2]) {
+      monsters[`${id}NgPlus${cycle}`] = {
+        ...MONSTERS[id],
+        ...getNgPlusCombatOverrides(MONSTERS[id], cycle),
+        name: `${MONSTERS[id].name} (NG+${cycle})`,
+        ...(overrides[`${id}NgPlus${cycle}`] || {}),
+      };
+    }
+  }
+
   console.log(`Balance simulation — ${trials} trials per matchup, parry land rate ${parryRate}\n`);
   console.log(
     'Note: monster specialAttacks (slow/cooldownOverload) are modeled below ' +
@@ -642,7 +663,7 @@ function main() {
   );
 
   console.log('Monster stats under test:');
-  for (const id of [...MATCHUPS, ...SUPER_BOSS_MATCHUP_IDS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
+  for (const id of [...MATCHUPS, ...SUPER_BOSS_MATCHUP_IDS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS, ...SUPER_BOSS_NG_PLUS_MATCHUP_IDS]) {
     const m = monsters[id];
     console.log(`  ${m.name.padEnd(22)} hp ${String(m.hp).padStart(3)}  atk ${String(m.attack).padStart(2)}  def ${String(m.defense).padStart(2)}  spd ${String(m.speed).padStart(2)}`);
   }
@@ -655,7 +676,7 @@ function main() {
   console.log('\n' + 'build'.padEnd(38) + 'monster'.padEnd(22) + '  win   HP left  potions');
   console.log('-'.repeat(88));
   for (const build of BUILDS) {
-    for (const id of [...MATCHUPS, ...SUPER_BOSS_MATCHUP_IDS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS]) {
+    for (const id of [...MATCHUPS, ...SUPER_BOSS_MATCHUP_IDS, ...BOSS_TIER_MATCHUP_IDS, ...NG_PLUS_MATCHUP_IDS, ...SUPER_BOSS_NG_PLUS_MATCHUP_IDS]) {
       const r = runMatchup(build, monsters[id], trials, parryRate);
       const stalemateNote = r.stalemateRate > 0 ? `  (stalemate ${pct(r.stalemateRate)})` : '';
       const specialNote = (r.specialAttacksLanded + r.specialAttacksParried) > 0

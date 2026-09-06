@@ -118,7 +118,7 @@ test('superBossOne is placed for real (non-null screenId), not left as an inert 
   assert.equal(typeof entry.y, 'number');
 });
 
-test("superBossOne's placement is in-bounds and resolves to a walkable tile kind matching its hasDungeon flag", async () => {
+test("superBossOne's placement is in-bounds, sits on real walkable terrain underneath, doesn't collide with any other placed landmark, and resolves to a walkable tile kind matching its hasDungeon flag", async () => {
   const entry = SUPER_BOSSES.superBossOne;
   const wildernessMap = (await import(`../js/maps/wilderness/${entry.screenId}.js`))[`${entry.screenId}Map`];
   const height = wildernessMap.rows.length;
@@ -127,6 +127,40 @@ test("superBossOne's placement is in-bounds and resolves to a walkable tile kind
     entry.x >= 0 && entry.x < width && entry.y >= 0 && entry.y < height,
     `superBossOne's position (${entry.x}, ${entry.y}) is out of bounds on '${entry.screenId}' (${width}x${height})`
   );
+
+  // Check the REAL underlying wilderness tile at that exact position, not
+  // just the constant TILES[expectedTileKind].walkable (which would pass
+  // even if the marker were painted on top of an unwalkable tile) -
+  // js/screens/mapScreen.js's tileAt() overrides this position
+  // unconditionally in real play, but a placement should still sit on
+  // legitimate walkable ground underneath, not e.g. a mountain wall that
+  // only "works" because of the override.
+  const underlyingChar = wildernessMap.rows[entry.y][entry.x];
+  const underlyingTileKind = wildernessMap.legend[underlyingChar];
+  assert.ok(TILES[underlyingTileKind], `underlying tile '${underlyingChar}' at (${entry.x}, ${entry.y}) on '${entry.screenId}' maps to an unknown tile kind`);
+  assert.ok(TILES[underlyingTileKind].walkable, `underlying tile at (${entry.x}, ${entry.y}) on '${entry.screenId}' ('${underlyingTileKind}') must be walkable, not just the override`);
+
+  // Replicate mapScreen.js's tileAt() own position-matching invariant: it
+  // resolves overrides via a sequential if-chain (dungeon entrance, tool
+  // dungeon entrances, then superbosses), so two landmarks silently
+  // occupying the same (screenId, x, y) would mean one is unreachable
+  // forever with no error - confirm superBossOne doesn't collide with the
+  // main dungeon entrance or any tool dungeon entrance.
+  const stateMod = await import('../js/state.js');
+  const dungeonEntrance = stateMod.DEFAULT_DUNGEON_ENTRANCE_POSITION;
+  assert.ok(
+    !(dungeonEntrance.screenId === entry.screenId && dungeonEntrance.x === entry.x && dungeonEntrance.y === entry.y),
+    `superBossOne collides with the main dungeon entrance at (${entry.x}, ${entry.y}) on '${entry.screenId}'`
+  );
+  const toolDungeonsMod = await import('../js/data/toolDungeons.js');
+  for (const [toolId, toolEntrance] of Object.entries(toolDungeonsMod.TOOL_DUNGEON_ENTRANCES)) {
+    if (toolEntrance.screenId === null) continue;
+    assert.ok(
+      !(toolEntrance.screenId === entry.screenId && toolEntrance.x === entry.x && toolEntrance.y === entry.y),
+      `superBossOne collides with the '${toolId}' tool dungeon entrance at (${entry.x}, ${entry.y}) on '${entry.screenId}'`
+    );
+  }
+
   const expectedTileKind = entry.hasDungeon ? 'superBossEntrance' : 'superBossMarker';
   assert.ok(TILES[expectedTileKind].walkable, `TILES.${expectedTileKind} must be walkable`);
 });
