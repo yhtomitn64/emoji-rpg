@@ -224,6 +224,54 @@ same-day items below; these are the ones left open):**
   than continuing here - see this repo's own session handoff/kickoff
   prompt for the fuller brief. **Design done, spec written** - see
   `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+  **System + first worked example shipped 2026-09-05 (0.26.0):** the
+  registry, tile kinds, dungeon-authoring tooling, special-attack system,
+  and `apex` item tier all landed, plus `superBossOne` itself, hand-placed
+  and tuned to `hp: 3000, attack: 55, defense: 24` (10% win rate/17% avg
+  HP remaining/6.0 potions used for the maxed build - see CHANGELOG's
+  0.26.0 entry for the full methodology). Only the first of ~10 planned
+  bosses - the rest are future content on this same system. Four concrete
+  follow-ups came out of the final whole-branch review before this shipped
+  (raised 2026-09-05), captured as their own bullets below rather than
+  blocking this branch on them:
+  - **NG+1/NG+2 ceiling on `superBossOne`.** The maxed best-in-slot build
+    (every slot Mythic+3, both superboss-only rings) cannot beat
+    `superBossOne` once it's also NG+1/NG+2-scaled (0% win rate at both
+    cycles per the simulator - see the in-code comment above
+    `MONSTERS.superBossOne`). Confirmed as a pre-existing characteristic
+    shared with the already-shipped Dragon tier 2, not a defect specific
+    to this monster, and accepted for now per Timothy's own live guidance
+    during this review pass: the real bar is "never one-shot despite best
+    gear," not raw win-rate at NG+ - an "unbeatable for now" ceiling is
+    fine, to be revisited via future chase-gear/itemization work rather
+    than retuned away today. Same open thread as the existing "Boss tier /
+    NG+ cycle ceiling" bullet further down (Multi-zone progression
+    section) - worth deciding together whenever chase gear is designed.
+  - **Click-vs-keyboard parry timing asymmetry, sharpened by superbosses.**
+    A mistimed mouse click on the ATB bar/parry hint skips the zone-timing
+    check (`resolveParryAttempt`/`windupElapsedPercent` in
+    `js/screens/battleScreen.js`) that the keyboard parry shortcut (`s`)
+    enforces - click-parrying is strictly easier than keyboard-parrying.
+    Pre-existing in the codebase before this pass, but now also decides
+    whether a superboss's `stun`/`slow`/`cooldownOverload` special attack
+    lands, not just whether damage is reflected - worth fixing before more
+    superbosses ship and lean on it further.
+  - **Three of the four new superboss unique items are unassigned.**
+    `parryMasterRing`, `unshakenCharm`, and `stormringOfHaste` (
+    `js/data/items.js`) exist as an extensible drop pool - a deliberate
+    design decision this pass, so future superbosses have ready-made
+    guaranteed drops to assign - but only `ferocityFang` is actually wired
+    to a monster's `dropTable` today, so the other three are currently
+    unreachable in real play. Assign them to superbosses as more get
+    authored.
+  - **`stun` is unmodeled in `scripts/simulate-balance.js`'s superboss
+    simulation.** Only `slow` and `cooldownOverload` are modeled in the
+    simulator's superboss matchup path - a known, documented gap from when
+    the simulator was extended to cover special attacks at all. Worth
+    closing if a future superboss leans heavily on `stun` (as
+    `superBossOne` itself does - 25% chance/turn), since today's win-rate
+    numbers for any stun-heavy fight are measured without the simulator
+    ever actually losing a turn to it.
 - **Ring/charm idea backlog, raised 2026-09-05 in passing while approving
   the super-boss pass spec above** - three risk/reward accessory ideas,
   none designed yet, explicitly not part of the super-boss pass itself:
