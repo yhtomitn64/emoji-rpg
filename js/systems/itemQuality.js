@@ -16,6 +16,25 @@ export function monsterToughness(monster) {
 
 function lerp(min, max, t) { return min + (max - min) * t; }
 
+// Retuned 2026-08-31 from the original 1.35 launch value (see
+// docs/superpowers/BACKLOG.md's Mythic-tier entry for the full story):
+// scripts/simulate-balance.js was extended to actually model the Rung-3
+// on-hit effects (crit%, extra-swing, lifesteal, elemental proc, thorns)
+// that Ember Ring/Windfury Ring/Retribution Charm/etc. grant - the
+// maxed-Mythic-ceiling build was silently missing both ring slots before
+// that fix, understating its own real power. Measuring with rings
+// equipped already closed the previously-reported NG+2 hard-tier
+// shortfall at 1.35 with zero multiplier change. This 1.5 bump goes
+// further, aimed at Timothy's actual stated goal (feel genuinely strong
+// by the end of NG+2, not just barely surviving it): re-run at 1.5, even
+// the no-rings build - the unlucky-drops floor - goes from losing/
+// near-losing to a real, winnable, potion-burning fight against every
+// hard-tier NG+2 monster, while the ringed ceiling build clears the same
+// content with real HP margin and zero potions. A fully maxed Mythic item
+// (1.5 tier x 1.75 upgrade-level-3) now tops out at 2.625x base, vs.
+// Superior's 2.1x ceiling. Still not verified against real playtesting -
+// re-check with the simulator again if this stops feeling right.
+//
 // New top tier for guaranteed super-boss drops, above mythic - name and
 // multiplier are both first-pass placeholders (Timothy writes the real
 // name; the multiplier is tuned via the simulator alongside each
@@ -39,7 +58,7 @@ export const MYTHIC_TIER_CHANCE_MIN = 0.005;
 export const MYTHIC_TIER_CHANCE_MAX = 0.02;
 // Matches the exponential-uncapped style ngPlus.js's own
 // NG_PLUS_DROP_CHANCE_MULTIPLIER/NG_PLUS_COMBAT_MULTIPLIER already use.
-// Growth starts at NG+2 (NG_PLUS_MYTHIC_TIER_GROWTH ** (cycle - 1)), so
+// Growth starts at NG+2 (MYTHIC_TIER_NG_PLUS_GROWTH ** (cycle - 1)), so
 // NG+1 reproduces today's exact band unchanged.
 export const MYTHIC_TIER_NG_PLUS_GROWTH = 1.5;
 
