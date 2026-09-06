@@ -51,6 +51,8 @@ export const STAT_LABELS = {
   elementalProcDamage: 'Elemental Proc Damage',
   critChancePercent: 'Crit Chance %',
   thornsPercent: 'Thorns %',
+  parryWindowBonusPercent: 'Parry Window',
+  debuffDurationPercent: 'Debuff Resist',
 };
 
 export function formatStatDelta(delta) {

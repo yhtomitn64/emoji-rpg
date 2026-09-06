@@ -43,4 +43,16 @@ test('statsPanel DOM - close affordances', async (t) => {
     click(root.querySelector('#btn-close-stats'));
     assert.equal(closed, true);
   });
+
+  // Raised alongside the superboss pass: parryWindowBonusPercent
+  // (parryMasterRing) and debuffDurationPercent (unshakenCharm) were added
+  // as real stat keys but had no effectRows line, so equipping either item
+  // showed no feedback anywhere in the stats panel.
+  await t.test('parryWindowBonusPercent and debuffDurationPercent render their own effect rows when equipped', async () => {
+    const state = createNewGame();
+    state.equipment = { ...state.equipment, ring1: 'parryMasterRing', accessory: 'unshakenCharm' };
+    const root = await mountStats(state);
+    assert.match(root.innerHTML, /Parry Window: \+15%/);
+    assert.match(root.innerHTML, /Debuff Resist: 40%/);
+  });
 });
