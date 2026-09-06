@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.3',
+    date: '2026-09-06',
+    highlights: [
+      'Fixed: the portal no longer has a worn path drawn messily on top of it, and stepping onto it plays a brief "being pulled in" animation instead of teleporting instantly.',
+      'Changed: the portal now has a real glowing look instead of a plain background.',
+    ],
+  },
+  {
     version: '0.26.2',
     date: '2026-09-06',
     highlights: [

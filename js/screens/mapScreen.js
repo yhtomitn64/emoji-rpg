@@ -24,6 +24,20 @@ import { playSfx } from '../systems/audio.js';
 // are deterministic, not random rolls.
 const ENCOUNTER_COOLDOWN_STEPS = 2;
 
+// Raised 2026-09-06: stepping onto a portal used to fire its action
+// (enterPortalToTown/enterPortalToOrigin/enterPortalDungeon) in the same
+// tick as the render() that first showed the player standing on it - an
+// instant cut with no warning. These three now get a brief "being pulled
+// in" pause first - see playPortalPullEffect and PORTAL_PULL_EFFECT_MS
+// below, and .map-tile-player-portal-pull in css/styles.css.
+const PORTAL_ACTION_TILES = new Set([TILES.portalOrigin, TILES.portalReturn, TILES.portalDungeonEntrance]);
+const PORTAL_PULL_EFFECT_MS = 420;
+// Guards against a second keypress landing mid-pull (e.g. moving away, or
+// re-triggering the same portal) before the delayed callbacks.onAction
+// above actually fires - reset on every mount() alongside every other
+// piece of this module's state.
+let portalTransitionPending = false;
+
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '🥾';
 const CACHE_MARKER_DESCRIPTION = 'A stash of gold (maybe an item too) — step here to collect it';
@@ -100,6 +114,15 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.superBossMarker,
   TILES.miniDungeonEntrance,
   TILES.miniDungeonTreasure,
+  // Raised 2026-09-06: these three were missing from this set, so - per
+  // the "append earlier = paints behind" comment on the trail-fragment
+  // append below - a portal's plain in-flow emoji had no `position`,
+  // meaning the trail SVG (which IS positioned) always painted on top of
+  // it regardless of DOM order. Full-size marker rendering fixes that for
+  // free, the same way it already does for every other landmark tile.
+  TILES.portalOrigin,
+  TILES.portalReturn,
+  TILES.portalDungeonEntrance,
   // The town interior's own action tiles - previously missing from this
   // set, so they fell through to the tiny plain-text render (the
   // .map-tile's own 1.2rem font-size) instead of reading as landmarks.
@@ -529,8 +552,9 @@ function render() {
         // by walking in and checking - see docs/superpowers/BACKLOG.md's
         // "Quest board should glow..." item.
         + (tile === TILES.questBoard && hasAnyQuestReady(state) ? ' map-tile-quest-ready' : '')
-        + (tile === TILES.portalOrigin ? ' map-tile-portal-origin' : '')
-        + (tile === TILES.portalReturn ? ' map-tile-portal-return' : '');
+        + (tile === TILES.portalOrigin ? ' map-tile-portal map-tile-portal-origin' : '')
+        + (tile === TILES.portalReturn ? ' map-tile-portal map-tile-portal-return' : '')
+        + (tile === TILES.portalDungeonEntrance ? ' map-tile-portal' : '');
       // A tile's own worn-path trail: dirt strokes reaching toward whichever
       // directions the player has actually walked across at this exact tile
       // (getVisitDirs - never inferred from a neighbor's own state, see
@@ -640,6 +664,7 @@ function render() {
 }
 
 function tryMove(dx, dy) {
+  if (portalTransitionPending) return;
   const currentGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
   const resolved = globalToScreen(worldGrid, mapConfig.id, currentGlobal.gx + dx, currentGlobal.gy + dy);
   // Past this cluster's outer edge - e.g. a one-screen map's (town,
@@ -737,6 +762,15 @@ function tryMove(dx, dy) {
   }
 
   if (tile.action) {
+    if (PORTAL_ACTION_TILES.has(tile)) {
+      portalTransitionPending = true;
+      playPortalPullEffect();
+      setTimeout(() => {
+        portalTransitionPending = false;
+        callbacks.onAction(tile.action);
+      }, PORTAL_PULL_EFFECT_MS);
+      return;
+    }
     callbacks.onAction(tile.action);
     return;
   }
@@ -814,6 +848,7 @@ export function mount(root, props) {
   maps = props.maps;
   worldGrid = props.worldGrid;
   callbacks = props.callbacks;
+  portalTransitionPending = false;
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
   render();
   announceScreenIfNew(mapConfig);
@@ -832,6 +867,16 @@ export function pause() {
 
 export function resume() {
   window.addEventListener('keydown', handleKeydown);
+}
+
+// Not exported - only ever called from tryMove itself, right where the
+// portal action would otherwise fire immediately (see PORTAL_ACTION_TILES
+// above), unlike the other effect helpers below which react to a
+// main.js-side state change this screen doesn't know about on its own.
+function playPortalPullEffect() {
+  const marker = rootEl?.querySelector('.map-tile-player .map-tile-fullsize');
+  if (!marker) return;
+  marker.classList.add('map-tile-player-portal-pull');
 }
 
 const LEVEL_UP_EFFECT_DURATION_MS = 1200;

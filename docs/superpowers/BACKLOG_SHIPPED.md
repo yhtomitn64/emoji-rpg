@@ -440,6 +440,62 @@ object.
 
 ## Bugs
 
+### ~~Portal graphic/trail overlap, instant teleport, and a "sucking in" effect~~ Shipped 2026-09-06 (0.26.3)
+Raised 2026-09-06 with a screenshot: "The portal graphic looks bad and
+the path shows up on top looking bad. Also thinking if you use portal
+it instantly ports you to town instead of putting you right on top of
+portal and then you have to walk off it and back on. Also can we add
+effect to portal that kind of follows the character so it looks like
+it's trying to suck you in?"
+
+**Trail-on-top bug, root cause found and fixed.** `portalOrigin`/
+`portalReturn`/`portalDungeonEntrance` (`js/tiles.js`) were all missing
+from `FULL_SQUARE_MARKERS` (`js/screens/mapScreen.js`), so they fell
+through to the plain in-flow `cell.append(emoji)` branch - no
+`position`, so the trail SVG (which IS positioned) always painted on
+top of it regardless of DOM append order, exactly matching the
+screenshot. Added all three to `FULL_SQUARE_MARKERS`, giving portals the
+same full-tile positioned marker rendering every other landmark tile
+(town/dungeon entrances, loot, superbosses) already gets - trail now
+correctly paints underneath.
+
+**"Looks bad" - given a real background.** New `.map-tile-portal` class
+(a dark radial gradient plus a slow pulsing indigo `box-shadow` glow,
+`css/styles.css`), applied to all three portal tiles alongside their
+existing `.map-tile-portal-origin`/`.map-tile-portal-return` classes.
+
+**Instant teleport → brief pull-in first, doubling as the sucking-in
+effect.** Root cause: stepping onto a portal action tile fired its
+callback (`enterPortalToTown`/`enterPortalToOrigin`/`enterPortalDungeon`)
+in the very same tick as the step's own `render()` - an instant cut,
+no transition. `tryMove` (`js/screens/mapScreen.js`) now special-cases
+the three portal tiles: adds a `.map-tile-player-portal-pull` class to
+the player's own marker (spins/shrinks/fades toward the tile center,
+brightening - reads as being drawn in) and delays the actual callback by
+`PORTAL_PULL_EFFECT_MS` (420ms, kept in sync with the CSS animation
+duration by hand) instead of firing it immediately. A new
+`portalTransitionPending` guard (reset on every `mount()`) blocks a
+second keypress from landing mid-pull, so a stale delayed callback can
+never fire after the player has already moved elsewhere.
+
+**Deliberately not touched:** the return portal in town still doesn't
+auto-fire on arrival (landing there via `enterMap` skips the
+step-resolution code that fires a tile's own `action`, so returning to
+origin still needs a walk-off-and-back-on) - this turned out to be the
+already-designed behavior from
+`docs/superpowers/specs/2026-09-01-portal-scroll-design.md`
+(`returnPending`), not a bug, once traced through. Read the whole
+original request as being about the *origin* side's abruptness instead
+- if that's not what was meant and the return side should also change,
+that's a follow-up, not covered here.
+
+New DOM test coverage in `tests/mapScreenDom.test.js`: stepping onto the
+return portal plays the pull class and defers `enterPortalToOrigin`
+past the same tick (asserted via a real ~500ms `setTimeout`, matching
+this repo's existing async-effect test pattern rather than fake timers),
+plus a second test confirming a keypress during the pull window is
+ignored rather than producing a duplicate/stale action.
+
 ### ~~UI consistency: universal Escape-to-close + aligned dialog chrome~~ Shipped 2026-09-02 (0.18.1)
 Raised 2026-09-01 (Timothy, via a friend's suggestion): every menu/dialog
 should close on Escape, and all dialogs should share the same close

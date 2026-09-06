@@ -119,7 +119,7 @@ of the three-session balance queue above — separate initiative):**
 - ~~**Ability global-cooldown rework**~~ — **shipped 2026-09-03/04 (0.23.0, graduated per-ability cooldowns in 0.23.1)**, stale "not yet executed" note found while doing an unrelated backlog pass 2026-09-04. Removed the player ATB "swing timer" gate on abilities 1-4 in favor of a shared, speed-scaled global cooldown (Attack's own decay system, monster ATB, Super Scream, Lacerate's retrigger, and parry all left untouched, as planned). See `docs/superpowers/plans/2026-09-03-ability-gcd-rework.md` (spec: `docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md`) for the original design; same underlying idea as the "Slower combat / reconsider the timing-minigame layer" bullet in Combat pass ideas above.
 - **Bug raised 2026-09-03, not investigated yet** — an old save (level 11) shows far more smith-upgrade levels available than expected before max level, cause unknown (level-gated at all, or just a long-lived save with saved-up gold?). See "Bugs / open questions, raised 2026-09-03" below.
 - ~~**"NEW MAX!" battle callout overlaps other text, hard to read**~~ — **shipped 2026-09-04 (0.24.5)**, alongside the broader damage-number-stacking fix it turned out to share a root cause with. See the Bugs / open questions section below.
-- **Portal bug + feature raised 2026-09-06, not fixed yet** — the portal tile has no real art (bare emoji, a trail decoration draws messily on top); using a portal instantly teleports to town instead of landing on the tile first (likely `enterMap` skipping the step-resolution code that fires a tile's `action`); plus a raw feature idea, a "being sucked in" effect on the player that follows them near a portal. See "Portal visuals and instant-teleport bug, raised 2026-09-06" in Bugs / open questions below.
+- ~~**Portal graphic/trail overlap + instant teleport + sucking-in effect**~~ — **shipped 2026-09-06 (0.26.3)**, all three in one pass: full-size marker rendering + a real background glow fixed the trail-on-top bug and the "looks bad" complaint; a brief pull animation now plays before a portal action fires, instead of firing in the same tick as the step. The return-portal walk-off-and-back-on was left as-is - turned out to be existing designed behavior, not a bug. See BACKLOG_SHIPPED.md's Bugs section.
 
 **New threads raised 2026-09-04, overnight session (0.25.0 shipped the
 same-day items below; these are the ones left open):**
@@ -1688,48 +1688,6 @@ backtracked fights, is still Timothy's call — leaving this open, just
 better-informed.
 
 ## Bugs / open questions, raised 2026-09-03
-
-### Portal visuals and instant-teleport bug, raised 2026-09-06
-Timothy, with a screenshot: "The portal graphic looks bad and the path
-shows up on top looking bad. Also thinking if you use portal it
-instantly ports you to town instead of putting you right on top of
-portal and then you have to walk off it and back on. Also can we add
-effect to portal that kind of follows the character so it looks like
-it's trying to suck you in?" Three distinct threads, not yet
-investigated in depth:
-
-- **Bug - portal has no dedicated visual treatment.** `portalOrigin`/
-  `portalReturn`/`portalDungeonEntrance` (`js/tiles.js`) all just render
-  the plain `🌌` emoji - there's no `.map-tile-portal-origin`/
-  `.map-tile-portal-return` CSS despite `mapScreen.js` already adding
-  those classes to the tile (`css/styles.css` has no matching rule).
-  The screenshot's brown trail-path decoration (`.map-tile-trail`, an
-  absolutely-positioned `inset: 0` overlay, presumably an SVG line to a
-  neighboring tile) draws on top of the bare emoji with nothing to keep
-  it visually subordinate to the portal - likely needs the portal to
-  get its own real art/background treatment (per the "add a sucking-in
-  effect" ask below, probably worth designing both together) rather
-  than a quick z-index tweak alone.
-- **Bug - return-to-origin needs walking off and back on.** Likely root
-  cause found (not yet fixed): `handleEnterPortalToTown()`
-  (`js/main.js`) calls `enterMap('town', { x: TOWN_PORTAL_POSITION.x,
-  y: TOWN_PORTAL_POSITION.y })`, which sets `state.position` directly
-  and never runs the step-resolution code path
-  (`mapScreen.js`'s move handler, around its `if (tile.action) {
-  callbacks.onAction(tile.action); }`) that's what actually fires a
-  tile's `action` when the player walks onto it. Landing exactly on the
-  return portal's tile via `enterMap` (not via a step) means that
-  `action` never fires on arrival - the player has to step off and back
-  on to trigger `enterPortalToOrigin` the normal way. Fix likely means
-  either firing the tile's action directly from `enterMap`/
-  `handleEnterPortalToTown` when landing on an action tile, or
-  special-casing the portal-return arrival specifically.
-- **Feature - a "being sucked in" effect that follows the character.**
-  Raw idea, not designed - presumably a CSS effect on the player's own
-  emoji (translate/scale toward the portal, maybe combined with the
-  portal's own new visual treatment above) triggered while standing
-  near/on a portal tile. Worth designing together with the graphic
-  fix rather than separately, since both touch the same tiles.
 
 ### Old save shows way more smith-upgrade levels available than expected
 Timothy, on a save at level 11 (created "10-20 patches ago," not yet at

@@ -24,6 +24,27 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-09-06
+
+### Fixed
+- **Portal trail-on-top bug and instant teleport.** `portalOrigin`/
+  `portalReturn`/`portalDungeonEntrance` (`js/tiles.js`) were missing
+  from `FULL_SQUARE_MARKERS` (`js/screens/mapScreen.js`), so the worn-
+  path trail SVG always painted on top of the bare emoji instead of
+  under it. Now rendered as a proper full-tile positioned marker, same
+  as every other landmark tile. Stepping onto a portal action tile also
+  no longer fires its callback in the same tick as the step - a new
+  `.map-tile-player-portal-pull` animation plays on the player marker
+  first (420ms, `PORTAL_PULL_EFFECT_MS`), with the actual
+  `enterPortalToTown`/`enterPortalToOrigin`/`enterPortalDungeon` callback
+  delayed to match. A `portalTransitionPending` guard blocks a second
+  keypress from landing mid-pull.
+
+### Added
+- **Portal glow.** New `.map-tile-portal` background (dark radial
+  gradient + slow pulsing indigo glow, `css/styles.css`) on all three
+  portal tiles, replacing the plain `.map-tile` gray.
+
 ## [0.26.2] - 2026-09-06
 
 ### Changed

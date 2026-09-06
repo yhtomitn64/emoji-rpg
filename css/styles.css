@@ -138,6 +138,38 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   font-size: 85cqb;
   line-height: 1;
 }
+/* Raised 2026-09-06: the portal previously had no dedicated look at all -
+   just the bare 🌌 emoji on the default .map-tile gray, with a worn-path
+   trail free to paint over it (see FULL_SQUARE_MARKERS's own comment in
+   js/screens/mapScreen.js for that half of the fix). A dark, slowly
+   pulsing indigo glow gives it a real presence distinct from every
+   ordinary tile around it, independent of whichever emoji ends up
+   rendered inside via .map-tile-fullsize. */
+.map-tile-portal {
+  background: radial-gradient(circle, #241b4d 0%, #0c0a1f 75%);
+  animation: map-tile-portal-glow 2.4s ease-in-out infinite;
+}
+@keyframes map-tile-portal-glow {
+  0%, 100% { box-shadow: inset 0 0 8px 2px rgba(140, 170, 255, 0.35); }
+  50% { box-shadow: inset 0 0 18px 7px rgba(170, 200, 255, 0.85); }
+}
+/* Raised 2026-09-06: "add effect to portal that kind of follows the
+   character so it looks like it's trying to suck you in" - and, same
+   session, "it instantly ports you to town" (an abrupt cut, no
+   transition). Added to the player's own .map-tile-fullsize marker by
+   mapScreen.js's playPortalPullEffect, right where a portal action tile
+   would otherwise fire its callback immediately - the callback is now
+   delayed to match (PORTAL_PULL_EFFECT_MS there, kept in sync with this
+   animation's duration by hand). Spins/shrinks/fades toward the tile's
+   own center and brightens, reading as being drawn into the portal
+   rather than just disappearing. */
+@keyframes map-tile-player-portal-pull {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
+  100% { transform: scale(0.15) rotate(35deg); opacity: 0; filter: brightness(2.2); }
+}
+.map-tile-player-portal-pull {
+  animation: map-tile-player-portal-pull 420ms ease-in forwards;
+}
 /* Grass decorations (clover/flower): smaller than the tile, placed at a
    random spot via left/top (not dead-center) so a field of them scatters
    naturally instead of forming a grid of centered icons. left/top and

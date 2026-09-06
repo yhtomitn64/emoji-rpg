@@ -9,6 +9,7 @@ import { createNewGame } from '../js/state.js';
 import { townMap } from '../js/maps/townMap.js';
 import { buildWorldGrid } from '../js/systems/worldGrid.js';
 import { isGateCleared } from '../js/systems/toolGates.js';
+import { TOWN_PORTAL_POSITION } from '../js/systems/portal.js';
 
 function baseState(overrides = {}) {
   return { ...createNewGame(), position: { ...townMap.startPosition }, ...overrides };
@@ -98,6 +99,67 @@ test('mapScreen DOM - portal tiles', async (t) => {
     const root = await mountTown(baseState({ portal: null }));
     assert.equal(root.querySelector('.map-tile-portal-origin'), null);
     assert.equal(root.querySelector('.map-tile-portal-return'), null);
+  });
+});
+
+test('mapScreen DOM - portal pull effect delays the action', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('stepping onto the return portal plays the pull animation and delays enterPortalToOrigin, instead of firing it in the same tick', async () => {
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    const maps = { town: townMap };
+    const seenActions = [];
+    // One tile below the fixed return-portal spot - ArrowUp steps onto it.
+    const state = baseState({
+      position: { x: TOWN_PORTAL_POSITION.x, y: TOWN_PORTAL_POSITION.y + 1 },
+      portal: { originScreenId: 'north', originX: 3, originY: 3, returnPending: true },
+    });
+    mount(root, {
+      state,
+      mapConfig: townMap,
+      maps,
+      worldGrid: buildWorldGrid(maps),
+      callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: (action) => seenActions.push(action) },
+    });
+
+    keydown('ArrowUp');
+    assert.deepEqual(seenActions, [], 'expected enterPortalToOrigin to not fire in the same tick as the step');
+    const marker = root.querySelector('.map-tile-player .map-tile-fullsize');
+    assert.ok(marker?.classList.contains('map-tile-player-portal-pull'), 'expected the pull animation class on the player marker');
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.deepEqual(seenActions, ['enterPortalToOrigin']);
+  });
+
+  await t.test('a keypress during the pull window is ignored (guards against a stale delayed action firing after the player moved again)', async () => {
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    const maps = { town: townMap };
+    const seenActions = [];
+    const state = baseState({
+      position: { x: TOWN_PORTAL_POSITION.x, y: TOWN_PORTAL_POSITION.y + 1 },
+      portal: { originScreenId: 'north', originX: 3, originY: 3, returnPending: true },
+    });
+    mount(root, {
+      state,
+      mapConfig: townMap,
+      maps,
+      worldGrid: buildWorldGrid(maps),
+      callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: (action) => seenActions.push(action) },
+    });
+
+    keydown('ArrowUp');
+    keydown('ArrowDown');
+    assert.equal(state.position.y, TOWN_PORTAL_POSITION.y, 'expected the second keypress to be ignored while a portal transition is pending, position unchanged');
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.deepEqual(seenActions, ['enterPortalToOrigin'], 'expected exactly one delayed action, not a stale/duplicate fire');
   });
 });
 
