@@ -35,13 +35,13 @@ public API, no formal release process — commits land straight on
   superboss's own dungeon. See
   `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
 - **`superBossOne` [PLACEHOLDER NAME]** - the first hand-placed superboss:
-  a 1050 HP encounter that only a fully-decked NG+ build (every slot
-  Mythic-tier and maxed, both superboss-only rings) can realistically
-  win, and even then not comfortably - tuned via `scripts/
-  simulate-balance.js` to a real ~27% win rate / ~29% average HP
-  remaining on a win, heavy potion use, well below the guardian pass's
-  own 48-53% comfort band. Every lesser build tested loses outright.
-  Fought behind its own small dungeon
+  a 3000 HP / 55 attack / 24 defense encounter that only a fully-decked
+  NG+ build (every slot Mythic-tier and maxed, both superboss-only rings)
+  can realistically win, and even then not comfortably - tuned via
+  `scripts/simulate-balance.js` to a real ~10% win rate / ~17% average
+  HP remaining on a win / 6.0 of 6 potions used, well below the guardian
+  pass's own 48-53% comfort band. Every lesser build tested loses
+  outright. Fought behind its own small dungeon
   (`js/maps/superBosses/superBossOneDungeon.js`, two rooms and a
   corridor), entered from the far-southeast wilderness. Drops a
   guaranteed Apex-tier Ferocity Fang. First of ~10 planned - the rest are

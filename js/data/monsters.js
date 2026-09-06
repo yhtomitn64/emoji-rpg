@@ -275,6 +275,14 @@ export const MONSTERS = {
   //   in task-14-report.md as a real, separate finding about the
   //   post-NG+1 game overall rather than something this task's scope
   //   covers fixing.
+  //
+  //   Post-review addendum: the variant-roll sanity check above is now
+  //   purely historical context, not live behavior - a later fix in this
+  //   same branch exempted every forceFullBattle monster (this one and all
+  //   four tool guardians) from pickMonsterVariant entirely (see
+  //   js/systems/monsterVariants.js's pickVariantOverrides), so
+  //   superBossOne's stats above are exactly what a real encounter always
+  //   uses, never +/-15% varied.
   superBossOne: {
     id: 'superBossOne', name: 'Super Boss One [PLACEHOLDER NAME]', emoji: '💀',
     hp: 3000, attack: 55, defense: 24, speed: 14,
