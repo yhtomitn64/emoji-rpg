@@ -233,7 +233,7 @@ function handleLacerateRetriggerPress() {
   const elapsedPercent = Math.min(100, (elapsedMs / lacerate.retrigger.windowMs) * 100);
   closeLacerateRetriggerWindow();
   if (resolveTimingHit(elapsedPercent, lacerate.retrigger.sweetSpotStartPercent, lacerate.retrigger.sweetSpotEndPercent)) {
-    buffState = activateBuff({ buffDurationMs: lacerate.retrigger.buffDurationMs });
+    buffState = activateBuff({ buffDurationMs: lacerate.retrigger.buffDurationMs }, 'lacerate');
     log.push('Lacerate\'s follow-through lands! Your attacks hit harder for a while.');
     updateBuffIndicator();
     updateLog();
@@ -460,10 +460,25 @@ function updateLog() {
   elements.log.scrollTop = elements.log.scrollHeight;
 }
 
+// Raised 2026-09-04: Lacerate's retrigger buff and Super Scream's buff read
+// as the exact same generic effect. Both still just multiply attack damage
+// (same underlying buffState), so this stays a label/color swap keyed on
+// buffState.source rather than a new mechanic - the goal is telling the two
+// apart at a glance, not distinguishing gameplay that's already identical.
 function updateBuffIndicator() {
-  elements.buffIndicator.textContent = buffState.active
-    ? `💪 Buffed: ${Math.ceil(buffState.remainingMs / 1000)}s`
-    : '';
+  if (!buffState.active) {
+    elements.buffIndicator.textContent = '';
+    elements.buffIndicator.className = 'battle-buff-indicator';
+    return;
+  }
+  const seconds = Math.ceil(buffState.remainingMs / 1000);
+  const isLacerate = buffState.source === 'lacerate';
+  // Icon/color swap only, no new flavor text invented - see the "no
+  // AI-generated narrative" boundary in this repo's memory notes.
+  elements.buffIndicator.textContent = isLacerate ? `🩸 Buffed: ${seconds}s` : `💪 Buffed: ${seconds}s`;
+  elements.buffIndicator.className = isLacerate
+    ? 'battle-buff-indicator battle-buff-indicator-lacerate'
+    : 'battle-buff-indicator';
 }
 
 function updateWidenIndicator() {
@@ -1416,6 +1431,27 @@ function playReviveEffect(emojiEl) {
 // keyboard shortcut and the action row's Parry button (added 2026-08-31)
 // so both trigger identical behavior rather than two slightly-different
 // parry paths.
+// Shared by the per-monster ATB-bar/parry-hint click handlers (mount()) so a
+// targeted click resolves identically to the single-mob branch of
+// attemptParry() below. Before this existed, a click unconditionally called
+// resolveMonsterWindup(mc, true) with no pre-check - a mistimed click (before
+// the zone) still passed requireZone's default of true, but resolveMonsterWindup
+// itself falls through to monsterAttack() on a failed zone check, forcing that
+// monster's attack to resolve immediately instead of leaving its windup to
+// finish naturally the way an early 's' press does (attemptParry only calls
+// resolveMonsterWindup at all once resolveParryAttempt has already passed).
+// Confirmed via a jsdom repro: an early click logged an immediate hit that an
+// equally early 's' press never produced. Fixed by giving the click path the
+// same pre-check-then-call shape.
+function attemptParryOnMonster(mc) {
+  if (parryCooldownMs > 0) return;
+  parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
+  if (mc.windup.active && resolveParryAttempt(windupElapsedPercent(mc.windup), playerEffectBonuses.parryWindowBonusPercent)) {
+    resolveMonsterWindup(mc, true);
+  }
+  updateMenu();
+}
+
 function attemptParry() {
   if (battleOver || parryCooldownMs > 0) return;
   parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
@@ -1652,7 +1688,7 @@ async function playerUseAbility(abilityId) {
     logEvent('ability_used', { abilityId, inBattle: true, ngPlusCycle: state.ngPlusCycle });
     const gcdMs = abilityGcdMsForSpeed(playerCombatant.speed);
     if (ability.type === 'buff') {
-      buffState = activateBuff(ability);
+      buffState = activateBuff(ability, ability.id);
       abilityCooldowns[abilityId] = ability.cooldownMs;
       attackStreak = 0;
       attackStreakIdleMs = 0;
@@ -2258,17 +2294,11 @@ export function mount(root, props) {
     };
     elements.monsterAtbBars[i].onclick = (event) => {
       event.stopPropagation();
-      if (parryCooldownMs > 0) return;
-      parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
-      resolveMonsterWindup(mc, true);
-      updateMenu();
+      attemptParryOnMonster(mc);
     };
     elements.parryHints[i].onclick = (event) => {
       event.stopPropagation();
-      if (parryCooldownMs > 0) return;
-      parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
-      resolveMonsterWindup(mc, true);
-      updateMenu();
+      attemptParryOnMonster(mc);
     };
   });
   selectedMonsterIndex = 0;

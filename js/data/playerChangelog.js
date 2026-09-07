@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.7',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: clicking a monster\'s attack meter to parry too early no longer forces the hit to land instantly - it now misses cleanly and waits, just like an early keyboard parry already did.',
+      'Changed: the Smith screen now shows your current New Game+ cycle.',
+      'Changed: Lacerate\'s bonus-damage buff now shows in red instead of looking identical to Super Scream\'s buff.',
+    ],
+  },
+  {
     version: '0.26.6',
     date: '2026-09-07',
     highlights: [

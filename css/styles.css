@@ -767,6 +767,13 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   min-height: 1.2em;
   margin-top: 4px;
 }
+/* Raised 2026-09-04: Lacerate's retrigger buff and Super Scream's buff read
+   as the same generic effect. Reuses Lacerate's own established red
+   (battle-lacerate-claw/-drop above) so the buff indicator reads as "that
+   ability's buff" at a glance instead of a second identical amber badge. */
+.battle-buff-indicator-lacerate {
+  color: #d43f3f;
+}
 .battle-widen-indicator {
   font-size: 0.75rem;
   color: #c9a876;

@@ -130,4 +130,8 @@ jobs:
           # branch setting (default "main" for a direct-upload project with
           # no Git connection) to decide production vs. preview deploy - it
           # does not need to match this repo's actual default branch name.
-          command: pages deploy dist --project-name=emoji-rpg --branch=main
+          # --commit-dirty=true silences wrangler's "working directory has
+          # uncommitted changes" warning every run - expected here, not a
+          # real signal: the "Stage deployable files" step above creates
+          # dist/ (untracked build output) right before this step runs.
+          command: pages deploy dist --project-name=emoji-rpg --branch=main --commit-dirty=true

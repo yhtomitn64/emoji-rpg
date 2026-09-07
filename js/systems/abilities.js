@@ -119,11 +119,14 @@ export function tickCooldowns(cooldowns, dt) {
 }
 
 export function createBuffState() {
-  return { active: false, remainingMs: 0 };
+  return { active: false, remainingMs: 0, source: null };
 }
 
-export function activateBuff(ability) {
-  return { active: true, remainingMs: ability.buffDurationMs };
+// source distinguishes which ability granted the buff (e.g. 'superScream' vs
+// 'lacerate') purely for display - see battleScreen.js's updateBuffIndicator,
+// which raised 2026-09-04 both buffs reading as the same generic effect.
+export function activateBuff(ability, source = null) {
+  return { active: true, remainingMs: ability.buffDurationMs, source };
 }
 
 export function tickBuff(buffState, dt) {

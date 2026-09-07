@@ -49,6 +49,21 @@ async function waitUntilZoneMidpoint(windupStart) {
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
+// Same fix as tests/battleSpecialAttacks.test.js's identically-named helper
+// (0.26.6, commit 3c6e9fd) - polls for the real outcome instead of guessing a
+// fixed wall-clock duration for a windup to naturally complete. A few tests
+// below still guessed a duration for that specific race (letting a windup
+// resolve unparried via tick()'s own 300ms poll) and were never touched by
+// that fix - same latent CI-flakiness pattern, just hadn't actually flaked
+// yet (see the BACKLOG.md entry raised alongside this fix, 2026-09-07).
+async function waitForCondition(predicate, description, timeoutMs = 5000) {
+  const pollStart = Date.now();
+  while (!predicate()) {
+    if (Date.now() - pollStart > timeoutMs) throw new Error(`Timed out waiting for ${description}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 async function mountBattle(monsterIds, { state = baseState(), callbacks = {}, monsterOverrides } = {}) {
   const { mount } = await import('../js/screens/battleScreen.js');
   const root = createRoot();
@@ -534,6 +549,29 @@ test('battleScreen DOM', async (t) => {
     assert.equal((log.match(/You parry/g) || []).length, 1, 'clicking the ATB bar while on cooldown should not land a second parry');
   });
 
+  // Raised 2026-09-05, fixed 2026-09-07: a click on the ATB bar/parry hint
+  // used to call resolveMonsterWindup(mc, true) unconditionally, with no
+  // pre-check - a miss (click before the 80-100% zone) still fell into
+  // resolveMonsterWindup's own failed-zone-check branch, which resolves
+  // monsterAttack() immediately instead of leaving the wind-up to finish on
+  // its own. The "s" shortcut's single-mob path never had this problem: it
+  // only calls resolveMonsterWindup at all once resolveParryAttempt has
+  // already passed. attemptParryOnMonster() now gives clicks the same
+  // pre-check-then-call shape.
+  await t.test('clicking a monster\'s ATB bar too early misses cleanly instead of forcing its attack to resolve immediately', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
+    // Well before the 80-100% parry zone opens.
+    const earlyElapsedMs = (20 / 100) * PARRY_WINDUP_DURATION_MS;
+    const remaining = windupStart + earlyElapsedMs - Date.now();
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+    click(root.querySelector('#battle-monster-atb-bar-0'));
+    const log = root.querySelector('#battle-log').textContent;
+    assert.doesNotMatch(log, /hits you for/, 'an early click should not force the monster\'s attack to resolve immediately');
+    assert.doesNotMatch(log, /You parry/, 'an early click obviously should not land a parry either');
+  });
+
   await t.test('a landed parry shows a distinct PARRY! badge and hero-emoji flash, with no dialog shake', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     const fill = root.querySelector('#battle-monster-atb-fill-0');
@@ -569,15 +607,13 @@ test('battleScreen DOM', async (t) => {
       state: baseState({ equipment: { ...createNewGame().equipment, accessory: 'retributionCharm' } }),
       monsterOverrides: [{ speed: 1000 }],
     });
-    // windup starts on the first tick (~300ms); wait past the full
-    // PARRY_WINDUP_DURATION_MS (1000ms) without pressing the parry key
-    // ('s'), then past one more 300ms tick so tick()'s own
-    // isWindupComplete poll catches it and resolves an unparried attack -
-    // same windup mechanics the existing parry tests above use, just
-    // letting the window close instead of pressing in time.
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    // Let the windup naturally complete unparried (no 's' press) - poll for
+    // tick()'s own isWindupComplete check to actually resolve it instead of
+    // guessing how long that takes under CI load.
+    await waitForCondition(
+      () => /Retribution Charm reflects/.test(root.querySelector('#battle-log').textContent),
+      'the unparried attack to resolve and Retribution Charm to reflect it',
+    );
     const log = root.querySelector('#battle-log').textContent;
     assert.match(log, /hits you for/);
     assert.match(log, /Retribution Charm reflects/);
@@ -760,8 +796,9 @@ test('battleScreen DOM', async (t) => {
     // PERFECT_TIMING_BADGE_MS (900ms as of this writing) and
     // .battle-perfect-timing-badge in css/styles.css.
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    await new Promise((resolve) => setTimeout(resolve, 850));
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(windupStart);
     keydown('s');
     assert.match(root.querySelector('#battle-log').textContent, /You parry/);
     const badge = document.querySelector('.battle-perfect-timing-badge-parry');
@@ -1101,13 +1138,14 @@ test('battleScreen DOM', async (t) => {
     // are tuned for that cadence, not the item menu's 25% slow-mo.
     keydown('Escape');
     // Same unparried-hit forcing pattern as the existing "a Retribution
-    // Charm reflects damage..." test above: wait past the first tick
-    // (windup starts, ~300ms), then past the full PARRY_WINDUP_DURATION_MS
-    // without pressing parry, then one more tick so tick()'s own
-    // isWindupComplete poll resolves the attack.
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    await new Promise((resolve) => setTimeout(resolve, PARRY_WINDUP_DURATION_MS));
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    // Charm reflects damage..." test above: let the windup naturally
+    // complete without pressing parry, polling for the real outcome instead
+    // of guessing how long tick()'s own isWindupComplete poll takes under
+    // CI load.
+    await waitForCondition(
+      () => /Second Wind kicks in/.test(root.querySelector('#battle-log').textContent),
+      'the unparried attack to resolve and Second Wind to kick in',
+    );
     assert.equal(state.player.hp, 1);
     assert.match(root.querySelector('#battle-log').textContent, /Second Wind kicks in/);
   });
@@ -1181,6 +1219,14 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-ability-slash'));
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
     assert.equal(root.querySelector('#btn-ability-slash').classList.contains('battle-ability-button-retrigger'), false, 'the glow should clear once the window is resolved');
+    // Raised 2026-09-04, fixed 2026-09-07: Lacerate's retrigger buff and
+    // Super Scream's buff used to read as the exact same indicator - this
+    // one should get its own color-distinguishing class (see the Super
+    // Scream buff test further below for the non-Lacerate case).
+    assert.ok(
+      root.querySelector('#battle-buff-indicator').classList.contains('battle-buff-indicator-lacerate'),
+      'Lacerate\'s buff should get its own distinguishing class, not read as Super Scream\'s',
+    );
   });
 
   await t.test('the "3" key also lands the re-press during Lacerate\'s window, not just clicking its button', async () => {
@@ -1244,6 +1290,11 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-ability-superScream'));
     const buffTextAfterScream = root.querySelector('#battle-buff-indicator').textContent;
     assert.match(buffTextAfterScream, /12s/);
+    assert.equal(
+      root.querySelector('#battle-buff-indicator').classList.contains('battle-buff-indicator-lacerate'),
+      false,
+      'Super Scream\'s own buff should not carry Lacerate\'s distinguishing class',
+    );
 
     const lacerateBtn = root.querySelector('#btn-ability-slash');
     click(lacerateBtn);
@@ -1253,6 +1304,10 @@ test('battleScreen DOM', async (t) => {
     // remaining ~12s at this point, so a real stack would show >12s and a
     // refresh would show exactly 9s (the single shared buffState replaced).
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /9s/);
+    assert.ok(
+      root.querySelector('#battle-buff-indicator').classList.contains('battle-buff-indicator-lacerate'),
+      'once Lacerate\'s re-press refreshes the shared buffState, the indicator should switch to Lacerate\'s class',
+    );
   });
 
   await t.test('using one ability puts every other unlocked ability on cooldown too (the shared GCD)', async () => {

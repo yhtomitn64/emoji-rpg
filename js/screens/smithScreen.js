@@ -69,10 +69,19 @@ function render() {
     </div>`;
   }).join('');
 
+  // Surfaced 2026-09-07 while investigating a "why can this be upgraded so
+  // high" question: the upgrade cap shown on every row is driven entirely by
+  // ngPlusCycle, but nothing here ever showed what cycle is active - a
+  // player had to leave the smith and check the Stats panel (which already
+  // has this exact badge) to find out. Reuses statsPanel.js's own
+  // .ngplus-badge styling for consistency.
+  const ngPlusBadge = state.ngPlusCycle > 0 ? `<div class="ngplus-badge">New Game+${state.ngPlusCycle}</div>` : '';
+
   rootEl.innerHTML = `
     <div class="smith-screen">
       <button class="screen-close-x" id="btn-close-x" aria-label="Leave smith">✕</button>
       <h2>Smith (Gold: ${state.player.gold})</h2>
+      ${ngPlusBadge}
       ${rows}
       <button id="btn-leave">Leave</button>
     </div>

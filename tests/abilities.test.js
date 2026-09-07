@@ -38,12 +38,20 @@ test('tickCooldowns does not mutate the input object', () => {
 });
 
 test('createBuffState starts inactive with no bonus', () => {
-  assert.deepEqual(createBuffState(), { active: false, remainingMs: 0 });
+  assert.deepEqual(createBuffState(), { active: false, remainingMs: 0, source: null });
 });
 
 test('activateBuff turns the buff on using the ability\'s own duration', () => {
   const superScream = ABILITIES.find((a) => a.id === 'superScream');
-  assert.deepEqual(activateBuff(superScream), { active: true, remainingMs: 12000 });
+  assert.deepEqual(activateBuff(superScream), { active: true, remainingMs: 12000, source: null });
+});
+
+// source distinguishes which ability granted the buff, purely for
+// battleScreen.js's display (see updateBuffIndicator) - raised 2026-09-04,
+// fixed 2026-09-07.
+test('activateBuff tags the buff with the given source', () => {
+  const superScream = ABILITIES.find((a) => a.id === 'superScream');
+  assert.equal(activateBuff(superScream, 'superScream').source, 'superScream');
 });
 
 test('tickBuff counts down while active', () => {
@@ -52,8 +60,8 @@ test('tickBuff counts down while active', () => {
 });
 
 test('tickBuff expires back to the inactive state once remainingMs hits 0', () => {
-  const buff = { active: true, remainingMs: 200 };
-  assert.deepEqual(tickBuff(buff, 300), { active: false, remainingMs: 0 });
+  const buff = { active: true, remainingMs: 200, source: 'superScream' };
+  assert.deepEqual(tickBuff(buff, 300), { active: false, remainingMs: 0, source: null });
 });
 
 test('tickBuff on an already-inactive buff is a no-op', () => {

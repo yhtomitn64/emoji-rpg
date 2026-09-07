@@ -24,6 +24,53 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.7] - 2026-09-07
+
+### Fixed
+- **A mistimed click on a monster's ATB bar/parry hint forced its attack to
+  resolve immediately, instead of missing cleanly like an early `s` press
+  does.** Flagged in `docs/superpowers/BACKLOG.md` (raised 2026-09-05
+  during the super-boss pass's final review) as a click/keyboard parry
+  asymmetry that also now decides whether a super-boss's special attack
+  lands, not just whether damage is reflected. Investigated with a jsdom
+  repro rather than trusting the backlog's own framing: the actual root
+  cause is narrower than "click-parrying is easier" - `resolveMonsterWindup`
+  falls through to `monsterAttack()` on a failed zone check regardless of
+  caller, but the keyboard path (`attemptParry`) only ever calls it after
+  `resolveParryAttempt` has already passed, so a keyboard miss just leaves
+  the wind-up to finish on its own. The per-monster ATB-bar/parry-hint click
+  handlers called `resolveMonsterWindup` unconditionally, so a mistimed
+  click forced that same failed-zone-check branch to fire right away.
+  `attemptParryOnMonster()` (`js/screens/battleScreen.js`) gives clicks the
+  same pre-check-then-call shape as the keyboard path. Regression test in
+  `tests/battleScreenDom.test.js`.
+- **`tests/battleScreenDom.test.js` carried the same latent CI-flakiness
+  pattern already fixed in `battleSpecialAttacks.test.js` (0.26.6).** Three
+  tests waited a fixed guessed duration for a monster's wind-up to naturally
+  resolve unparried, then checked the outcome once - flagged but not fixed
+  in the 0.26.6 entry. Replaced with the same `waitForCondition` poll.
+
+### Changed
+- **Smith screen now shows the player's current NG+ cycle**, reusing the
+  Stats panel's own `.ngplus-badge` - the upgrade cap shown on every slot
+  is driven entirely by NG+ cycle, but nothing on the smith screen
+  previously said what cycle was active. Surfaced 2026-09-07 while
+  investigating an "old save has way more upgrade levels than expected"
+  report that turned out not to be a bug.
+- **Lacerate's retrigger buff and Super Scream's buff no longer look
+  identical.** Both still just multiply attack damage via the same shared
+  `buffState` - `activateBuff()` (`js/systems/abilities.js`) now tags it
+  with a `source`, and the battle buff indicator swaps to Lacerate's own
+  established red (already used by its claw/bleed decals) when that's the
+  active source, instead of always showing the same amber "💪 Buffed" text.
+  Icon/color only, no new flavor text.
+
+### Infrastructure
+- Deploy workflow: added `--commit-dirty=true` to the Cloudflare Pages
+  deploy command, silencing wrangler's expected-but-noisy "working
+  directory has uncommitted changes" warning (the `dist/` staging step
+  always leaves untracked files right before this step runs).
+
 ## [0.26.6] - 2026-09-07
 
 ### Fixed

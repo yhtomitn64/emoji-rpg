@@ -42,6 +42,18 @@ test('smithScreen reforge DOM', async (t) => {
     assert.equal(root.querySelector('button[data-reforge="weapon"]'), null);
   });
 
+  // Raised 2026-09-07: the upgrade cap shown on every slot is driven entirely
+  // by ngPlusCycle, but nothing on this screen said what cycle was active.
+  await t.test('shows the current NG+ cycle badge once past NG+0', async () => {
+    const root = await mountSmith(buildState({ ngPlusCycle: 2 }));
+    assert.match(root.querySelector('.ngplus-badge').textContent, /New Game\+2/);
+  });
+
+  await t.test('shows no NG+ badge at NG+0', async () => {
+    const root = await mountSmith(buildState({ ngPlusCycle: 0 }));
+    assert.equal(root.querySelector('.ngplus-badge'), null);
+  });
+
   await t.test('hides the Reforge button for a non-Superior tier', async () => {
     const root = await mountSmith(buildState({ equipmentTiers: {} }));
     assert.equal(root.querySelector('button[data-reforge="weapon"]'), null);

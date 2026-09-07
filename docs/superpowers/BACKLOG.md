@@ -118,7 +118,7 @@ of the three-session balance queue above — separate initiative):**
 - **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
 - ~~**Ability global-cooldown rework**~~ — **shipped 2026-09-03/04 (0.23.0, graduated per-ability cooldowns in 0.23.1)**, stale "not yet executed" note found while doing an unrelated backlog pass 2026-09-04. Removed the player ATB "swing timer" gate on abilities 1-4 in favor of a shared, speed-scaled global cooldown (Attack's own decay system, monster ATB, Super Scream, Lacerate's retrigger, and parry all left untouched, as planned). See `docs/superpowers/plans/2026-09-03-ability-gcd-rework.md` (spec: `docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md`) for the original design; same underlying idea as the "Slower combat / reconsider the timing-minigame layer" bullet in Combat pass ideas above.
 - ~~**Bug raised 2026-09-03**~~ — **investigated 2026-09-07, confirmed not a bug.** An old save (level 11) shows far more smith-upgrade levels available than expected before max level. See "Bugs / open questions, raised 2026-09-03" below for the finding.
-- **Smith screen doesn't show the player's current NG+ cycle** — surfaced by the investigation above (2026-09-07); minor UX polish idea, not scoped. See "Bugs / open questions, raised 2026-09-03" below.
+- ~~**Smith screen doesn't show the player's current NG+ cycle**~~ — **shipped 2026-09-07 (0.26.7)**, surfaced by the investigation above. Reuses the Stats panel's own `.ngplus-badge`. See "Bugs / open questions, raised 2026-09-03" below.
 - ~~**"NEW MAX!" battle callout overlaps other text, hard to read**~~ — **shipped 2026-09-04 (0.24.5)**, alongside the broader damage-number-stacking fix it turned out to share a root cause with. See the Bugs / open questions section below.
 - ~~**Portal graphic/trail overlap + instant teleport + sucking-in effect**~~ — **shipped 2026-09-06 (0.26.3)**, all three in one pass: full-size marker rendering + a real background glow fixed the trail-on-top bug and the "looks bad" complaint; a brief pull animation now plays before a portal action fires, instead of firing in the same tick as the step. The return-portal walk-off-and-back-on was left as-is - turned out to be existing designed behavior, not a bug. See BACKLOG_SHIPPED.md's Bugs section.
 
@@ -153,9 +153,12 @@ same-day items below; these are the ones left open):**
   item with `upgradeSlot: 'ring'` and picking which monster drops it - a
   content decision, not a code fix, so left to Timothy rather than
   picked unilaterally.
-- **Make Lacerate's retrigger buff visually distinct from Super Scream's
-  buff** — both currently read as the same generic buff effect. Raw
-  idea, not designed.
+- ~~**Make Lacerate's retrigger buff visually distinct from Super Scream's
+  buff**~~ — **shipped 2026-09-07 (0.26.7)**. `activateBuff()`
+  (`js/systems/abilities.js`) now tags the shared `buffState` with a
+  `source`; the battle buff indicator swaps to Lacerate's own established
+  red when that's the active source. Icon/color swap only, no new flavor
+  text invented.
 - **Battle group size should keep climbing further, and the battle
   window/monster-count cap should grow too** — "the more you kill
   enemies the more chances there are for them to come in packs" (i.e.
@@ -272,15 +275,22 @@ same-day items below; these are the ones left open):**
     than retuned away today. Same open thread as the existing "Boss tier /
     NG+ cycle ceiling" bullet further down (Multi-zone progression
     section) - worth deciding together whenever chase gear is designed.
-  - **Click-vs-keyboard parry timing asymmetry, sharpened by superbosses.**
-    A mistimed mouse click on the ATB bar/parry hint skips the zone-timing
-    check (`resolveParryAttempt`/`windupElapsedPercent` in
-    `js/screens/battleScreen.js`) that the keyboard parry shortcut (`s`)
-    enforces - click-parrying is strictly easier than keyboard-parrying.
-    Pre-existing in the codebase before this pass, but now also decides
-    whether a superboss's `stun`/`slow`/`cooldownOverload` special attack
-    lands, not just whether damage is reflected - worth fixing before more
-    superbosses ship and lean on it further.
+  - ~~**Click-vs-keyboard parry timing asymmetry, sharpened by
+    superbosses.**~~ **Investigated and fixed 2026-09-07 (0.26.7).** A jsdom
+    repro found the real mechanism was narrower than this note's own
+    framing: both paths already enforced the same zone check by default
+    (`requireZone` defaults `true` either way) - the actual bug was that
+    `resolveMonsterWindup` falls through to `monsterAttack()` on a *failed*
+    zone check regardless of caller, but the keyboard path
+    (`attemptParry`) only ever calls it after `resolveParryAttempt` has
+    already passed, so a keyboard miss just leaves the wind-up alone to
+    finish naturally. The per-monster ATB-bar/parry-hint click handlers
+    called `resolveMonsterWindup` unconditionally, so a mistimed click
+    forced that failed-zone-check branch (an immediate, unblocked hit) to
+    fire right away instead. `attemptParryOnMonster()`
+    (`js/screens/battleScreen.js`) now gives clicks the same
+    pre-check-then-call shape as the keyboard path. Regression test in
+    `tests/battleScreenDom.test.js`.
   - **Three of the four new superboss unique items are unassigned.**
     `parryMasterRing`, `unshakenCharm`, and `stormringOfHaste` (
     `js/data/items.js`) exist as an extensible drop pool - a deliberate
@@ -1748,17 +1758,14 @@ immediately below: the smith screen never shows the player's current
 NG+ cycle, so there's no way to tell *why* the cap is what it is while
 looking at gear.
 
-### Smith screen doesn't show the player's current NG+ cycle
+### ~~Smith screen doesn't show the player's current NG+ cycle~~ — shipped 2026-09-07 (0.26.7)
 Surfaced while investigating the entry above (2026-09-07) - the smith
-screen has no indication anywhere of what NG+ cycle is currently active,
+screen had no indication anywhere of what NG+ cycle is currently active,
 even though it's the sole factor determining the upgrade cap shown on
-every slot. The Stats panel already has an `ngplus-badge` for this
-(`js/screens/statsPanel.js`, "New Game+`<N>`", only rendered when
-`ngPlusCycle > 0`) - the smith screen doesn't reuse it or show anything
-equivalent. Minor UX polish idea, not a bug - not designed or scoped,
-just worth a small badge/label alongside the existing "Maxed for
-NG+`<cycle>`" button text (`js/screens/smithScreen.js`) so a player
-doesn't need to leave the smith to check why a cap is what it is.
+every slot. Fixed by reusing the Stats panel's existing `ngplus-badge`
+(`js/screens/statsPanel.js`) in the smith screen's own header
+(`js/screens/smithScreen.js`), shown next to "Maxed for NG+`<cycle>`"
+whenever `ngPlusCycle > 0`, same condition as the Stats panel original.
 
 ### ~~"NEW MAX!" callout overlaps other battle text, hard to read~~ — shipped 2026-09-04 (0.24.5)
 Timothy: "the text that comes up for 'new Max' should come up outside
@@ -1806,9 +1813,9 @@ still on Node 20 (the old unpinned behavior had silently masked this by
 falling back to an older, Node-20-compatible wrangler release) - fixed
 by bumping `node-version` to 22 in the same workflow, confirmed live via
 `gh run watch`. The build-cache investigation below found nothing else
-to fix (the stall was a one-off, not a caching gap), and the
-`--commit-dirty=true` cosmetic cleanup is still explicitly deferred, not
-part of this fix.
+to fix (the stall was a one-off, not a caching gap). ~~The
+`--commit-dirty=true` cosmetic cleanup~~ **shipped 2026-09-07 (0.26.7)** —
+appended to the `pages deploy` command in the same workflow.
 
 Timothy, after watching a deploy stall ~10 minutes at a plain `npm ci`
 step, then a retry succeed cleanly through the same steps: "is there a
@@ -1904,7 +1911,7 @@ reimplementation instead of the real renderer.
 would need its own small design pass (which approach, how many scenarios,
 where the images/expected-pixel data live) before implementation.
 
-### `tests/battleScreenDom.test.js` carries the same latent CI-flakiness pattern that `battleSpecialAttacks.test.js` used to, raised 2026-09-07
+### ~~`tests/battleScreenDom.test.js` carries the same latent CI-flakiness pattern that `battleSpecialAttacks.test.js` used to~~ — shipped 2026-09-07 (0.26.7)
 Two deploys in a row (0.26.4, 0.26.5) failed `npm run test` under GitHub
 Actions' own load - never reproducible locally in isolation. Root cause,
 found in `tests/battleSpecialAttacks.test.js`: three tests waited a fixed
@@ -1918,12 +1925,14 @@ that waits for the actual outcome instead of guessing a duration -
 removes the race regardless of system load (see the systematic-debugging
 skill's condition-based-waiting technique).
 
-`tests/battleScreenDom.test.js` has multiple tests using the identical
-fixed-delay-then-single-assertion shape and was **not** touched by that
-fix - same latent risk, just hasn't actually flaked in CI yet. Not
-urgent (nothing broken today), but worth the same `waitForCondition`
-treatment next time that file is touched, or proactively if CI flakes
-again.
+`tests/battleScreenDom.test.js` had three tests using the identical
+fixed-delay-then-single-assertion shape (the Retribution Charm reflect
+test, the PERFECT!/PARRY! badge animation-duration test, and Second Wind's
+lethal-hit test - all three let a monster's wind-up naturally resolve
+unparried via a guessed real-time wait, then checked once). Fixed
+2026-09-07 (0.26.7) by giving the file its own local `waitForCondition`
+helper (same shape as `battleSpecialAttacks.test.js`'s) and polling for
+each test's actual log-line outcome instead.
 
 ## Discoverability / monetization
 
