@@ -32,6 +32,25 @@ async function waitUntilZoneMidpoint(windupStart) {
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
+// Raised 2026-09-07: the three unparried-hit tests below used to wait a
+// fixed PARRY_WINDUP_DURATION_MS + 400 (one tick's worth of margin past
+// tick()'s own 300ms isWindupComplete poll) and then check the outcome
+// exactly once - fine on a fast, otherwise-idle machine, but CI runs
+// every test file's own timers in the same process, and under that
+// contention the actual resolution can land past the fixed margin,
+// failing an assertion that was simply checked too early (seen twice in
+// a row on GitHub Actions, never locally in isolation). Polling for the
+// real condition instead of guessing a duration removes the race
+// entirely regardless of system load - see the systematic-debugging
+// skill's condition-based-waiting technique.
+async function waitForCondition(predicate, description, timeoutMs = 5000) {
+  const pollStart = Date.now();
+  while (!predicate()) {
+    if (Date.now() - pollStart > timeoutMs) throw new Error(`Timed out waiting for ${description}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 async function mountBattle(monsterIds, { state = baseState(), callbacks = {}, monsterOverrides } = {}) {
   const { mount } = await import('../js/screens/battleScreen.js');
   const root = createRoot();
@@ -67,14 +86,12 @@ test('battle special attacks', async (t) => {
     const fill = root.querySelector('#battle-monster-atb-fill-0');
     await waitForWindupStart(fill);
     // Let the windup expire unparried (mirrors battleScreenDom.test.js's
-    // own coverage of a plain unparried hit - no press, just wait past
-    // PARRY_WINDUP_DURATION_MS).
-    // +400 (not +200): tick()'s own isWindupComplete poll only runs every
-    // 300ms, so the actual resolution can land up to just under one full
-    // tick period after PARRY_WINDUP_DURATION_MS elapses - tests/
-    // battleScreenDom.test.js's own unparried-hit wait uses the same
-    // "one full tick of margin" buffer for this exact reason.
-    await new Promise((resolve) => setTimeout(resolve, PARRY_WINDUP_DURATION_MS + 400));
+    // own coverage of a plain unparried hit - no press, just wait for the
+    // log line the resolved hit produces).
+    await waitForCondition(
+      () => /slows you down/.test(root.querySelector('#battle-log').textContent),
+      'the slow debuff log line to appear',
+    );
     assert.match(root.querySelector('#battle-log').textContent, /slows you down/);
   });
 
@@ -102,17 +119,16 @@ test('battle special attacks', async (t) => {
     assert.equal(root.querySelector('#btn-ability-stab').disabled, false, 'stab should start off cooldown');
     const fill = root.querySelector('#battle-monster-atb-fill-0');
     await waitForWindupStart(fill);
-    // +400 (not +200): tick()'s own isWindupComplete poll only runs every
-    // 300ms, so the actual resolution can land up to just under one full
-    // tick period after PARRY_WINDUP_DURATION_MS elapses - tests/
-    // battleScreenDom.test.js's own unparried-hit wait uses the same
-    // "one full tick of margin" buffer for this exact reason.
-    await new Promise((resolve) => setTimeout(resolve, PARRY_WINDUP_DURATION_MS + 400));
-    // Re-query rather than reusing the earlier reference: updateMenu()
-    // replaces elements.menu.innerHTML wholesale (see updateMenu's own
-    // comment), so the button grabbed before the special attack resolved
-    // is a detached node by now - same convention tests/battleScreenDom.
-    // test.js already follows (e.g. its shared-parry-cooldown test).
+    // Re-queried inside the predicate (not a reference captured before the
+    // special attack resolved): updateMenu() replaces elements.menu.
+    // innerHTML wholesale (see updateMenu's own comment), so a button
+    // grabbed early is a detached node by the time the real one updates -
+    // same convention tests/battleScreenDom.test.js already follows (e.g.
+    // its shared-parry-cooldown test).
+    await waitForCondition(
+      () => root.querySelector('#btn-ability-stab')?.disabled === true,
+      'stab to be pushed onto cooldown by the special attack',
+    );
     assert.equal(root.querySelector('#btn-ability-stab').disabled, true, 'stab should be pushed onto cooldown by the special attack');
   });
 
@@ -130,11 +146,10 @@ test('battle special attacks', async (t) => {
     assert.equal(root.querySelector('#btn-attack').disabled, false, 'Attack should start off cooldown/unstunned');
     const fill = root.querySelector('#battle-monster-atb-fill-0');
     await waitForWindupStart(fill);
-    // +400 (not +200): tick()'s own isWindupComplete poll only runs every
-    // 300ms, so the actual resolution can land up to just under one full
-    // tick period after PARRY_WINDUP_DURATION_MS elapses - same buffer the
-    // other unparried-hit waits in this file already use.
-    await new Promise((resolve) => setTimeout(resolve, PARRY_WINDUP_DURATION_MS + 400));
+    await waitForCondition(
+      () => /leaves you reeling/.test(root.querySelector('#battle-log').textContent),
+      'the stun debuff log line to appear',
+    );
     // (a) the debuff actually landed.
     assert.match(root.querySelector('#battle-log').textContent, /leaves you reeling/);
     // (c) the button renders disabled while stunned - re-queried, not the

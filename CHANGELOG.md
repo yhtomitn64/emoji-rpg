@@ -24,6 +24,22 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.6] - 2026-09-07
+
+### Fixed
+- **Flaky `battle special attacks` CI failures.** The 0.26.4 and 0.26.5
+  deploys both failed `Run npm run test` on
+  `tests/battleSpecialAttacks.test.js`'s cooldownOverload test - never
+  reproducible locally in isolation, only under GitHub Actions' own load
+  (every test file's real-wall-clock timers running in the same
+  process). Root cause: three tests in that file waited a fixed
+  `PARRY_WINDUP_DURATION_MS + 400` and then checked the outcome exactly
+  once, racing the actual resolution under contention. Replaced with a
+  `waitForCondition` poll (same technique `waitForWindupStart` in the
+  same file already used) that waits for the real condition - the log
+  line or button state - instead of guessing a duration, removing the
+  race regardless of system load.
+
 ## [0.26.5] - 2026-09-07
 
 ### Fixed
