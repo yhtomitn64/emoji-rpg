@@ -103,7 +103,7 @@ of the three-session balance queue above — separate initiative):**
   - ~~**Ability rotation v2.**~~ **Shipped 2026-09-02 (0.19.0).** See BACKLOG_SHIPPED.md's "Combat pass ideas" section.
   - **Debuff visual effects** (raised 2026-09-02) — a bleed tick should show a falling blood droplet, every enemy debuff deserves its own distinct effect rather than just a status bar. Raw idea, not designed.
   - ~~**Lacerate retrigger sweet-spot flash**~~ — **Shipped 2026-09-03 (0.20.1).** See BACKLOG_SHIPPED.md's "Combat pass ideas" section.
-  - Monster inter-buffs/synergies, overlapping/varied monster sizing, larger battle screen, background illustration — all deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped).
+  - Monster inter-buffs/synergies, overlapping/varied monster sizing, background illustration — still-open deferred sub-projects of the bigger-groups work (sizing 1-2 already shipped; the larger-battle-screen sub-project is fulfilled by the separately-shipped "Bigger battle dialog," 0.26.2 — see the Combat pass ideas section below).
   - Rung-3 gear effects: parry window trade-offs (undecided direction). Of the known v1-ship follow-ups, the tier-aware-tooltip, camelCase-stat-key, and redundant-`getEquipmentBonuses`-call items **already shipped in `b8a5d33`** (found stale while doing an unrelated backlog pass 2026-09-03 — this line was never updated when that commit landed) — only AOE lifesteal/proc stacking per target (deliberate, not a bug) and the ±1 delta display rounding (cosmetic, not worth blocking anything on) are still open, and neither is scheduled.
   - Hold-to-block shield, timer-speed items, bonus damage at high swing speed — all raw/tentative ideas.
   - Progressive shrinking parry window per successful landed parry, raised and scrapped in the same session, 2026-09-03 — see Combat pass ideas below for the calibration discussed before it was dropped.
@@ -111,25 +111,39 @@ of the three-session balance queue above — separate initiative):**
   - ~~**Defense scaling needs work** (player outpaces near-town content thread)~~ — **investigated 2026-09-02, damage-floor half shipped as 0.17.3; the rest is a documented structural dead end, not an open task.** See "The player outpaces near-town/far-corner content" section below for the full writeup.
 - **Mobile/touch combat should be turn-based** — raw idea, explicitly scoped to touch input only.
 - **Open question: faster battle timer against weaker enemies?** — needs a decision (is it a speed problem or a power problem), not just an implementation.
-- **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass).
+- **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass); `battleScreenDom.test.js` carries the same fixed-delay CI-flakiness pattern fixed elsewhere 2026-09-07, not urgent (see Infrastructure / deployment section below).
 - **Discoverability / monetization** — AdSense (blocked on Google review; placement plan already decided); Cloudflare traffic analytics (waiting on a token from Timothy); opt-in gameplay analytics + local play-data export (not designed, tied to the same difficulty-by-tool-gate tuning question).
 - **Input / accessibility** — controller support, raw idea, not investigated.
 - **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first).
 - **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
 - ~~**Ability global-cooldown rework**~~ — **shipped 2026-09-03/04 (0.23.0, graduated per-ability cooldowns in 0.23.1)**, stale "not yet executed" note found while doing an unrelated backlog pass 2026-09-04. Removed the player ATB "swing timer" gate on abilities 1-4 in favor of a shared, speed-scaled global cooldown (Attack's own decay system, monster ATB, Super Scream, Lacerate's retrigger, and parry all left untouched, as planned). See `docs/superpowers/plans/2026-09-03-ability-gcd-rework.md` (spec: `docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md`) for the original design; same underlying idea as the "Slower combat / reconsider the timing-minigame layer" bullet in Combat pass ideas above.
-- **Bug raised 2026-09-03, not investigated yet** — an old save (level 11) shows far more smith-upgrade levels available than expected before max level, cause unknown (level-gated at all, or just a long-lived save with saved-up gold?). See "Bugs / open questions, raised 2026-09-03" below.
+- ~~**Bug raised 2026-09-03**~~ — **investigated 2026-09-07, confirmed not a bug.** An old save (level 11) shows far more smith-upgrade levels available than expected before max level. See "Bugs / open questions, raised 2026-09-03" below for the finding.
+- **Smith screen doesn't show the player's current NG+ cycle** — surfaced by the investigation above (2026-09-07); minor UX polish idea, not scoped. See "Bugs / open questions, raised 2026-09-03" below.
 - ~~**"NEW MAX!" battle callout overlaps other text, hard to read**~~ — **shipped 2026-09-04 (0.24.5)**, alongside the broader damage-number-stacking fix it turned out to share a root cause with. See the Bugs / open questions section below.
 - ~~**Portal graphic/trail overlap + instant teleport + sucking-in effect**~~ — **shipped 2026-09-06 (0.26.3)**, all three in one pass: full-size marker rendering + a real background glow fixed the trail-on-top bug and the "looks bad" complaint; a brief pull animation now plays before a portal action fires, instead of firing in the same tick as the step. The return-portal walk-off-and-back-on was left as-is - turned out to be existing designed behavior, not a bug. See BACKLOG_SHIPPED.md's Bugs section.
 
 **New threads raised 2026-09-04, overnight session (0.25.0 shipped the
 same-day items below; these are the ones left open):**
-- **Lacerate's retrigger window can drop if another ability is pressed in
-  between** — "seems like sometimes if I do another ability in between
-  hitting 3 and hitting again for the timing then I don't get the buff."
-  Explicitly deferred by Timothy ("for after"). Not investigated - check
-  `lacerateRetriggerOpen`/`openLacerateRetriggerWindow` in
-  `js/screens/battleScreen.js` for whether another ability's own
-  cooldown/GCD handling clears it.
+- ~~**Lacerate's retrigger window can drop if another ability is pressed in
+  between**~~ — **investigated 2026-09-07, confirmed not a state bug.**
+  "Seems like sometimes if I do another ability in between hitting 3 and
+  hitting again for the timing then I don't get the buff." Explicitly
+  deferred by Timothy at the time ("for after").
+
+  Traced every path that touches `lacerateRetriggerOpen`
+  (`js/screens/battleScreen.js`): it's only ever cleared by a successful
+  re-press (`handleLacerateRetriggerPress`) or by real-time expiry in
+  `tick()`. Pressing a different ability in between never clears it, and
+  the digit-key handler, the mouse handler, and `playerUseAbility` all
+  correctly check `retriggerWindowOpen` per-ability before falling back
+  to the shared GCD - no state bug found. The actual mechanism: Lacerate's
+  sweet spot (`js/systems/abilities.js`) is `sweetSpotStartPercent: 80` to
+  `100` of a `windowMs: 1200` - i.e. only the *last 240ms* of the 1200ms
+  window counts. Pressing another ability first burns exactly the
+  reaction time there's no margin for. It's a genuinely tight, unforgiving
+  timing window, not a bug - closed, no code change. If the "sometimes I
+  don't get it" feel keeps coming up, widening the window or the
+  sweet-spot percentage is the lever, not a fix.
 - **Ring slots (ring1/ring2) have no upgrade path at all** — raised as a
   bug ("power rings can't be upgraded at the smith"), turned out to be
   intentional/documented (`js/screens/smithScreen.js`'s `hasUpgradePath`
@@ -1390,7 +1404,15 @@ BACKLOG_SHIPPED.md's own "Combat pass ideas" section.)
     (`js/systems/monsterVariants.js` — Puny/Lesser/Greater/Savage,
     currently a stat multiplier with no visual difference at all beyond
     the name label).
-  - **(5) A larger battle screen.**
+  - ~~**(5) A larger battle screen.**~~ **Fulfilled by the separately-raised
+    "Bigger battle dialog" ask — shipped 2026-09-06 (0.26.2).** Same want,
+    worded again more concretely on 2026-09-05 ("can we make the whole
+    battle dialog bigger. enemies, effects and all") and shipped as
+    `--battle-scale` on `.battle-screen-stack` scaling the whole dialog
+    (enemies, bars, effects) up to 1.7x on large windows. See
+    BACKLOG_SHIPPED.md's "Bigger battle dialog" entry - this bullet was
+    never struck through when that shipped since it was raised and
+    tracked separately. No further action.
   - **(6) A background illustration behind the fight.**
 
 - ~~**Weapon-swing attack animations per ability, raised 2026-08-28.**~~
@@ -1699,19 +1721,44 @@ better-informed.
 
 ## Bugs / open questions, raised 2026-09-03
 
-### Old save shows way more smith-upgrade levels available than expected
+### ~~Old save shows way more smith-upgrade levels available than expected~~ — investigated 2026-09-07, not a bug
 Timothy, on a save at level 11 (created "10-20 patches ago," not yet at
 max level): the smith screen lets him upgrade gear well past where a
 level-11 character should reasonably be (screenshot showed Dragon Fang
 Blade +5, Iron Helm +5, Iron Armor +4, Iron Greaves +5 already applied,
 with `Upgrade (120g)` still available on several). Question raised but
 explicitly deferred ("something to look into after this section is
-done") - **not yet investigated.** Need to check whether upgrade level is
-level-gated at all today (vs. purely gold/material-gated, in which case a
-long-lived save that's been grinding gold could legitimately reach this),
-and whether there's a migration gap for saves made before whatever
-gating (if any) was introduced. Look at `js/systems/inventory.js`'s
-`MAX_UPGRADE_LEVEL`/`upgradeKey` and `js/screens/smithScreen.js` first.
+done") - not investigated at the time.
+
+**Investigated 2026-09-07.** `getMaxUpgradeLevel` (`js/systems/
+inventory.js`) gates purely on `ngPlusCycle` (base cap 3, `+2`/cycle)
+plus gold/material cost - there is no character-level gate on smith
+upgrades at all, today or ever. The real reason a level-11 character can
+show this: `resetWorldForNgPlus` (`js/systems/ngPlus.js`) never touches
+`player.level`, so character level and NG+ cycle are fully decoupled - a
+save that beat the dungeon boss early and cycled NG+ a few times for
+rewards is fully expected to have a level far below what its NG+ cycle's
+upgrade cap would suggest. No migration gap found - the historical
+2026-09-01 full-uncap window (see the "Partial walk-back of the
+2026-09-01 upgrade-level uncap" entry above) is correctly handled by the
+existing `atCap` check, which just disables further upgrades on an
+already-over-cap item rather than needing any retroactive clamp. Closed,
+no code change. One real gap it did surface, filed as its own entry
+immediately below: the smith screen never shows the player's current
+NG+ cycle, so there's no way to tell *why* the cap is what it is while
+looking at gear.
+
+### Smith screen doesn't show the player's current NG+ cycle
+Surfaced while investigating the entry above (2026-09-07) - the smith
+screen has no indication anywhere of what NG+ cycle is currently active,
+even though it's the sole factor determining the upgrade cap shown on
+every slot. The Stats panel already has an `ngplus-badge` for this
+(`js/screens/statsPanel.js`, "New Game+`<N>`", only rendered when
+`ngPlusCycle > 0`) - the smith screen doesn't reuse it or show anything
+equivalent. Minor UX polish idea, not a bug - not designed or scoped,
+just worth a small badge/label alongside the existing "Maxed for
+NG+`<cycle>`" button text (`js/screens/smithScreen.js`) so a player
+doesn't need to leave the smith to check why a cap is what it is.
 
 ### ~~"NEW MAX!" callout overlaps other battle text, hard to read~~ — shipped 2026-09-04 (0.24.5)
 Timothy: "the text that comes up for 'new Max' should come up outside
@@ -1856,6 +1903,27 @@ reimplementation instead of the real renderer.
 **Not started.** Raised as a good idea, not yet scoped or estimated -
 would need its own small design pass (which approach, how many scenarios,
 where the images/expected-pixel data live) before implementation.
+
+### `tests/battleScreenDom.test.js` carries the same latent CI-flakiness pattern that `battleSpecialAttacks.test.js` used to, raised 2026-09-07
+Two deploys in a row (0.26.4, 0.26.5) failed `npm run test` under GitHub
+Actions' own load - never reproducible locally in isolation. Root cause,
+found in `tests/battleSpecialAttacks.test.js`: three tests waited a fixed
+delay (`PARRY_WINDUP_DURATION_MS + 400`, guessing how long a resolution
+would take) and then checked the outcome exactly once - fine on a quiet
+machine, but every test file's real-wall-clock timers share one process
+under CI, and that contention pushed the real resolution past the fixed
+margin often enough to fail twice in a row. Fixed (0.26.6, commit
+`3c6e9fd`) by replacing the fixed waits with a `waitForCondition` poll
+that waits for the actual outcome instead of guessing a duration -
+removes the race regardless of system load (see the systematic-debugging
+skill's condition-based-waiting technique).
+
+`tests/battleScreenDom.test.js` has multiple tests using the identical
+fixed-delay-then-single-assertion shape and was **not** touched by that
+fix - same latent risk, just hasn't actually flaked in CI yet. Not
+urgent (nothing broken today), but worth the same `waitForCondition`
+treatment next time that file is touched, or proactively if CI flakes
+again.
 
 ## Discoverability / monetization
 
