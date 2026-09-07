@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.5',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the battle dialog no longer pops in at the old size and snaps to the bigger one right after - it grows in at its real size from the start.',
+    ],
+  },
+  {
     version: '0.26.4',
     date: '2026-09-07',
     highlights: [

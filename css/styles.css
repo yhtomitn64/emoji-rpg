@@ -516,10 +516,19 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 .battle-item-menu-slot-key {
   font-weight: 700;
 }
+/* Raised 2026-09-07: scale values here used to be absolute (0.4/1.05/1),
+   which ignore --battle-scale entirely - a CSS animation takes over its
+   animated property for its whole duration, so the dialog swirled in
+   toward plain scale(1) regardless of window size, then snapped straight
+   to .battle-screen-stack's own scale(var(--battle-scale)) the instant
+   the animation ended (no transition between the two, since only one of
+   them is ever driving `transform` at a time). Multiplying every stop by
+   --battle-scale makes the swirl itself animate around the actual target
+   size, landing exactly on it at 100% with nothing left to snap to. */
 @keyframes battle-screen-swirl-in {
-  0% { opacity: 0; transform: scale(0.4) rotate(-25deg); }
-  60% { opacity: 1; transform: scale(1.05) rotate(4deg); }
-  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  0% { opacity: 0; transform: scale(calc(var(--battle-scale) * 0.4)) rotate(-25deg); }
+  60% { opacity: 1; transform: scale(calc(var(--battle-scale) * 1.05)) rotate(4deg); }
+  100% { opacity: 1; transform: scale(var(--battle-scale)) rotate(0deg); }
 }
 /* Added by endBattle() (battleScreen.js) timed to finish right as the
    post-battle pause ends, then the DOM is torn down - see that function's
@@ -530,9 +539,14 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 .battle-screen-swirl-out {
   animation: battle-screen-swirl-out 0.4s ease-in forwards;
 }
+/* Same --battle-scale fix as battle-screen-swirl-in above, mirrored: 0%
+   used to be a flat scale(1), which snapped the dialog down to its
+   unscaled size the instant this animation started on any window wide
+   enough for --battle-scale to exceed 1 - shrinking from the real
+   current size instead of from wherever it actually was. */
 @keyframes battle-screen-swirl-out {
-  0% { opacity: 1; transform: scale(1) rotate(0deg); }
-  100% { opacity: 0; transform: scale(0.5) rotate(15deg); }
+  0% { opacity: 1; transform: scale(var(--battle-scale)) rotate(0deg); }
+  100% { opacity: 0; transform: scale(calc(var(--battle-scale) * 0.5)) rotate(15deg); }
 }
 .battle-screen-forest {
   background: linear-gradient(to bottom, rgba(17, 17, 17, 0.97) 0%, rgba(17, 17, 17, 0.97) 62%, rgba(28, 48, 30, 0.9) 100%);

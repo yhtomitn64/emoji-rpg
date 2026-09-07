@@ -24,6 +24,22 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.5] - 2026-09-07
+
+### Fixed
+- **Battle dialog snapping to its scaled size right after opening.**
+  `.battle-screen-swirl-in`'s keyframes (`css/styles.css`) hardcoded
+  absolute scale values (0.4 → 1.05 → 1) that ignored `--battle-scale`
+  (0.26.2) entirely - a CSS animation takes over its animated property
+  for its whole duration, so the entrance always swirled in toward plain
+  `scale(1)` regardless of window size, then jumped straight to
+  `.battle-screen-stack`'s own `scale(var(--battle-scale))` the instant
+  the animation ended, with no transition between the two. Both
+  `battle-screen-swirl-in` and the matching `battle-screen-swirl-out`
+  keyframes now scale every stop by `--battle-scale`, so the swirl
+  animates around the dialog's actual target size on both ends instead
+  of always resetting to its unscaled one.
+
 ## [0.26.4] - 2026-09-07
 
 ### Fixed
