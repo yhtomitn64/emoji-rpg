@@ -582,7 +582,16 @@ function render() {
       // there - including the player - while a player standing in a row
       // below an obstacle still renders in front of it, same as any other
       // ground content would.
-      cell.style.zIndex = String(row);
+      // Portal tiles get a flat +1000 on top of that: .map-tile-portal's
+      // shadow (css/styles.css) deliberately bleeds past this tile's own
+      // edge into every neighbor, including ones later in the row (same
+      // z-index, later in DOM = painted on top by default) and the row
+      // below (higher z-index under the scheme above) - without the
+      // boost, the shadow would only be visible on the up/left sides,
+      // painted over everywhere else. Portals are static POI tiles, not
+      // obstacles anything needs to walk behind, so always-on-top here
+      // doesn't cost the row-based scheme anything.
+      cell.style.zIndex = String(PORTAL_ACTION_TILES.has(tile) ? row + 1000 : row);
       const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
       const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
         ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
@@ -642,7 +651,21 @@ function render() {
         // stays the default for everything else in this branch.
         const isHeroOrLoot = isPlayer || hasTileCache || tile === TILES.miniDungeonTreasure;
         if (isHeroOrLoot) marker.style.fontSize = `${HERO_AND_LOOT_CQB}cqb`;
-        cell.appendChild(marker);
+        // Portal tiles: crop the emoji's own baked-in border rather than
+        // appending it plain - see .map-tile-portal-crop's own comment in
+        // css/styles.css. Excludes isPlayer: when the hero is standing on
+        // the portal tile, marker.textContent above is the hero's own
+        // emoji, not 🌌 - that one has no border to crop and must stay
+        // unscaled for playPortalPullEffect's own selector/animation to
+        // read its real, un-transformed size.
+        if (PORTAL_ACTION_TILES.has(tile) && !isPlayer) {
+          const crop = document.createElement('span');
+          crop.className = 'map-tile-portal-crop';
+          crop.appendChild(marker);
+          cell.appendChild(crop);
+        } else {
+          cell.appendChild(marker);
+        }
       } else if (isDecoratedGrass) {
         appendDecoration();
       } else if (emoji) {

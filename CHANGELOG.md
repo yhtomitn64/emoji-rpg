@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.4] - 2026-09-07
+
+### Fixed
+- **Portal tile's white border.** The 🌌 emoji's own art is a framed
+  picture with a pale border baked into the glyph, not CSS - the
+  0.26.3 background glow read as fighting that border instead of
+  hiding it. `.map-tile-portal-crop` (`css/styles.css`) now renders the
+  marker oversized and clips it back to the tile's edge (scaled 1.36x,
+  landed by eye in an interactive Artifact mockup,
+  `docs/superpowers/scratch/portal-edge-lab.html`), so the border scales
+  past the visible area instead of sitting on top of it. The old inset
+  glow is replaced with a soft black shadow that bleeds outside the tile
+  into its grass neighbors (`.map-tile-portal::before`, stacked
+  `box-shadow` layers instead of a radial-gradient circle, since
+  box-shadow naturally hugs the tile's own rectangle). Portal tiles also
+  get a flat `+1000` z-index boost (`js/screens/mapScreen.js`) so that
+  bleed reliably paints over every neighbor instead of only the ones
+  above/left of it in the row-based depth sort.
+
 ## [0.26.3] - 2026-09-06
 
 ### Fixed

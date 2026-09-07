@@ -1,0 +1,396 @@
+<title>Portal Edge Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --grass:#3f6b34;
+    --grass-dark:#345929;
+    --ink:#1c2118;
+    --paper:#f4f1e8;
+    --panel:#22261f;
+    --panel-line:#3a4033;
+    --accent:#9db8ff;
+    --accent-dim:#6d84c2;
+    --mono-dim:#a9b09c;
+    --card-bg:#2a2f26;
+    --card-line:#454b3d;
+    --crop-scale:1.3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#eef0e6;
+      --paper:#1a1d16;
+      --panel:#20241c;
+      --panel-line:#3a4033;
+      --mono-dim:#8d9482;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#eef0e6;
+    --paper:#1a1d16;
+    --panel:#20241c;
+    --panel-line:#3a4033;
+    --mono-dim:#8d9482;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    padding:28px 20px 60px;
+  }
+  h1{
+    font-family:'Baloo 2', 'JetBrains Mono', sans-serif;
+    font-weight:700;
+    font-size:1.9rem;
+    margin:0 0 6px;
+    text-wrap:balance;
+    letter-spacing:0.2px;
+  }
+  .subhead{
+    max-width:660px;
+    color:var(--mono-dim);
+    font-size:0.92rem;
+    line-height:1.55;
+    margin:0 0 28px;
+  }
+  .subhead b{color:var(--ink);}
+
+  /* ---------- live crop tuner ---------- */
+  .tuner{
+    background:var(--card-bg);
+    border:1px solid var(--card-line);
+    border-radius:10px;
+    padding:20px;
+    max-width:1080px;
+    margin-bottom:28px;
+    display:flex;
+    gap:24px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .tuner-stage{
+    background:var(--grass);
+    border-radius:8px;
+    padding:16px;
+    flex:0 0 auto;
+  }
+  .tuner-tile{
+    width:150px;
+    height:150px;
+    position:relative;
+    overflow:hidden;
+    border-radius:4px;
+    container-type:size;
+  }
+  .tuner-crop{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .tuner-crop span{
+    font-size:96cqb;
+    line-height:1;
+    transform:scale(var(--crop-scale));
+  }
+  .tuner-controls{
+    flex:1 1 260px;
+    min-width:240px;
+  }
+  .tuner-controls label{
+    display:block;
+    font-size:0.78rem;
+    color:var(--mono-dim);
+    margin-bottom:8px;
+  }
+  .tuner-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .tuner-row input[type="range"]{
+    flex:1;
+    accent-color:var(--accent);
+  }
+  #scaleReadout{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.85rem;
+    color:var(--ink);
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:4px;
+    padding:2px 8px;
+    min-width:52px;
+    text-align:center;
+  }
+  .tuner-hint{
+    font-size:0.78rem;
+    color:var(--mono-dim);
+    line-height:1.5;
+    margin:12px 0 0;
+  }
+
+  /* ---------- comparison grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+    gap:20px;
+    max-width:1080px;
+  }
+  .card{
+    background:var(--card-bg);
+    border:1px solid var(--card-line);
+    border-radius:10px;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .card-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
+  .card-name{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size:1.02rem;
+    color:var(--ink);
+  }
+  .card-tag{
+    font-size:0.68rem;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--accent-dim);
+    white-space:nowrap;
+  }
+  .stage{
+    background:var(--grass);
+    border-radius:6px;
+    padding:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .minimap{
+    display:grid;
+    grid-template-columns:repeat(3, 60px);
+    grid-template-rows:repeat(3, 60px);
+    gap:0;
+  }
+  .tile{
+    background:var(--grass);
+    position:relative;
+    container-type:size;
+  }
+  .tile:nth-child(3n+2){background:var(--grass-dark);}
+  .tile-portal{ z-index:1; }
+  .tile-crop{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    z-index:2;
+  }
+  .tile-crop-inner{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .tile-crop-inner span{
+    font-size:96cqb;
+    line-height:1;
+    transform:scale(1.3);
+  }
+
+  /* Square/rounded-square shadow instead of a circular gradient - stacked
+     box-shadow layers hug the tile's own rectangular shape (like a drop
+     shadow cast by a framed photo) rather than a radial glow, so the
+     bleed's silhouette matches the cropped emoji's own squared-off art
+     instead of fighting it with a circle. */
+  .shadow-edge{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    pointer-events:none;
+    border-radius:14%;
+  }
+  .shadow-black-soft{
+    animation:shadow-pulse-soft 2.4s ease-in-out infinite;
+  }
+  @keyframes shadow-pulse-soft{
+    0%,100%{ box-shadow:
+      0 0 8px 2px rgba(0,0,0,0.5),
+      0 0 20px 8px rgba(0,0,0,0.32),
+      0 0 38px 16px rgba(0,0,0,0.16); }
+    50%{ box-shadow:
+      0 0 12px 4px rgba(0,0,0,0.6),
+      0 0 26px 12px rgba(0,0,0,0.4),
+      0 0 46px 22px rgba(0,0,0,0.2); }
+  }
+  .shadow-black-indigo{
+    animation:shadow-pulse-indigo 2.4s ease-in-out infinite;
+  }
+  @keyframes shadow-pulse-indigo{
+    0%,100%{ box-shadow:
+      0 0 6px 2px rgba(75,63,160,0.55),
+      0 0 18px 7px rgba(20,15,45,0.45),
+      0 0 36px 15px rgba(0,0,0,0.22); }
+    50%{ box-shadow:
+      0 0 10px 4px rgba(75,63,160,0.7),
+      0 0 24px 11px rgba(20,15,45,0.55),
+      0 0 44px 20px rgba(0,0,0,0.28); }
+  }
+  .shadow-black-tight{
+    animation:shadow-pulse-tight 2.4s ease-in-out infinite;
+  }
+  @keyframes shadow-pulse-tight{
+    0%,100%{ box-shadow:
+      0 0 4px 1px rgba(0,0,0,0.65),
+      0 0 10px 3px rgba(0,0,0,0.4); }
+    50%{ box-shadow:
+      0 0 6px 2px rgba(0,0,0,0.78),
+      0 0 14px 5px rgba(0,0,0,0.5); }
+  }
+
+  .desc{
+    font-size:0.78rem;
+    line-height:1.5;
+    color:var(--mono-dim);
+    margin:0;
+  }
+  .desc code{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:4px;
+    padding:0 4px;
+    color:var(--accent);
+    font-size:0.74rem;
+  }
+  .note{
+    max-width:1080px;
+    margin-top:26px;
+    padding-top:16px;
+    border-top:1px solid var(--card-line);
+    font-size:0.8rem;
+    color:var(--mono-dim);
+    line-height:1.6;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .shadow-edge{animation:none;}
+  }
+</style>
+
+<h1>🌌 Portal Edge Lab</h1>
+<p class="subhead">
+  Same crop trick as before (the white ring is baked into the emoji's own
+  picture-frame art, so it gets zoomed past the tile's edge rather than
+  removed outright) - now paired with a square-shaped shadow instead of a
+  circular glow, since a circle fights the emoji's own squared-off frame.
+  <code>box-shadow</code> naturally follows the tile's rectangle, so the
+  bleed reads as a shadow cast by a framed photo instead of light radiating
+  from a point.
+</p>
+
+<div class="tuner">
+  <div class="tuner-stage">
+    <div class="tuner-tile">
+      <div class="tuner-crop"><span>🌌</span></div>
+    </div>
+  </div>
+  <div class="tuner-controls">
+    <label for="cropSlider">Zoom / crop amount</label>
+    <div class="tuner-row">
+      <input type="range" id="cropSlider" min="1" max="2" step="0.02" value="1.3">
+      <span id="scaleReadout">1.30×</span>
+    </div>
+    <p class="tuner-hint">
+      Drag until the white edge disappears but you can still tell it's a
+      starry-sky picture, not just abstract color. Whatever value lands
+      right is the number I'd hardcode as the <code>transform: scale()</code>
+      on <code>.map-tile-portal</code>'s marker.
+    </p>
+  </div>
+</div>
+
+<div class="grid">
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-name">Soft black shadow</span>
+      <span class="card-tag">stacked box-shadow</span>
+    </div>
+    <div class="stage">
+      <div class="minimap">
+        <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+        <div class="tile"></div>
+        <div class="tile tile-portal">
+          <div class="shadow-edge shadow-black-soft"></div>
+          <div class="tile-crop"><div class="tile-crop-inner"><span>🌌</span></div></div>
+        </div>
+        <div class="tile"></div>
+        <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+      </div>
+    </div>
+    <p class="desc">Three stacked <code>box-shadow</code> layers instead of a radial-gradient circle - blur naturally follows the tile's own square (14% corner rounding), reading as a shadow cast around a framed photo rather than a glow radiating from a point.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-name">Black shadow, faint indigo core</span>
+      <span class="card-tag">stacked box-shadow</span>
+    </div>
+    <div class="stage">
+      <div class="minimap">
+        <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+        <div class="tile"></div>
+        <div class="tile tile-portal">
+          <div class="shadow-edge shadow-black-indigo"></div>
+          <div class="tile-crop"><div class="tile-crop-inner"><span>🌌</span></div></div>
+        </div>
+        <div class="tile"></div>
+        <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+      </div>
+    </div>
+    <p class="desc">Same square shadow shape, but the innermost layer is a dark violet instead of pure black - ties back to the portal's own night-sky color without turning into the circular glow from round two.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-name">Tight black shadow</span>
+      <span class="card-tag">less spread, sharper</span>
+    </div>
+    <div class="stage">
+      <div class="minimap">
+        <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+        <div class="tile"></div>
+        <div class="tile tile-portal">
+          <div class="shadow-edge shadow-black-tight"></div>
+          <div class="tile-crop"><div class="tile-crop-inner"><span>🌌</span></div></div>
+        </div>
+        <div class="tile"></div>
+        <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+      </div>
+    </div>
+    <p class="desc">Only two shadow layers, both smaller and less blurred - hugs the tile closely rather than bleeding a full tile's width into the neighbors. Reads more like a defined edge than an atmospheric effect.</p>
+  </div>
+
+</div>
+
+<p class="note">
+  Once you land on a crop amount with the slider above, tell me the number
+  and which shadow variant, and I'll wire both into
+  <code>js/screens/mapScreen.js</code>'s portal marker + <code>.map-tile-portal</code>
+  in <code>css/styles.css</code>. One thing to flag: cropping this way means the
+  emoji renders larger than its own box before clipping, so if the marker
+  ever needs to be measured or hit-tested by its rendered size elsewhere
+  (it doesn't look like anything currently does), that'd need a second look.
+</p>
+
+<script>
+  var slider = document.getElementById('cropSlider');
+  var readout = document.getElementById('scaleReadout');
+  slider.addEventListener('input', function () {
+    var v = parseFloat(slider.value);
+    document.documentElement.style.setProperty('--crop-scale', v);
+    readout.textContent = v.toFixed(2) + '×';
+  });
+</script>

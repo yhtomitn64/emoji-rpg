@@ -138,20 +138,61 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   font-size: 85cqb;
   line-height: 1;
 }
-/* Raised 2026-09-06: the portal previously had no dedicated look at all -
-   just the bare 🌌 emoji on the default .map-tile gray, with a worn-path
-   trail free to paint over it (see FULL_SQUARE_MARKERS's own comment in
-   js/screens/mapScreen.js for that half of the fix). A dark, slowly
-   pulsing indigo glow gives it a real presence distinct from every
-   ordinary tile around it, independent of whichever emoji ends up
-   rendered inside via .map-tile-fullsize. */
-.map-tile-portal {
-  background: radial-gradient(circle, #241b4d 0%, #0c0a1f 75%);
-  animation: map-tile-portal-glow 2.4s ease-in-out infinite;
+/* Raised 2026-09-07, replacing the 2026-09-06 version above: the 🌌
+   emoji's own art is a framed picture with a pale border baked into the
+   glyph itself, not CSS - the old inset glow read as a "white border"
+   fighting that art instead of complementing it. Two changes, worked out
+   together in an interactive mockup published as an Artifact
+   (docs/superpowers/scratch/portal-edge-lab.html, "Portal Edge Lab"),
+   iterated live with Timothy over a couple of rounds (first a bled
+   circular halo, then cropping the border out entirely, then swapping
+   the circular bleed for a shadow shaped like the tile):
+   1. .map-tile-portal-crop below renders the marker oversized and clips
+      it back to the tile's own edge, so the pale border scales past the
+      visible area instead of sitting on top of it.
+   2. The ::before pseudo-element below replaces the old inset glow with
+      a soft black shadow that bleeds OUTSIDE the tile into its grass
+      neighbors - stacked box-shadow layers instead of a radial-gradient
+      circle, since box-shadow naturally hugs the tile's own rectangle
+      instead of fighting its squared-off frame with a circle. */
+.map-tile-portal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14%;
+  animation: map-tile-portal-shadow 2.4s ease-in-out infinite;
 }
-@keyframes map-tile-portal-glow {
-  0%, 100% { box-shadow: inset 0 0 8px 2px rgba(140, 170, 255, 0.35); }
-  50% { box-shadow: inset 0 0 18px 7px rgba(170, 200, 255, 0.85); }
+@keyframes map-tile-portal-shadow {
+  0%, 100% {
+    box-shadow:
+      0 0 8px 2px rgba(0, 0, 0, 0.5),
+      0 0 20px 8px rgba(0, 0, 0, 0.32),
+      0 0 38px 16px rgba(0, 0, 0, 0.16);
+  }
+  50% {
+    box-shadow:
+      0 0 12px 4px rgba(0, 0, 0, 0.6),
+      0 0 26px 12px rgba(0, 0, 0, 0.4),
+      0 0 46px 22px rgba(0, 0, 0, 0.2);
+  }
+}
+/* Clips the 🌌 emoji's own baked-in border - see the comment above. The
+   marker (.map-tile-fullsize) renders at its usual 85cqb inside here,
+   then gets scaled up past this wrapper's own edge by the sibling rule
+   below; overflow: hidden cuts off exactly what that scale pushes past
+   the tile's boundary. Two elements are required for this to crop
+   anything: transforming this wrapper itself would scale its own clip
+   region right along with its content, clipping nothing. */
+.map-tile-portal-crop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* 1.36x landed by eye in the Artifact mockup's live slider - enough to
+   push the border past the crop's edge while still reading as a starry-
+   sky picture rather than abstract color. */
+.map-tile-portal-crop .map-tile-fullsize {
+  transform: scale(1.36);
 }
 /* Raised 2026-09-06: "add effect to portal that kind of follows the
    character so it looks like it's trying to suck you in" - and, same

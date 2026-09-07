@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.4',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the portal no longer shows a white border around it - the picture now fills the whole tile with a soft dark shadow around the edge instead.',
+    ],
+  },
+  {
     version: '0.26.3',
     date: '2026-09-06',
     highlights: [
