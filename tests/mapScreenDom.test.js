@@ -657,3 +657,87 @@ test('mapScreen DOM - town exits and signage', async (t) => {
     assert.deepEqual(labels, ['Blacksmith', 'Quest Board', 'Shop', 'Well']);
   });
 });
+
+test('mapScreen DOM - tool dungeon guardian rendering', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  async function mountAxeDungeon() {
+    const { axeDungeonMap } = await import('../js/maps/toolDungeons/axeDungeon.js');
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    const maps = { axeDungeon: axeDungeonMap };
+    mount(root, {
+      state: baseState({ position: { ...axeDungeonMap.startPosition } }),
+      mapConfig: axeDungeonMap,
+      maps,
+      worldGrid: buildWorldGrid(maps),
+      callbacks: { onFirstVisit: () => {} },
+    });
+    return { root, axeDungeonMap };
+  }
+
+  // Raised 2026-09-07: the guardian tile fell through to .map-tile's bare
+  // default background instead of grass - see GRASS_CONTEXT_MARKERS's own
+  // comment in mapScreen.js for the established pattern this repeats
+  // (portals/shop/smith/etc. hit the exact same bug before).
+  await t.test('guardian tile gets the grass background class, not the bare default', async () => {
+    const { root, axeDungeonMap } = await mountAxeDungeon();
+    const { x, y } = findGuardianPosition(axeDungeonMap);
+    const cell = tileAtViewportPosition(root, axeDungeonMap, x, y);
+    assert.ok(cell.classList.contains('map-tile-grass'), 'expected the guardian tile to carry map-tile-grass');
+  });
+
+  // "Make the tool bosses take up like 4 tiles instead of 1 so they look
+  // big and scary" - see GUARDIAN_CQB's own comment in mapScreen.js.
+  await t.test('guardian renders oversized (GUARDIAN_CQB), not the plain 85cqb landmark size', async () => {
+    const { root, axeDungeonMap } = await mountAxeDungeon();
+    const { x, y } = findGuardianPosition(axeDungeonMap);
+    const cell = tileAtViewportPosition(root, axeDungeonMap, x, y);
+    const marker = cell.querySelector('.map-tile-fullsize');
+    assert.ok(marker, 'expected a .map-tile-fullsize marker on the guardian tile');
+    assert.equal(marker.style.fontSize, '220cqb');
+  });
+
+  // Without this, an oversized sprite bleeding downward would be painted
+  // over by the row below under the plain row-based z-index scheme - see
+  // that line's own comment in mapScreen.js.
+  await t.test('guardian tile gets the same always-on-top z-index boost as portals', async () => {
+    const { root, axeDungeonMap } = await mountAxeDungeon();
+    const { x, y } = findGuardianPosition(axeDungeonMap);
+    const cell = tileAtViewportPosition(root, axeDungeonMap, x, y);
+    assert.equal(cell.style.zIndex, String(y + 1000));
+  });
+
+  // "In the center of their map instead of the corner" - all four tool
+  // dungeons share this exact layout (see axeDungeon.js's own comment).
+  await t.test('guardian sits at the map center, not the old bottom-right corner', async () => {
+    const { axeDungeonMap } = await import('../js/maps/toolDungeons/axeDungeon.js');
+    const { x, y } = findGuardianPosition(axeDungeonMap);
+    assert.deepEqual({ x, y }, { x: 10, y: 6 });
+  });
+});
+
+function findGuardianPosition(map) {
+  for (let y = 0; y < map.rows.length; y++) {
+    for (let x = 0; x < map.rows[y].length; x++) {
+      if (map.legend[map.rows[y][x]] === 'guardian') return { x, y };
+    }
+  }
+  throw new Error(`${map.id} has no guardian tile`);
+}
+
+// The tool dungeons are now exactly DEFAULT_VIEWPORT_TILES_WIDE/TALL
+// (21x13, jsdom's fallback viewport size) - computeViewportOrigin
+// (js/systems/world.js) only centers/pans a cluster SMALLER than the
+// viewport; a cluster exactly the viewport's own size gets origin ==
+// bounds.min with zero offset, so a map-local (x, y) lands at that exact
+// same viewport-cell index with no translation needed.
+function tileAtViewportPosition(root, map, mapX, mapY) {
+  const cells = root.querySelectorAll('.map-tile');
+  return cells[mapY * 21 + mapX];
+}

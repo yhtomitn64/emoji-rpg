@@ -24,6 +24,26 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.12] - 2026-09-07
+
+### Fixed
+- **Tool guardian encounters (axe/pick/canoe/portal) had a gray box behind
+  them instead of grass, rendered small, sat in a corner of their arena,
+  and the arena itself was small.** `TILES.guardian` had never been added
+  to `GRASS_CONTEXT_MARKERS`/`FULL_SQUARE_MARKERS` (js/screens/mapScreen.js)
+  - same "landmark tile forgotten from the set" bug that's hit shop/smith/
+    portals before, now fixed for guardians too. Also, per direct request
+    ("make the tool bosses take up like 4 tiles instead of 1 so they look
+    big and scary, in the center of their map instead of the corner, and
+    make the map bigger"): the guardian now renders at 220% of a tile
+    (`GUARDIAN_CQB`), bleeding into its four neighbors for a roughly-2x2
+    footprint - reusing the same oversized-absolutely-positioned-span
+    technique trees/mountains already use, so the guardian's actual
+    walkable/action tile underneath is still exactly one cell, no
+    collision changes. All four tool dungeon maps enlarged from 14x8 to
+    21x13 (matching the game's own default viewport size) with the
+    guardian moved to dead center instead of the old bottom-right corner.
+
 ## [0.26.11] - 2026-09-07
 
 ### Fixed

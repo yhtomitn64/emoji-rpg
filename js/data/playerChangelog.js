@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.12',
+    date: '2026-09-07',
+    highlights: [
+      'Changed: tool guardians (axe/pick/canoe/portal) now loom big and scary in the center of a bigger arena, and no longer have an ugly gray box behind them.',
+    ],
+  },
+  {
     version: '0.26.11',
     date: '2026-09-07',
     highlights: [

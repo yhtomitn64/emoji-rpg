@@ -80,6 +80,17 @@ const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountai
 const FULL_SQUARE_CQB = 85;
 const HERO_AND_LOOT_CQB = 75;
 const OBSTACLE_MAX_EXTRA = 0.5; // up to +50% (150% total, i.e. 50% overlap)
+// Raised 2026-09-07: "make the tool bosses take up like 4 tiles instead
+// of 1 so they look big and scary." Reuses .map-tile-fullsize's own
+// centered-flex-box-with-overflow-visible rendering rather than a real
+// multi-cell sprite - .map-tile-obstacle already proves an oversized child
+// span happily bleeds past its own tile's edges into neighbors with zero
+// grid/collision changes, so the guardian's actual walkable/action tile
+// underneath stays exactly one cell. 220% centered bleeds ~60% of a tile
+// width into all four neighbors (left/right/above/below), reading as
+// roughly a 2x2 footprint. See GUARDIAN_ZINDEX_MARKERS below for why it
+// also needs the same always-on-top treatment portals get.
+const GUARDIAN_CQB = 220;
 
 // Fixed real pixel size for every tile - the viewport's own CSS size
 // (.map-viewport in css/styles.css) then determines how many whole tiles
@@ -131,6 +142,7 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.questBoard,
   TILES.well,
   TILES.exit,
+  TILES.guardian,
 ]);
 
 // The subset of FULL_SQUARE_MARKERS above that always sit on a grass
@@ -158,6 +170,7 @@ const GRASS_CONTEXT_MARKERS = new Set([
   TILES.questBoard,
   TILES.well,
   TILES.exit,
+  TILES.guardian,
   TILES.treeGapNorth,
   TILES.treeGapSouth,
   TILES.treeGapEast,
@@ -590,8 +603,14 @@ function render() {
       // boost, the shadow would only be visible on the up/left sides,
       // painted over everywhere else. Portals are static POI tiles, not
       // obstacles anything needs to walk behind, so always-on-top here
-      // doesn't cost the row-based scheme anything.
-      cell.style.zIndex = String(PORTAL_ACTION_TILES.has(tile) ? row + 1000 : row);
+      // doesn't cost the row-based scheme anything. Guardian tiles get the
+      // same boost, same reasoning - raised 2026-09-07 alongside GUARDIAN_CQB
+      // above: at 220% its oversized sprite bleeds downward into the row
+      // below too (unlike .map-tile-obstacle, which only ever bleeds
+      // upward), and without this that row's own cell (a higher z-index
+      // under the plain row-based scheme, since it's further down) would
+      // paint over and clip the bottom of the guardian.
+      cell.style.zIndex = String(PORTAL_ACTION_TILES.has(tile) || tile === TILES.guardian ? row + 1000 : row);
       const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
       const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
         ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
@@ -651,6 +670,8 @@ function render() {
         // stays the default for everything else in this branch.
         const isHeroOrLoot = isPlayer || hasTileCache || tile === TILES.miniDungeonTreasure;
         if (isHeroOrLoot) marker.style.fontSize = `${HERO_AND_LOOT_CQB}cqb`;
+        // "Big and scary" - see GUARDIAN_CQB's own comment above.
+        if (tile === TILES.guardian) marker.style.fontSize = `${GUARDIAN_CQB}cqb`;
         // Portal tiles: crop the emoji's own baked-in border rather than
         // appending it plain - see .map-tile-portal-crop's own comment in
         // css/styles.css. Excludes isPlayer: when the hero is standing on
