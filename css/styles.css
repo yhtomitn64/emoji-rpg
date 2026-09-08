@@ -937,13 +937,18 @@ button:disabled {
 /* Attack-only (actionButtonHtml's readyRing) - raised 2026-09-04: "seems
    silly... doesn't let you know when it's at full power again... maybe a
    border that slowly draws until full." A thin ring traces itself in around
-   the button as the red wipe above empties out, closing into a full glowing
-   loop exactly when Attack comes off cooldown - a second, always-visible
-   signal alongside the wipe rather than a replacement for it. Same --pct
-   value/meaning as the wipe (remaining-cooldown percent, smoothed by
-   animateCooldownWipes) - stroke-dashoffset just reads it inverted (100% ->
-   fully undrawn, 0% -> fully closed) since a ring drawing in should empty
-   out right after swinging, not start full. */
+   the button, closing into a full glowing loop once Attack is genuinely back
+   to full damage - a second, always-visible signal alongside the red wipe
+   rather than a replacement for it. Fixed 2026-09-07: originally shared the
+   wipe's own --pct (the short swing cooldown, attackCooldownMsForStreak),
+   so it closed and glowed within a second or two of spamming, long before
+   the streak's own much slower idle timer (ATTACK_STREAK_RECOVERY_MS) had
+   actually reset the damage decay - the ring was lying about "full power."
+   Now driven by attackReadyRingPct (js/systems/combat.js) instead, same
+   remaining/total-percent shape as the wipe's own --pct so stroke-dashoffset
+   reads it the same inverted way (100% -> fully undrawn, 0% -> fully
+   closed), just sourced from streak recovery instead of the swing
+   cooldown. */
 .battle-ability-ready-ring {
   position: absolute;
   inset: 0;

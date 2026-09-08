@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, rollKnockback, ATB_KNOCKBACK_CHANCE, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS, attackFalloffJustTriggered, ABILITY_GCD_BASE_MS, ABILITY_GCD_MS_PER_SPEED, ABILITY_GCD_FLOOR_MS, abilityGcdMsForSpeed, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, rollKnockback, ATB_KNOCKBACK_CHANCE, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS, attackFalloffJustTriggered, attackReadyRingPct, ABILITY_GCD_BASE_MS, ABILITY_GCD_MS_PER_SPEED, ABILITY_GCD_FLOOR_MS, abilityGcdMsForSpeed, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -304,6 +304,22 @@ test('attackFalloffJustTriggered is true the first time the multiplier decays an
 
 test('attackFalloffJustTriggered is false once already seen, even while decayed', () => {
   assert.equal(attackFalloffJustTriggered(0.65, true), false);
+});
+
+test('attackReadyRingPct is 0 (fully closed/glowing) once the streak is back to 0', () => {
+  assert.equal(attackReadyRingPct(0, 0), 0);
+  // Even a stale nonzero idleMs from before the last reset shouldn't matter -
+  // streak 0 means there's nothing left to recover from.
+  assert.equal(attackReadyRingPct(0, 4000), 0);
+});
+
+test('attackReadyRingPct is 100 (fully undrawn) the instant a streak starts, not yet recovered at all', () => {
+  assert.equal(attackReadyRingPct(1, 0), 100);
+});
+
+test('attackReadyRingPct counts down toward 0 as idleMs approaches ATTACK_STREAK_RECOVERY_MS, independent of the short swing cooldown', () => {
+  assert.equal(attackReadyRingPct(1, ATTACK_STREAK_RECOVERY_MS / 2), 50);
+  assert.equal(attackReadyRingPct(5, ATTACK_STREAK_RECOVERY_MS), 0);
 });
 
 test('abilityGcdMsForSpeed is exactly 1000ms at the player\'s starting speed of 5', () => {

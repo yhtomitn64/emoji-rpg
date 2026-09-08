@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.9',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the glowing ring around Attack used to close as soon as its brief cooldown ended - now it only lights up once your next hit is actually back to full damage.',
+    ],
+  },
+  {
     version: '0.26.8',
     date: '2026-09-07',
     highlights: [

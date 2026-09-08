@@ -24,6 +24,24 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.9] - 2026-09-07
+
+### Fixed
+- **The Attack button's ready-ring closed and glowed as soon as the short
+  swing cooldown ended, well before the attack was actually back to full
+  damage.** Raised directly: "is the ring... actually at full power when
+  the ring is full, or is it still under diminishing returns? We need to
+  line up that effect with when it's actually at full power." It wasn't
+  lined up - the ring shared the exact same `--pct` as the red cooldown
+  wipe (`attackCooldownMsForStreak`, capped at a couple seconds even deep
+  into a streak), while the actual damage-decay streak only resets after a
+  much slower idle timer (`ATTACK_STREAK_RECOVERY_MS`, 8s of not pressing
+  Attack). Added `attackReadyRingPct` (`js/systems/combat.js`) driven by
+  that slower timer instead, and gave the ring its own `--pct` source
+  (`readyRingPct` in `actionButtonHtml`) independent of the wipe's - the
+  ring now only closes/glows once the next Attack will actually land at
+  full strength.
+
 ## [0.26.8] - 2026-09-07
 
 ### Fixed

@@ -186,6 +186,26 @@ export function attackFalloffJustTriggered(streakMultiplier, alreadySeen) {
   return streakMultiplier < 1 && !alreadySeen;
 }
 
+// Powers the Attack button's ready-ring (css/styles.css's
+// .battle-ability-ready-ring, battleScreen.js's actionButtonHtml/
+// animateCooldownWipes). Raised 2026-09-07: "is the ring actually at full
+// power when it's full, or still under diminishing returns? line up that
+// effect with when it's actually at full power" - it wasn't lined up: the
+// ring used to read the exact same --pct as the red cooldown wipe
+// (attackCooldownMsForStreak, capped at a couple seconds even deep into a
+// streak), so it closed and glowed the instant that brief swing cooldown
+// ended - long before ATTACK_STREAK_RECOVERY_MS's much slower idle timer
+// actually zeroed the streak back out and restored full damage. This reads
+// idleMs against that slower timer instead, same remaining/total-percent
+// shape as cooldownPct (100 = just decayed, counting down to 0 = fully
+// recovered) so the same --pct convention and animateCooldownWipes()
+// smoothing loop still apply - streak <= 0 short-circuits to 0 (fully
+// closed/glowing) since there's nothing left to recover from.
+export function attackReadyRingPct(streak, idleMs) {
+  if (streak <= 0) return 0;
+  return Math.max(0, ((ATTACK_STREAK_RECOVERY_MS - idleMs) / ATTACK_STREAK_RECOVERY_MS) * 100);
+}
+
 // Speed-scaled shared cooldown for abilities 1-4 (Impale/Sever/Lacerate/
 // Faultline), replacing the player ATB "swing timer" gate those abilities
 // used to wait on - see docs/superpowers/specs/2026-09-03-ability-gcd-

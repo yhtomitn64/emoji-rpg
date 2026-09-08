@@ -1,7 +1,7 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
 import { ATTACK_FALLOFF_EXPLAINER } from '../data/abilityExplainers.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, abilityGcdMsForSpeed, attackStreakGcdBonusMs, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff, rollSpecialAttack } from '../systems/combat.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, attackReadyRingPct, abilityGcdMsForSpeed, attackStreakGcdBonusMs, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff, rollSpecialAttack } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
 import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, applyAbilityGcd } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
@@ -732,21 +732,22 @@ function drinkPotion(itemId) {
 // overlay; omit/0 for buttons with no cooldown to show. `readyRing` (Attack
 // only, see .battle-ability-ready-ring's own comment in css/styles.css) adds
 // a second indicator scoped to just that button: an SVG ring that draws
-// itself in as the cooldown counts down, since Attack (unlike the four
+// itself in as the streak actually recovers, since Attack (unlike the four
 // abilities) had no signal at all for "just came back off cooldown" beyond
 // the button quietly stopping being greyed out.
-function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', cooldownPct = 0, readyRing = false }) {
+function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', cooldownPct = 0, readyRing = false, readyRingPct = 0 }) {
   // id'd so animateCooldownWipes() can patch --pct directly between
   // updateMenu()'s own 300ms full rebuilds, without needing a CSS
   // transition (which can't animate a custom property across an element
   // that gets torn down and recreated every tick anyway).
   const wipe = cooldownPct > 0 ? `<div class="battle-ability-cooldown-wipe" id="${id}-wipe" style="--pct:${cooldownPct}"></div>` : '';
-  // Always rendered (not gated on cooldownPct > 0 like the wipe above) so
-  // the ring sits fully drawn in and glowing while ready, not just absent -
-  // --pct here is remaining-cooldown percent, same value/meaning as the
-  // wipe's own, just also read by this ring's stroke-dashoffset.
+  // Always rendered (not gated on a pct > 0 check like the wipe above) so
+  // the ring sits fully drawn in and glowing while ready, not just absent.
+  // readyRingPct is deliberately its own value, NOT cooldownPct - see
+  // attackReadyRingPct's own comment in combat.js for why the ring can't
+  // just reuse the wipe's short-cooldown percent.
   const ring = readyRing
-    ? `<svg class="battle-ability-ready-ring" id="${id}-ready-ring" viewBox="0 0 56 56" style="--pct:${cooldownPct}"><circle cx="28" cy="28" r="25" /></svg>`
+    ? `<svg class="battle-ability-ready-ring" id="${id}-ready-ring" viewBox="0 0 56 56" style="--pct:${readyRingPct}"><circle cx="28" cy="28" r="25" /></svg>`
     : '';
   const safeTitle = title.replace(/"/g, '&quot;');
   return `<button id="${id}" class="battle-ability-button${extraClass}" ${disabled ? 'disabled' : ''} title="${safeTitle}">${wipe}${ring}<span class="battle-ability-icon">${icon}</span><span class="battle-ability-key">${key}</span></button>`;
@@ -832,6 +833,7 @@ function updateMenu() {
   const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak, getUnlockedAbilities(state.player.level).length)) * 100);
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
   const attackCooldownPct = attackCooldownMs > 0 && attackCooldownTotalMs > 0 ? (attackCooldownMs / attackCooldownTotalMs) * 100 : 0;
+  const attackReadyPct = attackReadyRingPct(attackStreak, attackStreakIdleMs);
   const parryCooldownPct = parryCooldownMs > 0 && parryCooldownTotalMs > 0 ? (parryCooldownMs / parryCooldownTotalMs) * 100 : 0;
   const parryCooldownSuffix = parryCooldownMs > 0 ? ` — ${Math.ceil(parryCooldownMs / 1000)}s` : '';
   const abilityEntries = abilityButtonEntries();
@@ -866,6 +868,7 @@ function updateMenu() {
       disabled: attackCooldownMs > 0 || !!playerStunDebuff,
       cooldownPct: attackCooldownPct,
       readyRing: true,
+      readyRingPct: attackReadyPct,
     })}
     ${otherAbilitiesHtml}
     ${actionButtonHtml({
@@ -2213,11 +2216,19 @@ function animateCooldownWipes() {
     const pct = String((smoothedRemaining / totalMs) * 100);
     const wipeEl = document.getElementById(`${id}-wipe`);
     if (wipeEl) wipeEl.style.setProperty('--pct', pct);
-    // Only btn-attack ever has one of these (actionButtonHtml's readyRing) -
-    // a no-op elsewhere since the lookup just misses.
-    const ringEl = document.getElementById(`${id}-ready-ring`);
-    if (ringEl) ringEl.style.setProperty('--pct', pct);
   };
+
+  // Attack's ready-ring runs on its own timer (attackReadyRingPct in
+  // combat.js), separate from the swing cooldown setWipePct above smooths -
+  // idleMs counts UP toward recovery instead of counting down, so it can't
+  // share setWipePct's countdown math. Skipped entirely once the streak is
+  // already 0: the ring is already frozen fully-closed/glowing from the last
+  // updateMenu() rebuild and there's nothing left to interpolate toward.
+  if (attackStreak > 0) {
+    const smoothedIdleMs = Math.min(ATTACK_STREAK_RECOVERY_MS, attackStreakIdleMs + elapsed);
+    const ringEl = document.getElementById('btn-attack-ready-ring');
+    if (ringEl) ringEl.style.setProperty('--pct', String(attackReadyRingPct(attackStreak, smoothedIdleMs)));
+  }
 
   // Buff-type abilities (Super Scream) skip the shared GCD (applyAbilityGcd
   // explicitly leaves them alone) but tick() still decrements their own
