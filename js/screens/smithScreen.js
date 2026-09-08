@@ -44,7 +44,7 @@ function render() {
       // upgrade path here, ever, so skip the select/button entirely rather
       // than show a control that can never work.
       return `<div class="smith-row">
-      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span data-tooltip="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       ${reforgeButton}
     </div>`;
     }
@@ -62,7 +62,7 @@ function render() {
       : `<button data-slot="${slot}" ${materials.length === 0 || !canAfford ? 'disabled' : ''}>Upgrade (${cost}g)</button>`;
 
     return `<div class="smith-row">
-      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span data-tooltip="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
       ${upgradeButton}
       ${reforgeButton}

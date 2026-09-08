@@ -24,6 +24,23 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.10] - 2026-09-07
+
+### Fixed
+- **Shop/inventory/smith/quest board item tooltips: no stats shown on hover
+  in the shop, and every screen's tooltip carried the browser's own
+  unremovable hover delay.** Raised directly: "when I hover over items in
+  the store it doesn't show any stats or what they do. Plus the store
+  hover should be instant and no delay." Two separate bugs: (1) the shop's
+  item cards split the emoji into its own untitled `<span>` - only the
+  small name text beneath it carried a `title`, so hovering the big icon
+  (the natural target) showed nothing; (2) all four screens relied on the
+  native `title` attribute, whose hover delay has no CSS/JS override.
+  Replaced `title` with a new shared instant tooltip
+  (`js/screens/itemTooltip.js`, one delegated listener, `data-tooltip`
+  attribute instead) across all four screens, and moved the shop card's
+  tooltip onto the whole card so the emoji is covered too.
+
 ## [0.26.9] - 2026-09-07
 
 ### Fixed

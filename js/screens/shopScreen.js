@@ -84,7 +84,7 @@ function tieredSellRowsHtml(itemId) {
     const entry = state.inventory.find((e) => e.itemId === itemId && e.tier === tier);
     if (!entry || entry.quantity === 0) return '';
     return `<div class="shop-row">
-      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} (own ${entry.quantity})</span>
+      <span data-tooltip="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} (own ${entry.quantity})</span>
       <span class="shop-row-buttons">
         <button data-sell="${itemId}" data-tier="${tier}">Sell (${sellPrice(item.price)}g)</button>
       </span>
@@ -109,9 +109,14 @@ function itemCardHtml(itemId) {
   const metaBits = [`${item.price}g`];
   if (ownedQty > 0) metaBits.push(`own ${ownedQty}`);
   if (isEquipped) metaBits.push('✓ Equipped');
-  return `<div class="item-card">
+  // data-tooltip lives on the whole card, not just the name span below it -
+  // raised 2026-09-07: hovering the big emoji icon (the natural target)
+  // used to show nothing at all, since only the small name text carried a
+  // tooltip. See itemTooltip.js's own comment for the instant-hover half of
+  // this fix.
+  return `<div class="item-card" data-tooltip="${describeItem(state, itemId)}">
     <span class="item-card-emoji">${item.emoji}</span>
-    <span class="item-card-name" title="${describeItem(state, itemId)}">${item.name}</span>
+    <span class="item-card-name">${item.name}</span>
     <span class="item-card-meta">${metaBits.join(' · ')}</span>
     <div class="item-card-actions">
       <button class="item-card-buy" data-item="${itemId}" data-qty="${buyQty}" ${affordable ? '' : 'disabled'}>${buyLabel}</button>

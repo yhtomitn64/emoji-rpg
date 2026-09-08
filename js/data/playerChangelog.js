@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.10',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: hovering items in the shop, inventory, smith, and quest board now shows their stats instantly - no more waiting on the browser\'s tooltip delay, and hovering the shop\'s item icon now works too.',
+    ],
+  },
+  {
     version: '0.26.9',
     date: '2026-09-07',
     highlights: [

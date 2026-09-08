@@ -2193,3 +2193,25 @@ button:focus-visible {
   70% { opacity: 1; transform: translate(-50%, -24px) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -34px) scale(1); }
 }
+
+/* Shared instant item-stat tooltip (js/screens/itemTooltip.js) - shown/
+   positioned entirely via JS (left/top/transform set inline per hover), so
+   this rule only owns the box's fixed look. Above #overlay's z-index: 35 -
+   every screen that uses this (shop/inventory/smith/quest board) renders
+   its item rows inside #overlay, and the tooltip has to float above that
+   dialog, not behind it. */
+#item-tooltip {
+  position: fixed;
+  z-index: 40;
+  background: rgba(17, 17, 17, 0.97);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  color: #eee;
+  max-width: 260px;
+  pointer-events: none;
+}
+#item-tooltip[hidden] {
+  display: none;
+}
