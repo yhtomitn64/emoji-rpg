@@ -308,11 +308,15 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
    the whole change - CSS transforms compose, so every descendant (emoji,
    HP/ATB bars, action buttons, every hit-effect decal's own
    translate()/rotate()) scales for free with zero changes to the effects
-   system itself. `transform-origin: top center` anchors growth at the top
-   edge (roughly where the dialog already sits once centered) so it grows
-   downward/outward rather than symmetrically off both edges. Transforms
-   don't grow the actual layout box, so on a near-square window the visual
-   footprint can still exceed the viewport at the top of the scale range -
+   system itself. `transform-origin: center` (fixed 2026-09-07: was `top
+   center`, which anchored growth at the box's top edge - #overlay
+   flex-centers the *unscaled* box, so anchoring at the top made the scaled
+   box grow only downward from that centered top edge, shifting the whole
+   dialog's visual midpoint below the true viewport center at every scale
+   above 1x) grows symmetrically in all directions instead, keeping the
+   scaled dialog centered on the same point #overlay already centered the
+   unscaled one on. Transforms don't grow the actual layout box, so on a
+   near-square window the visual footprint can still exceed the viewport -
    #overlay's explicit `overflow-x/y: auto` (below) is the safety net for
    that case rather than a dedicated reserving wrapper. */
 .battle-screen-stack {
@@ -321,7 +325,7 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   max-width: min(92vw, 860px);
   --battle-scale: clamp(1, calc((100vmin - 700px) / 500px + 1), 1.7);
   transform: scale(var(--battle-scale));
-  transform-origin: top center;
+  transform-origin: center;
   /* Anchors .battle-pause-btn/.battle-paused-overlay below, which need to
      span the dialog AND the action bar together (raised 2026-08-31: "gray
      out the whole battle dialog and container dialog window ... not just

@@ -24,6 +24,19 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.8] - 2026-09-07
+
+### Fixed
+- **The battle dialog wasn't vertically centered on windows wide/tall enough
+  to trigger `--battle-scale` above 1x** (the 2026-09-05 "scale the whole
+  battle dialog" feature). `#overlay` centers `.battle-screen-stack` while
+  it's still its unscaled size, then `transform: scale()` grows it -
+  `transform-origin: top center` anchored that growth at the box's top edge,
+  so the scaled dialog grew only downward from the already-centered top,
+  pushing its visual midpoint below the true center. Switched the anchor to
+  `center` so growth is symmetric in all directions and stays centered on
+  the same point #overlay centered the unscaled box on.
+
 ## [0.26.7] - 2026-09-07
 
 ### Fixed

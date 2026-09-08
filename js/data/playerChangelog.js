@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.8',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: on larger windows, the battle dialog was sitting too low instead of centered - it now stays centered at every size.',
+    ],
+  },
+  {
     version: '0.26.7',
     date: '2026-09-07',
     highlights: [
