@@ -97,7 +97,7 @@ of the three-session balance queue above — separate initiative):**
 - **Fog-of-war reveal map** (`m` keypress) — raw idea, not scoped.
 - **New terrain: sand/tarpit/water enemies** — raw idea; needs per-tile-kind monster tables + a move-speed-modifier mechanic, neither exists today.
 - **Hand-placed zone-1 loot + shop rebalance** (big, needs design pass) — weaker shop gear, a placement-dropdown system for world loot, possibly tied to hand-placed mini-dungeons.
-- **In-game tutorials / mechanic explainers** — **engineering implemented 2026-09-03 (0.22.0)**: both trigger points (ability-unlock popup, mid-battle attack-falloff popup) are wired and gated behind a `mechanicExplainersBeta` Settings toggle. Remaining: Timothy writes the actual explainer copy (`js/data/abilityExplainers.js`, currently empty), then flip the flag on by default.
+- **In-game tutorials / mechanic explainers** — **engineering implemented 2026-09-03 (0.22.0)**: both trigger points (ability-unlock popup, mid-battle attack-falloff popup) are wired and gated behind a `mechanicExplainersBeta` Settings toggle. Remaining: Timothy writes the actual explainer copy (`js/data/abilityExplainers.js`, currently empty), then flip the flag on by default. **Re-confirmed still wanted, 2026-09-07:** "maybe a thing should pop up saying 'press again' or something because I don't recall anything explaining what to do when I got the new ability" (Lacerate's retrigger) - exactly what the ability-unlock popup trigger already covers, just no copy written yet and the flag's still off. The settings toggle he asked for the same session ("if we add wording we should make a toggle to turn it off") already exists too (`settings-flag-mechanic-explainers-beta`). Nothing new to build here - just write the copy and flip the flag when ready.
 - **Combat pass ideas** — several independent threads, none scheduled:
   - ~~Slower combat / reconsider the timing-minigame layer entirely~~ — **shipped 2026-09-03/04 as the ability GCD rework (0.23.0, graduated per-ability cooldowns in 0.23.1)**, same idea as the "Ability global-cooldown rework" bullet further down this section (also marked shipped there) - Attack + abilities 1-4 came off the swing timer/ATB gauge in favor of a shared, speed-scaled global cooldown, with the timing minigame kept only for Lacerate's retrigger, exactly as sharpened here 2026-09-03.
   - ~~**Ability rotation v2.**~~ **Shipped 2026-09-02 (0.19.0).** See BACKLOG_SHIPPED.md's "Combat pass ideas" section.
@@ -109,12 +109,13 @@ of the three-session balance queue above — separate initiative):**
   - Progressive shrinking parry window per successful landed parry, raised and scrapped in the same session, 2026-09-03 — see Combat pass ideas below for the calibration discussed before it was dropped.
   - Research: alternatives to raw stat-number power creep — rough research question, unblocked but unstarted.
   - ~~**Defense scaling needs work** (player outpaces near-town content thread)~~ — **investigated 2026-09-02, damage-floor half shipped as 0.17.3; the rest is a documented structural dead end, not an open task.** See "The player outpaces near-town/far-corner content" section below for the full writeup.
+  - **Ability uses should charge Attack toward a bigger payoff instead of instantly resetting it to full, raised 2026-09-07** — see the Combat pass ideas section below for the full idea and Timothy's own wording. Explicitly shelved until after his current playthrough; not scoped.
 - **Mobile/touch combat should be turn-based** — raw idea, explicitly scoped to touch input only.
 - **Open question: faster battle timer against weaker enemies?** — needs a decision (is it a speed problem or a power problem), not just an implementation.
 - **Infrastructure** — a friend's lag report (too vague to act on, watch for recurrence); pixel-level visual regression test for the trail renderer (good idea, not started, needs its own small design pass); `battleScreenDom.test.js` carries the same fixed-delay CI-flakiness pattern fixed elsewhere 2026-09-07, not urgent (see Infrastructure / deployment section below).
 - **Discoverability / monetization** — AdSense (blocked on Google review; placement plan already decided); Cloudflare traffic analytics (waiting on a token from Timothy); opt-in gameplay analytics + local play-data export (not designed, tied to the same difficulty-by-tool-gate tuning question).
 - **Input / accessibility** — controller support, raw idea, not investigated.
-- **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first).
+- **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first). **New big thread, raised 2026-09-07 (hold for playthrough feedback):** loot/gold/gear economy rework - cap smith upgrade levels per NG+ cycle tighter than today, gate the quest board + blacksmith behind story progress (a rescue-the-blacksmith beat behind the axe/mountain, with a broken/lost sign as the map breadcrumb), merge the quest-giver and blacksmith into one NPC, tier loot drops by enemy strength with more drops overall, halve gold from weak enemies. Timothy's doing a full playthrough first before committing to the structural pieces - see the full Loot/gold/gear economy rework entry in the Quests / economy section below. The quest board's own "auto-grant + flying items + townsfolk NPC" visual polish (originally being brainstormed this same session) is paused, tangled up in whether the quest board survives this redesign in its current form.
 - **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
 - ~~**Ability global-cooldown rework**~~ — **shipped 2026-09-03/04 (0.23.0, graduated per-ability cooldowns in 0.23.1)**, stale "not yet executed" note found while doing an unrelated backlog pass 2026-09-04. Removed the player ATB "swing timer" gate on abilities 1-4 in favor of a shared, speed-scaled global cooldown (Attack's own decay system, monster ATB, Super Scream, Lacerate's retrigger, and parry all left untouched, as planned). See `docs/superpowers/plans/2026-09-03-ability-gcd-rework.md` (spec: `docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md`) for the original design; same underlying idea as the "Slower combat / reconsider the timing-minigame layer" bullet in Combat pass ideas above.
 - ~~**Bug raised 2026-09-03**~~ — **investigated 2026-09-07, confirmed not a bug.** An old save (level 11) shows far more smith-upgrade levels available than expected before max level. See "Bugs / open questions, raised 2026-09-03" below for the finding.
@@ -222,6 +223,16 @@ same-day items below; these are the ones left open):**
   → x1.6 → x2.0+ per ring) but never validated - needs the same
   simulator-plus-reconciliation treatment the guardian pass got before
   committing real numbers.
+
+  **First live playtest data point, 2026-09-07:** Timothy, mid-
+  playthrough: "even at level 5 it's far too easy to mow through the
+  enemies on the way to the axe" - "I can provide log later too." This is
+  the exact confirmation this thread was waiting on ("wait for Timothy to
+  actually play... and confirm the complaint still holds"), and it's
+  pointing at the near-town/early-game end specifically (not far-corner).
+  Not enough on its own to restart design - wait for the fuller log he's
+  planning to bring back before picking this back up, but worth flagging
+  as the first real signal since the "hold" call was made.
 - **Special/super-boss pass + map editor dungeon-drawing, raised
   2026-09-05 - the next thing to pick up.** "There is not much
   interesting in the world to try and fight besides the regular game" -
@@ -1306,6 +1317,79 @@ surplus, this one is about giving materials a use past the smith-upgrade
 path in the first place. Revisit together, since a "materials do more"
 answer could change whether the sell-path problem still exists at all.
 
+### Loot/gold/gear economy rework (big idea — hold for playthrough feedback) — raised 2026-09-07
+Timothy's own framing: "I wish we got more loot drops to slowly upgrade
+the character... I'm just feeling like it's more fun to get loot from
+playing than just upgrade gear you end up keeping the whole time. You
+never really get to replace all the iron store pieces which isn't super
+fun." Several interlocking pieces raised together, none designed or
+scoped yet:
+
+- **Cap smith upgrade levels per NG+ cycle, tighter than today.**
+  Pre-NG+ only 1 upgrade level available; NG+1 adds one more (2 total);
+  NG+2 adds another (3), and so on — restricting how far gear can be
+  pushed via the smith so raw loot drops matter more relative to it.
+  Distinct from (tighter than) the existing `getMaxUpgradeLevel` cap (3
+  at NG+0, +2/cycle, shipped 2026-09-04 as 0.24.2's uncap walk-back — see
+  the Multi-zone progression section).
+- **Gate the quest board and blacksmith behind story progress, not
+  available from the start.** New content behind the axe/mountain gate;
+  the blacksmith becomes the person you have to find/rescue there, and
+  only after that becomes both the quest-giver (turn-in rewards) *and*
+  the gear-upgrader in one NPC/screen — today they're unrelated systems
+  (`questBoardScreen.js` vs. `smithScreen.js`). Explicit intent: "that
+  way you have to progress a bit before you can upgrade your gear."
+- **A broken/sideways/lost-in-the-mountains sign on the map as the
+  breadcrumb for the above, raised 2026-09-07 (same thread, second
+  pass).** A busted or sideways signpost near where the quest board/
+  smith would normally be — CSS-tilted or split-in-half — hinting "there
+  used to be a quest board/blacksmith area here, but it was lost in the
+  mountains," pointing the player toward the rescue. Timothy wants to
+  build the actual map placement himself; this is just the visual/prop
+  idea captured for when the gating above gets designed.
+- **Loot tier scales with enemy strength, and more loot drops overall.**
+  Weaker enemies drop something between cloth/iron tier; the next
+  stronger tier of enemies drops iron-tier and up, and so on — today's
+  drop tables aren't tiered this way. "I also think we need lots more
+  loot to drop."
+- **Halve gold from weaker enemies** (~1/2 of what they currently give),
+  loosely paired with the loot-tier change above so gold isn't also
+  trivially abundant early.
+
+**Meta-question Timothy asked directly: does this make sense to build
+now, or should he do a full playthrough of the current build first?**
+Recommendation given in-session: playtest first. The specific complaint
+("never replace your iron pieces") could be a drop-rate/tier problem or
+a pacing problem that goes away once upgrades are capped per NG+ — no
+way to tell which without actually feeling it. Split by risk: the pure
+number/table tuning (loot-tier-by-enemy-strength, more drops, halved
+weak-enemy gold) is cheap and reversible, worth dialing in *before* the
+playthrough since it's exactly what he's about to feel; the structural
+pieces (upgrade cap per NG+, the rescue-gating, merging the two NPCs,
+the sign prop) are real map/save-data/UI work worth doing properly but
+only once the itch is confirmed and its exact early-game placement is
+clear. **Decision: Timothy is doing his playthrough now** ("I will do
+the playthrough while you work on this small thing and then we can get
+back to a bigger loot/gold pass") and will report back with a fuller
+log — see also the near-town-difficulty playtest note in the "New
+threads raised 2026-09-04" section above ("even at level 5 it's far too
+easy to mow through the enemies on the way to the axe"), which is
+happening in the same playthrough and may turn out related (an
+easy-difficulty complaint and a boring-loot complaint compound each
+other).
+
+**Tangled sub-thread: the quest board's "click Turn In" flow itself was
+mid-brainstorm when this rework came up** — Timothy's original ask was
+auto-granting quest rewards into inventory with no button (items flying
+in, a townsfolk NPC dialog visually handing them over, maybe a crowd of
+the randomly-generated character-select-screen townsfolk). Paused with
+"hold on" specifically because gating the quest board behind rescuing
+the blacksmith may replace this flow's context entirely (turn-in might
+happen through the same NPC/screen as gear upgrades once merged, not a
+standalone quest board). Revisit the visual/auto-grant polish only after
+the bigger gating question is settled — building it now risks throwing
+it away.
+
 ## Combat pass ideas
 Several related mid-combat ideas, raised together as things to think
 through in a dedicated future combat pass rather than one-off adds.
@@ -1696,6 +1780,36 @@ turn-based flow instead. Raw idea, not yet designed:
   the existing real-time ATB flow, this wouldn't replace it there.
 Not designed or estimated yet — captured here as the raw idea only, per
 Timothy's explicit "let's put all this in backlog for the future."
+
+### Ability uses should charge Attack toward a bigger payoff, not instantly reset it — raised 2026-09-07
+Came up right after the ready-ring fix (0.26.9, which correctly lined the
+ring up with the real streak-decay/recovery timer) — Timothy's own
+reaction: "having to press attack again and again isn't the most fun."
+His idea, verbatim-adjacent: each ability used *without* pressing Attack
+in between should make the next Attack progressively stronger, building
+toward "one big whallop" — not sure exactly how, but floated "maybe each
+time you use 3 abilities attack gets stronger, and no ability actually
+makes attack full power again, so you still have to wait for full power
+or try to figure out when it's good enough to use again."
+
+This flips today's relationship: currently Attack decays with its own
+spam (`attackStreakMultiplier`/`ATTACK_STREAK_DECAY` in `combat.js`) and
+any ability use instantly resets that decay to full power
+(`attackStreak = 0` at three call sites in `playerUseAbility`,
+`battleScreen.js`). The new idea would make Attack a payoff you build
+toward via the ability rotation instead of a filler you spam between
+ability cooldowns.
+
+My own read, given directly when this was raised: interesting direction,
+but real scope — a charge-level counter, new UI to show charge progress
+(distinct from the ready-ring, which already means something specific),
+and Attack's damage ceiling would need rebalancing to justify the wait.
+It also risks doing a similar job to the existing streak-decay system
+rather than something clearly additive. **Recommended and Timothy agreed:
+hold this until after his current playthrough** — the boredom prompting
+it may turn out to be the loot/itemization thread below, not this
+mechanic specifically. Revisit only if it still nags after playing.
+Not designed, not scoped.
 
 ## Open question (not yet decided)
 

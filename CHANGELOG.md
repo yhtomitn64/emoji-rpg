@@ -24,6 +24,18 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.11] - 2026-09-07
+
+### Fixed
+- **superBossOne blocked the only crossing on `farSoutheast`, on the way to
+  the pick tool.** Its entrance tile sat at (15, 20), the screen's one
+  open east-west corridor into `southSoutheast` - since dungeon entrances
+  teleport in on step with no confirmation, a player crossing that row had
+  no way around a fight far above their level. Raised live, mid-
+  playthrough at level 5: "it's in the path to get the pick and I can't
+  get past yet, I'm too weak." Moved to (15, 9), an interior pocket on the
+  same screen, off the through-corridor (`js/data/superBosses.js`).
+
 ## [0.26.10] - 2026-09-07
 
 ### Fixed

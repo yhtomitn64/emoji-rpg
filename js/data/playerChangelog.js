@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.11',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the super-boss guarding the far southeast was parked right on the only path through to the pick tool - moved it off the road.',
+    ],
+  },
+  {
     version: '0.26.10',
     date: '2026-09-07',
     highlights: [
