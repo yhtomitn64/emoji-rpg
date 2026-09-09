@@ -98,4 +98,127 @@ test('settingsScreen DOM', async (t) => {
     assert.equal(fallback.hidden, false);
     assert.ok(fallback.value.includes('"toolId":"axe"'));
   });
+
+  await t.test('the Sound section is hidden until the audioBeta feature flag is enabled', async () => {
+    const state = createNewGame();
+    const root = await mountSettings(state);
+    assert.equal(root.querySelector('#settings-sound-theme'), null);
+    assert.equal(root.querySelector('#settings-audio-combat-volume'), null);
+  });
+
+  await t.test('shows a Feature Flags checkbox, unchecked by default', async () => {
+    const state = createNewGame();
+    const root = await mountSettings(state);
+    const checkbox = root.querySelector('#settings-flag-audio-beta');
+    assert.ok(checkbox);
+    assert.equal(checkbox.checked, false);
+  });
+
+  await t.test('checking the audioBeta flag reveals the Sound section and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const checkbox = root.querySelector('#settings-flag-audio-beta');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.featureFlags.audioBeta, true);
+    assert.equal(changed, true);
+    assert.ok(root.querySelector('#settings-sound-theme'), 'Sound section should now be visible');
+  });
+
+  await t.test('unchecking the audioBeta flag hides the Sound section again and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    state.settings.featureFlags.audioBeta = true;
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const checkbox = root.querySelector('#settings-flag-audio-beta');
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.featureFlags.audioBeta, false);
+    assert.equal(changed, true);
+    assert.equal(root.querySelector('#settings-sound-theme'), null, 'Sound section should be hidden again');
+  });
+
+  await t.test('shows a volume slider and mute toggle for each audio category', async () => {
+    const state = createNewGame();
+    state.settings.featureFlags.audioBeta = true;
+    const root = await mountSettings(state);
+    for (const category of ['Combat', 'Ui', 'World', 'Music']) {
+      assert.ok(root.querySelector(`#settings-audio-${category.toLowerCase()}-volume`), `missing volume slider for ${category}`);
+      assert.ok(root.querySelector(`#settings-audio-${category.toLowerCase()}-muted`), `missing mute checkbox for ${category}`);
+    }
+  });
+
+  await t.test('dragging a volume slider updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    state.settings.featureFlags.audioBeta = true;
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    for (const category of ['combat', 'ui', 'world', 'music']) {
+      changed = false;
+      const slider = root.querySelector(`#settings-audio-${category}-volume`);
+      slider.value = '0.25';
+      slider.dispatchEvent(new window.Event('change', { bubbles: true }));
+      const key = `audio${category.charAt(0).toUpperCase()}${category.slice(1)}Volume`;
+      assert.equal(state.settings[key], 0.25, `expected ${key} to update`);
+      assert.equal(changed, true);
+    }
+  });
+
+  await t.test('toggling a mute checkbox updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    state.settings.featureFlags.audioBeta = true;
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    for (const category of ['combat', 'ui', 'world', 'music']) {
+      changed = false;
+      const checkbox = root.querySelector(`#settings-audio-${category}-muted`);
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+      const key = `audio${category.charAt(0).toUpperCase()}${category.slice(1)}Muted`;
+      assert.equal(state.settings[key], true, `expected ${key} to update`);
+      assert.equal(changed, true);
+    }
+  });
+
+  await t.test('the theme select lists every known theme and defaults to the saved value', async () => {
+    const state = createNewGame();
+    state.settings.soundTheme = 'realistic';
+    state.settings.featureFlags.audioBeta = true;
+    const root = await mountSettings(state);
+    const select = root.querySelector('#settings-sound-theme');
+    assert.ok(select);
+    assert.equal(select.value, 'realistic');
+  });
+
+  await t.test('changing the theme select updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    state.settings.featureFlags.audioBeta = true;
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const select = root.querySelector('#settings-sound-theme');
+    select.value = 'realistic'; // only theme with real content today; asserts the wiring, not theme content
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.soundTheme, 'realistic');
+    assert.equal(changed, true);
+  });
+
+  await t.test('shows a mechanicExplainersBeta checkbox, unchecked by default', async () => {
+    const state = createNewGame();
+    const root = await mountSettings(state);
+    const checkbox = root.querySelector('#settings-flag-mechanic-explainers-beta');
+    assert.ok(checkbox);
+    assert.equal(checkbox.checked, false);
+  });
+
+  await t.test('checking the mechanicExplainersBeta flag updates state and calls onChange', async () => {
+    let changed = false;
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => { changed = true; }, onClose: () => {} });
+    const checkbox = root.querySelector('#settings-flag-mechanic-explainers-beta');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.featureFlags.mechanicExplainersBeta, true);
+    assert.equal(changed, true);
+  });
 });

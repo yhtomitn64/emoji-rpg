@@ -108,3 +108,15 @@ export function click(el) {
 export function keydown(key, extra = {}) {
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...extra }));
 }
+
+// mouseover/mouseout, both bubbling (itemTooltip.js listens on `document`,
+// relying on bubbling exactly like the real browser) and both accepting a
+// relatedTarget - itemTooltip.js's mouseout handler reads it to tell "moved
+// to a child of the same tooltip-owning element" (ignore) apart from
+// "actually left it" (hide).
+export function mouseover(el, relatedTarget = null) {
+  el.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true, relatedTarget }));
+}
+export function mouseout(el, relatedTarget = null) {
+  el.dispatchEvent(new window.MouseEvent('mouseout', { bubbles: true, relatedTarget }));
+}

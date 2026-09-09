@@ -6,6 +6,251 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.13',
+    date: '2026-09-09',
+    highlights: [
+      'Changed: smoother movement on large/maximized windows - the map used to redraw everything on every step, which could cause stutter. Still working on fully smoothing out panning across big open areas.',
+    ],
+  },
+  {
+    version: '0.26.12',
+    date: '2026-09-07',
+    highlights: [
+      'Changed: tool guardians (axe/pick/canoe/portal) now loom big and scary in the center of a bigger arena, and no longer have an ugly gray box behind them.',
+    ],
+  },
+  {
+    version: '0.26.11',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the super-boss guarding the far southeast was parked right on the only path through to the pick tool - moved it off the road.',
+    ],
+  },
+  {
+    version: '0.26.10',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: hovering items in the shop, inventory, smith, and quest board now shows their stats instantly - no more waiting on the browser\'s tooltip delay, and hovering the shop\'s item icon now works too.',
+    ],
+  },
+  {
+    version: '0.26.9',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the glowing ring around Attack used to close as soon as its brief cooldown ended - now it only lights up once your next hit is actually back to full damage.',
+    ],
+  },
+  {
+    version: '0.26.8',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: on larger windows, the battle dialog was sitting too low instead of centered - it now stays centered at every size.',
+    ],
+  },
+  {
+    version: '0.26.7',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: clicking a monster\'s attack meter to parry too early no longer forces the hit to land instantly - it now misses cleanly and waits, just like an early keyboard parry already did.',
+      'Changed: the Smith screen now shows your current New Game+ cycle.',
+      'Changed: Lacerate\'s bonus-damage buff now shows in red instead of looking identical to Super Scream\'s buff.',
+    ],
+  },
+  {
+    version: '0.26.6',
+    date: '2026-09-07',
+    highlights: [
+      'Behind-the-scenes fix to a flaky automated test - nothing to see here, just keeping the deploy pipeline reliable.',
+    ],
+  },
+  {
+    version: '0.26.5',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the battle dialog no longer pops in at the old size and snaps to the bigger one right after - it grows in at its real size from the start.',
+    ],
+  },
+  {
+    version: '0.26.4',
+    date: '2026-09-07',
+    highlights: [
+      'Fixed: the portal no longer shows a white border around it - the picture now fills the whole tile with a soft dark shadow around the edge instead.',
+    ],
+  },
+  {
+    version: '0.26.3',
+    date: '2026-09-06',
+    highlights: [
+      'Fixed: the portal no longer has a worn path drawn messily on top of it, and stepping onto it plays a brief "being pulled in" animation instead of teleporting instantly.',
+      'Changed: the portal now has a real glowing look instead of a plain background.',
+    ],
+  },
+  {
+    version: '0.26.2',
+    date: '2026-09-06',
+    highlights: [
+      'Changed: the battle screen now scales up on bigger windows/monitors - enemies, effects, and all - instead of staying a fixed size.',
+    ],
+  },
+  {
+    version: '0.26.1',
+    date: '2026-09-05',
+    highlights: [
+      'Changed: the Shop has a new look - bigger item art, Weapons/Armor/Potions tabs instead of one long list, and a single Buy button per item with a shared quantity toggle (1x/5x/10x/100x) for potions.',
+    ],
+  },
+  {
+    version: '0.26.0',
+    date: '2026-09-05',
+    highlights: [
+      'New: the first super-boss has been placed in the world - a genuinely brutal optional fight for players with the best gear and every potion, guarding its own small dungeon out in the far reaches of the map. It drops loot better than anything else in the game. Watch for its telegraphed special attacks and parry them - a missed parry lets the effect land alongside the hit.',
+      'Changed: Mythic-tier gear can now (rarely) drop before your first New Game+ cycle, and keeps getting more common each cycle after that instead of capping out at New Game+1.',
+    ],
+  },
+  {
+    version: '0.25.2',
+    date: '2026-09-05',
+    highlights: [
+      'New: the Portal Dungeon can finally be found and reached out in the wilderness - the full tool progression, town through the Dragon, is now complete.',
+    ],
+  },
+  {
+    version: '0.25.1',
+    date: '2026-09-05',
+    highlights: [
+      'Changed: the Axe, Pick, Boat, and Portal Guardians, and the Dragon, are all noticeably tougher now and tuned to specific levels - expect a real fight, not a quick stomp, and bring potions.',
+      'Removed (for now): the random mini-dungeon treasure rooms no longer appear while exploring - may return later in a different form.',
+    ],
+  },
+  {
+    version: '0.25.0',
+    date: '2026-09-04',
+    highlights: [
+      'New: Impale, Sever, and Lacerate now each draw their own distinct mark on the enemy instead of an emoji flying across the screen - a crossing thrust, an axe arc, and raking claws with falling drops. Attack punches with a shockwave ring instead of a slash.',
+      'New: hitting a second target (Sever\'s bonus hit, or anything widened by Faultline) now lands a beat after the first, with its own visible swing, instead of happening invisibly at the same instant.',
+      'New: the Attack button now has a ring that traces itself in as it cools down, so you can see exactly when it\'s back at full power.',
+      'New: your character now appears as a silhouette in battle instead of facing you head-on.',
+      'New: healing at the well now shows a blue ring closing in on you (skipped if you\'re already at full health).',
+      'Fixed: parrying multiple monsters at once no longer stacks several PARRY! badges on top of each other.',
+      'Fixed: buying more than one new piece of gear in the shop no longer makes the earlier "equip now?" prompt disappear - each stays queued until you answer it, and there\'s now a single ✕ to dismiss them all.',
+      'Changed: Iron gear costs quite a bit more than Cloth now - you\'ll want to gear up in Cloth first.',
+      'Changed: a monster type\'s first pack encounter now starts small and grows the more of that monster you\'ve killed, instead of sometimes throwing a big pack at you right away.',
+      'Changed: the Axe/Pick/Boat/Portal Guardians have a lot more HP now.',
+    ],
+  },
+  {
+    version: '0.24.6',
+    date: '2026-09-04',
+    highlights: [
+      'Behind-the-scenes: a local-testing-only debug character option - nothing to see here.',
+    ],
+  },
+  {
+    version: '0.24.5',
+    date: '2026-09-04',
+    highlights: [
+      'Fixed: hit numbers, crits, and Perfect!/Parry!/New Max! callouts no longer stack on top of each other in battle - they now fan out so every one stays readable.',
+    ],
+  },
+  {
+    version: '0.24.4',
+    date: '2026-09-04',
+    highlights: [
+      'Fixed: the version number is now visible on the very first "New Game" screen, not just once you\'re playing.',
+    ],
+  },
+  {
+    version: '0.24.3',
+    date: '2026-09-04',
+    highlights: [
+      'Behind-the-scenes: fixed a deploy pipeline break from the previous version - nothing to see here.',
+    ],
+  },
+  {
+    version: '0.24.2',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: smith upgrade level has a cap again - it just rises a bit each time you go NG+, instead of climbing forever within one cycle.',
+    ],
+  },
+  {
+    version: '0.24.1',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: Attack now shows a quick slash mark on the enemy instead of a weapon spinning across the screen.',
+    ],
+  },
+  {
+    version: '0.24.0',
+    date: '2026-09-04',
+    highlights: [
+      'New: the start screen got a redesign - the background now fills the whole window, everything\'s bigger, and creating a character walks you through a big, easy-to-see hero picker with skin tone swatches instead of a tiny dropdown.',
+      'New: a 🎲 Random Character button fills in a random hero, skin tone, and name for you.',
+    ],
+  },
+  {
+    version: '0.23.2',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: hitting an enemy no longer always resets how close they are to their next attack - now just a small chance per hit, so fights feel a little more dangerous.',
+    ],
+  },
+  {
+    version: '0.23.1',
+    date: '2026-09-04',
+    highlights: [
+      'Changed: the parry timing window is wider again - back to 20% of the windup bar instead of last week\'s tighter 10%.',
+      'Changed: Impale, Sever, Lacerate, and Faultline each have their own cooldown now, on top of the shared one - Impale hits a bit softer but comes back faster, the later abilities hit harder but take longer to reuse.',
+      'Fixed: the battle window no longer subtly grows or shrinks mid-fight.',
+      'Polish: cooldown timers on your action buttons now sweep smoothly instead of jumping in visible steps.',
+    ],
+  },
+  {
+    version: '0.23.0',
+    date: '2026-09-03',
+    highlights: [
+      'Changed: Impale, Sever, Lacerate, and Faultline no longer wait on a refilling gauge before you can use them - they now share a quick cooldown that gets faster the higher your Speed stat is, so you can chain abilities much more smoothly.',
+      'Changed: Flee now works instantly, every time (except against bosses) - no more waiting for it.',
+    ],
+  },
+  {
+    version: '0.22.0',
+    date: '2026-09-03',
+    highlights: [
+      'New: a "Combat Explainers (beta)" toggle in Settings > Feature Flags - flip it on to preview in-battle popups that explain new abilities and combat mechanics as you unlock them. Off by default since the explanations themselves aren\'t written yet.',
+    ],
+  },
+  {
+    version: '0.21.1',
+    date: '2026-09-03',
+    highlights: [
+      'Behind-the-scenes: added more automated test coverage for town\'s exits - nothing to see here.',
+    ],
+  },
+  {
+    version: '0.21.0',
+    date: '2026-09-03',
+    highlights: [
+      'New: town now has 4 exits, one on each side, instead of a single door - just a gap in the trees, and you\'ll appear on the wilderness map in whichever direction you left from.',
+      'Changed: town is a bit bigger to make room for the new exits.',
+      'New: the shop, blacksmith, quest board, and well now always show a little wooden sign naming them.',
+    ],
+  },
+  {
+    version: '0.20.1',
+    date: '2026-09-03',
+    highlights: [
+      'Added: Lacerate\'s re-press window now flashes brighter right as it hits its sweet spot, on top of the steady glow shown the rest of the time.',
+    ],
+  },
+  {
+    version: '0.20.0',
+    date: '2026-09-03',
+    highlights: [
+      'New: a "🚧 Feature Flags" section in Settings, starting with an "Enable Audio (beta)" toggle - flip it on to preview in-progress sound controls (a theme picker and Combat/UI/World/Music volume and mute sliders). Off by default since real sound isn\'t in yet.',
+    ],
+  },
+  {
     version: '0.19.0',
     date: '2026-09-02',
     highlights: [

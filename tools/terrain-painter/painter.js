@@ -1,4 +1,5 @@
 import { TOOL_UNLOCK_KINDS, floodFillReachable, checkProgression } from './reachability.js';
+import { MONSTERS } from '../../js/data/monsters.js';
 
 const SCREEN_W = 30;
 const SCREEN_H = 22;
@@ -32,6 +33,7 @@ const TILE_COLORS = {
   townEntrance: '#d9534f',
   exit: '#8a6d3b',
   boss: '#8b0000',
+  guardian: '#8c7853',
   caveFloor: '#5a5248',
   caveWall: '#2e2a26',
   cavePool: '#1f3f5c',
@@ -46,7 +48,7 @@ const TILE_COLORS = {
 const CHAR_FOR_KIND = {
   grass: '.', tree: '#', water: '~', mountainWall: 'W', mountain: 'M', mountainCache: 'K',
   thicket: 'T', thicketCache: 'X', townEntrance: '@',
-  exit: 'E', boss: 'B',
+  exit: 'E', boss: 'B', guardian: 'G',
   caveFloor: '.', caveWall: '#', cavePool: '~',
   miniDungeonEntrance: 'E', miniDungeonTreasure: 'T',
 };
@@ -54,6 +56,20 @@ const CHAR_FOR_KIND = {
 const WILDERNESS_PALETTE = ['grass', 'tree', 'water', 'mountainWall', 'mountain', 'mountainCache', 'thicket', 'thicketCache'];
 const DUNGEON_PALETTE = ['grass', 'tree', 'thicket', 'exit', 'boss'];
 const MINI_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'cavePool', 'miniDungeonEntrance', 'miniDungeonTreasure'];
+// "New Dungeon" blank-canvas mode's palette (Task 12) - a superboss's own
+// dungeon interior, styled as a proper cave (caveFloor/caveWall, matching
+// js/tiles.js) rather than the grass/tree look the older dragon/tool
+// dungeons happen to reuse, but still exits/ends the same way every real
+// tool-dungeon file does: an exit door and a guardian encounter tile
+// (action: 'guardianBattle', which generically reads
+// MAPS[state.map].guardianMonsterId - not 'boss'/'bossBattle', which is
+// wired specifically to the one real dragon fight's own handler in
+// js/main.js and would be unsafe to reuse for an arbitrary new dungeon).
+const NEW_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'exit', 'guardian'];
+// Mirrors buildLegendRowsText's own IDENTIFIER_KEY test - a new dungeon's
+// map id becomes both a MAPS registry key and a file's exported const
+// name (Task 13), so it has to be a legal bare JS identifier.
+const JS_IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 // Icon shown on the palette button; hovering shows PALETTE_LABELS' full description.
 // A star suffix marks the "has reward" variant of a tool-gated tile, since the base
@@ -61,7 +77,7 @@ const MINI_DUNGEON_PALETTE = ['caveFloor', 'caveWall', 'cavePool', 'miniDungeonE
 const PALETTE_ICONS = {
   grass: '🟩', tree: '🌲', water: '🟦', mountainWall: '🗻',
   mountain: '⛰️', mountainCache: '⛰️⭐', thicket: '🌳', thicketCache: '🌳⭐',
-  exit: '🚪', boss: '🐉',
+  exit: '🚪', boss: '🐉', guardian: '⚔️',
   caveFloor: '⬛', caveWall: '🪨', cavePool: '💧',
   miniDungeonEntrance: '🪜', miniDungeonTreasure: '💰',
 };
@@ -71,7 +87,7 @@ const PALETTE_LABELS = {
   mountainWall: 'Mountain (permanent wall)',
   mountain: 'Mountain (needs pick)', mountainCache: 'Mountain (needs pick, has reward)',
   thicket: 'Thicket (needs axe)', thicketCache: 'Thicket (needs axe, has reward)',
-  exit: 'Exit', boss: 'Boss',
+  exit: 'Exit', boss: 'Boss', guardian: 'Guardian',
   caveFloor: 'Cave Floor', caveWall: 'Cave Wall', cavePool: 'Cave Pool',
   miniDungeonEntrance: 'Entrance', miniDungeonTreasure: 'Treasure',
 };
@@ -140,12 +156,19 @@ let dungeonMarker = null; // { screenId, x, y } - the one fixed dungeon entrance
 let placingDungeon = false;
 let toolDungeonMarkers = {}; // toolId -> { screenId, x, y } (wilderness only)
 let placingToolDungeon = null; // toolId currently being placed, or null
+let superBossMarkers = {}; // superBossId -> { screenId, x, y, hasDungeon } (wilderness only)
+let placingSuperBoss = null; // superBossId currently being placed, or null
 let checkOverlay = null; // { toollessReached, tooledReached, frontier: Set<string> } | null (wilderness only)
-let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers } snapshots, oldest first
+let undoStacks = {}; // mapKey -> array of { grid, dungeonMarker, toolDungeonMarkers, superBossMarkers } snapshots, oldest first
 const UNDO_LIMIT = 30;
 
 const TOOL_DUNGEON_IDS = ['axe', 'pick', 'canoe', 'portal'];
 const TOOL_DUNGEON_MARKER_COLORS = { axe: '#5cb85c', pick: '#5bc0de', canoe: '#e0a83a', portal: '#b06fd6' };
+// Superboss ids are data-driven (SUPER_BOSSES' keys, loaded at init) rather
+// than a fixed small set like the tools above, so markers are colored by
+// hasDungeon instead of by id.
+const SUPER_BOSS_MARKER_COLOR_DUNGEON = '#ff5757';
+const SUPER_BOSS_MARKER_COLOR_OPEN = '#ffd23f';
 
 function cloneGrid(g) {
   return g.map((row) => row.slice());
@@ -164,6 +187,7 @@ function pushUndoSnapshot() {
     grid: cloneGrid(active.grid),
     dungeonMarker: dungeonMarker ? { ...dungeonMarker } : null,
     toolDungeonMarkers: cloneToolDungeonMarkers(toolDungeonMarkers),
+    superBossMarkers: cloneToolDungeonMarkers(superBossMarkers),
   });
   if (stack.length > UNDO_LIMIT) stack.shift();
 }
@@ -176,6 +200,7 @@ function undo() {
     grid = snapshot.grid;
     dungeonMarker = snapshot.dungeonMarker;
     toolDungeonMarkers = snapshot.toolDungeonMarkers || {};
+    superBossMarkers = snapshot.superBossMarkers || {};
   } else {
     singleGrid = snapshot.grid;
   }
@@ -345,6 +370,27 @@ function renderWilderness(ctx) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
   }
+
+  for (const [superBossId, pos] of Object.entries(superBossMarkers)) {
+    const world = localToWorld(pos.screenId, pos.x, pos.y);
+    if (!world) continue;
+    const cx = world.wx * CELL + CELL / 2;
+    const cy = world.wy * CELL + CELL / 2;
+    ctx.fillStyle = pos.hasDungeon ? SUPER_BOSS_MARKER_COLOR_DUNGEON : SUPER_BOSS_MARKER_COLOR_OPEN;
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(superBossId.slice(0, 2).toUpperCase(), cx, cy + 1);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
 }
 
 function renderSingleMap(ctx) {
@@ -411,7 +457,7 @@ function saveAutosave() {
   try {
     const singleMaps = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}').singleMaps || {};
     if (currentMapKey !== 'wilderness') singleMaps[currentMapKey] = singleGrid;
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker, toolDungeonMarkers, singleMaps }));
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ grid, dungeonMarker, toolDungeonMarkers, superBossMarkers, singleMaps }));
   } catch (err) {
     // localStorage may be unavailable (private browsing, quota) - painting still
     // works, it just won't survive a refresh. Nothing to do here.
@@ -602,6 +648,61 @@ async function exportAllToFiles() {
   return `Wrote ${written} changed file(s)${changedFiles.length ? ': ' + changedFiles.join(', ') : ''}. ${unchanged} already up to date.`;
 }
 
+// --- Bulk export via the Node authoring server (Task 13) --------------------
+// Same job as exportAllToFiles() above, minus the dungeon-entrance/
+// tool-dungeon-entrance patching (no server endpoint for those - both are
+// already placed and stable on this branch; use "Choose Repo Folder" +
+// the File System Access flow above for the rare case either needs to
+// move again). Works in any browser, not just Chrome/Edge, since it never
+// touches showDirectoryPicker.
+let serverAvailable = null; // null = not checked yet, else boolean
+
+async function checkServerAvailable() {
+  try {
+    const res = await fetch('/api/patch-wilderness', { method: 'OPTIONS' });
+    return res.ok;
+  } catch (err) {
+    return false; // no server reachable at all (e.g. plain python3 -m http.server, or file://)
+  }
+}
+
+async function postJson(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try { message = (await res.json()).error || message; } catch (err) { /* non-JSON error body - keep the status */ }
+    throw new Error(`${path}: ${message}`);
+  }
+  return res.json();
+}
+
+async function exportAllToServer() {
+  let written = 0;
+  let unchanged = 0;
+  const changedFiles = [];
+
+  for (const id of Object.keys(GRID_LAYOUT)) {
+    const { changed } = await postJson('/api/patch-wilderness', { screenId: id, legendRowsText: exportScreen(id) });
+    if (changed) { written++; changedFiles.push(id); } else unchanged++;
+  }
+
+  // Only markers that have actually been placed (a real screenId, not the
+  // registry's inert null-placeholder) have anything meaningful to write -
+  // see js/data/superBosses.js's own doc comment on that placeholder shape.
+  for (const [superBossId, pos] of Object.entries(superBossMarkers)) {
+    if (pos.screenId === null) continue;
+    const entry = { screenId: pos.screenId, x: pos.x, y: pos.y, hasDungeon: pos.hasDungeon };
+    const { changed } = await postJson('/api/patch-superboss', { superBossId, entry });
+    if (changed) { written++; changedFiles.push(`superboss ${superBossId}`); } else unchanged++;
+  }
+
+  return `Wrote ${written} changed file(s)${changedFiles.length ? ': ' + changedFiles.join(', ') : ''}. ${unchanged} already up to date. (Dungeon/tool-dungeon entrance positions aren't wired to the server - use "Choose Repo Folder" for those.)`;
+}
+
 function findTownEntrance() {
   for (let y = 0; y < WORLD_H; y++) {
     for (let x = 0; x < WORLD_W; x++) {
@@ -696,6 +797,7 @@ async function init() {
   const autosaveStatus = document.getElementById('autosaveStatus');
   const wildernessOnlyEls = document.querySelectorAll('.wilderness-only');
   const singleMapOnlyEls = document.querySelectorAll('.single-map-only');
+  const newDungeonOnlyEls = document.querySelectorAll('.new-dungeon-only');
   const paletteDiv = document.getElementById('palette');
   const exportSelect = document.getElementById('exportSelect');
 
@@ -706,6 +808,7 @@ async function init() {
     grid = savedRaw.grid;
     dungeonMarker = savedRaw.dungeonMarker;
     toolDungeonMarkers = savedRaw.toolDungeonMarkers || {};
+    superBossMarkers = savedRaw.superBossMarkers || {};
     autosaveStatus.textContent = 'Restored unsaved changes from your last session.';
   } else {
     grid = await loadAllScreens();
@@ -719,6 +822,17 @@ async function init() {
     for (const toolId of TOOL_DUNGEON_IDS) {
       const entry = toolDungeonsMod.TOOL_DUNGEON_ENTRANCES[toolId];
       toolDungeonMarkers[toolId] = { screenId: entry.screenId, x: entry.x, y: entry.y };
+    }
+  }
+  // Superboss ids are data-driven (unlike TOOL_DUNGEON_IDS' fixed 4), so
+  // SUPER_BOSS_IDS is captured here from whatever's currently in the
+  // registry and reused below to populate the mode-select dropdown.
+  const superBossesMod = await import('../../js/data/superBosses.js');
+  const SUPER_BOSS_IDS = Object.keys(superBossesMod.SUPER_BOSSES);
+  if (Object.keys(superBossMarkers).length === 0) {
+    for (const superBossId of SUPER_BOSS_IDS) {
+      const entry = superBossesMod.SUPER_BOSSES[superBossId];
+      superBossMarkers[superBossId] = { screenId: entry.screenId, x: entry.x, y: entry.y, hasDungeon: entry.hasDungeon };
     }
   }
 
@@ -742,6 +856,21 @@ async function init() {
     toolDungeonSelect.appendChild(opt);
   }
   toolDungeonSelect.addEventListener('change', updateToolDungeonReadout);
+
+  const superBossSelect = document.getElementById('superBossSelect');
+  const superBossHasDungeonCheckbox = document.getElementById('superBossHasDungeonCheckbox');
+  const superBossReadout = document.getElementById('superBossReadout');
+  function updateSuperBossReadout() {
+    const pos = superBossMarkers[superBossSelect.value];
+    superBossReadout.textContent = pos ? `${pos.screenId} (${pos.x}, ${pos.y}) hasDungeon=${pos.hasDungeon}` : 'not set';
+  }
+  for (const superBossId of SUPER_BOSS_IDS) {
+    const opt = document.createElement('option');
+    opt.value = superBossId;
+    opt.textContent = superBossId;
+    superBossSelect.appendChild(opt);
+  }
+  superBossSelect.addEventListener('change', updateSuperBossReadout);
 
   function currentPalette() {
     return currentMapKey === 'wilderness' ? WILDERNESS_PALETTE : SINGLE_MAPS[currentMapKey].palette;
@@ -775,12 +904,20 @@ async function init() {
   async function switchMap(key) {
     currentMapKey = key;
     setModeVisibility();
+    // Gated separately from setModeVisibility's wilderness-vs-single-map
+    // split - "Save New Dungeon to Server" only makes sense for a
+    // SINGLE_MAPS entry created via the "New Dungeon" button (isNewDungeon:
+    // true, Task 12), never for an existing single map like the dragon
+    // dungeon or a mini-dungeon variant that already has its own file.
+    const isNewDungeon = key !== 'wilderness' && Boolean(SINGLE_MAPS[key] && SINGLE_MAPS[key].isNewDungeon);
+    newDungeonOnlyEls.forEach((el) => { el.style.display = isNewDungeon ? '' : 'none'; });
     rebuildPalette();
     if (key === 'wilderness') {
       canvas.width = WORLD_W * CELL;
       canvas.height = WORLD_H * CELL;
       updateDungeonReadout();
       updateToolDungeonReadout();
+      updateSuperBossReadout();
     } else {
       const cached = savedSingleMaps[key];
       const loaded = cached ? { grid: cached, w: cached[0].length, h: cached.length } : await loadSingleMap(key);
@@ -806,10 +943,63 @@ async function init() {
   }
   mapSelect.addEventListener('change', () => switchMap(mapSelect.value));
 
+  // "New Dungeon" (Task 12) - starts a blank paintable dungeon interior
+  // from scratch, for a superboss's own dungeon, instead of only ever
+  // being able to load+edit an existing map file. Registers a new
+  // SINGLE_MAPS entry at runtime and primes switchMap's own cache
+  // (savedSingleMaps) with the blank grid so switchMap picks it up
+  // exactly like an already-in-progress edit - it never calls
+  // loadSingleMap, since there's no file to load yet.
+  document.getElementById('newDungeonBtn').addEventListener('click', async () => {
+    const id = prompt('New dungeon map id (must be a legal JS identifier - becomes both the exported const name and the Map dropdown key, e.g. "shadowKeepDungeon"):');
+    if (id === null) return; // cancelled
+    if (!JS_IDENTIFIER_RE.test(id)) {
+      alert(`"${id}" isn't a legal JS identifier (letters/digits/_/$ only, can't start with a digit).`);
+      return;
+    }
+    if (SINGLE_MAPS[id] || id === 'wilderness') {
+      alert(`"${id}" is already in use - pick a different id.`);
+      return;
+    }
+    const widthRaw = prompt('Width in cells:', '14');
+    if (widthRaw === null) return;
+    const heightRaw = prompt('Height in cells:', '8');
+    if (heightRaw === null) return;
+    const width = Number(widthRaw);
+    const height = Number(heightRaw);
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+      alert('Width and height must be positive whole numbers.');
+      return;
+    }
+
+    SINGLE_MAPS[id] = {
+      label: `${id} (new)`,
+      palette: NEW_DUNGEON_PALETTE,
+      defaultKind: 'caveFloor',
+      isNewDungeon: true, // Task 13's server creates a file here instead of patching one
+    };
+    savedSingleMaps[id] = Array(height).fill(null).map(() => Array(width).fill('caveFloor'));
+
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = SINGLE_MAPS[id].label;
+    mapSelect.appendChild(opt);
+    mapSelect.value = id;
+
+    undoStacks[id] = [];
+    await switchMap(id);
+    saveAutosave();
+    autosaveStatus.textContent = `Created new blank dungeon "${id}" (${width}x${height}).`;
+  });
+
   await switchMap('wilderness');
 
   document.getElementById('resetFromFilesBtn').addEventListener('click', async () => {
     if (!confirm('Discard all unexported changes on the current map and reload the real file from disk?')) return;
+    if (currentMapKey !== 'wilderness' && SINGLE_MAPS[currentMapKey].isNewDungeon) {
+      autosaveStatus.textContent = 'This is a brand-new dungeon with no file on disk yet - nothing to reset from.';
+      return;
+    }
     if (currentMapKey === 'wilderness') {
       grid = await loadAllScreens();
       const stateMod = await import('../../js/state.js');
@@ -821,6 +1011,12 @@ async function init() {
         toolDungeonMarkers[toolId] = { screenId: entry.screenId, x: entry.x, y: entry.y };
       }
       updateToolDungeonReadout();
+      const superBossesMod = await import('../../js/data/superBosses.js');
+      for (const superBossId of Object.keys(superBossesMod.SUPER_BOSSES)) {
+        const entry = superBossesMod.SUPER_BOSSES[superBossId];
+        superBossMarkers[superBossId] = { screenId: entry.screenId, x: entry.x, y: entry.y, hasDungeon: entry.hasDungeon };
+      }
+      updateSuperBossReadout();
     } else {
       const loaded = await loadSingleMap(currentMapKey);
       singleGrid = loaded.grid;
@@ -838,6 +1034,7 @@ async function init() {
     if (!undo()) return;
     updateDungeonReadout();
     updateToolDungeonReadout();
+    updateSuperBossReadout();
     saveAutosave();
     render(ctx);
   }
@@ -860,10 +1057,13 @@ async function init() {
 
   const placeDungeonBtn = document.getElementById('placeDungeonBtn');
   const placeToolDungeonBtn = document.getElementById('placeToolDungeonBtn');
+  const placeSuperBossBtn = document.getElementById('placeSuperBossBtn');
   placeDungeonBtn.addEventListener('click', () => {
     placingDungeon = !placingDungeon;
     placingToolDungeon = null;
+    placingSuperBoss = null;
     placeToolDungeonBtn.classList.remove('active');
+    placeSuperBossBtn.classList.remove('active');
     placeDungeonBtn.classList.toggle('active', placingDungeon);
     canvas.classList.toggle('placing-dungeon', placingDungeon);
   });
@@ -882,7 +1082,9 @@ async function init() {
   placeToolDungeonBtn.addEventListener('click', () => {
     placingToolDungeon = placingToolDungeon ? null : toolDungeonSelect.value;
     placingDungeon = false;
+    placingSuperBoss = null;
     placeDungeonBtn.classList.remove('active');
+    placeSuperBossBtn.classList.remove('active');
     placeToolDungeonBtn.classList.toggle('active', Boolean(placingToolDungeon));
     canvas.classList.toggle('placing-dungeon', Boolean(placingToolDungeon));
   });
@@ -891,6 +1093,28 @@ async function init() {
     const pos = toolDungeonMarkers[toolDungeonSelect.value];
     if (!pos) return;
     const text = `{ screenId: '${pos.screenId}', x: ${pos.x}, y: ${pos.y} }`;
+    try {
+      await navigator.clipboard.writeText(text);
+      autosaveStatus.textContent = `Copied: ${text}`;
+    } catch (err) {
+      autosaveStatus.textContent = `Clipboard blocked - copy manually: ${text}`;
+    }
+  });
+
+  placeSuperBossBtn.addEventListener('click', () => {
+    placingSuperBoss = placingSuperBoss ? null : superBossSelect.value;
+    placingDungeon = false;
+    placingToolDungeon = null;
+    placeDungeonBtn.classList.remove('active');
+    placeToolDungeonBtn.classList.remove('active');
+    placeSuperBossBtn.classList.toggle('active', Boolean(placingSuperBoss));
+    canvas.classList.toggle('placing-dungeon', Boolean(placingSuperBoss));
+  });
+
+  document.getElementById('copySuperBossBtn').addEventListener('click', async () => {
+    const pos = superBossMarkers[superBossSelect.value];
+    if (!pos) return;
+    const text = `{ screenId: '${pos.screenId}', x: ${pos.x}, y: ${pos.y}, hasDungeon: ${pos.hasDungeon} }`;
     try {
       await navigator.clipboard.writeText(text);
       autosaveStatus.textContent = `Copied: ${text}`;
@@ -969,6 +1193,21 @@ async function init() {
       render(ctx);
       return;
     }
+    if (currentMapKey === 'wilderness' && placingSuperBoss) {
+      pushUndoSnapshot();
+      const local = worldToLocal(x, y);
+      if (local) {
+        superBossMarkers[placingSuperBoss] = { ...local, hasDungeon: superBossHasDungeonCheckbox.checked };
+        updateSuperBossReadout();
+        checkOverlay = null; // stale as soon as a marker moves
+        saveAutosave();
+      }
+      placingSuperBoss = null;
+      placeSuperBossBtn.classList.remove('active');
+      canvas.classList.remove('placing-dungeon');
+      render(ctx);
+      return;
+    }
     pushUndoSnapshot();
     painting = true;
     paintBrush(x, y);
@@ -1016,8 +1255,25 @@ async function init() {
   const exportAllBtn = document.getElementById('exportAllBtn');
   const exportAllStatus = document.getElementById('exportAllStatus');
 
-  if (!window.showDirectoryPicker) {
-    repoStatus.textContent = 'Not supported in this browser (needs Chrome or Edge) — use "Copy LEGEND/ROWS" per screen instead.';
+  // Feature-detect the Node authoring server (Task 13) before falling back
+  // to the older File System Access flow - see checkServerAvailable's own
+  // comment for why an OPTIONS preflight is what distinguishes "server
+  // running" from "no server, or a plain static file server."
+  serverAvailable = await checkServerAvailable();
+
+  if (serverAvailable) {
+    chooseRepoBtn.style.display = 'none';
+    repoStatus.textContent = 'Using the local authoring server (node tools/terrain-painter/server.js) — writes go straight to disk, no folder picker needed.';
+    exportAllBtn.addEventListener('click', async () => {
+      exportAllStatus.textContent = 'Writing…';
+      try {
+        exportAllStatus.textContent = await exportAllToServer();
+      } catch (err) {
+        exportAllStatus.textContent = `Failed: ${err.message}`;
+      }
+    });
+  } else if (!window.showDirectoryPicker) {
+    repoStatus.textContent = 'Not supported in this browser (start the Node authoring server, or use Chrome/Edge for the folder-picker fallback) — use "Copy LEGEND/ROWS" per screen instead.';
     chooseRepoBtn.disabled = true;
     exportAllBtn.disabled = true;
   } else {
@@ -1039,6 +1295,62 @@ async function init() {
       }
     });
   }
+
+  // "Save New Dungeon to Server" (Task 13) - the one save path a brand-new
+  // dungeon (Task 12's "New Dungeon" mode) actually needs: there's no
+  // existing file to patch, so this is server-only (the create-dungeon
+  // endpoint), with no File System Access fallback offered - createFile()-
+  // via-FSA-with-a-user-picked-parent-directory would be a second, mostly-
+  // redundant code path for what should be a rare authoring action.
+  const saveNewDungeonBtn = document.getElementById('saveNewDungeonBtn');
+  const saveNewDungeonStatus = document.getElementById('saveNewDungeonStatus');
+  saveNewDungeonBtn.addEventListener('click', async () => {
+    const def = SINGLE_MAPS[currentMapKey];
+    if (!def || !def.isNewDungeon) return; // button's own visibility already guards this; belt-and-suspenders against a stale click mid-mode-switch
+    if (!serverAvailable) {
+      alert('Saving a new dungeon needs the Node authoring server running (node tools/terrain-painter/server.js) - there is no existing file to patch, so there is no File System Access fallback for this action.');
+      return;
+    }
+
+    let exitPos = null;
+    let exitCount = 0;
+    let guardianCount = 0;
+    for (let y = 0; y < singleMapH; y++) {
+      for (let x = 0; x < singleMapW; x++) {
+        if (singleGrid[y][x] === 'exit') { exitCount++; exitPos = { x, y }; }
+        if (singleGrid[y][x] === 'guardian') guardianCount++;
+      }
+    }
+    if (exitCount !== 1) {
+      alert(`New dungeon needs exactly one 'exit' tile placed (found ${exitCount}) - that's where the player starts.`);
+      return;
+    }
+    if (guardianCount === 0) {
+      alert(`New dungeon needs at least one 'guardian' tile placed - otherwise there's no fight in it at all.`);
+      return;
+    }
+
+    const guardianMonsterId = prompt('Guardian monster id (a key from MONSTERS in js/data/monsters.js, e.g. "axeGuardian"):');
+    if (guardianMonsterId === null) return; // cancelled
+    if (!MONSTERS[guardianMonsterId]) {
+      alert(`"${guardianMonsterId}" isn't a known monster id in js/data/monsters.js's MONSTERS.`);
+      return;
+    }
+
+    saveNewDungeonStatus.textContent = 'Saving…';
+    try {
+      await postJson('/api/create-dungeon', {
+        mapId: currentMapKey,
+        legendRowsText: exportSingleMap(),
+        startX: exitPos.x,
+        startY: exitPos.y,
+        guardianMonsterId,
+      });
+      saveNewDungeonStatus.textContent = `Saved js/maps/superBosses/${currentMapKey}.js and registered it in js/main.js.`;
+    } catch (err) {
+      saveNewDungeonStatus.textContent = `Failed: ${err.message}`;
+    }
+  });
 }
 
 init();

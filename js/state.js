@@ -44,6 +44,23 @@ export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'farNorthwest', x: 
 
 export const DEFAULT_ITEM_MENU_AUTO_CLOSE_MS = 1000;
 
+const DEFAULT_AUDIO_SETTINGS = {
+  soundTheme: 'realistic',
+  audioCombatVolume: 0.8, audioCombatMuted: false,
+  audioUiVolume: 0.8, audioUiMuted: false,
+  audioWorldVolume: 0.8, audioWorldMuted: false,
+  audioMusicVolume: 0.6, audioMusicMuted: false,
+};
+
+// In-progress features gated behind a visible Settings toggle rather than a
+// hidden unlock - this is a small personal project with a handful of known
+// players, so "off by default, flip it on when you want to help test" is
+// fine instead of needing a LaunchDarkly-style hidden rollout mechanism.
+const DEFAULT_FEATURE_FLAGS = {
+  audioBeta: false,
+  mechanicExplainersBeta: false,
+};
+
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
@@ -95,7 +112,11 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     // people playing on the same device/save-slot list want their own
     // preference - raised live during testing: "a settings menu to adjust
     // this time for different users."
-    settings: { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS },
+    settings: {
+      itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
+      ...DEFAULT_AUDIO_SETTINGS,
+      featureFlags: { ...DEFAULT_FEATURE_FLAGS },
+    },
   };
 }
 
@@ -183,6 +204,26 @@ export function migrateLoadout(state) {
 export function migrateSettings(state) {
   if ('settings' in state) return state;
   return { ...state, settings: { itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } };
+}
+
+// One-time migration for saves from before per-category audio settings
+// existed - merges in only the fields that are missing, so a player who's
+// already adjusted a slider on a save made mid-rollout never gets it reset.
+export function migrateAudioSettings(state) {
+  return { ...state, settings: { ...DEFAULT_AUDIO_SETTINGS, ...state.settings } };
+}
+
+// One-time migration for saves from before feature flags existed - merges
+// in only missing flags, so a save that already has one set (e.g. a
+// friend's save with audioBeta already toggled on) keeps that value.
+export function migrateFeatureFlags(state) {
+  return {
+    ...state,
+    settings: {
+      ...state.settings,
+      featureFlags: { ...DEFAULT_FEATURE_FLAGS, ...state.settings.featureFlags },
+    },
+  };
 }
 
 export function serializeState(state) {

@@ -86,9 +86,36 @@ export const MONSTERS = {
   // guaranteed-reward mini-boss should feel tougher than an ordinary
   // wilderness encounter, but well under dungeon-tier (orc/wraith) so an
   // early gate doesn't require end-game gear.
+  //
+  // Retuned 2026-09-05 to a real per-tool target level, replacing the
+  // same-night +50%-HP-only stopgap: "for axe which is first we should
+  // target user having got to like level 5 and tune that boss for that.
+  // Then for pick I think a few levels more than that and then canoe more
+  // than that." axeGuardian(L5)/pickGuardian(L7)/boatGuardian(L9) each got
+  // their own attack/defense pass, not just more HP - axe and pick used to
+  // share an identical stat block despite now targeting different levels,
+  // so they diverge for the first time here.
+  //
+  // Numbers came from a throwaway Monte Carlo script built on the real
+  // js/systems/combat.js|abilities.js|parry.js functions (same approach as
+  // scripts/simulate-balance.js), run against Timothy's own real telemetry
+  // gear at each target level - not hand-guessed. Important calibration
+  // caveat found while doing this: the simulator's simulated player has
+  // zero reaction latency (acts every single 300ms tick, no hesitation),
+  // which makes its win-rate/HP-remaining output systematically optimistic
+  // - a real level-7 player's logged axeGuardian fight (old stats) ran
+  // ~2x longer and ended at 78% HP where the simulator would have shown
+  // ~99% for the identical matchup. So every number below was tuned to
+  // land around 48-53% average HP remaining *in the simulator* for a
+  // well-geared build (several potions burned, 7-15s), deliberately well
+  // below a "comfortable" simulator result, expecting real play to run
+  // harder still. A deliberately under-geared player at the same level
+  // (starter/base Iron, no upgrades, no accessory) loses these fights
+  // outright rather than scraping by - gearing up before attempting one
+  // now actually matters.
   axeGuardian: {
     id: 'axeGuardian', name: 'Axe Guardian', emoji: '🪓',
-    hp: 140, attack: 18, defense: 5, speed: 7,
+    hp: 260, attack: 34, defense: 10, speed: 9,
     xp: 45, goldRange: [15, 25],
     dropTable: [{ itemId: 'axe', chance: 1 }],
     forceFullBattle: true,
@@ -96,7 +123,7 @@ export const MONSTERS = {
   },
   pickGuardian: {
     id: 'pickGuardian', name: 'Pick Guardian', emoji: '⛏️',
-    hp: 140, attack: 18, defense: 5, speed: 7,
+    hp: 320, attack: 42, defense: 13, speed: 10,
     xp: 45, goldRange: [15, 25],
     dropTable: [{ itemId: 'miningPick', chance: 1 }],
     forceFullBattle: true,
@@ -104,10 +131,12 @@ export const MONSTERS = {
   },
   // Sits behind a gate meant to require axe + pick already (Timothy's map
   // design, not enforced in code - see TOOL_DUNGEON_ENTRANCES's boat entry
-  // placement), so a step tougher than the axe/pick guardians.
+  // placement), so a step tougher than the axe/pick guardians. Retuned
+  // 2026-09-05 for a level-9 target - see axeGuardian's own comment above
+  // for the methodology.
   boatGuardian: {
     id: 'boatGuardian', name: 'Boat Guardian', emoji: '🛶',
-    hp: 175, attack: 24, defense: 7, speed: 8,
+    hp: 420, attack: 56, defense: 18, speed: 11,
     xp: 55, goldRange: [18, 28],
     dropTable: [{ itemId: 'boat', chance: 1 }],
     forceFullBattle: true,
@@ -118,17 +147,30 @@ export const MONSTERS = {
   // boatGuardian, since "free repeatable trip to/from town from
   // anywhere" is the strongest of the four tools. See
   // docs/superpowers/specs/2026-09-01-portal-scroll-design.md.
+  //
+  // Retuned 2026-09-05 for a level-10 target (one above boatGuardian, one
+  // below the dragon) - its map entrance is still unplaced
+  // (TOOL_DUNGEON_ENTRANCES.portal has screenId: null in
+  // js/data/toolDungeons.js, "I don't even remember how to get it...
+  // waiting for me to place via map editor"), so this is inert until
+  // Timothy actually places it, but reaching it implies already having
+  // collected axe+pick+boat - see axeGuardian's own comment above for the
+  // shared methodology.
   portalGuardian: {
     id: 'portalGuardian', name: 'Portal Guardian', emoji: '🌌',
-    hp: 210, attack: 28, defense: 9, speed: 9,
+    hp: 500, attack: 58, defense: 19, speed: 12,
     xp: 65, goldRange: [22, 32],
     dropTable: [{ itemId: 'portalCircle', chance: 1 }],
     forceFullBattle: true,
     attackStyle: 'melee',
   },
+  // Retuned 2026-09-05 for a level-11 target, the hardest of the five
+  // bosses by design (lowest win rate / most potions burned in the
+  // simulator of any fight in this pass) - see axeGuardian's own comment
+  // above for the full methodology.
   dragon: {
     id: 'dragon', name: 'Dragon', emoji: '🐉',
-    hp: 150, attack: 34, defense: 12, speed: 11,
+    hp: 600, attack: 58, defense: 22, speed: 13,
     xp: 200, goldRange: [65, 100],
     dropTable: [
       { itemId: 'dragonScaleMail', chance: 0.6 },
@@ -191,5 +233,68 @@ export const MONSTERS = {
     dropTable: [{ itemId: 'fossilFang', chance: 0.5 }, { itemId: 'potion', chance: 0.15 }],
     attackStyle: 'ranged', projectileEmoji: '🍖',
     isElite: true,
+  },
+
+  // Super-boss pass worked example - see
+  // docs/superpowers/specs/2026-09-05-superboss-pass-design.md. Placeholder
+  // codename only (superBossOne) - not a creative name, rename freely
+  // before this ships.
+  //
+  // Retuned TWICE from the plan's starting candidate (hp 3200/atk 70/def 30)
+  // after running scripts/simulate-balance.js (which got a new
+  // SUPER_BOSS_MATCHUP_IDS, generic over any isSuperBoss monster) against
+  // every existing build - see task-14-report.md for both full simulator
+  // passes:
+  //   1st pass (reverted): held attack/defense fixed at the candidate's own
+  //   70/30 and swept hp down to 1050 to hit a 15-30% HP-remaining target.
+  //   Review caught that this made the "hardest fight in the game" measure
+  //   out WEAKER than the already-shipping Dragon tier 1 (1200hp/73atk/
+  //   28def) and tier 2 (2400/91/34) - holding attack/defense fixed forced
+  //   hp down to a small number because 70 attack vs. the maxed build's 43
+  //   defense only left the player ~6 unparried hits of survival budget,
+  //   turning the fight into a parry coin-flip instead of a grueling wall.
+  //   2nd pass (this one): held hp >= 3000 (comfortably above Dragon tier
+  //   2's 2400) and swept attack/defense DOWN instead (55/24, vs. the
+  //   maxed build's 41atk/43def - a much smaller damage-per-hit, buying
+  //   real survival time across a genuinely high HP pool). Converged to
+  //   hp: 3000, attack: 55, defense: 24 - the maxed Mythic L12 (NG+2,
+  //   +rings) build (79hp/41atk/43def, every slot Mythic+3, both
+  //   superboss-only rings) lands 10% win rate / 17% avg HP remaining on a
+  //   win / 6.0 of 6 potions used (5000 trials, 0% stalemateRate) -
+  //   meaningfully BELOW its 18% win rate against Dragon tier 1 (so this
+  //   really is the harder fight), within the spec's 15-30% band, with
+  //   maxed-out potion use and a real ~90% loss rate. "veteran L11 (full
+  //   iron)" and the Mythic-no-rings variant both still lose outright
+  //   (0%). Sanity-checked across pickMonsterVariant's +/-15% roll range
+  //   (defense untouched, hp/attack scaled together): Puny lands ~100%
+  //   win, Savage ~0% - a wide swing, but the same qualitative shape every
+  //   guardian already has today under this same variant system (not a
+  //   new gap this task introduced - see task-14-report.md for the full
+  //   numbers and discussion). NG+1/NG+2: the maxed build cannot beat this
+  //   fight once IT is also NG+1/NG+2-scaled (0% at both cycles) - flagged
+  //   in task-14-report.md as a real, separate finding about the
+  //   post-NG+1 game overall rather than something this task's scope
+  //   covers fixing.
+  //
+  //   Post-review addendum: the variant-roll sanity check above is now
+  //   purely historical context, not live behavior - a later fix in this
+  //   same branch exempted every forceFullBattle monster (this one and all
+  //   four tool guardians) from pickMonsterVariant entirely (see
+  //   js/systems/monsterVariants.js's pickVariantOverrides), so
+  //   superBossOne's stats above are exactly what a real encounter always
+  //   uses, never +/-15% varied.
+  superBossOne: {
+    id: 'superBossOne', name: 'Super Boss One [PLACEHOLDER NAME]', emoji: '💀',
+    hp: 3000, attack: 55, defense: 24, speed: 14,
+    xp: 500, goldRange: [150, 220],
+    dropTable: [{ itemId: 'ferocityFang', chance: 1, tier: 'apex' }],
+    isSuperBoss: true,
+    forceFullBattle: true,
+    specialAttacks: [
+      { type: 'stun', chancePerTurn: 0.25, durationMs: 1200 },
+      { type: 'slow', chancePerTurn: 0.25, slowPercent: 25, durationMs: 4000 },
+      { type: 'cooldownOverload', chancePerTurn: 0.2, gcdMs: 6000 },
+    ],
+    attackStyle: 'melee',
   },
 };

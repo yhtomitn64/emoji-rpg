@@ -4,7 +4,8 @@ import { MONSTERS } from '../js/data/monsters.js';
 import {
   isToughnessEligible, monsterToughness, rollQualityTier, rollUniqueEffectChance,
   rollMythicEssenceChance, QUALITY_TIER_MULTIPLIERS, tierLabel, RING_TOUGHNESS_FLOOR,
-  BOSS_MYTHIC_CHANCE,
+  BOSS_MYTHIC_CHANCE, PRE_NG_PLUS_MYTHIC_CHANCE_MIN, PRE_NG_PLUS_MYTHIC_CHANCE_MAX,
+  MYTHIC_TIER_CHANCE_MIN, MYTHIC_TIER_CHANCE_MAX, MYTHIC_TIER_NG_PLUS_GROWTH,
 } from '../js/systems/itemQuality.js';
 
 test('isToughnessEligible excludes boss, elite, and forceFullBattle monsters', () => {
@@ -34,11 +35,11 @@ test('monsterToughness clamps an ineligible monster (if ever called on one) into
   assert.equal(monsterToughness(MONSTERS.dragon), 1); // xp 200, clamped to the max
 });
 
-test('rollQualityTier only ever returns plain, fine, or superior', () => {
+test('rollQualityTier only ever returns plain, fine, superior, or mythic', () => {
   for (const toughness of [0, 0.25, 0.5, 0.75, 1]) {
     for (const rngValue of [0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.9, 0.999]) {
       const result = rollQualityTier(toughness, () => rngValue);
-      assert.ok(['plain', 'fine', 'superior'].includes(result));
+      assert.ok(['plain', 'fine', 'superior', 'mythic'].includes(result));
     }
   }
 });
@@ -73,14 +74,11 @@ test('tierLabel prefixes a display name correctly for each tier, and not at all 
   assert.equal(tierLabel('superior'), 'Superior ');
 });
 
-test('rollQualityTier never returns mythic when ngPlusCycle is omitted or 0', () => {
-  for (const toughness of [0, 0.5, 1]) {
-    for (let i = 0; i <= 20; i++) {
-      const rngValue = i / 20;
-      assert.notEqual(rollQualityTier(toughness, () => rngValue), 'mythic');
-      assert.notEqual(rollQualityTier(toughness, () => rngValue, 0), 'mythic');
-    }
-  }
+test('rollQualityTier has a small mythic chance even when ngPlusCycle is 0', () => {
+  // cycle 0 should have a tiny pre-NG+ chance, not zero. But it's small enough
+  // that a mid-range rng value won't hit it.
+  assert.equal(rollQualityTier(1, () => 0.001, 0), 'mythic'); // Below PRE_NG_PLUS_MYTHIC_CHANCE_MAX
+  assert.notEqual(rollQualityTier(1, () => 0.01, 0), 'mythic'); // Above PRE_NG_PLUS_MYTHIC_CHANCE_MAX
 });
 
 test('rollQualityTier can return mythic once ngPlusCycle >= 1, at the low end of the roll', () => {
@@ -126,4 +124,34 @@ test('rollMythicEssenceChance hits at the documented 2% floor and 6% ceiling', (
 test('RING_TOUGHNESS_FLOOR and BOSS_MYTHIC_CHANCE match the documented starting values', () => {
   assert.equal(RING_TOUGHNESS_FLOOR, 0.6);
   assert.equal(BOSS_MYTHIC_CHANCE, 0.25);
+});
+
+test('apex is a real quality tier, above mythic', () => {
+  assert.ok(QUALITY_TIER_MULTIPLIERS.apex, 'apex tier must exist');
+  assert.ok(QUALITY_TIER_MULTIPLIERS.apex > QUALITY_TIER_MULTIPLIERS.mythic, 'apex must multiply more than mythic');
+  assert.equal(tierLabel('apex'), 'Apex ');
+});
+
+test('pre-NG+ (cycle 0) has a small but nonzero Mythic chance instead of a flat 0%', () => {
+  // rng() just above the pre-NG+ band's ceiling at max toughness should
+  // NOT roll mythic; just below it should.
+  const roll = rollQualityTier(1, () => 0.003, 0);
+  assert.equal(roll, 'mythic');
+  const noRoll = rollQualityTier(1, () => 0.01, 0);
+  assert.notEqual(noRoll, 'mythic');
+});
+
+test('NG+1 reproduces the exact pre-existing Mythic band, unchanged', () => {
+  const justUnder = rollQualityTier(1, () => (MYTHIC_TIER_CHANCE_MAX - 0.0001), 1);
+  assert.equal(justUnder, 'mythic');
+  const justOver = rollQualityTier(1, () => (MYTHIC_TIER_CHANCE_MAX + 0.0001), 1);
+  assert.notEqual(justOver, 'mythic');
+});
+
+test('NG+2 scales the Mythic band up by the growth multiplier, uncapped', () => {
+  const scaledMax = MYTHIC_TIER_CHANCE_MAX * 1.5;
+  const justUnder = rollQualityTier(1, () => (scaledMax - 0.0001), 2);
+  assert.equal(justUnder, 'mythic');
+  const justOver = rollQualityTier(1, () => (scaledMax + 0.0001), 2);
+  assert.notEqual(justOver, 'mythic');
 });

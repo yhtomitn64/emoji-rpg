@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isWalkableAt, isValidSavedPosition, pickTileVariant, isChokepointTile, computeViewportOrigin } from '../js/systems/world.js';
+import { isWalkableAt, isValidSavedPosition, pickTileVariant, isChokepointTile, computeViewportOrigin, resolveTownExitLanding } from '../js/systems/world.js';
 
 test('isValidSavedPosition accepts a tool-gated tile even though it is not unconditionally walkable', () => {
   const map = {
@@ -98,4 +98,19 @@ test('computeViewportOrigin centers a whole small map (viewport bigger than the 
   assert.deepEqual(computeViewportOrigin(3, 3, 21, 15, bounds), { originGx: -5, originGy: -3 });
   // moving the "player" elsewhere on the same small map doesn't move the origin at all
   assert.deepEqual(computeViewportOrigin(8, 6, 21, 15, bounds), { originGx: -5, originGy: -3 });
+});
+
+test('resolveTownExitLanding lands 1 tile out from the town entrance in each direction', () => {
+  const townEntrance = { x: 14, y: 12 };
+  assert.deepEqual(resolveTownExitLanding('exitTownNorth', townEntrance), { x: 14, y: 11 });
+  assert.deepEqual(resolveTownExitLanding('exitTownSouth', townEntrance), { x: 14, y: 13 });
+  assert.deepEqual(resolveTownExitLanding('exitTownEast', townEntrance), { x: 15, y: 12 });
+  assert.deepEqual(resolveTownExitLanding('exitTownWest', townEntrance), { x: 13, y: 12 });
+});
+
+test('resolveTownExitLanding returns null for any action that is not a town exit', () => {
+  const townEntrance = { x: 14, y: 12 };
+  assert.equal(resolveTownExitLanding('exitMap', townEntrance), null);
+  assert.equal(resolveTownExitLanding('enterShop', townEntrance), null);
+  assert.equal(resolveTownExitLanding('', townEntrance), null);
 });

@@ -11,27 +11,29 @@ export const ITEMS = {
   starterSword: { id: 'starterSword', name: 'Starter Sword', emoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 3 }, startingItem: true },
   ironSword: { id: 'ironSword', name: 'Iron Sword', emoji: '⚔️', slot: 'weapon', price: 30, stats: { attack: 6 } },
   goblinClub: { id: 'goblinClub', name: 'Goblin Club', emoji: '🏏', slot: 'weapon', price: 0, stats: { attack: 8 } },
-  // swingEmoji: these two weapons' own inventory emoji is a body-part-flavor
-  // pun (a literal tooth/dinosaur), not a weapon shape - fine in an
-  // inventory row, but battleScreen.js's Attack swing (js/screens/
-  // battleScreen.js's swingSpriteEmoji) should swing something blade-shaped
-  // instead. Weapons without a swingEmoji override just swing their own
-  // emoji, same as before.
-  dragonFang: { id: 'dragonFang', name: 'Dragon Fang Blade', emoji: '🦷', swingEmoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 16 } },
-  fossilFang: { id: 'fossilFang', name: 'Fossil Fang', emoji: '🦖', swingEmoji: '🗡️', slot: 'weapon', price: 0, stats: { attack: 14 } },
+  dragonFang: { id: 'dragonFang', name: 'Dragon Fang Blade', emoji: '🦷', slot: 'weapon', price: 0, stats: { attack: 16 } },
+  fossilFang: { id: 'fossilFang', name: 'Fossil Fang', emoji: '🦖', slot: 'weapon', price: 0, stats: { attack: 14 } },
 
   // Head
   clothCap: { id: 'clothCap', name: 'Cloth Cap', emoji: '🧢', slot: 'head', price: 15, stats: { defense: 1 } },
-  ironHelm: { id: 'ironHelm', name: 'Iron Helm', emoji: '⛑️', slot: 'head', price: 35, stats: { defense: 3 } },
+  // Raised 2026-09-04: "iron gear should cost way more to force you to get
+  // all the cloth first" - was 35g (~2.3x Cloth Cap), barely a speed bump
+  // over just saving up straight for Iron. Bumped to a real gap (~4.7x
+  // Cloth Cap) across all three Iron pieces below so a fresh run walks
+  // through the Cloth tier before Iron is affordable, rather than skipping
+  // it. First-pass numbers - not yet run through a playthrough to confirm
+  // the early-game pacing actually lands right; revisit if it reads as too
+  // slow instead.
+  ironHelm: { id: 'ironHelm', name: 'Iron Helm', emoji: '⛑️', slot: 'head', price: 70, stats: { defense: 3 } },
 
   // Body
   clothTunic: { id: 'clothTunic', name: 'Cloth Tunic', emoji: '👕', slot: 'body', price: 20, stats: { defense: 2, maxHp: 4 } },
-  ironArmor: { id: 'ironArmor', name: 'Iron Armor', emoji: '🥋', slot: 'body', price: 45, stats: { defense: 5, maxHp: 8 } },
+  ironArmor: { id: 'ironArmor', name: 'Iron Armor', emoji: '🥋', slot: 'body', price: 90, stats: { defense: 5, maxHp: 8 } }, // see ironHelm's comment above
   dragonScaleMail: { id: 'dragonScaleMail', name: 'Dragon Scale Mail', emoji: '🐲', slot: 'body', price: 0, stats: { defense: 12, maxHp: 18 } },
 
   // Legs
   clothPants: { id: 'clothPants', name: 'Cloth Pants', emoji: '👖', slot: 'legs', price: 15, stats: { defense: 1, speed: 1 } },
-  ironGreaves: { id: 'ironGreaves', name: 'Iron Greaves', emoji: '🦵', slot: 'legs', price: 30, stats: { defense: 3 } },
+  ironGreaves: { id: 'ironGreaves', name: 'Iron Greaves', emoji: '🦵', slot: 'legs', price: 65, stats: { defense: 3 } }, // see ironHelm's comment above
   windGreaves: { id: 'windGreaves', name: 'Wind Greaves', emoji: '👢', slot: 'legs', price: 40, stats: { defense: 1, speed: 4 } },
 
   // Accessory
@@ -41,9 +43,7 @@ export const ITEMS = {
 
   // Unique-effect drops (found only, never sold - see js/systems/loot.js's
   // UNIQUE_EFFECT_ITEM_IDS)
-  // swingEmoji: same reasoning as dragonFang/fossilFang above - its own
-  // emoji is a bone pun, not a weapon shape.
-  vampiricFang: { id: 'vampiricFang', name: 'Vampiric Fang', emoji: '🦴', swingEmoji: '🗡️', slot: 'weapon', price: 0,
+  vampiricFang: { id: 'vampiricFang', name: 'Vampiric Fang', emoji: '🦴', slot: 'weapon', price: 0,
     stats: { attack: 7, lifestealPercent: 15 } },
   swiftStrikeCharm: { id: 'swiftStrikeCharm', name: 'Swift Strike Charm', emoji: '🔮', slot: 'accessory', price: 0,
     stats: { extraSwingChance: 10 } },
@@ -57,6 +57,21 @@ export const ITEMS = {
     stats: { thornsPercent: 20 }, ngPlusOnly: true },
   windfuryRing: { id: 'windfuryRing', name: 'Windfury Ring', emoji: '💍', slot: 'ring', price: 0,
     stats: { extraSwingChance: 10, critChancePercent: 8 }, ngPlusOnly: true },
+
+  // Super-boss guaranteed drops - referenced directly by a superboss's own
+  // dropTable, never added to js/systems/loot.js's UNIQUE_EFFECT_ITEM_IDS
+  // (that pool feeds the regular random per-kill roll; these stay
+  // exclusive to super-boss encounters). All names/emoji/flavor are
+  // placeholders - see docs/superpowers/specs/2026-09-05-superboss-pass-
+  // design.md's Itemization section.
+  parryMasterRing: { id: 'parryMasterRing', name: 'Parry Master Ring [PLACEHOLDER NAME]', emoji: '💍', slot: 'ring', price: 0,
+    stats: { parryWindowBonusPercent: 15 } },
+  unshakenCharm: { id: 'unshakenCharm', name: 'Unshaken Charm [PLACEHOLDER NAME]', emoji: '🧿', slot: 'accessory', price: 0,
+    stats: { debuffDurationPercent: 40 } },
+  ferocityFang: { id: 'ferocityFang', name: 'Ferocity Fang [PLACEHOLDER NAME]', emoji: '🦷', slot: 'weapon', price: 0,
+    stats: { lifestealPercent: 25, critChancePercent: 12 } },
+  stormringOfHaste: { id: 'stormringOfHaste', name: 'Stormring of Haste [PLACEHOLDER NAME]', emoji: '💍', slot: 'ring', price: 0,
+    stats: { extraSwingChance: 18, elementalProcChance: 25, elementalProcDamage: 8 } },
 
   // Consumables
   potion: { id: 'potion', name: 'Potion', emoji: '🧪', type: 'consumable', price: 10, heal: 15 },

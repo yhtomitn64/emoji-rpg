@@ -440,6 +440,62 @@ object.
 
 ## Bugs
 
+### ~~Portal graphic/trail overlap, instant teleport, and a "sucking in" effect~~ Shipped 2026-09-06 (0.26.3)
+Raised 2026-09-06 with a screenshot: "The portal graphic looks bad and
+the path shows up on top looking bad. Also thinking if you use portal
+it instantly ports you to town instead of putting you right on top of
+portal and then you have to walk off it and back on. Also can we add
+effect to portal that kind of follows the character so it looks like
+it's trying to suck you in?"
+
+**Trail-on-top bug, root cause found and fixed.** `portalOrigin`/
+`portalReturn`/`portalDungeonEntrance` (`js/tiles.js`) were all missing
+from `FULL_SQUARE_MARKERS` (`js/screens/mapScreen.js`), so they fell
+through to the plain in-flow `cell.append(emoji)` branch - no
+`position`, so the trail SVG (which IS positioned) always painted on
+top of it regardless of DOM append order, exactly matching the
+screenshot. Added all three to `FULL_SQUARE_MARKERS`, giving portals the
+same full-tile positioned marker rendering every other landmark tile
+(town/dungeon entrances, loot, superbosses) already gets - trail now
+correctly paints underneath.
+
+**"Looks bad" - given a real background.** New `.map-tile-portal` class
+(a dark radial gradient plus a slow pulsing indigo `box-shadow` glow,
+`css/styles.css`), applied to all three portal tiles alongside their
+existing `.map-tile-portal-origin`/`.map-tile-portal-return` classes.
+
+**Instant teleport → brief pull-in first, doubling as the sucking-in
+effect.** Root cause: stepping onto a portal action tile fired its
+callback (`enterPortalToTown`/`enterPortalToOrigin`/`enterPortalDungeon`)
+in the very same tick as the step's own `render()` - an instant cut,
+no transition. `tryMove` (`js/screens/mapScreen.js`) now special-cases
+the three portal tiles: adds a `.map-tile-player-portal-pull` class to
+the player's own marker (spins/shrinks/fades toward the tile center,
+brightening - reads as being drawn in) and delays the actual callback by
+`PORTAL_PULL_EFFECT_MS` (420ms, kept in sync with the CSS animation
+duration by hand) instead of firing it immediately. A new
+`portalTransitionPending` guard (reset on every `mount()`) blocks a
+second keypress from landing mid-pull, so a stale delayed callback can
+never fire after the player has already moved elsewhere.
+
+**Deliberately not touched:** the return portal in town still doesn't
+auto-fire on arrival (landing there via `enterMap` skips the
+step-resolution code that fires a tile's own `action`, so returning to
+origin still needs a walk-off-and-back-on) - this turned out to be the
+already-designed behavior from
+`docs/superpowers/specs/2026-09-01-portal-scroll-design.md`
+(`returnPending`), not a bug, once traced through. Read the whole
+original request as being about the *origin* side's abruptness instead
+- if that's not what was meant and the return side should also change,
+that's a follow-up, not covered here.
+
+New DOM test coverage in `tests/mapScreenDom.test.js`: stepping onto the
+return portal plays the pull class and defers `enterPortalToOrigin`
+past the same tick (asserted via a real ~500ms `setTimeout`, matching
+this repo's existing async-effect test pattern rather than fake timers),
+plus a second test confirming a keypress during the pull window is
+ignored rather than producing a duplicate/stale action.
+
 ### ~~UI consistency: universal Escape-to-close + aligned dialog chrome~~ Shipped 2026-09-02 (0.18.1)
 Raised 2026-09-01 (Timothy, via a friend's suggestion): every menu/dialog
 should close on Escape, and all dialogs should share the same close
@@ -581,6 +637,15 @@ emoji to match their silly food names — Timothy likes them as they are,
 e.g. "Slippery Breadstick" for the snake. Not tracked anywhere; revisit
 only if it comes up again for a future zone. Items below were raised
 mid-combat-pass, later than that original batch.)*
+
+### ~~"New Max damage!" progression feedback + a DPS meter~~ Shipped 2026-08-31 (0.14.0)
+Timothy's own words: "New Max damage for ability!!! and things like that
+so you know you are progressing. Also maybe a DPS meter somewhere!" Both
+shipped the same day: a "NEW MAX!" callout (tracked per ability, and for
+Attack — `playNewMaxEffect` in `js/screens/battleScreen.js`) and a live
+per-battle DPS meter (`updateDpsDisplay`, same file). Found stale in
+BACKLOG.md during a 2026-09-03 cleanup pass — never marked shipped when
+it landed.
 
 ### ~~Portal scroll — drop a portal to warp to town and back~~ Shipped 2026-09-01 (0.16.0)
 Timothy's idea, raised live during a testing session 2026-09-01. Brainstormed
@@ -842,6 +907,32 @@ the Sell Duplicate Gear precedent above. `sellItem()` now takes a `tier`
 param threaded through to `removeItem`. See CHANGELOG.
 
 ## Combat pass ideas
+
+### ~~Bigger battle dialog~~ Shipped 2026-09-06
+Raised 2026-09-05: "can we make the whole battle dialog bigger. enemies,
+effects and all. Scale to some percent of the whole window?" A
+brainstorming pass (mockups: "Battle Dialog Scale Lab" artifact,
+https://claude.ai/code/artifact/09a2b949-cbc1-4302-b1cf-ad023507b476)
+narrowed this to three options; Timothy picked **Option B - everything
+scales together**, and confirmed the hero/monster arrangement should
+stay as today's vertical stack (hero below monster), not switch to the
+mock's side-by-side layout as part of this pass.
+
+Shipped as a new `--battle-scale` custom property on
+`.battle-screen-stack` (`css/styles.css`): a `clamp()` on viewport
+`vmin` ramping from 1x (today's exact current size) to 1.7x (a
+large-monitor ceiling), applied via `transform: scale()`. Because CSS
+transforms compose, every descendant - emoji, HP/ATB bars, action
+buttons, every hit-effect decal's own `translate()`/`rotate()` - scales
+for free, with zero changes to the effects system itself or to
+`battleScreen.js`. `#overlay`'s `overflow-y: auto` was made explicit
+`overflow: auto` as a scroll safety net for the rare near-square window
+where the scaled (transform, not layout-box) width can exceed the
+viewport even though the unscaled layout box still fit - transforms
+don't grow an ancestor's centering/overflow calculations the way a real
+size change would, so this is a deliberately lighter fix than a
+dedicated reserving wrapper, verified visually rather than via
+`npm run test` (pure CSS, no DOM behavior changed). See CHANGELOG.
 
 ### ~~Remove the crit/parry dialog-shake, give parry its own clear visual~~ Shipped 2026-08-29
 Raised 2026-08-28: "remove the crit/parry or whatever else animation that
@@ -1563,6 +1654,44 @@ Combat pass ideas section.
 See `docs/superpowers/specs/2026-09-02-ability-rotation-v2-design.md` for
 the full design and `docs/superpowers/plans/2026-09-02-ability-rotation-
 v2.md` for the implementation plan and task breakdown.
+
+### ~~Lacerate retrigger sweet-spot flash~~ Shipped 2026-09-03 (0.20.1)
+Raised 2026-09-02 during ability rotation v2's final review: the retrigger
+window only ever showed a steady glow (`.battle-ability-button-retrigger`)
+for its whole ~1.2s duration, even though the original design doc wanted a
+distinct flash keyed to the 80-100% sweet-spot sub-range specifically -
+that detail never made it into the concrete plan steps. New
+`.battle-ability-button-retrigger-sweetspot` class (reusing
+`battle-zone-pulse`, same visual language as the parry zone's own pulse)
+applies on top of the steady glow whenever `abilityButtonEntries()`'s
+render lands inside the sweet spot.
+
+Not a precisely-timed one-shot like the parry zone's own animation-delay
+trick, though - that trick depends on the zone marker being a persistent
+DOM node, while the ability button gets torn down and rebuilt by
+`updateMenu()` every 300ms tick. Reads real elapsed time fresh on each
+render instead, so whichever tick happens to land inside the sub-range
+shows the flash; `infinite` iteration (not a one-shot) covers a render
+getting cut short by the very next tick's rebuild.
+
+Fixing this surfaced a real, separate bug in `tick()`: the retrigger
+window's auto-close check ran *before* that tick's own render, so the
+boundary tick that first crossed `windowMs` never got to render the
+"still open" state that produced it - with a 1200ms window and 300ms
+ticks, that boundary tick can land exactly at 100% elapsed, which is
+inside the sweet spot's own inclusive upper edge. Moved the close-check to
+run right after `updateMenu()` instead, so that last render happens before
+the flag flips. Caught via a real jsdom test that polls for the flash
+class across the whole window rather than a fixed-delay wait (the flash's
+timing is inherently tick-dependent, not a fixed real-time offset the way
+the retrigger *press* itself is) - this also meant bumping an existing
+"missing the window" test's wait from 1500ms to 1800ms, since the glow now
+visibly clears one tick later than it used to (the boundary tick still
+shows it; only the tick after that renders clean).
+
+Found and fixed during an unrelated 2026-09-03 small-bug-fix backlog pass
+(see `docs/superpowers/BACKLOG.md`'s Combat pass ideas section for where
+this was raised).
 
 ## Balance / design gaps
 

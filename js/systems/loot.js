@@ -92,10 +92,12 @@ export function rollDrop(monster, rng = Math.random, ngPlusCycle = 0) {
   if (!item && monster.dropTable && monster.dropTable.length > 0) {
     const roll = rng();
     let cumulative = 0;
+    let matchedEntry = null;
     for (const entry of monster.dropTable) {
       cumulative += entry.chance;
       if (roll < cumulative) {
         item = entry.itemId;
+        matchedEntry = entry;
         break;
       }
     }
@@ -112,6 +114,14 @@ export function rollDrop(monster, rng = Math.random, ngPlusCycle = 0) {
     // kill's dragonFang/dragonScaleMail become Mythic in NG+.
     if (item && monster.isBoss && ngPlusCycle >= 1 && ITEMS[item].slot && rng() < BOSS_MYTHIC_CHANCE) {
       tier = 'mythic';
+    }
+    // A dropTable entry can name its own guaranteed tier directly (e.g. a
+    // superboss's chance:1 drop at tier: 'apex') - bypasses the random
+    // rolls above entirely, since forceFullBattle monsters are already
+    // excluded from them (isToughnessEligible), so without this a
+    // guaranteed drop could never reach a non-plain tier at all.
+    if (item && matchedEntry.tier) {
+      tier = matchedEntry.tier;
     }
   }
 

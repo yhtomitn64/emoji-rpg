@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, rollKnockback, ATB_KNOCKBACK_CHANCE, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS, attackFalloffJustTriggered, attackReadyRingPct, ABILITY_GCD_BASE_MS, ABILITY_GCD_MS_PER_SPEED, ABILITY_GCD_FLOOR_MS, abilityGcdMsForSpeed, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -70,6 +70,16 @@ test('applyKnockback subtracts a flat amount from atb, never going below 0', () 
   assert.equal(applyKnockback(0, ATB_KNOCKBACK), 0);
 });
 
+test('rollKnockback only applies the knockback below ATB_KNOCKBACK_CHANCE, leaving atb untouched otherwise', () => {
+  assert.equal(rollKnockback(50, ATB_KNOCKBACK, () => ATB_KNOCKBACK_CHANCE - 0.001), 50 - ATB_KNOCKBACK);
+  assert.equal(rollKnockback(50, ATB_KNOCKBACK, () => ATB_KNOCKBACK_CHANCE), 50);
+  assert.equal(rollKnockback(50, ATB_KNOCKBACK, () => ATB_KNOCKBACK_CHANCE + 0.001), 50);
+});
+
+test('rollKnockback defaults to Math.random when no rng is supplied', () => {
+  assert.equal(typeof rollKnockback(50, ATB_KNOCKBACK), 'number');
+});
+
 test('applySpeedDamageBonus boosts damage once speed reaches the threshold, otherwise leaves it unchanged', () => {
   assert.equal(applySpeedDamageBonus(10, SPEED_DAMAGE_BONUS_THRESHOLD - 1), 10);
   assert.equal(applySpeedDamageBonus(10, SPEED_DAMAGE_BONUS_THRESHOLD), 11);
@@ -84,13 +94,22 @@ test('applyEnemySlow reduces speed by the given percent, never below 1', () => {
 test('resolvePlayerAttack composes damage, crit, speed bonus, and knockback into one result - the single source both battleScreen.js and scripts/simulate-balance.js call', () => {
   const player = { attack: 10, defense: 4, speed: SPEED_DAMAGE_BONUS_THRESHOLD, atb: 0 };
   const monster = { hp: 30, defense: 2, atb: 50 };
+  // rng()=0.5 misses the low-probability knockback roll (ATB_KNOCKBACK_CHANCE
+  // is 0.05) - see the dedicated rollKnockback tests below for the proc case.
   const result = resolvePlayerAttack(player, monster, () => 0.5);
   // base 10-2=8, variance 0.85+0.5*0.3=1.0 -> 8, no crit, speed bonus: round(8*1.1)=9
   assert.equal(result.damage, 9);
   assert.equal(result.isCrit, false);
   assert.equal(result.monsterHp, 21);
-  assert.equal(result.monsterAtb, 50 - ATB_KNOCKBACK);
+  assert.equal(result.monsterAtb, 50);
   assert.equal(result.playerAtb, 0);
+});
+
+test('resolvePlayerAttack knocks the monster\'s ATB back only when the low-probability roll hits', () => {
+  const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
+  const monster = { hp: 30, defense: 2, atb: 50 };
+  const procced = resolvePlayerAttack(player, monster, () => 0.01);
+  assert.equal(procced.monsterAtb, 50 - ATB_KNOCKBACK);
 });
 
 test('resolvePlayerAttack applies an optional streak multiplier to damage before crit/speed bonus, defaulting to no change', () => {
@@ -273,4 +292,77 @@ test('resolveWeakMobEncounter resolves to fled-empty on a high second roll', () 
   let i = 0;
   const rng = () => values[i++];
   assert.equal(resolveWeakMobEncounter(player, monster, false, rng), 'fled-empty');
+});
+
+test('attackFalloffJustTriggered is false while the streak multiplier is still full strength', () => {
+  assert.equal(attackFalloffJustTriggered(1, false), false);
+});
+
+test('attackFalloffJustTriggered is true the first time the multiplier decays and it has not been seen yet', () => {
+  assert.equal(attackFalloffJustTriggered(0.65, false), true);
+});
+
+test('attackFalloffJustTriggered is false once already seen, even while decayed', () => {
+  assert.equal(attackFalloffJustTriggered(0.65, true), false);
+});
+
+test('attackReadyRingPct is 0 (fully closed/glowing) once the streak is back to 0', () => {
+  assert.equal(attackReadyRingPct(0, 0), 0);
+  // Even a stale nonzero idleMs from before the last reset shouldn't matter -
+  // streak 0 means there's nothing left to recover from.
+  assert.equal(attackReadyRingPct(0, 4000), 0);
+});
+
+test('attackReadyRingPct is 100 (fully undrawn) the instant a streak starts, not yet recovered at all', () => {
+  assert.equal(attackReadyRingPct(1, 0), 100);
+});
+
+test('attackReadyRingPct counts down toward 0 as idleMs approaches ATTACK_STREAK_RECOVERY_MS, independent of the short swing cooldown', () => {
+  assert.equal(attackReadyRingPct(1, ATTACK_STREAK_RECOVERY_MS / 2), 50);
+  assert.equal(attackReadyRingPct(5, ATTACK_STREAK_RECOVERY_MS), 0);
+});
+
+test('abilityGcdMsForSpeed is exactly 1000ms at the player\'s starting speed of 5', () => {
+  assert.equal(abilityGcdMsForSpeed(5), 1000);
+});
+
+test('abilityGcdMsForSpeed decreases as speed increases', () => {
+  assert.ok(abilityGcdMsForSpeed(10) < abilityGcdMsForSpeed(5));
+});
+
+test('abilityGcdMsForSpeed never drops below the floor, however high speed goes', () => {
+  assert.equal(abilityGcdMsForSpeed(1000), ABILITY_GCD_FLOOR_MS);
+});
+
+test('abilityGcdMsForSpeed matches the base/per-speed/floor formula directly', () => {
+  assert.equal(abilityGcdMsForSpeed(0), ABILITY_GCD_BASE_MS);
+  assert.equal(abilityGcdMsForSpeed(20), Math.max(ABILITY_GCD_FLOOR_MS, ABILITY_GCD_BASE_MS - 20 * ABILITY_GCD_MS_PER_SPEED));
+});
+
+test('createPlayerSlowDebuff then applyPlayerSlowDebuff reduces speed by the given percent', () => {
+  const debuff = createPlayerSlowDebuff(20, 3000);
+  assert.equal(applyPlayerSlowDebuff(20, debuff), 16); // same math as applyEnemySlow(20, 20) => round(20 * 0.8)
+});
+
+test('applyPlayerSlowDebuff with no debuff returns speed unchanged', () => {
+  assert.equal(applyPlayerSlowDebuff(20, null), 20);
+});
+
+test('tickPlayerSlowDebuff expires to null exactly at zero remaining', () => {
+  let debuff = createPlayerSlowDebuff(20, 300);
+  debuff = tickPlayerSlowDebuff(debuff, 300);
+  assert.equal(debuff, null);
+});
+
+test('tickPlayerSlowDebuff on null stays null', () => {
+  assert.equal(tickPlayerSlowDebuff(null, 300), null);
+});
+
+test('createPlayerStunDebuff then tickPlayerStunDebuff counts down to null', () => {
+  let debuff = createPlayerStunDebuff(1000);
+  assert.ok(debuff);
+  debuff = tickPlayerStunDebuff(debuff, 700);
+  assert.equal(debuff.remainingMs, 300);
+  debuff = tickPlayerStunDebuff(debuff, 700);
+  assert.equal(debuff, null);
 });

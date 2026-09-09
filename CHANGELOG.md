@@ -24,6 +24,812 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.13] - 2026-09-09
+
+### Changed
+- **Large/maximized browser windows dropped frames while walking, worse in
+  Safari than Chrome.** `render()` (js/screens/mapScreen.js) did a full
+  `rootEl.innerHTML = ''` teardown-and-rebuild of every visible map tile on
+  every single step, and the number of visible tiles scales with window
+  area (`computeViewportTileCount`) with no cap - a bigger window meant
+  hundreds more tiles rebuilt per keypress. Split into `renderFull()`
+  (mount/resize only) and a new `renderStep()` hot path that keeps the grid's
+  DOM persistent and diffs by world coordinate, only touching cells whose
+  content or on-screen position actually changed - most steps now update a
+  handful of cells instead of every visible one. Also dropped `container-type:
+  size`/`cqb` sizing on `.map-tile` (css/styles.css) in favor of plain px,
+  since the tile pixel size (`TILE_SIZE_PX`) is a hardcoded constant that
+  never actually varies - that per-tile layout containment was pure
+  overhead. Noticeably smoother, though panning across a large open
+  wilderness screen (as opposed to a small, non-panning one like town, whose
+  whole cluster fits inside the viewport with no panning at all) still isn't
+  fully smooth - each step still reassigns `grid-column`/`grid-row` on
+  nearly every visible cell to reflect the pan, which still forces a
+  layout pass across the whole grid even though no DOM nodes are
+  created/destroyed anymore. Next step, not yet done: a `transform`-based
+  camera that keeps each cell's grid position anchored to world
+  coordinates (so panning is one compositor-only style write on the grid
+  container, not a per-cell layout change).
+
+## [0.26.12] - 2026-09-07
+
+### Fixed
+- **Tool guardian encounters (axe/pick/canoe/portal) had a gray box behind
+  them instead of grass, rendered small, sat in a corner of their arena,
+  and the arena itself was small.** `TILES.guardian` had never been added
+  to `GRASS_CONTEXT_MARKERS`/`FULL_SQUARE_MARKERS` (js/screens/mapScreen.js)
+  - same "landmark tile forgotten from the set" bug that's hit shop/smith/
+    portals before, now fixed for guardians too. Also, per direct request
+    ("make the tool bosses take up like 4 tiles instead of 1 so they look
+    big and scary, in the center of their map instead of the corner, and
+    make the map bigger"): the guardian now renders at 220% of a tile
+    (`GUARDIAN_CQB`), bleeding into its four neighbors for a roughly-2x2
+    footprint - reusing the same oversized-absolutely-positioned-span
+    technique trees/mountains already use, so the guardian's actual
+    walkable/action tile underneath is still exactly one cell, no
+    collision changes. All four tool dungeon maps enlarged from 14x8 to
+    21x13 (matching the game's own default viewport size) with the
+    guardian moved to dead center instead of the old bottom-right corner.
+
+## [0.26.11] - 2026-09-07
+
+### Fixed
+- **superBossOne blocked the only crossing on `farSoutheast`, on the way to
+  the pick tool.** Its entrance tile sat at (15, 20), the screen's one
+  open east-west corridor into `southSoutheast` - since dungeon entrances
+  teleport in on step with no confirmation, a player crossing that row had
+  no way around a fight far above their level. Raised live, mid-
+  playthrough at level 5: "it's in the path to get the pick and I can't
+  get past yet, I'm too weak." Moved to (15, 9), an interior pocket on the
+  same screen, off the through-corridor (`js/data/superBosses.js`).
+
+## [0.26.10] - 2026-09-07
+
+### Fixed
+- **Shop/inventory/smith/quest board item tooltips: no stats shown on hover
+  in the shop, and every screen's tooltip carried the browser's own
+  unremovable hover delay.** Raised directly: "when I hover over items in
+  the store it doesn't show any stats or what they do. Plus the store
+  hover should be instant and no delay." Two separate bugs: (1) the shop's
+  item cards split the emoji into its own untitled `<span>` - only the
+  small name text beneath it carried a `title`, so hovering the big icon
+  (the natural target) showed nothing; (2) all four screens relied on the
+  native `title` attribute, whose hover delay has no CSS/JS override.
+  Replaced `title` with a new shared instant tooltip
+  (`js/screens/itemTooltip.js`, one delegated listener, `data-tooltip`
+  attribute instead) across all four screens, and moved the shop card's
+  tooltip onto the whole card so the emoji is covered too.
+
+## [0.26.9] - 2026-09-07
+
+### Fixed
+- **The Attack button's ready-ring closed and glowed as soon as the short
+  swing cooldown ended, well before the attack was actually back to full
+  damage.** Raised directly: "is the ring... actually at full power when
+  the ring is full, or is it still under diminishing returns? We need to
+  line up that effect with when it's actually at full power." It wasn't
+  lined up - the ring shared the exact same `--pct` as the red cooldown
+  wipe (`attackCooldownMsForStreak`, capped at a couple seconds even deep
+  into a streak), while the actual damage-decay streak only resets after a
+  much slower idle timer (`ATTACK_STREAK_RECOVERY_MS`, 8s of not pressing
+  Attack). Added `attackReadyRingPct` (`js/systems/combat.js`) driven by
+  that slower timer instead, and gave the ring its own `--pct` source
+  (`readyRingPct` in `actionButtonHtml`) independent of the wipe's - the
+  ring now only closes/glows once the next Attack will actually land at
+  full strength.
+
+## [0.26.8] - 2026-09-07
+
+### Fixed
+- **The battle dialog wasn't vertically centered on windows wide/tall enough
+  to trigger `--battle-scale` above 1x** (the 2026-09-05 "scale the whole
+  battle dialog" feature). `#overlay` centers `.battle-screen-stack` while
+  it's still its unscaled size, then `transform: scale()` grows it -
+  `transform-origin: top center` anchored that growth at the box's top edge,
+  so the scaled dialog grew only downward from the already-centered top,
+  pushing its visual midpoint below the true center. Switched the anchor to
+  `center` so growth is symmetric in all directions and stays centered on
+  the same point #overlay centered the unscaled box on.
+
+## [0.26.7] - 2026-09-07
+
+### Fixed
+- **A mistimed click on a monster's ATB bar/parry hint forced its attack to
+  resolve immediately, instead of missing cleanly like an early `s` press
+  does.** Flagged in `docs/superpowers/BACKLOG.md` (raised 2026-09-05
+  during the super-boss pass's final review) as a click/keyboard parry
+  asymmetry that also now decides whether a super-boss's special attack
+  lands, not just whether damage is reflected. Investigated with a jsdom
+  repro rather than trusting the backlog's own framing: the actual root
+  cause is narrower than "click-parrying is easier" - `resolveMonsterWindup`
+  falls through to `monsterAttack()` on a failed zone check regardless of
+  caller, but the keyboard path (`attemptParry`) only ever calls it after
+  `resolveParryAttempt` has already passed, so a keyboard miss just leaves
+  the wind-up to finish on its own. The per-monster ATB-bar/parry-hint click
+  handlers called `resolveMonsterWindup` unconditionally, so a mistimed
+  click forced that same failed-zone-check branch to fire right away.
+  `attemptParryOnMonster()` (`js/screens/battleScreen.js`) gives clicks the
+  same pre-check-then-call shape as the keyboard path. Regression test in
+  `tests/battleScreenDom.test.js`.
+- **`tests/battleScreenDom.test.js` carried the same latent CI-flakiness
+  pattern already fixed in `battleSpecialAttacks.test.js` (0.26.6).** Three
+  tests waited a fixed guessed duration for a monster's wind-up to naturally
+  resolve unparried, then checked the outcome once - flagged but not fixed
+  in the 0.26.6 entry. Replaced with the same `waitForCondition` poll.
+
+### Changed
+- **Smith screen now shows the player's current NG+ cycle**, reusing the
+  Stats panel's own `.ngplus-badge` - the upgrade cap shown on every slot
+  is driven entirely by NG+ cycle, but nothing on the smith screen
+  previously said what cycle was active. Surfaced 2026-09-07 while
+  investigating an "old save has way more upgrade levels than expected"
+  report that turned out not to be a bug.
+- **Lacerate's retrigger buff and Super Scream's buff no longer look
+  identical.** Both still just multiply attack damage via the same shared
+  `buffState` - `activateBuff()` (`js/systems/abilities.js`) now tags it
+  with a `source`, and the battle buff indicator swaps to Lacerate's own
+  established red (already used by its claw/bleed decals) when that's the
+  active source, instead of always showing the same amber "💪 Buffed" text.
+  Icon/color only, no new flavor text.
+
+### Infrastructure
+- Deploy workflow: added `--commit-dirty=true` to the Cloudflare Pages
+  deploy command, silencing wrangler's expected-but-noisy "working
+  directory has uncommitted changes" warning (the `dist/` staging step
+  always leaves untracked files right before this step runs).
+
+## [0.26.6] - 2026-09-07
+
+### Fixed
+- **Flaky `battle special attacks` CI failures.** The 0.26.4 and 0.26.5
+  deploys both failed `Run npm run test` on
+  `tests/battleSpecialAttacks.test.js`'s cooldownOverload test - never
+  reproducible locally in isolation, only under GitHub Actions' own load
+  (every test file's real-wall-clock timers running in the same
+  process). Root cause: three tests in that file waited a fixed
+  `PARRY_WINDUP_DURATION_MS + 400` and then checked the outcome exactly
+  once, racing the actual resolution under contention. Replaced with a
+  `waitForCondition` poll (same technique `waitForWindupStart` in the
+  same file already used) that waits for the real condition - the log
+  line or button state - instead of guessing a duration, removing the
+  race regardless of system load.
+
+## [0.26.5] - 2026-09-07
+
+### Fixed
+- **Battle dialog snapping to its scaled size right after opening.**
+  `.battle-screen-swirl-in`'s keyframes (`css/styles.css`) hardcoded
+  absolute scale values (0.4 → 1.05 → 1) that ignored `--battle-scale`
+  (0.26.2) entirely - a CSS animation takes over its animated property
+  for its whole duration, so the entrance always swirled in toward plain
+  `scale(1)` regardless of window size, then jumped straight to
+  `.battle-screen-stack`'s own `scale(var(--battle-scale))` the instant
+  the animation ended, with no transition between the two. Both
+  `battle-screen-swirl-in` and the matching `battle-screen-swirl-out`
+  keyframes now scale every stop by `--battle-scale`, so the swirl
+  animates around the dialog's actual target size on both ends instead
+  of always resetting to its unscaled one.
+
+## [0.26.4] - 2026-09-07
+
+### Fixed
+- **Portal tile's white border.** The 🌌 emoji's own art is a framed
+  picture with a pale border baked into the glyph, not CSS - the
+  0.26.3 background glow read as fighting that border instead of
+  hiding it. `.map-tile-portal-crop` (`css/styles.css`) now renders the
+  marker oversized and clips it back to the tile's edge (scaled 1.36x,
+  landed by eye in an interactive Artifact mockup,
+  `docs/superpowers/scratch/portal-edge-lab.html`), so the border scales
+  past the visible area instead of sitting on top of it. The old inset
+  glow is replaced with a soft black shadow that bleeds outside the tile
+  into its grass neighbors (`.map-tile-portal::before`, stacked
+  `box-shadow` layers instead of a radial-gradient circle, since
+  box-shadow naturally hugs the tile's own rectangle). Portal tiles also
+  get a flat `+1000` z-index boost (`js/screens/mapScreen.js`) so that
+  bleed reliably paints over every neighbor instead of only the ones
+  above/left of it in the row-based depth sort.
+
+## [0.26.3] - 2026-09-06
+
+### Fixed
+- **Portal trail-on-top bug and instant teleport.** `portalOrigin`/
+  `portalReturn`/`portalDungeonEntrance` (`js/tiles.js`) were missing
+  from `FULL_SQUARE_MARKERS` (`js/screens/mapScreen.js`), so the worn-
+  path trail SVG always painted on top of the bare emoji instead of
+  under it. Now rendered as a proper full-tile positioned marker, same
+  as every other landmark tile. Stepping onto a portal action tile also
+  no longer fires its callback in the same tick as the step - a new
+  `.map-tile-player-portal-pull` animation plays on the player marker
+  first (420ms, `PORTAL_PULL_EFFECT_MS`), with the actual
+  `enterPortalToTown`/`enterPortalToOrigin`/`enterPortalDungeon` callback
+  delayed to match. A `portalTransitionPending` guard blocks a second
+  keypress from landing mid-pull.
+
+### Added
+- **Portal glow.** New `.map-tile-portal` background (dark radial
+  gradient + slow pulsing indigo glow, `css/styles.css`) on all three
+  portal tiles, replacing the plain `.map-tile` gray.
+
+## [0.26.2] - 2026-09-06
+
+### Changed
+- **Battle dialog now scales with window size**: `.battle-screen-stack`
+  (`css/styles.css`) gets a new `--battle-scale` custom property, a
+  `clamp()` on viewport `vmin` ramping from 1x (today's exact current
+  size, at or below a typical laptop window) to 1.7x (a large-monitor
+  ceiling), applied via `transform: scale()`. Because CSS transforms
+  compose, everything inside the dialog - hero/monster emoji, HP/ATB
+  bars, action buttons, and every hit-effect decal's own
+  `translate()`/`rotate()` - scales together with zero changes to the
+  effects system itself. `#overlay`'s `overflow-y: auto` is now explicit
+  `overflow: auto` as a scroll safety net for the rare near-square window
+  where the scaled (transform, not layout-box) width could exceed the
+  viewport. This is Option B ("everything scales together") from the
+  "Battle Dialog Scale Lab" design artifact, resolving the
+  "Bigger battle dialog" backlog entry
+  (`docs/superpowers/BACKLOG.md`) - hero/monster stay in their existing
+  vertical stack (hero below monster), per Timothy's answer that this
+  pass shouldn't also change that layout.
+
+## [0.26.1] - 2026-09-05
+
+### Changed
+- **Shop screen redesign**: `js/screens/shopScreen.js` now renders a card
+  grid (bigger emoji per item) with Weapons/Armor/Potions category tabs
+  and a single Buy button per item, instead of one long list of rows with
+  up to four Buy-quantity buttons each. A shared 1x/5x/10x/100x qty toggle
+  applies to every consumable's Buy button at once; gear still only ever
+  buys 1 at a time regardless of the toggle (per the existing
+  no-bulk-gear rule, raised 2026-08-29). This is Option A ("card grid")
+  from the "Battle FX & Shop Lab" design artifact's section 05, the
+  option marked Selected there - the mockup itself was never wired into
+  the real game before now. Sell (including the Fine/Superior tiered
+  sell rows) and the post-purchase equip prompt are unchanged.
+
+## [0.26.0] - 2026-09-05
+
+### Added
+- **The super-boss system**, plus its first worked example. A new
+  `js/data/superBosses.js` registry, two new wilderness tile kinds
+  (`superBossMarker` for an open-world encounter, `superBossEntrance` for
+  a superboss with its own dungeon) with their rendering/resolution
+  wiring, and `main.js` tile-action handling for entering/exiting a
+  superboss's own dungeon. See
+  `docs/superpowers/specs/2026-09-05-superboss-pass-design.md`.
+- **`superBossOne` [PLACEHOLDER NAME]** - the first hand-placed superboss:
+  a 3000 HP / 55 attack / 24 defense encounter that only a fully-decked
+  NG+ build (every slot Mythic-tier and maxed, both superboss-only rings)
+  can realistically win, and even then not comfortably - tuned via
+  `scripts/simulate-balance.js` to a real ~10% win rate / ~17% average
+  HP remaining on a win / 6.0 of 6 potions used, well below the guardian
+  pass's own 48-53% comfort band. Every lesser build tested loses
+  outright. Fought behind its own small dungeon
+  (`js/maps/superBosses/superBossOneDungeon.js`, two rooms and a
+  corridor), entered from the far-southeast wilderness. Drops a
+  guaranteed Apex-tier Ferocity Fang. First of ~10 planned - the rest are
+  future content using this same system.
+- A new monster special-attack system: `specialAttacks` (stun / slow /
+  cooldown-overload), telegraphed through the existing parry wind-up - a
+  successful parry negates the effect exactly like it negates damage, a
+  missed one lets it land alongside the normal hit. New player-side
+  slow/stun debuff primitives (`js/systems/combat.js`) and their
+  tick/guard wiring in the battle screen support this; `superBossOne`
+  above is the first (and so far only) monster that uses it.
+- A new `apex` item-quality tier above `mythic` (placeholder name/value),
+  and a `dropTable` entry can now carry an explicit `tier` field applied
+  directly instead of randomly rolled - needed since a guaranteed
+  superboss drop bypasses the random toughness roll entirely.
+- 4 new unique-effect items for superboss guaranteed drops (placeholder
+  names): 2 using new parry-window/debuff-duration stats
+  (`parryWindowBonusPercent`, `debuffDurationPercent`), 2 at a higher
+  ceiling than today's best (`emberRing`/`windfuryRing`).
+- New map-editor tooling (`tools/terrain-painter/`) to author and place
+  superbosses, used end-to-end to build and place `superBossOne` above: a
+  "Place Super-Boss Marker" mode (same UX as the existing "Place Tool
+  Dungeon Entrance"), a "New Dungeon" blank-canvas mode to paint a
+  brand-new dungeon interior from scratch (using the `guardian` tile
+  kind, not `boss`, which stays reserved for the one real dragon fight),
+  and a small local Node authoring server (`tools/terrain-painter/
+  server.js`, built-in `http`/`fs` only) that writes every change -
+  including a brand-new dungeon file and its `main.js` registration -
+  straight to disk in any browser, replacing the old
+  `python3 -m http.server` + File System Access permission dance. Dev-only,
+  never part of the deployed build.
+
+### Changed
+- Mythic-tier item drops are no longer flatly impossible before your
+  first NG+ cycle - a small new pre-NG+ chance exists (~0.1-0.4% by
+  monster toughness), and the NG+1+ band now scales up per cycle
+  (×1.5/cycle starting at NG+2) instead of staying fixed at the NG+1
+  numbers forever. `js/systems/itemQuality.js`.
+- `scripts/simulate-balance.js` can now model a monster's special attacks
+  (slow/cooldown-overload; stun remains a known unmodeled gap, noted in
+  its own report output - the simulated player has zero reaction latency
+  to begin with, so its numbers already read as systematically easier
+  than real play) and is generic over any `isSuperBoss` monster, so
+  `--set`/`--special-attack` work against a superboss's own matchup row
+  automatically, the same way they already do for the dragon's tiers.
+  Used to tune `superBossOne` above.
+
+## [0.25.2] - 2026-09-05
+
+### Added
+- The Portal Dungeon entrance is placed on the map for the first time
+  (`southSouthwest`, tile 16,17 - `js/data/toolDungeons.js`'s
+  `TOOL_DUNGEON_ENTRANCES.portal`, previously `screenId: null`, i.e.
+  unreachable), placed via `tools/terrain-painter/`. Small island (grass +
+  mountain) carved out of the surrounding lake so the entrance sits on
+  walkable ground, and the mountain-wall divider through that stretch
+  swapped to thicket. Completes the full tool progression end to end: town
+  → axe → pick → boat → portal → dragon, all placed and reachable.
+
+### Fixed
+- `toolDungeonMaps.test.js`'s null-screenId invariant test no longer
+  depends on some real `TOOL_DUNGEON_ENTRANCES` entry staying unplaced
+  forever (it relied on portal being the last one) - now pins the same
+  invariant down with a synthetic entry instead.
+
+## [0.25.1] - 2026-09-05
+
+### Changed
+- Tool-dungeon guardians (Axe/Pick/Boat/Portal) and the Dragon got a real
+  per-target-level tuning pass, replacing the same-night +50%-HP-only
+  stopgap from 0.25.0: axeGuardian→L5 (260/34/10/9), pickGuardian→L7
+  (320/42/13/10, no longer an identical twin of axeGuardian now that they
+  target different levels), boatGuardian→L9 (420/56/18/11), portalGuardian→
+  L10 (500/58/19/12, though its map entrance is still unplaced -
+  `TOOL_DUNGEON_ENTRANCES.portal` - so this is inert for now), and
+  dragon→L11 (600/58/22/13), the hardest of the five by design. Numbers
+  came from a throwaway Monte Carlo script built on the real
+  `js/systems/combat.js`/`abilities.js`/`parry.js` functions (same
+  approach as `scripts/simulate-balance.js`), run against Timothy's own
+  real telemetry gear at each target level, targeting ~48-53% average HP
+  remaining for a well-geared player - a deliberately under-geared player
+  at the same level now loses outright instead of scraping by. Reconciled
+  the simulator itself against a real logged fight first: its damage math
+  is byte-identical to the shipped game, but its simulated player has zero
+  reaction latency (acts every single 300ms tick), making its own
+  win-rate/HP-remaining/duration readout systematically optimistic vs.
+  real play - accounted for by tuning well below what the simulator calls
+  a "comfortable" result.
+- `getBossTierStats`/`getNgPlusCombatOverrides` tests updated for the new
+  dragon base stats (their own multiplier math is unchanged).
+
+### Removed
+- Mini-dungeons (the random cave rooms with a guaranteed gold+item
+  treasure) no longer get discovered on new steps - "the random dungeons
+  offering more gold is so silly... let's drop that mechanic for now."
+  Gated behind a single `MINI_DUNGEONS_ENABLED = false` flag
+  (`js/systems/miniDungeons.js`) rather than touching each wilderness map
+  file's own `miniDungeonChance` - flip it back to `true` to fully restore
+  the feature. Entrances already recorded on an existing save still work;
+  this only stops new ones from appearing. The underlying cap/chokepoint/
+  chance logic (`wouldRevealMiniDungeon`, split out from
+  `shouldRevealMiniDungeon` for this) stays fully tested independent of
+  the flag, so re-enabling it later isn't a leap of faith.
+
+## [0.25.0] - 2026-09-04
+
+### Added
+- Ability hit effects for Impale/Sever/Lacerate/Attack replaced the old
+  traveling-glyph swing sprite with a decal drawn directly on the target,
+  matching Attack's own earlier slash-mark approach - `playImpaleDecal`
+  (two crossing strokes, four bigger/thicker ones on crit or while
+  Faultline's widen buff is active), `playSeverDecal` (a curved arc, a
+  second bigger one on crit/empowered), `playLacerateDecal` (three
+  raking claw strokes plus falling drops, tying the visual to its own
+  delayed bleed tick), and `playAttackImpact` (a shockwave ring,
+  replacing the white slash mark Attack briefly had). `swingKeyframesFor`/
+  `swingSpriteEmoji`/`SWING_DURATION_MS` removed - Sweep keeps its own
+  traveling-sprite system unchanged. `tools/animation-lab/` is left as-is
+  for now, disconnected from these four abilities.
+- Extra-target hits (Sever's own bonus target, or any ability widened by
+  Faultline's buff) now land `EXTRA_TARGET_STAGGER_MS` (140ms) apart with
+  their own swing effect, instead of resolving instantly with only a hit
+  flash and no swing at all.
+- Attack's own action button gets an always-visible SVG "ready ring"
+  (`actionButtonHtml`'s `readyRing` option) that traces itself in as its
+  cooldown counts down, closing into a full glowing loop exactly when
+  it's usable again - the four abilities already had their own
+  cooldown-wipe/retrigger-glow signal, Attack didn't.
+- Spamming Attack now also floors the shared ability GCD (not just
+  Attack's own already-growing cooldown) via a new
+  `attackStreakGcdBonusMs` growth term - previously a player could spam
+  Attack at full speed while still firing an ability the instant its own
+  cooldown expired, undercutting the GCD's own point.
+- The hero's own battle emoji renders as a flat grayscale silhouette with
+  a soft glow (`.battle-hero-silhouette`) instead of the full-color emoji
+  facing the player - "the character is staring back at the player" with
+  no back-of-head emoji available to draw instead. Real custom back-view
+  art per hero option is tabled for later.
+- Resting at the well (only when it actually heals - already-full-HP
+  stays a no-op) now plays a collapsing blue ring + landing glow on the
+  player's own map tile (`playWellHealEffect`), instead of silently
+  setting HP to max.
+
+### Fixed
+- Multi-mob parries no longer stack one PARRY! badge/flash per monster
+  parried in the same press - `resolveMonsterWindup` gained a
+  `playHeroEffect` option so `attemptParry`'s multi-mob loop can suppress
+  the per-monster call and fire one shared effect instead.
+- Buying a second (or third, fourth...) unequipped gear item in the shop
+  no longer silently overwrites the previous item's "equip now?" prompt -
+  `pendingEquip` became `pendingEquipQueue`, rendering one prompt row per
+  queued item plus a dismiss-all ✕ on the banner. That ✕ was originally
+  built reusing `.screen-close-x` (the shop's own top-right "Leave"
+  button's style) and rendered nearly on top of it - fixed to a small
+  inline button scoped to its own banner instead.
+
+### Changed
+- Iron Helm/Armor/Greaves now cost ~4.5x their Cloth equivalent (70g/
+  90g/65g, up from 35g/45g/30g) instead of ~2.2x, so a fresh run walks
+  through the Cloth tier before Iron is affordable rather than skipping
+  it. First-pass numbers, not yet played against a full run.
+- A monster species' first eligible group encounter is now pinned to the
+  minimum group size (`killCountSizeCap`), climbing by one every 5
+  further kills of that species until it catches up to whatever the
+  existing NG+/zone1Steps escalation already allows - previously a
+  species crossing the group-spawn kill threshold could immediately roll
+  anywhere up to an already-escalated max from unrelated grinding.
+- Tool-dungeon guardians (Axe/Pick/Boat/Portal) got +50% HP (140→210,
+  175→265, 210→315) - two telemetry playthroughs this session both
+  showed Axe Guardian dying in 7-9s at 85-100% HP remaining, no tougher
+  than an ordinary wilderness fight despite being a guaranteed-tool
+  guaranteed-reward encounter. Attack/defense untouched - this only
+  extends the fight, it doesn't add real danger. Pending a real tuning
+  pass with `scripts/simulate-balance.js`.
+
+## [0.24.6] - 2026-09-04
+
+### Added
+- Local-testing-only debug characters, reached via a `?debug=<key>` URL
+  param (`js/systems/debugCharacters.js`) - raised while verifying the
+  0.24.5 popup-collision fix needed a character with every ability
+  unlocked and didn't want to keep hand-pasting a console script.
+  `?debug=level10` upserts a "[Debug] level10" save (level 10, all 5
+  abilities unlocked, Iron gear at the NG+0 upgrade cap, all 3 tools) into
+  the normal save-slot list - picked, played, and deleted exactly like
+  any real save, and a complete no-op for anyone who hasn't typed the
+  param. `saveSlots.js` gained `upsertSlot` (create-or-overwrite at a
+  fixed id) to support this, distinct from `createSlot`'s always-fresh
+  generated id.
+
+## [0.24.5] - 2026-09-04
+
+### Fixed
+- Floating battle popups (damage numbers, crits, and the Perfect!/Parry!/
+  New Max! badges) no longer stack on top of each other. Raised from a
+  screen recording: two hits landing close together spawned their "-N"
+  numbers at the exact same fixed point, fully overlapping for their
+  whole 1.4s lifetime, and a badge could land inside its own number's
+  flight path too - `showDamageNumber`/`playPerfectTimingEffect`
+  (`js/screens/battleScreen.js`) always positioned from the target's
+  rect alone, with no idea what else was already on screen for that
+  target. Fixed with a shared per-zone allocator, `claimPopupColumn`:
+  every popup for a zone - damage number, crit, or badge alike - measures
+  its own real rendered width, then claims an exclusive horizontal column
+  just past whichever side (left/right of the target) is currently less
+  crowded. Because no two live popups ever share a column, a number's
+  upward drift can't cross into a badge sitting above it - there's no
+  shared x left for it to cross through - and because widths are measured
+  rather than guessed, a 4-digit hit or a bigger crit font claims exactly
+  the room it needs with no manual retuning as damage numbers grow across
+  NG+ cycles. Designed and approved against an interactive mockup
+  (`docs/superpowers/scratch/battle-popup-lab.html`, published as an
+  Artifact) comparing four placement schemes side by side with a live
+  overlap detector; Timothy picked the "side-by-side fan" scheme with a
+  20px minimum gap (`POPUP_MIN_GAP_PX`). The old `liveDamageNumbers`/
+  `livePerfectBadges` tracking arrays are merged into one `livePopups`
+  list, since the allocator needs every kind visible to work at all.
+
+## [0.24.4] - 2026-09-04
+
+### Fixed
+- The version footer ("v`<x.y.z>` · What's New") was invisible on the
+  start screen since the 0.24.0 redesign - `.start-scene`'s full-bleed
+  `position: fixed` background has no `z-index`-losing static siblings
+  to worry about on any other screen, but `#version-footer` (a later,
+  unpositioned sibling of `#app`) painted underneath it there. Raised
+  because Timothy wants to name save-file characters after the version
+  they were created in and needs the number visible up front. Gave
+  `#version-footer` `position: relative; z-index: 1` (`css/styles.css`),
+  matching `.start-panel`'s own stacking - no JS change, the footer was
+  already being rendered correctly, just hidden.
+
+## [0.24.3] - 2026-09-04
+
+### Fixed
+- The 0.24.2 wrangler pin (`wranglerVersion: '4.127.1'`) broke the live
+  deploy: that wrangler release requires Node >=22, but
+  `actions/setup-node@v7` was still pinned to Node 20, so the deploy
+  step failed outright (see the 0.24.2 entry below - the unpinned
+  behavior never hit this because it silently fell back to an older,
+  Node-20-compatible wrangler@4.x). Bumped `node-version: 20` → `22` in
+  `.github/workflows/deploy.yml` alongside the pin. Confirmed live via
+  `gh run watch` on the push that introduced this fix.
+
+## [0.24.2] - 2026-09-04
+
+### Changed
+- Smith upgrade level is capped again, but the cap now rises with NG+
+  cycle instead of staying fixed forever. The 2026-09-01 uncap
+  (`MAX_UPGRADE_LEVEL` no longer enforced) let a single NG+ cycle climb
+  as far as gold allowed - a fresh NG+0 save reached `ironSword +8`,
+  surprising enough that Timothy asked for the old ceiling back. New
+  `getMaxUpgradeLevel(ngPlusCycle)` in `js/systems/inventory.js` returns
+  `MAX_UPGRADE_LEVEL + UPGRADE_CAP_STEP_PER_CYCLE * ngPlusCycle` (3 at
+  NG+0, +2 per cycle after that), and `upgradeItem` throws once a slot
+  hits it. `smithScreen.js` disables that slot's Upgrade button and
+  labels it "Maxed for NG+`<cycle>`" instead of showing a cost. Applies
+  prospectively only - a save already above the new cap for its cycle
+  keeps its current level, it just can't go higher until the cap rises
+  on the next NG+ transition.
+
+### Fixed
+- Deploy workflow pins `wranglerVersion: '4.127.1'` on the
+  `cloudflare/wrangler-action@v4` step (`.github/workflows/deploy.yml`).
+  Without it, every deploy first tried `npx wrangler@latest --version`,
+  which fails on current npm (missing `--yes`) and fell back to an
+  explicit `npm i wrangler@4` install - harmless but wasted overhead on
+  every single run.
+
+## [0.24.1] - 2026-09-04
+
+### Changed
+- Basic Attack's swing effect is now a quick CSS-drawn slash mark on the
+  target instead of a large weapon emoji flying in from the hero's own
+  portrait and spinning a full 360° over 1.5s
+  (`playAttackSlash`/`.battle-attack-slash` in `js/screens/battleScreen.js`/
+  `css/styles.css`). Fixes two related reports: the animation reading as
+  "silly spinning," and that same sprite's start position briefly covering
+  the "You" label every time, since it always began centered exactly on
+  the hero's own zone before traveling. Ability swings (Impale/Sever/
+  Lacerate/Faultline/Super Scream) are unchanged - only plain Attack's
+  swing was replaced. The now-dead `swingEmoji` weapon-emoji-override
+  field (`js/data/items.js`) is removed along with it.
+
+## [0.24.0] - 2026-09-04
+
+### Added
+- Start screen redesign: the background scene now fills the entire
+  browser window edge-to-edge (`.start-scene` goes `position: fixed`
+  rather than being boxed inside the card's own rounded corners), the
+  card and its text are noticeably larger throughout, and the old inline
+  hero-emoji/skin-tone `<select>` pair on the new-game row is replaced
+  with a three-step flow: name entry, then a large-tile hero picker
+  (`js/screens/startScreen.js`) with big emoji tiles (no text labels),
+  live skin-tone swatches, a Shuffle button that re-rolls every tile's
+  displayed skin tone (never the plain, un-toned base glyph), and a 🎲
+  Random Character button that fills in a random hero, tone, and
+  generated name (`js/data/randomNames.js`, drawn from words already
+  used elsewhere in the game - monster/item/ability names). First DOM
+  test coverage this screen has ever had
+  (`tests/startScreenDom.test.js`).
+
+## [0.23.2] - 2026-09-04
+
+### Changed
+- Landing a hit no longer guarantees knocking the target's ATB gauge back
+  - it's now a 5% chance per hit (`ATB_KNOCKBACK_CHANCE`, `rollKnockback`
+    in `js/systems/combat.js`), on the player-hits-monster direction only
+    (`resolvePlayerAttack`, `resolveAbilityUse`). With abilities now
+    cooling down in seconds rather than under a second (see 0.23.1), the
+    old guaranteed-every-hit knockback was keeping monsters' own attack
+    timers from ever filling, not just preventing spam. The
+    monster-hits-player direction (`resolveMonsterAttack`'s `playerAtb`)
+    is untouched - confirmed dead code today, since the player's own ATB
+    gauge was removed from the UI in the ability-GCD rework and nothing
+    reads that field anymore.
+
+## [0.23.1] - 2026-09-04
+
+### Changed
+- Parry window widened back from 10% to 20% of the windup bar
+  (`PARRY_ZONE_START_PERCENT` 90 → 80 in `js/systems/parry.js`, matching
+  `.battle-parry-zone` in `css/styles.css`). It was narrowed 2026-09-01
+  over concern that a skilled player could win almost anything with
+  well-timed parries, but the shared 10s parry cooldown shipped
+  2026-09-02 already closes that gap on its own, so the extra-narrow
+  window was no longer needed. A progressive shrinking-window idea was
+  also considered and explicitly shelved in favor of this simpler flat
+  revert - see the "Progressive shrinking parry window" entry in
+  `docs/superpowers/BACKLOG.md`.
+- Abilities 1-4 (Impale/Sever/Lacerate/Faultline) now each carry their own
+  cooldown layered on top of the shared GCD (`overrideCooldownMs` in
+  `js/systems/abilities.js`: Impale 3s, Sever 4s, Lacerate 4.5s, Faultline
+  5s), graduated by unlock level. Before this, all four shared only the
+  ~1s GCD with nothing else distinguishing them, so spamming just Impale
+  the instant it unlocked at level 2 was exactly as fast as rotating
+  through every ability - confirmed with the balance simulator: a
+  level-2 character in a starter sword + cloth tunic won 100% of fights
+  (100% HP left) against every near-town monster and several NG+2-scaled
+  ones. Impale's own damage multiplier also dropped 0.8 → 0.55 to keep
+  it from being a strictly-better spammable option even at its new,
+  shorter cooldown. These specific numbers came from comparing this
+  graduated approach against a flat 5s cooldown on all four, which fixed
+  the early stomp equally well but crushed L4/L5 win rates against
+  Dragon tier 0 and Jurassic Jerky much harder for no early-game benefit.
+- The ability/attack/parry cooldown "clock wipe" buttons now animate
+  smoothly instead of visibly jumping in 300ms steps
+  (`animateCooldownWipes()` in `js/screens/battleScreen.js`, a
+  `requestAnimationFrame` loop independent of the 300ms game tick that
+  patches each wipe element's `--pct` directly by id).
+
+### Fixed
+- The battle dialog no longer grows/shrinks mid-fight when the widen or
+  potion-buff indicator text appears (`.battle-widen-indicator`,
+  `.battle-potion-buff-indicator` in `css/styles.css` now reserve
+  `min-height: 1.1em` like their sibling indicators already did) -
+  same "dialog size doesn't jump around" fix already applied to
+  dead-monster slots on 2026-08-31, extended to these two.
+
+## [0.23.0] - 2026-09-03
+
+### Changed
+- Abilities 1-4 (Impale/Sever/Lacerate/Faultline) no longer wait on the
+  player's ATB "swing timer" gauge - replaced with a shared, speed-scaled
+  global cooldown (GCD) that reuses each ability's existing per-ability
+  cooldown field/UI instead of a new timer. New `abilityGcdMsForSpeed`
+  (`js/systems/combat.js`: `ABILITY_GCD_BASE_MS = 1150`,
+  `ABILITY_GCD_MS_PER_SPEED = 30`, `ABILITY_GCD_FLOOR_MS = 500` - exactly
+  1000ms at the player's starting speed of 5) and `applyAbilityGcd`
+  (`js/systems/abilities.js`) propagate one ability's use to every
+  unlocked non-buff ability's cooldown at once, so it's a true shared
+  lockout, not 4 independent per-ability cooldowns. `canUseAbility` drops
+  its now-unused `ready`/`alwaysReady` params. The player's ATB gauge
+  (`playerCombatant.atb`, its UI bar, `updateAtbBars()`'s hero half) is
+  removed entirely from `js/screens/battleScreen.js` - monsters keep
+  their own, untouched. Attack's spam-decay system, monster ATB/windup,
+  Super Scream (exempt from GCD propagation via its `buff` type),
+  Lacerate's retrigger sweet-spot, and Parry are all explicitly
+  unaffected - Lacerate's retrigger window can now outlive its own
+  (much shorter) cooldown, and a re-press during that overlap
+  intentionally still triggers the retrigger buff rather than a fresh
+  cast, pinned by a new test. `scripts/simulate-balance.js` and
+  `scripts/simulateAbilityPolicy.js` mirror-updated so balance reports
+  reflect the new mechanic.
+- Flee is now unconditionally available (no readiness gate at all) - it
+  was previously gated on the same ATB gauge despite its own tooltip
+  already claiming to "retreat... instantly."
+
+### Note
+- The balance simulator's before/after comparison (see
+  `docs/superpowers/plans/2026-09-03-ability-gcd-rework-notes/`) shows a
+  large win-rate increase from L4 onward, including several previously-
+  unwinnable matchups (Super Mean Meatloaf, Ghost Apple Supreme, Jurassic
+  Jerky, and the Dragon tiers at various levels) becoming guaranteed
+  wins. Monster stat retuning was deliberately NOT done in this version -
+  it's a separate follow-up decision pending manual playtesting feedback.
+
+## [0.22.0] - 2026-09-03
+
+### Added
+- In-battle mechanic explainer system: a dismiss-required popup fires the
+  moment a new ability unlocks (post-battle, alongside the existing
+  ability-unlocked celebration banner in `js/main.js`) and again the first
+  time the attack-streak-decay mechanic actually lands a decayed hit
+  (mid-battle, pausing combat via the existing `pauseBattle()`/
+  `resumeBattle()` path in `js/screens/battleScreen.js`). New
+  `js/screens/mechanicExplainerScreen.js` renders both, sharing a
+  `renderSectionsHtml()` helper since `battleScreen.js` can't route the
+  mid-battle one through `screenManager.js`'s `mountOverlay()` - it's
+  itself already mounted as the active overlay at that point. New pure
+  helpers: `attackFalloffJustTriggered` (`js/systems/combat.js`, seen-gated
+  via `state.seenScreens`, same mechanism as the map screens' own
+  first-visit banners) and `buildAbilityExplainerSections`
+  (`js/systems/abilities.js`). Explainer copy lives in new
+  `js/data/abilityExplainers.js`, currently empty placeholders - Timothy
+  writes the actual text, not this session - so the whole feature is gated
+  off by default behind a new `mechanicExplainersBeta` Settings > Feature
+  Flags toggle until it's filled in.
+
+## [0.21.1] - 2026-09-03
+
+### Changed
+- The town exit routing arithmetic (landing 1 tile out from the town
+  entrance per direction) is pulled out of `js/main.js`'s untested
+  `handleTileAction` into a new pure `resolveTownExitLanding(action,
+  townEntrance)` in `js/systems/world.js`, with direct unit tests
+  covering all 4 directions plus non-matching actions
+  (`tests/world.test.js`). Closes a real coverage gap flagged during
+  0.21.0's final review: `main.js` itself is never imported by any test
+  in this codebase, so this routing had no automated coverage at all
+  before this change - only a manual code-trace. No behavior change.
+
+## [0.21.0] - 2026-09-03
+
+### Added
+- Shop, blacksmith, quest board, and well now show an always-on wooden
+  signpost label above their tile (`SIGN_LABEL_BY_TILE` lookup and the
+  signpost render step in `js/screens/mapScreen.js`, `.map-tile-signpost`
+  in `css/styles.css`) instead of requiring proximity to identify them.
+
+### Changed
+- Town's single `🚪` door exit is replaced with 4 directional tree-gap
+  exits, one centered on each of town's 4 border walls
+  (`TILES.treeGapNorth/South/East/West` in `js/tiles.js`, wired into
+  `townMap.js`'s legend). Each is an unmarked walkable gap in the tree
+  wall (no icon), and `js/main.js`'s `handleTileAction` routes each
+  one's `exitTownNorth/South/East/West` action to `enterMap('center', ...)`
+  landing the player 1 tile out from town in the matching direction, via
+  a new `TOWN_ENTRANCE` constant anchoring all 4 to the wilderness
+  `center` map's `@` point.
+- Town's tile grid (`js/maps/townMap.js`) grew from 16x12 to 20x14 to
+  make room for the 4 new wall-gaps plus breathing room around the
+  existing shop/smith/quest-board/well and the player's starting
+  position.
+
+See `docs/superpowers/specs/2026-09-03-town-exits-and-signage-design.md`
+for the full design and `docs/superpowers/plans/2026-09-03-town-exits-
+and-signage.md` for the implementation.
+
+## [0.20.1] - 2026-09-03
+
+### Fixed
+- `js/data/soundManifest.js`'s sound/music path helpers and the theme map
+  now derive from `DEFAULT_THEME` instead of hardcoding `'realistic'` -
+  previously cosmetic only, but would have silently broken if the default
+  theme ever changed.
+- The Lacerate retrigger's auto-close check in `battleScreen.js`'s `tick()`
+  now runs after that tick's own render instead of before it, so the
+  boundary tick that first crosses the window's `windowMs` still renders
+  once with the window state that produced it, instead of the flag
+  flipping before that render ever happens.
+
+### Added
+- Lacerate's self-retrigger window button now flashes distinctly
+  (`.battle-ability-button-retrigger-sweetspot`, reusing the parry zone's
+  `battle-zone-pulse`) once real elapsed time lands inside its 80-100%
+  sweet-spot sub-range, on top of the steady glow shown for the rest of
+  the window - the flash the original ability-rotation-v2 design doc
+  wanted but never got built (see BACKLOG.md).
+
+## [0.20.0] - 2026-09-03
+
+### Added
+- Audio engine: Web Audio API-based sound/music playback with a
+  theme-aware sound manifest (`js/data/soundManifest.js`,
+  `js/systems/audio.js`). Sounds and music load on demand and are
+  cached after first play, so no theme costs bandwidth until it's
+  actually used, and a theme missing a sound falls back to the
+  default `realistic` theme's file.
+- Settings screen: per-category volume sliders and mute toggles for
+  Combat/UI/World/Music, plus a sound theme selector — gated behind a
+  new "🚧 Feature Flags" section's `audioBeta` checkbox (off by
+  default) since no real audio assets exist yet. `initAudio()` never
+  runs at all for a player with the flag off, so the whole audio
+  system stays completely inert until it's turned on.
+- The 7 existing visual-effect functions (crit/normal hits, ability
+  swings, revive, level-up, generic and tool-pickup celebrations,
+  item pickup toast) now trigger their matching sound, once real
+  audio files are dropped into `assets/audio/realistic/` and the
+  `audioBeta` flag is enabled.
+
+### Fixed
+- Cross-task integration bugs caught by this feature's final
+  whole-branch review (never shipped live, fixed before this version's
+  first push):
+  - `initAudio()` no longer throws and blanks the whole game on startup
+    when Web Audio is unavailable (Firefox with webaudio disabled, Tor
+    Browser, some webviews) — it now catches construction failure and
+    runs silent instead.
+  - `setTheme()` is now idempotent (no-ops when the theme hasn't
+    actually changed), so every settings-screen interaction no longer
+    wipes and refetches the current theme's whole buffer cache.
+  - A basic Attack no longer plays its hit sound twice (doubled
+    amplitude/phasing) — `swingSoundIdFor`'s fallback no longer reuses
+    `hitNormal`; only named abilities get their own distinct swing
+    sound, layered on top of the hit sound as intended.
+  - Volume sliders in Settings now commit on release (`onchange`)
+    instead of firing a `persist()` + full audio resync on every drag
+    tick.
+  - Concurrent first-plays of the same sound (e.g. an AOE ability
+    hitting several monsters at once) now share one in-flight fetch/
+    decode instead of each issuing its own.
+  - Added a settings.js↔audio.js integration test and broadened the
+    settings-screen DOM tests to round-trip all 4 audio categories,
+    not just 2.
+
 ## [0.19.0] - 2026-09-02
 
 ### Changed

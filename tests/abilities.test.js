@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../js/systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveTimingHit, resolveAbilityUse, resolveDelayedHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, buildAbilityExplainerSections, applyAbilityGcd } from '../js/systems/abilities.js';
 import { ATB_KNOCKBACK } from '../js/systems/combat.js';
 
 test('ABILITIES has exactly the five abilities in level order, ids unchanged from before the rename', () => {
@@ -38,12 +38,20 @@ test('tickCooldowns does not mutate the input object', () => {
 });
 
 test('createBuffState starts inactive with no bonus', () => {
-  assert.deepEqual(createBuffState(), { active: false, remainingMs: 0 });
+  assert.deepEqual(createBuffState(), { active: false, remainingMs: 0, source: null });
 });
 
 test('activateBuff turns the buff on using the ability\'s own duration', () => {
   const superScream = ABILITIES.find((a) => a.id === 'superScream');
-  assert.deepEqual(activateBuff(superScream), { active: true, remainingMs: 12000 });
+  assert.deepEqual(activateBuff(superScream), { active: true, remainingMs: 12000, source: null });
+});
+
+// source distinguishes which ability granted the buff, purely for
+// battleScreen.js's display (see updateBuffIndicator) - raised 2026-09-04,
+// fixed 2026-09-07.
+test('activateBuff tags the buff with the given source', () => {
+  const superScream = ABILITIES.find((a) => a.id === 'superScream');
+  assert.equal(activateBuff(superScream, 'superScream').source, 'superScream');
 });
 
 test('tickBuff counts down while active', () => {
@@ -52,8 +60,8 @@ test('tickBuff counts down while active', () => {
 });
 
 test('tickBuff expires back to the inactive state once remainingMs hits 0', () => {
-  const buff = { active: true, remainingMs: 200 };
-  assert.deepEqual(tickBuff(buff, 300), { active: false, remainingMs: 0 });
+  const buff = { active: true, remainingMs: 200, source: 'superScream' };
+  assert.deepEqual(tickBuff(buff, 300), { active: false, remainingMs: 0, source: null });
 });
 
 test('tickBuff on an already-inactive buff is a no-op', () => {
@@ -75,9 +83,9 @@ test('resolveAbilityUse applies the ability multiplier on top of a plain attack,
   const stab = ABILITIES.find((a) => a.id === 'stab');
   // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, no crit
   const result = resolveAbilityUse(player, monster, stab, false, () => 0.5);
-  assert.equal(result.damage, 6); // round(8 * 0.8) = 6
+  assert.equal(result.damage, 4); // round(8 * 0.55) = 4
   assert.equal(result.isCrit, false);
-  assert.equal(result.monsterHp, 94);
+  assert.equal(result.monsterHp, 96);
   assert.equal(result.playerAtb, 0);
 });
 
@@ -100,13 +108,17 @@ test('resolveAbilityUse applies an optional crit chance bonus, defaulting to non
   assert.equal(withBonus.isCrit, true);
 });
 
-test('resolveAbilityUse knocks the monster\'s ATB back and never drops HP below 0', () => {
+test('resolveAbilityUse never drops HP below 0, and only knocks the monster\'s ATB back on the low-probability roll', () => {
   const player = { attack: 500, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 10, defense: 0, atb: 50 };
   const chop = ABILITIES.find((a) => a.id === 'chop');
-  const result = resolveAbilityUse(player, monster, chop, false, () => 0.5);
-  assert.equal(result.monsterHp, 0);
-  assert.equal(result.monsterAtb, 50 - ATB_KNOCKBACK);
+  // rng()=0.01 lands under ATB_KNOCKBACK_CHANCE (0.05) - knockback procs.
+  const procced = resolveAbilityUse(player, monster, chop, false, () => 0.01);
+  assert.equal(procced.monsterHp, 0);
+  assert.equal(procced.monsterAtb, 50 - ATB_KNOCKBACK);
+  // rng()=0.5 misses the roll - ATB untouched.
+  const missed = resolveAbilityUse(player, monster, chop, false, () => 0.5);
+  assert.equal(missed.monsterAtb, 50);
 });
 
 test('resolveDelayedHit computes Lacerate\'s follow-up bleed tick as a fraction of the original hit', () => {
@@ -163,28 +175,20 @@ test('Lacerate carries a retrigger config with a window duration and a sweet spo
   assert.deepEqual(byId.slash.retrigger, { windowMs: 1200, sweetSpotStartPercent: 80, sweetSpotEndPercent: 100, buffDurationMs: 9000 });
 });
 
-test('canUseAbility requires ready, unless a retrigger window is open for this ability', () => {
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: true }), true);
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false }), false);
-  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, retriggerWindowOpen: true }), true);
-});
-
-test('canUseAbility is false when locked, even with a retrigger window open', () => {
-  assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: true, retriggerWindowOpen: true }), false);
+test('canUseAbility is true when unlocked and off cooldown', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: false }), true);
 });
 
 test('canUseAbility is false when on cooldown and no retrigger window is open', () => {
-  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: true }), false);
+  assert.equal(canUseAbility({ locked: false, onCooldown: true }), false);
 });
 
-test('canUseAbility bypasses the ready gate when alwaysReady is set, e.g. Super Scream', () => {
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, alwaysReady: true }), true);
-  assert.equal(canUseAbility({ locked: false, onCooldown: false, ready: false, alwaysReady: false }), false);
+test('canUseAbility is true on cooldown when a retrigger window is open for this ability', () => {
+  assert.equal(canUseAbility({ locked: false, onCooldown: true, retriggerWindowOpen: true }), true);
 });
 
-test('canUseAbility still respects locked/onCooldown even when alwaysReady is set', () => {
-  assert.equal(canUseAbility({ locked: true, onCooldown: false, ready: false, alwaysReady: true }), false);
-  assert.equal(canUseAbility({ locked: false, onCooldown: true, ready: false, alwaysReady: true }), false);
+test('canUseAbility is false when locked, even with a retrigger window open', () => {
+  assert.equal(canUseAbility({ locked: true, onCooldown: false, retriggerWindowOpen: true }), false);
 });
 
 test('every ability has a distinct icon', () => {
@@ -197,8 +201,8 @@ test('estimateAbilityDamage applies the ability multiplier with no buff bonus', 
   const player = { attack: 10, defense: 4, speed: 5, atb: 0 };
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
-  // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, * 0.8 (stab) = round(6.4) = 6
-  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 6);
+  // rng()=0.5 -> variance 1.0 -> base damage = 10-2 = 8, * 0.55 (stab) = round(4.4) = 4
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 4);
 });
 
 test('estimateAbilityDamage multiplies in the rotation buff bonus when active', () => {
@@ -213,8 +217,8 @@ test('estimateAbilityDamage applies the speed damage bonus deterministically', (
   const player = { attack: 10, defense: 4, speed: 20, atb: 0 }; // at SPEED_DAMAGE_BONUS_THRESHOLD
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
-  // base 8, * 0.8 (stab) = round(6.4) = 6, * 1.1 (speed bonus) = round(6.6) = 7
-  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 7);
+  // base 8, * 0.55 (stab) = round(4.4) = 4, * 1.1 (speed bonus) = round(4.4) = 4
+  assert.equal(estimateAbilityDamage(player, monster, stab, false, () => 0.5), 4);
 });
 
 test('estimateAbilityDamage defaults to an average roll when no rng is supplied', () => {
@@ -222,9 +226,76 @@ test('estimateAbilityDamage defaults to an average roll when no rng is supplied'
   const monster = { hp: 100, defense: 2, atb: 50 };
   const stab = ABILITIES.find((a) => a.id === 'stab');
   const result = estimateAbilityDamage(player, monster, stab, false);
-  assert.equal(result, 6);
+  assert.equal(result, 4);
 });
 
 test('ROTATION_BONUS_MULTIPLIER keeps its spec\'d value', () => {
   assert.equal(ROTATION_BONUS_MULTIPLIER, 1.25);
+});
+
+test('buildAbilityExplainerSections maps each unlocked ability to its icon/name/text, in the order given', () => {
+  const [stab, chop] = ABILITIES;
+  const sections = buildAbilityExplainerSections([stab, chop], { stab: 'Impale text', chop: 'Sever text' });
+  assert.deepEqual(sections, [
+    { icon: stab.icon, title: stab.name, text: 'Impale text' },
+    { icon: chop.icon, title: chop.name, text: 'Sever text' },
+  ]);
+});
+
+test('buildAbilityExplainerSections falls back to an empty string when an ability has no explainer text yet', () => {
+  const [stab] = ABILITIES;
+  const sections = buildAbilityExplainerSections([stab], {});
+  assert.equal(sections[0].text, '');
+});
+
+test('applyAbilityGcd puts every unlocked non-buff ability on the GCD, not just the one used', () => {
+  // Synthetic abilities with no overrideCooldownMs, not pulled from the real
+  // ABILITIES array - this is testing the generic share-the-GCD mechanism,
+  // which should stay decoupled from real abilities' own tunable cooldowns
+  // (see the dedicated overrideCooldownMs test further below for that).
+  const unlocked = ['stab', 'chop', 'slash', 'sweep'].map((id) => ({ id, type: 'damage' }));
+  const { cooldowns } = applyAbilityGcd({}, unlocked, 'stab', 1000);
+  assert.equal(cooldowns.stab, 1000);
+  assert.equal(cooldowns.chop, 1000);
+  assert.equal(cooldowns.slash, 1000);
+  assert.equal(cooldowns.sweep, 1000);
+});
+
+test('applyAbilityGcd leaves Super Scream (a buff-type ability) untouched', () => {
+  const unlocked = ABILITIES; // includes superScream at level 10
+  const { cooldowns } = applyAbilityGcd({}, unlocked, 'stab', 1000);
+  assert.equal('superScream' in cooldowns, false);
+});
+
+test('applyAbilityGcd never shortens an ability that already has a longer remaining cooldown', () => {
+  // Synthetic abilities, not the real ABILITIES - see the comment on the
+  // "puts every unlocked non-buff ability on the GCD" test above.
+  const unlocked = ['stab', 'chop'].map((id) => ({ id, type: 'damage' }));
+  const { cooldowns } = applyAbilityGcd({ chop: 5000 }, unlocked, 'stab', 1000);
+  assert.equal(cooldowns.chop, 5000, 'chop already had 5000ms remaining from an earlier use - a fresh 1000ms GCD must not shorten it');
+  assert.equal(cooldowns.stab, 1000);
+});
+
+test('applyAbilityGcd lets the used ability\'s own overrideCooldownMs raise its cooldown above the bare GCD', () => {
+  const longAbility = { id: 'sweep', type: 'damage', overrideCooldownMs: 6000 };
+  const shortAbility = { id: 'stab', type: 'damage' };
+  const { cooldowns } = applyAbilityGcd({}, [longAbility, shortAbility], 'sweep', 1000);
+  assert.equal(cooldowns.sweep, 6000, 'sweep has its own overrideCooldownMs of 6000, longer than the 1000ms GCD');
+  assert.equal(cooldowns.stab, 1000, 'stab is not the used ability, so it only gets the bare GCD even though sweep has a longer override');
+});
+
+test('applyAbilityGcd tracks the applied duration in totals, in lockstep with cooldowns, for cooldown-percentage display', () => {
+  // Synthetic abilities, not the real ABILITIES - see the comment on the
+  // "puts every unlocked non-buff ability on the GCD" test above.
+  const unlocked = ['stab', 'chop'].map((id) => ({ id, type: 'damage' }));
+  const { cooldowns, totals } = applyAbilityGcd({}, unlocked, 'stab', 1000);
+  assert.equal(totals.stab, 1000);
+  assert.equal(totals.chop, 1000);
+  assert.equal(cooldowns.stab, totals.stab);
+});
+
+test('applyAbilityGcd does not overwrite totals when it does not overwrite cooldowns (the not-shortened case)', () => {
+  const unlocked = ABILITIES.filter((a) => ['stab', 'chop'].includes(a.id));
+  const { totals } = applyAbilityGcd({ chop: 5000 }, unlocked, 'stab', 1000, { chop: 5000 });
+  assert.equal(totals.chop, 5000, 'chop\'s cooldown was not touched (still has 5000ms remaining from its own longer application), so its total must stay 5000 too - otherwise the percentage math would use the wrong denominator');
 });

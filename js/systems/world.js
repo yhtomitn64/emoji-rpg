@@ -44,6 +44,26 @@ export function isValidSavedPosition(map, x, y) {
   return Boolean(tile && (tile.walkable || tile.requiresTool));
 }
 
+// Town's 4 directional exits (see docs/superpowers/specs/2026-09-03-
+// town-exits-and-signage-design.md) all land 1 tile out from the town
+// entrance, in the matching direction. Pulled out as its own pure
+// function - unlike the rest of js/main.js's handleTileAction routing
+// (which has no test coverage anywhere in this codebase, since main.js
+// itself is never imported by a test) - so this one piece of routing
+// arithmetic gets real, direct unit coverage.
+const TOWN_EXIT_DELTAS = {
+  exitTownNorth: [0, -1],
+  exitTownSouth: [0, 1],
+  exitTownEast: [1, 0],
+  exitTownWest: [-1, 0],
+};
+
+export function resolveTownExitLanding(action, townEntrance) {
+  const delta = TOWN_EXIT_DELTAS[action];
+  if (!delta) return null;
+  return { x: townEntrance.x + delta[0], y: townEntrance.y + delta[1] };
+}
+
 const CARDINAL_DELTAS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 // Whether blocking (x, y) would cut the screen's passable area into pieces

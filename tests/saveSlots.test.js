@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from '../js/systems/saveSlots.js';
+import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, upsertSlot } from '../js/systems/saveSlots.js';
 import { STORAGE_KEY, serializeState, createNewGame, loadState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION } from '../js/state.js';
 
 function createFakeStorage() {
@@ -120,4 +120,36 @@ test('createSlot always uses the fixed DEFAULT_DUNGEON_ENTRANCE_POSITION', () =>
     const { state } = createSlot(`Hero${i}`, DEFAULT_HERO_EMOJI, storage);
     assert.deepEqual(state.dungeonEntrancePosition, DEFAULT_DUNGEON_ENTRANCE_POSITION);
   }
+});
+
+test('upsertSlot creates a registry entry and save at the exact id given, not a generated one', () => {
+  const storage = createFakeStorage();
+  const state = createNewGame();
+  upsertSlot('debug-level10', '[Debug] level10', state, storage);
+  const slots = listSlots(storage);
+  assert.equal(slots.length, 1);
+  assert.equal(slots[0].id, 'debug-level10');
+  assert.equal(slots[0].name, '[Debug] level10');
+  assert.equal(loadState('debug-level10', storage).player.level, state.player.level);
+});
+
+test('upsertSlot overwrites an existing entry at the same id instead of duplicating it', () => {
+  const storage = createFakeStorage();
+  upsertSlot('debug-level10', '[Debug] level10', createNewGame(), storage);
+  const leveled = { ...createNewGame(), player: { ...createNewGame().player, level: 10 } };
+  upsertSlot('debug-level10', '[Debug] level10', leveled, storage);
+  const slots = listSlots(storage);
+  assert.equal(slots.length, 1, 'a second upsertSlot at the same id should replace, not add');
+  assert.equal(slots[0].level, 10);
+  assert.equal(loadState('debug-level10', storage).player.level, 10);
+});
+
+test('upsertSlot leaves other slots untouched', () => {
+  const storage = createFakeStorage();
+  const { id: realId } = createSlot('Real Save', DEFAULT_HERO_EMOJI, storage);
+  upsertSlot('debug-level10', '[Debug] level10', createNewGame(), storage);
+  const slots = listSlots(storage);
+  assert.equal(slots.length, 2);
+  assert.ok(slots.some((s) => s.id === realId));
+  assert.ok(slots.some((s) => s.id === 'debug-level10'));
 });

@@ -130,8 +130,12 @@ test('shopScreen DOM - selling Fine/Superior tiered gear', async (t) => {
 });
 
 // Raised 2026-08-29: "you never really need to buy more than 1 equipment
-// item, the only thing that really needs multiples is the potions."
-test('shopScreen DOM - buy quantity buttons', async (t) => {
+// item, the only thing that really needs multiples is the potions." The
+// shop redesign (2026-09-05, "Battle FX & Shop Lab" artifact section 05,
+// Option A) replaced the old per-row 1x/5x/10x/100x buttons with a single
+// Buy button per item card plus one shared qty toggle for the whole screen -
+// this rule is now enforced by gear ignoring that shared toggle entirely.
+test('shopScreen DOM - shared buy qty toggle', async (t) => {
   t.beforeEach(() => setupDom());
   t.afterEach(async () => {
     const { unmount } = await import('../js/screens/shopScreen.js');
@@ -139,20 +143,71 @@ test('shopScreen DOM - buy quantity buttons', async (t) => {
     teardownDom();
   });
 
-  await t.test('a gear row (e.g. Iron Sword) only offers a single Buy button', async () => {
+  await t.test('a gear item (e.g. Iron Sword) always gets a single Buy button, ignoring the qty toggle', async () => {
     const root = await mountShop(buildState());
-    const swordRow = [...root.querySelectorAll('.shop-row')].find((row) => row.textContent.includes('Iron Sword'));
-    const buyButtons = swordRow.querySelectorAll('button[data-item="ironSword"]');
-    assert.equal(buyButtons.length, 1);
-    assert.equal(buyButtons[0].dataset.qty, '1');
-    assert.equal(buyButtons[0].textContent, 'Buy');
+    const swordCard = [...root.querySelectorAll('.item-card')].find((card) => card.textContent.includes('Iron Sword'));
+    const buyBtn = swordCard.querySelector('button[data-item="ironSword"]');
+    assert.equal(swordCard.querySelectorAll('button[data-item="ironSword"]').length, 1);
+    assert.equal(buyBtn.dataset.qty, '1');
+    assert.equal(buyBtn.textContent, 'Buy');
+
+    click(root.querySelector('.shop-qty-btn[data-qty="100"]'));
+    const swordCardAfter = [...root.querySelectorAll('.item-card')].find((card) => card.textContent.includes('Iron Sword'));
+    const buyBtnAfter = swordCardAfter.querySelector('button[data-item="ironSword"]');
+    assert.equal(buyBtnAfter.dataset.qty, '1');
+    assert.equal(buyBtnAfter.textContent, 'Buy');
   });
 
-  await t.test('the Potion row offers the full bulk-quantity set', async () => {
+  await t.test('the shared qty toggle relabels a consumable Buy button and sets its buy quantity', async () => {
     const root = await mountShop(buildState({ player: { gold: 100000 } }));
-    const potionRow = [...root.querySelectorAll('.shop-row')].find((row) => row.textContent.includes('Potion'));
-    const quantities = [...potionRow.querySelectorAll('button[data-item="potion"]')].map((btn) => btn.dataset.qty);
-    assert.deepEqual(quantities, ['1', '5', '10', '100']);
+    click(root.querySelector('.shop-tab[data-cat="potion"]'));
+    click(root.querySelector('.shop-qty-btn[data-qty="10"]'));
+    const potionCard = [...root.querySelectorAll('.item-card')].find((card) => card.textContent.includes('Potion'));
+    const buyBtn = potionCard.querySelector('button[data-item="potion"]');
+    assert.equal(buyBtn.dataset.qty, '10');
+    assert.equal(buyBtn.textContent, 'Buy 10x');
+  });
+
+  await t.test('buying at a bulk qty actually adds that many to inventory', async () => {
+    const state = buildState({ player: { gold: 100000 } });
+    const root = await mountShop(state);
+    click(root.querySelector('.shop-tab[data-cat="potion"]'));
+    click(root.querySelector('.shop-qty-btn[data-qty="10"]'));
+    const potionCard = [...root.querySelectorAll('.item-card')].find((card) => card.textContent.includes('Potion'));
+    click(potionCard.querySelector('button[data-item="potion"]'));
+    assert.equal(state.inventory.find((e) => e.itemId === 'potion').quantity, 10);
+  });
+});
+
+test('shopScreen DOM - category tabs', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/shopScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('Weapons is the default active tab, showing gear but not potions', async () => {
+    const root = await mountShop(buildState());
+    assert.ok(root.querySelector('.shop-tab[data-cat="weapon"]').classList.contains('active'));
+    assert.ok([...root.querySelectorAll('.item-card')].some((card) => card.textContent.includes('Iron Sword')));
+    assert.ok(![...root.querySelectorAll('.item-card')].some((card) => card.textContent.includes('Potion')));
+  });
+
+  await t.test('clicking Armor swaps the grid to armor items only', async () => {
+    const root = await mountShop(buildState());
+    click(root.querySelector('.shop-tab[data-cat="armor"]'));
+    const cards = [...root.querySelectorAll('.item-card')];
+    assert.ok(cards.some((card) => card.textContent.includes('Iron Helm')));
+    assert.ok(!cards.some((card) => card.textContent.includes('Iron Sword')));
+  });
+
+  await t.test('clicking Potions swaps the grid to consumables only', async () => {
+    const root = await mountShop(buildState());
+    click(root.querySelector('.shop-tab[data-cat="potion"]'));
+    const cards = [...root.querySelectorAll('.item-card')];
+    assert.ok(cards.some((card) => card.textContent.includes('Potion')));
+    assert.ok(!cards.some((card) => card.textContent.includes('Iron Sword')));
   });
 });
 
@@ -175,7 +230,7 @@ test('shopScreen DOM - equip prompt telemetry', async (t) => {
 
     const buyBtn = root.querySelector('button[data-item="ironSword"][data-qty="1"]');
     click(buyBtn);
-    const equipYesBtn = root.querySelector('#btn-equip-prompt-yes');
+    const equipYesBtn = root.querySelector('button[data-equip-yes="ironSword"]');
     assert.ok(equipYesBtn, 'expected the equip prompt to appear after buying an unequipped gear item');
     click(equipYesBtn);
 

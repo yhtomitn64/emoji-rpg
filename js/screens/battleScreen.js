@@ -1,13 +1,24 @@
 import { MONSTERS } from '../data/monsters.js';
 import { ITEMS } from '../data/items.js';
-import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS } from '../systems/combat.js';
+import { ATTACK_FALLOFF_EXPLAINER } from '../data/abilityExplainers.js';
+import { tickGauge, isReady, ATB_MAX, pickAppearLine, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, applyKnockback, ATB_KNOCKBACK, attackStreakMultiplier, attackKnockbackMultiplier, attackCooldownMsForStreak, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackFalloffJustTriggered, attackReadyRingPct, abilityGcdMsForSpeed, attackStreakGcdBonusMs, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff, rollSpecialAttack } from '../systems/combat.js';
 import { getEquipmentBonuses, removeItem } from '../systems/inventory.js';
-import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER } from '../systems/abilities.js';
+import { ABILITIES, getUnlockedAbilities, tickCooldowns, createBuffState, activateBuff, tickBuff, resolveAbilityUse, resolveDelayedHit, resolveTimingHit, createDefenseDebuff, tickDefenseDebuff, applyDefenseDebuff, canUseAbility, estimateAbilityDamage, ROTATION_BONUS_MULTIPLIER, applyAbilityGcd } from '../systems/abilities.js';
 import { createWindupState, startWindup, isWindupComplete, windupElapsedPercent, resolveParryAttempt, rollIncomingDamage, resolveParrySuccess, shiftWindupStart, PARRY_WINDUP_DURATION_MS, PARRY_ZONE_START_PERCENT, PARRY_COOLDOWN_MS } from '../systems/parry.js';
 import { getEliteAppearLine } from '../systems/eliteEncounter.js';
 import { LOADOUT_SIZE } from '../systems/loadout.js';
 import { isTimedBuffPotion, createActiveBuffs, activateTimedBuff, tickActiveBuffs, getActiveBuffBonuses, combineBonuses } from '../systems/buffPotions.js';
+import { hasSeenScreen, markScreenSeen } from '../systems/screenSeen.js';
 import { logEvent } from '../systems/telemetry.js';
+import { playSfx } from '../systems/audio.js';
+import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
+import { renderSectionsHtml } from './mechanicExplainerScreen.js';
+
+// seenScreens key (js/systems/screenSeen.js) gating the mid-battle
+// attack-falloff explainer below - shows once ever per save/NG+ cycle (see
+// the brainstorming design's "persistence" note: seenScreens already resets
+// on NG+, same as the map screens' own first-visit banners).
+export const ATTACK_FALLOFF_SEEN_KEY = 'mechanic:attackFalloff';
 
 const VICTORY_PAUSE_MS = 1200;
 const ITEM_MENU_TIME_SCALE = 0.25;
@@ -59,8 +70,11 @@ let elements = {};
 let endBattleTimeoutId = null;
 let exitAnimTimeoutId = null;
 let abilityCooldowns = {};
+let abilityCooldownTotals = {};
 let buffState = createBuffState();
 let widenBuffState = null;
+let playerSlowDebuff = null;
+let playerStunDebuff = null;
 let lacerateRetriggerOpen = false;
 let lacerateRetriggerStartedAt = null;
 let abilityActionInFlight = false;
@@ -73,11 +87,14 @@ let attackCooldownMs = 0;
 let attackCooldownTotalMs = 0;
 let parryCooldownMs = 0;
 let parryCooldownTotalMs = 0;
+// Drives the cooldown wipes' smooth motion between tick()'s own 300ms
+// steps - see animateCooldownWipes()'s own comment below.
+let lastTickAt = 0;
+let cooldownWipeAnimFrameId = null;
 let attackTauntShown = false;
 let attackStreakIdleMs = 0;
-let liveDamageNumbers = [];
 let liveSwingSprites = [];
-let livePerfectBadges = [];
+let livePopups = []; // damage numbers + Perfect!/Parry!/New Max! badges together: { el, timeoutId, zoneEl, side, edge } - see claimPopupColumn() below
 // DPS meter (raised 2026-08-31, see BACKLOG.md's "New Max damage!" +
 // DPS-meter entry): battleElapsedMs only advances inside tick(), and
 // pauseBattle()/resumeBattle() already stop/restart tick()'s own interval -
@@ -98,6 +115,9 @@ let secondWindAvailable = false;
 let itemMenuOpen = false;
 let itemMenuSelectedIndex = 0;
 let itemMenuAutoCloseTimeoutId = null;
+let explainerOpen = false;
+let unbindExplainerEscape = null;
+let unbindExplainerBackdrop = null;
 // Only game-state-affecting timers freeze on pause (the 300ms tick, a
 // monster's windup/parry clock, the ability timing-meter's rAF loop) - see
 // pauseBattle()/resumeBattle(). Already-committed cosmetic effects (damage
@@ -120,7 +140,6 @@ function buildPlayerCombatant(bonuses) {
     attack: state.player.attack + bonuses.attack,
     defense: state.player.defense + bonuses.defense,
     speed: state.player.speed + bonuses.speed,
-    atb: 0,
   };
 }
 
@@ -138,6 +157,8 @@ function buildMonsterCombatant(monsterId, overrides, bonuses) {
     defenseDebuff: null,
     pendingDelayedHit: null,
     deathStyle: null,
+    specialAttacks: monster.specialAttacks || [],
+    pendingSpecialAttack: null,
   };
 }
 
@@ -212,7 +233,7 @@ function handleLacerateRetriggerPress() {
   const elapsedPercent = Math.min(100, (elapsedMs / lacerate.retrigger.windowMs) * 100);
   closeLacerateRetriggerWindow();
   if (resolveTimingHit(elapsedPercent, lacerate.retrigger.sweetSpotStartPercent, lacerate.retrigger.sweetSpotEndPercent)) {
-    buffState = activateBuff({ buffDurationMs: lacerate.retrigger.buffDurationMs });
+    buffState = activateBuff({ buffDurationMs: lacerate.retrigger.buffDurationMs }, 'lacerate');
     log.push('Lacerate\'s follow-through lands! Your attacks hit harder for a while.');
     updateBuffIndicator();
     updateLog();
@@ -290,6 +311,7 @@ function buildDom() {
         <div class="battle-item-menu-timer"><div class="battle-item-menu-timer-fill" id="battle-item-menu-timer-fill"></div></div>
         <div class="battle-item-menu-slots" id="battle-item-menu-slots"></div>
       </div>
+      <div class="battle-explainer-overlay" id="battle-explainer-overlay" hidden></div>
       <div class="overlay-panel battle-screen ${envClass}">
         <div class="battle-main">
           <div class="battle-combatants-row">
@@ -299,11 +321,10 @@ function buildDom() {
             </div>
             <div class="battle-divider">⚔️</div>
             <div class="battle-combatant" id="battle-hero-zone">
-              <div class="battle-emoji" id="battle-hero-emoji">${playerCombatant.emoji}</div>
+              <div class="battle-emoji battle-hero-silhouette" id="battle-hero-emoji">${playerCombatant.emoji}</div>
               <div class="battle-name">You</div>
               <div class="battle-hp-bar"><div class="battle-hp-fill battle-hp-fill-hero" id="battle-hero-hp-fill"></div></div>
               <div class="battle-hp-text" id="battle-hero-hp-text"></div>
-              <div class="battle-atb-bar"><div class="battle-atb-fill" id="battle-hero-atb-fill"></div></div>
               <div class="battle-buff-indicator" id="battle-buff-indicator"></div>
               <div class="battle-widen-indicator" id="battle-widen-indicator"></div>
               <div class="battle-potion-buff-indicator" id="battle-potion-buff-indicator"></div>
@@ -330,6 +351,7 @@ function buildDom() {
     itemMenuOverlay: document.getElementById('battle-item-menu-overlay'),
     itemMenuTimerFill: document.getElementById('battle-item-menu-timer-fill'),
     itemMenuSlots: document.getElementById('battle-item-menu-slots'),
+    explainerOverlay: document.getElementById('battle-explainer-overlay'),
     monsterRow: document.getElementById('battle-monster-row'),
     monsterZones: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-zone-${i}`)),
     monsterEmojis: monsterCombatants.map((_, i) => document.getElementById(`battle-monster-emoji-${i}`)),
@@ -343,7 +365,6 @@ function buildDom() {
     heroEmoji: document.getElementById('battle-hero-emoji'),
     heroHpFill: document.getElementById('battle-hero-hp-fill'),
     heroHpText: document.getElementById('battle-hero-hp-text'),
-    heroAtbFill: document.getElementById('battle-hero-atb-fill'),
     buffIndicator: document.getElementById('battle-buff-indicator'),
     widenIndicator: document.getElementById('battle-widen-indicator'),
     potionBuffIndicator: document.getElementById('battle-potion-buff-indicator'),
@@ -432,7 +453,6 @@ function updateAtbBars() {
     elements.monsterAtbBars[i].classList.toggle('battle-atb-bar-windup', winding);
     elements.parryHints[i].textContent = winding ? 'Parry! (s)' : '';
   });
-  elements.heroAtbFill.style.width = `${percent(playerCombatant.atb, ATB_MAX)}%`;
 }
 
 function updateLog() {
@@ -440,10 +460,25 @@ function updateLog() {
   elements.log.scrollTop = elements.log.scrollHeight;
 }
 
+// Raised 2026-09-04: Lacerate's retrigger buff and Super Scream's buff read
+// as the exact same generic effect. Both still just multiply attack damage
+// (same underlying buffState), so this stays a label/color swap keyed on
+// buffState.source rather than a new mechanic - the goal is telling the two
+// apart at a glance, not distinguishing gameplay that's already identical.
 function updateBuffIndicator() {
-  elements.buffIndicator.textContent = buffState.active
-    ? `💪 Buffed: ${Math.ceil(buffState.remainingMs / 1000)}s`
-    : '';
+  if (!buffState.active) {
+    elements.buffIndicator.textContent = '';
+    elements.buffIndicator.className = 'battle-buff-indicator';
+    return;
+  }
+  const seconds = Math.ceil(buffState.remainingMs / 1000);
+  const isLacerate = buffState.source === 'lacerate';
+  // Icon/color swap only, no new flavor text invented - see the "no
+  // AI-generated narrative" boundary in this repo's memory notes.
+  elements.buffIndicator.textContent = isLacerate ? `🩸 Buffed: ${seconds}s` : `💪 Buffed: ${seconds}s`;
+  elements.buffIndicator.className = isLacerate
+    ? 'battle-buff-indicator battle-buff-indicator-lacerate'
+    : 'battle-buff-indicator';
 }
 
 function updateWidenIndicator() {
@@ -473,7 +508,7 @@ function recomputeEffectBonuses() {
   if (playerCombatant) {
     playerCombatant.attack = state.player.attack + playerEffectBonuses.attack;
     playerCombatant.defense = state.player.defense + playerEffectBonuses.defense;
-    playerCombatant.speed = state.player.speed + playerEffectBonuses.speed;
+    playerCombatant.speed = applyPlayerSlowDebuff(state.player.speed + playerEffectBonuses.speed, playerSlowDebuff);
     playerCombatant.maxHp = state.player.maxHp + playerEffectBonuses.maxHp;
   }
 }
@@ -541,8 +576,42 @@ function clearItemMenuAutoCloseTimer() {
   itemMenuAutoCloseTimeoutId = null;
 }
 
+// Mounted inline into battleScreen's own DOM (elements.explainerOverlay)
+// rather than through screenManager's mountOverlay(): battleScreen is
+// itself mounted as the active overlay (see main.js's handleEncounter), so
+// a second mountOverlay() call would tear it down instead of stacking on
+// top of it. renderSectionsHtml is shared with mechanicExplainerScreen.js
+// (the post-battle ability-unlock popup) so both surfaces render identical
+// section markup despite mounting differently.
+function openFalloffExplainer() {
+  if (battleOver || battlePaused || itemMenuOpen || explainerOpen) return;
+  explainerOpen = true;
+  pauseBattle();
+  elements.explainerOverlay.innerHTML = `
+    <div class="overlay-panel mechanic-explainer-panel">
+      ${renderSectionsHtml([{ title: 'Attacks Losing Steam?', text: ATTACK_FALLOFF_EXPLAINER }])}
+      <button id="battle-explainer-close">Got it</button>
+    </div>
+  `;
+  elements.explainerOverlay.hidden = false;
+  document.getElementById('battle-explainer-close').onclick = closeFalloffExplainer;
+  unbindExplainerEscape = bindEscapeClose(closeFalloffExplainer);
+  unbindExplainerBackdrop = bindBackdropClose(elements.explainerOverlay, closeFalloffExplainer);
+}
+
+function closeFalloffExplainer() {
+  if (!explainerOpen) return;
+  explainerOpen = false;
+  elements.explainerOverlay.hidden = true;
+  unbindExplainerEscape?.();
+  unbindExplainerBackdrop?.();
+  unbindExplainerEscape = null;
+  unbindExplainerBackdrop = null;
+  resumeBattle();
+}
+
 function openItemMenu() {
-  if (battleOver || battlePaused || itemMenuOpen) return;
+  if (battleOver || battlePaused || itemMenuOpen || playerStunDebuff) return;
   if (!hasUsableLoadoutItem()) {
     log.push('No usable items loaded.');
     updateLog();
@@ -660,11 +729,28 @@ function drinkPotion(itemId) {
 // goes in the `title` tooltip instead - see the CSS
 // comment above .battle-action-bar in css/styles.css for why. `cooldownPct`
 // (0-100, remaining/total) drives the red conic-gradient "clock wipe"
-// overlay; omit/0 for buttons with no cooldown to show.
-function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', cooldownPct = 0 }) {
-  const wipe = cooldownPct > 0 ? `<div class="battle-ability-cooldown-wipe" style="--pct:${cooldownPct}"></div>` : '';
+// overlay; omit/0 for buttons with no cooldown to show. `readyRing` (Attack
+// only, see .battle-ability-ready-ring's own comment in css/styles.css) adds
+// a second indicator scoped to just that button: an SVG ring that draws
+// itself in as the streak actually recovers, since Attack (unlike the four
+// abilities) had no signal at all for "just came back off cooldown" beyond
+// the button quietly stopping being greyed out.
+function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', cooldownPct = 0, readyRing = false, readyRingPct = 0 }) {
+  // id'd so animateCooldownWipes() can patch --pct directly between
+  // updateMenu()'s own 300ms full rebuilds, without needing a CSS
+  // transition (which can't animate a custom property across an element
+  // that gets torn down and recreated every tick anyway).
+  const wipe = cooldownPct > 0 ? `<div class="battle-ability-cooldown-wipe" id="${id}-wipe" style="--pct:${cooldownPct}"></div>` : '';
+  // Always rendered (not gated on a pct > 0 check like the wipe above) so
+  // the ring sits fully drawn in and glowing while ready, not just absent.
+  // readyRingPct is deliberately its own value, NOT cooldownPct - see
+  // attackReadyRingPct's own comment in combat.js for why the ring can't
+  // just reuse the wipe's short-cooldown percent.
+  const ring = readyRing
+    ? `<svg class="battle-ability-ready-ring" id="${id}-ready-ring" viewBox="0 0 56 56" style="--pct:${readyRingPct}"><circle cx="28" cy="28" r="25" /></svg>`
+    : '';
   const safeTitle = title.replace(/"/g, '&quot;');
-  return `<button id="${id}" class="battle-ability-button${extraClass}" ${disabled ? 'disabled' : ''} title="${safeTitle}">${wipe}<span class="battle-ability-icon">${icon}</span><span class="battle-ability-key">${key}</span></button>`;
+  return `<button id="${id}" class="battle-ability-button${extraClass}" ${disabled ? 'disabled' : ''} title="${safeTitle}">${wipe}${ring}<span class="battle-ability-icon">${icon}</span><span class="battle-ability-key">${key}</span></button>`;
 }
 
 // One entry per unlocked ability: its rendered button HTML, plus whether
@@ -676,16 +762,37 @@ function actionButtonHtml({ id, icon, key, title, disabled, extraClass = '', coo
 // always keys to Space, never a number, so it sorts into the non-numbered
 // group same as Parry/Attack/Item/Flee.
 function abilityButtonEntries() {
-  const ready = isReady(playerCombatant.atb);
   const target = monsterCombatants[selectedMonsterIndex];
   return getUnlockedAbilities(state.player.level).map((ability, index) => {
     const slot = index + 1;
     const cooldownRemaining = abilityCooldowns[ability.id] || 0;
     const alwaysReady = ability.type === 'buff';
     const retriggerWindowOpen = ability.id === 'slash' && lacerateRetriggerOpen;
-    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, ready, alwaysReady, retriggerWindowOpen });
+    // Design doc (2026-09-02) wanted this keyed to the exact real-time
+    // instant the window crosses into its sweet spot, same as the parry
+    // zone's animation-delay trick - but that trick relies on the zone
+    // marker being a persistent DOM node, while this button gets torn down
+    // and rebuilt fresh by updateMenu() every 300ms tick (see
+    // actionButtonHtml callers below). So this reads real elapsed time
+    // fresh on each render instead: whichever tick's render happens to land
+    // inside the sweet-spot sub-range gets the flash class, same tick-
+    // granularity approximation every other state-driven class in this
+    // function already lives with.
+    const inRetriggerSweetSpot = retriggerWindowOpen && (() => {
+      // Clamped to 100: the render that catches the window's closing tick
+      // (see tick()'s own comment on why the close-check now runs after
+      // updateMenu()) can measure real elapsed time a hair past windowMs
+      // from ordinary setInterval jitter - still the same instant the
+      // sweet spot's upper edge covers, not a new one past it.
+      const elapsedPercent = Math.min(100, ((performance.now() - lacerateRetriggerStartedAt) / ability.retrigger.windowMs) * 100);
+      return elapsedPercent >= ability.retrigger.sweetSpotStartPercent && elapsedPercent <= ability.retrigger.sweetSpotEndPercent;
+    })();
+    // playerStunDebuff already blocks playerUseAbility itself (see its own
+    // guard) - this just makes the button render disabled to match, instead
+    // of looking clickable and silently no-oping while stunned.
+    const disabled = !canUseAbility({ locked: false, onCooldown: cooldownRemaining > 0, retriggerWindowOpen }) || !!playerStunDebuff;
     const cooldownActive = cooldownRemaining > 0;
-    const cooldownPct = cooldownActive ? (cooldownRemaining / ability.cooldownMs) * 100 : 0;
+    const cooldownPct = cooldownActive ? (cooldownRemaining / (abilityCooldownTotals[ability.id] || ability.cooldownMs)) * 100 : 0;
     const cooldownSuffix = cooldownActive ? ` ${Math.ceil(cooldownRemaining / 1000)}s` : '';
     const keyLabel = alwaysReady ? 'Space' : String(slot);
     const keyDisplay = alwaysReady ? 'Spc' : String(slot);
@@ -697,7 +804,9 @@ function abilityButtonEntries() {
       : '';
     const retriggerSuffix = retriggerWindowOpen ? ' ⚡ Re-press for buff!' : '';
     const title = `${ability.name} (${keyLabel}) — ${ability.description}${buffEffectSuffix}${cooldownSuffix}${damageSuffix}${retriggerSuffix}`;
-    const retriggerClass = retriggerWindowOpen ? ' battle-ability-button-retrigger' : '';
+    const retriggerClass = retriggerWindowOpen
+      ? ` battle-ability-button-retrigger${inRetriggerSweetSpot ? ' battle-ability-button-retrigger-sweetspot' : ''}`
+      : '';
     const html = actionButtonHtml({
       id: `btn-ability-${ability.id}`,
       icon: ability.icon,
@@ -720,11 +829,11 @@ function updateMenu() {
   // away with the dialog when battle-screen-swirl-out plays on the shared
   // .battle-screen-stack (see endBattle()).
   if (battleOver) return;
-  const ready = isReady(playerCombatant.atb);
   const hasUsableItem = hasUsableLoadoutItem();
   const attackDecayPercent = Math.round((1 - attackStreakMultiplier(attackStreak, getUnlockedAbilities(state.player.level).length)) * 100);
   const attackDecaySuffix = attackDecayPercent > 0 ? ` -${attackDecayPercent}%` : '';
   const attackCooldownPct = attackCooldownMs > 0 && attackCooldownTotalMs > 0 ? (attackCooldownMs / attackCooldownTotalMs) * 100 : 0;
+  const attackReadyPct = attackReadyRingPct(attackStreak, attackStreakIdleMs);
   const parryCooldownPct = parryCooldownMs > 0 && parryCooldownTotalMs > 0 ? (parryCooldownMs / parryCooldownTotalMs) * 100 : 0;
   const parryCooldownSuffix = parryCooldownMs > 0 ? ` — ${Math.ceil(parryCooldownMs / 1000)}s` : '';
   const abilityEntries = abilityButtonEntries();
@@ -754,8 +863,12 @@ function updateMenu() {
       icon: '👊',
       key: 'a',
       title: `Attack (a) — basic swing, no cooldown at first; repeated spam decays its damage toward a floor and eventually adds a brief cooldown${attackDecaySuffix}`,
-      disabled: attackCooldownMs > 0,
+      // playerStunDebuff already blocks playerAttack itself (see its own
+      // guard) - this just makes the button render disabled to match.
+      disabled: attackCooldownMs > 0 || !!playerStunDebuff,
       cooldownPct: attackCooldownPct,
+      readyRing: true,
+      readyRingPct: attackReadyPct,
     })}
     ${otherAbilitiesHtml}
     ${actionButtonHtml({
@@ -770,7 +883,6 @@ function updateMenu() {
       icon: '🏃',
       key: 'f',
       title: 'Flee (f) — retreat from the fight instantly; always works except against bosses',
-      disabled: !ready,
     })}
     </div>
   `;
@@ -788,6 +900,47 @@ function updateMenu() {
 
 const DAMAGE_NUMBER_DURATION_MS = 1400;
 const CRIT_SHAKE_DURATION_MS = 340;
+const POPUP_MIN_GAP_PX = 20;
+
+// A damage number and a Perfect!/Parry!/New Max! badge on the same target
+// used to spawn at fixed points with no idea the other existed - two hits
+// landing within DAMAGE_NUMBER_DURATION_MS rendered exactly on top of each
+// other for their whole lifetime (Timothy's recording, 2026-09-04: "-14"
+// stacked dead-center on "-15"), and a crit's own badge could land inside
+// its own number's flight path too. Fixed by giving every popup on a given
+// zone - number or badge alike - an *exclusive* horizontal column: each
+// asks claimPopupColumn() which side (left/right of the target) is
+// currently less crowded, then sits just past that side's furthest live
+// edge. Because no two live popups ever share a column, it doesn't matter
+// that damage numbers drift up to 110px upward over their lifetime while
+// badges sit still - there's no shared x for the drift to cross through.
+// Widths are measured from the real rendered element (not guessed), so a
+// 4-digit hit or a big crit automatically claims the room it actually
+// needs - see docs/superpowers/BACKLOG.md's "Battle Popup Lab" writeup for
+// the interactive mockup this was designed and approved against.
+
+function claimPopupColumn(zoneEl, halfWidth) {
+  let leftEdge = 0;
+  let rightEdge = 0;
+  for (const popup of livePopups) {
+    if (popup.zoneEl !== zoneEl) continue;
+    if (popup.side === 'L' && popup.edge > leftEdge) leftEdge = popup.edge;
+    if (popup.side === 'R' && popup.edge > rightEdge) rightEdge = popup.edge;
+  }
+  const side = leftEdge <= rightEdge ? 'L' : 'R';
+  const priorEdge = side === 'L' ? leftEdge : rightEdge;
+  const offset = (priorEdge === 0 ? POPUP_MIN_GAP_PX * 0.4 : priorEdge + POPUP_MIN_GAP_PX) + halfWidth;
+  return { side, offset, edge: offset + halfWidth };
+}
+
+function registerPopup(el, zoneEl, claim, durationMs) {
+  const entry = { el, zoneEl, side: claim.side, edge: claim.edge };
+  entry.timeoutId = setTimeout(() => {
+    el.remove();
+    livePopups = livePopups.filter((p) => p !== entry);
+  }, durationMs);
+  livePopups.push(entry);
+}
 
 function showDamageNumber(zoneEl, amount, isCrit) {
   // Fixed-positioned on <body> (from the zone's live screen position) rather
@@ -797,15 +950,17 @@ function showDamageNumber(zoneEl, amount, isCrit) {
   const numberEl = document.createElement('div');
   numberEl.textContent = `-${amount}`;
   numberEl.className = 'battle-damage-number' + (isCrit ? ' battle-damage-number-crit' : '');
-  numberEl.style.left = `${rect.left + rect.width / 2}px`;
-  numberEl.style.top = `${rect.top + 10}px`;
   numberEl.style.animationDuration = `${DAMAGE_NUMBER_DURATION_MS}ms`;
+  // Appended before positioning so getBoundingClientRect() below reflects
+  // this specific number's own real rendered width (font-size differs for
+  // a crit, and digit count differs hit to hit) - width doesn't depend on
+  // left/top, so measuring here and positioning a line later is safe.
   document.body.appendChild(numberEl);
-  const timeoutId = setTimeout(() => {
-    numberEl.remove();
-    liveDamageNumbers = liveDamageNumbers.filter((n) => n.timeoutId !== timeoutId);
-  }, DAMAGE_NUMBER_DURATION_MS);
-  liveDamageNumbers.push({ el: numberEl, timeoutId });
+  const claim = claimPopupColumn(zoneEl, numberEl.getBoundingClientRect().width / 2);
+  const centerX = rect.left + rect.width / 2;
+  numberEl.style.left = `${claim.side === 'L' ? centerX - claim.offset : centerX + claim.offset}px`;
+  numberEl.style.top = `${rect.top - 6}px`;
+  registerPopup(numberEl, zoneEl, claim, DAMAGE_NUMBER_DURATION_MS);
 }
 
 const PERFECT_TIMING_BADGE_MS = 900;
@@ -816,22 +971,22 @@ const PERFECT_TIMING_BADGE_MS = 900;
 // reason: escapes the dialog's `overflow: hidden` so it can rise clear of it.
 // `text`/`variantClass` let a landed parry reuse the same pop animation with
 // its own wording and color (see playParryEffect) instead of the generic
-// ability-timing-hit "PERFECT!" look.
+// ability-timing-hit "PERFECT!" look. Shares showDamageNumber's column
+// allocator (claimPopupColumn) so a badge and a number on the same target
+// never land on each other either - see that function's own comment.
 function playPerfectTimingEffect(zoneEl, text = 'PERFECT!', variantClass = null) {
   if (!zoneEl) return;
   const rect = zoneEl.getBoundingClientRect();
   const badgeEl = document.createElement('div');
   badgeEl.textContent = text;
   badgeEl.className = variantClass ? `battle-perfect-timing-badge ${variantClass}` : 'battle-perfect-timing-badge';
-  badgeEl.style.left = `${rect.left + rect.width / 2}px`;
-  badgeEl.style.top = `${rect.top + rect.height / 2}px`;
   badgeEl.style.animationDuration = `${PERFECT_TIMING_BADGE_MS}ms`;
   document.body.appendChild(badgeEl);
-  const timeoutId = setTimeout(() => {
-    badgeEl.remove();
-    livePerfectBadges = livePerfectBadges.filter((b) => b.timeoutId !== timeoutId);
-  }, PERFECT_TIMING_BADGE_MS);
-  livePerfectBadges.push({ el: badgeEl, timeoutId });
+  const claim = claimPopupColumn(zoneEl, badgeEl.getBoundingClientRect().width / 2);
+  const centerX = rect.left + rect.width / 2;
+  badgeEl.style.left = `${claim.side === 'L' ? centerX - claim.offset : centerX + claim.offset}px`;
+  badgeEl.style.top = `${rect.top - 34}px`;
+  registerPopup(badgeEl, zoneEl, claim, PERFECT_TIMING_BADGE_MS);
 }
 
 // Raised 2026-08-28: "that dialog moving for in battle stuff is too much" -
@@ -891,6 +1046,7 @@ function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
   emojiEl.classList.add('battle-hit-flash');
   zoneEl.classList.add('battle-hit-shake');
   showDamageNumber(zoneEl, amount, isCrit);
+  playSfx(isCrit ? 'hitCrit' : 'hitNormal');
   if (isCrit) {
     playCritReaction(elements.decoration);
   }
@@ -946,46 +1102,20 @@ function playMonsterAttackWindup(monster, monsterIndex) {
   }
 }
 
-// Slowed way down from the originally-shipped 220-350ms during live
-// troubleshooting 2026-08-30 (see the matching .battle-swing-sprite comment
-// in css/styles.css) - confirmed this reads much better, keeping it.
-const SWING_DURATION_MS = {
-  // ANIMATION-DESIGNER:attack:DURATION:START
-  attack: 1500,
-  // ANIMATION-DESIGNER:attack:DURATION:END
-  // ANIMATION-DESIGNER:stab:DURATION:START
-  stab: 1500,
-  // ANIMATION-DESIGNER:stab:DURATION:END
-  // ANIMATION-DESIGNER:chop:DURATION:START
-  chop: 1500,
-  // ANIMATION-DESIGNER:chop:DURATION:END
-  // ANIMATION-DESIGNER:slash:DURATION:START
-  slash: 1500,
-  // ANIMATION-DESIGNER:slash:DURATION:END
-};
-
-// Attack has no ability object/icon of its own to swing - falls back to
-// whatever's actually equipped (js/data/items.js's own emoji per weapon),
-// so an unarmed player (weapon slot unequipped via the inventory screen -
-// js/systems/inventory.js's unequipItem allows this) still gets *something*
-// rather than a blank sprite.
-function swingSpriteEmoji(ability) {
-  if (ability) return ability.icon;
-  const weaponId = state.equipment.weapon;
-  const weapon = ITEMS[weaponId];
-  // swingEmoji (js/data/items.js) overrides a weapon's own display emoji for
-  // this one purpose - a few weapons (Dragon Fang Blade, Fossil Fang,
-  // Vampiric Fang) use a body-part pun as their inventory icon, which reads
-  // fine in a gear list but not as a swung weapon.
-  return weapon?.swingEmoji || weapon?.emoji || '👊';
-}
-
-// Shared by every ability's generated case inside swingKeyframesFor below -
-// kept here as hand-written plumbing (not inside any ANIMATION-DESIGNER
-// marker block) since it's identical logic for every ability, not
-// per-ability data. Mirrors tools/animation-lab/keyframes.js's own
-// buildTransform() byte-for-byte - if one changes, change the other by
+// Shared by Sweep's own per-waypoint transform below (playPlayerSweepSwing) -
+// kept here as hand-written plumbing since it's identical logic regardless
+// of ability, not per-ability data. Mirrors tools/animation-lab/keyframes.js's
+// own buildTransform() byte-for-byte - if one changes, change the other by
 // hand and add a matching case to tests/animationLabKeyframes.test.js.
+// Impale/Sever/Lacerate/Attack used to share this too (a traveling glyph
+// sprite per ability), replaced 2026-09-04 with the decal effects below
+// (playImpaleDecal/playSeverDecal/playLacerateDecal/playAttackImpact) -
+// Timothy's own read on the old sprites was "no more emoji's for the
+// attacks... swords flying around." Sweep's own traveling sprite (a genuinely
+// different shape - one sprite passing through several live targets in
+// sequence) keeps using this pattern; tools/animation-lab/ itself is left
+// alone for now (Timothy: "stick to the plan... decide later" whether it's
+// worth teaching it to draw decals too).
 //
 // Pinned: rotates around the fixed `anchor` with the glyph riding a
 // rotating arm out to its keyframe position - the CSS transform function
@@ -1010,44 +1140,6 @@ function buildTransform(pinned, anchor, kf, dx, dy) {
     return `translate(-50%, -50%) translate(${ax}px, ${ay}px) rotate(${kf.rotate}deg) translate(${armX}px, ${armY}px) scale(${kf.scale})`;
   }
   return `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${kf.rotate}deg) scale(${kf.scale})`;
-}
-
-// Distinct motion per ability - a stab thrusts straight in, a chop arcs down
-// from overhead, a slash wipes diagonally across, and the bare Attack (no
-// ability, no icon) gets a smaller plain jab. dx/dy are the target zone's
-// center offset from the swing's start position (hero zone or, for a Sweep
-// waypoint, the previous target). Each case's ANIMATION literal is a
-// hand-transcribed copy of tools/animation-lab/designs/<ability>.json (see
-// buildTransform above) - Animation Lab (tools/animation-lab/) regenerates
-// the code between each case's ANIMATION-DESIGNER markers, it doesn't read
-// the JSON at runtime.
-function swingKeyframesFor(abilityId, dx, dy) {
-  switch (abilityId) {
-    // ANIMATION-DESIGNER:stab:KEYFRAMES:START
-    case 'stab': {
-      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":135,"scale":1},{"offset":0.5,"x":0,"y":0,"dxFactor":0.7,"dyFactor":0.7,"rotate":135,"scale":1},{"offset":1,"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":135,"scale":1}]};
-      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
-    }
-    // ANIMATION-DESIGNER:stab:KEYFRAMES:END
-    // ANIMATION-DESIGNER:chop:KEYFRAMES:START
-    case 'chop': {
-      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":40,"y":-50,"dxFactor":0.15,"dyFactor":0.15,"rotate":-30,"scale":1},{"offset":1,"x":-10,"y":10,"dxFactor":0.15,"dyFactor":0.15,"rotate":10,"scale":1}]};
-      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
-    }
-    // ANIMATION-DESIGNER:chop:KEYFRAMES:END
-    // ANIMATION-DESIGNER:slash:KEYFRAMES:START
-    case 'slash': {
-      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":-24,"y":-24,"dxFactor":1,"dyFactor":1,"rotate":-45,"scale":1},{"offset":1,"x":24,"y":24,"dxFactor":1,"dyFactor":1,"rotate":45,"scale":1}]};
-      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
-    }
-    // ANIMATION-DESIGNER:slash:KEYFRAMES:END
-    // ANIMATION-DESIGNER:attack:KEYFRAMES:START
-    default: {
-      const ANIMATION = {"pinned":false,"anchor":{"x":0,"y":0},"keyframes":[{"offset":0,"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":0,"scale":1},{"offset":0.5,"x":-15,"y":-20,"dxFactor":0.1,"dyFactor":0.1,"rotate":180,"scale":1},{"offset":1,"x":25,"y":-25,"dxFactor":0.15,"dyFactor":0.15,"rotate":360,"scale":1}]};
-      return ANIMATION.keyframes.map((kf) => ({ transform: buildTransform(ANIMATION.pinned, ANIMATION.anchor, kf, dx, dy), offset: kf.offset }));
-    }
-    // ANIMATION-DESIGNER:attack:KEYFRAMES:END
-  }
 }
 
 // Spawns one fixed-on-<body> emoji sprite that travels from startZoneEl to
@@ -1117,16 +1209,140 @@ function playHeroAttackLunge() {
 // Single-target swing: Attack (ability === null) or a non-AOE ability
 // (Stab/Chop/Slash). isCrit adds the afterimage trail on top of the base
 // swing - see spawnSwingTrail.
-function playPlayerSwing(ability, targetZoneEl, isCrit) {
+function swingSoundIdFor(ability) {
+  const bySwingId = {
+    stab: 'abilitySwingStab', chop: 'abilitySwingChop',
+    slash: 'abilitySwingSlash', sweep: 'abilitySwingSweep',
+    superScream: 'abilitySwingSuperScream',
+  };
+  return bySwingId[ability?.id] || null; // plain Attack makes no swing sound of its own - playHitEffect's hitNormal/hitCrit carries it
+}
+
+// Shared by every decal below: a fixed-position element anchored to
+// targetZoneEl's own current center, cleaned up via timeout the same way
+// everything else in liveSwingSprites is (unmount() sweeps them all up).
+// Never a sprite that travels between two zones (that's spawnSwingSprite,
+// still used by Sweep) - a decal is a mark that appears directly on the
+// target, on the target's own timing.
+function spawnFixedDecal(targetZoneEl, className, durationMs, { delayMs = 0, setup } = {}) {
+  const rect = targetZoneEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = className;
+  el.style.left = `${rect.left + rect.width / 2}px`;
+  el.style.top = `${rect.top + rect.height / 2}px`;
+  if (delayMs) el.style.animationDelay = `${delayMs}ms`;
+  if (setup) setup(el);
+  document.body.appendChild(el);
+  const timeoutId = setTimeout(() => {
+    el.remove();
+    liveSwingSprites = liveSwingSprites.filter((s) => s.timeoutId !== timeoutId);
+  }, durationMs + delayMs);
+  liveSwingSprites.push({ el, timeoutId });
+}
+
+// Raised 2026-09-04: "no more emoji's for the attacks... swords flying
+// around" plus a full mockup pass (see the published Battle FX & Shop Lab
+// artifact) choosing one drawn-on-the-target effect per ability, each tied
+// to its own name/mechanic, replacing the old traveling-glyph-sprite swing
+// for these four. `isEmpowered` is Faultline's own widen buff being active
+// (widenBuffState) - Timothy's own call: "when our attacks become empowered
+// for AOE we should enhance the effects even more... bigger and chunkier,"
+// so it reuses the same size escalation as a crit rather than needing its
+// own separate design pass.
+
+const IMPALE_DECAL_MS = 320;
+
+// Impale ("a strong, precise thrust"): two crossing strokes, thrust-straight-
+// in - a crit steps up to four crossing strokes, bigger and thicker
+// (Timothy's own spec), not just a size bump on the same two.
+function playImpaleDecal(targetZoneEl, isCrit, isEmpowered = false) {
+  const big = isCrit || isEmpowered;
+  const angles = isCrit ? [24, -24, 66, -66] : [28, -28];
+  angles.forEach((deg, i) => {
+    spawnFixedDecal(targetZoneEl, `battle-impale-stroke${big ? ' battle-impale-stroke-big' : ''}`, IMPALE_DECAL_MS, {
+      delayMs: i * 60,
+      setup: (el) => el.style.setProperty('--angle', `${deg}deg`),
+    });
+  });
+}
+
+const SEVER_DECAL_MS = 420;
+
+// Sever ("cuts through into a second target"): one curved arc swinging down
+// from overhead, like the axe's own edge caught mid-swing - a crit/empowered
+// hit gets a second, offset arc a beat later rather than just a size bump,
+// same "escalate, don't just repeat" idea the old crit trail used.
+function playSeverDecal(targetZoneEl, isCrit, isEmpowered = false) {
+  const big = isCrit || isEmpowered;
+  spawnFixedDecal(targetZoneEl, `battle-sever-arc${big ? ' battle-sever-arc-big' : ''}`, SEVER_DECAL_MS);
+  if (big) spawnFixedDecal(targetZoneEl, 'battle-sever-arc battle-sever-arc-big', SEVER_DECAL_MS, { delayMs: 90 });
+}
+
+const LACERATE_CLAW_MS = 420;
+const LACERATE_DROP_MS = 700;
+const LACERATE_CLAW_VARIANTS = ['battle-lacerate-claw-1', 'battle-lacerate-claw-2', 'battle-lacerate-claw-3'];
+const LACERATE_DROP_VARIANTS = ['battle-lacerate-drop-1', 'battle-lacerate-drop-2', 'battle-lacerate-drop-3'];
+
+// Lacerate ("bleeds for extra damage a moment later"): three raking claw
+// strokes plus a couple of drops falling from the cut - a direct visual
+// callback to the delayed bleed tick, combining both options from the
+// mockup pass rather than picking just one.
+function playLacerateDecal(targetZoneEl, isCrit, isEmpowered = false) {
+  const big = isCrit || isEmpowered;
+  LACERATE_CLAW_VARIANTS.forEach((variant, i) => {
+    spawnFixedDecal(targetZoneEl, `battle-lacerate-claw ${variant}${big ? ' battle-lacerate-claw-big' : ''}`, LACERATE_CLAW_MS, { delayMs: i * 70 });
+  });
+  LACERATE_DROP_VARIANTS.forEach((variant, i) => {
+    spawnFixedDecal(targetZoneEl, `battle-lacerate-drop ${variant}`, LACERATE_DROP_MS, { delayMs: 260 + i * 80 });
+  });
+}
+
+const ATTACK_IMPACT_MS = 380;
+
+// Basic Attack's own hit mark - a shockwave ring on the target, replacing
+// the white slash mark it briefly had (2026-09-04: "let's change that
+// animation... i like shockwave ring" from the mockup pass's punch-effect
+// options). The target's own zone already shakes on every hit regardless
+// (playHitEffect's battle-hit-shake), so this needs no shake of its own.
+function playAttackImpact(targetZoneEl, isCrit, isEmpowered = false) {
+  const big = isCrit || isEmpowered;
+  spawnFixedDecal(targetZoneEl, `battle-attack-ring${big ? ' battle-attack-ring-big' : ''}`, ATTACK_IMPACT_MS);
+  if (big) spawnFixedDecal(targetZoneEl, 'battle-attack-ring battle-attack-ring-big', ATTACK_IMPACT_MS, { delayMs: 90 });
+}
+
+function playPlayerSwing(ability, targetZoneEl, isCrit, isEmpowered = false) {
   playHeroAttackLunge();
-  const emoji = swingSpriteEmoji(ability);
-  const durationMs = SWING_DURATION_MS[ability?.id || 'attack'] || 250;
-  const keyframesFn = (dx, dy) => swingKeyframesFor(ability?.id, dx, dy);
-  spawnSwingSprite(emoji, 'battle-swing-sprite', elements.heroZone, targetZoneEl, keyframesFn, durationMs);
-  if (isCrit) spawnSwingTrail(emoji, 'battle-swing-sprite', elements.heroZone, targetZoneEl, keyframesFn, durationMs);
+  const swingSoundId = swingSoundIdFor(ability);
+  if (swingSoundId) playSfx(swingSoundId);
+  if (!ability) {
+    playAttackImpact(targetZoneEl, isCrit, isEmpowered);
+    return;
+  }
+  switch (ability.id) {
+    case 'stab':
+      playImpaleDecal(targetZoneEl, isCrit, isEmpowered);
+      return;
+    case 'chop':
+      playSeverDecal(targetZoneEl, isCrit, isEmpowered);
+      return;
+    case 'slash':
+      playLacerateDecal(targetZoneEl, isCrit, isEmpowered);
+      return;
+    default:
+      // Sweep uses playPlayerSweepSwing instead (a genuinely different
+      // shape - one sprite through several live targets); Super Scream
+      // (buff type) never swings at all.
+  }
 }
 
 const SWEEP_STAGGER_MS = 260;
+
+// Slightly quicker than Sweep's own stagger (260ms) - Sweep's is one big
+// sprite visibly traveling between waypoints, so it needs more time per hop
+// to read; a single extra target here (Sever's own bonus target, or a
+// widened ability) just needs enough of a beat to not look simultaneous
+// with the primary hit. See playerUseAbility's own comment at its call site.
+const EXTRA_TARGET_STAGGER_MS = 140;
 
 // ANIMATION-DESIGNER:sweep:PROFILES:START
 const SWEEP_PROFILES = {"default":{"pinned":false,"anchor":{"x":0,"y":0},"leadIn":{"x":0,"y":0,"dxFactor":0,"dyFactor":0,"rotate":0,"scale":1},"perWaypoint":{"x":0,"y":0,"dxFactor":1,"dyFactor":1,"rotateStep":120,"scale":1}},"overrides":{}};
@@ -1144,7 +1360,7 @@ function sweepProfileFor(targetCount) {
 // big sweep through the whole line regardless of how any single hit rolls.
 function playPlayerSweepSwing(ability, targetZoneEls) {
   playHeroAttackLunge();
-  const emoji = swingSpriteEmoji(ability);
+  const emoji = ability.icon; // abilities always swing their own fixed icon, independent of the equipped weapon
   const profile = sweepProfileFor(targetZoneEls.length);
   const totalDurationMs = targetZoneEls.length * SWEEP_STAGGER_MS;
   const startRect = elements.heroZone.getBoundingClientRect();
@@ -1206,6 +1422,7 @@ function playReviveEffect(emojiEl) {
   // glow's own keyframes also animate box-shadow rather than filter, so it
   // doesn't fight battle-hit-flash's filter on the emoji either.
   emojiEl.classList.add('battle-revive-glow');
+  playSfx('revive');
 }
 
 // Global sweep, not a targeted parry: every monster currently sitting in
@@ -1217,22 +1434,52 @@ function playReviveEffect(emojiEl) {
 // keyboard shortcut and the action row's Parry button (added 2026-08-31)
 // so both trigger identical behavior rather than two slightly-different
 // parry paths.
+// Shared by the per-monster ATB-bar/parry-hint click handlers (mount()) so a
+// targeted click resolves identically to the single-mob branch of
+// attemptParry() below. Before this existed, a click unconditionally called
+// resolveMonsterWindup(mc, true) with no pre-check - a mistimed click (before
+// the zone) still passed requireZone's default of true, but resolveMonsterWindup
+// itself falls through to monsterAttack() on a failed zone check, forcing that
+// monster's attack to resolve immediately instead of leaving its windup to
+// finish naturally the way an early 's' press does (attemptParry only calls
+// resolveMonsterWindup at all once resolveParryAttempt has already passed).
+// Confirmed via a jsdom repro: an early click logged an immediate hit that an
+// equally early 's' press never produced. Fixed by giving the click path the
+// same pre-check-then-call shape.
+function attemptParryOnMonster(mc) {
+  if (parryCooldownMs > 0) return;
+  parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
+  if (mc.windup.active && resolveParryAttempt(windupElapsedPercent(mc.windup), playerEffectBonuses.parryWindowBonusPercent)) {
+    resolveMonsterWindup(mc, true);
+  }
+  updateMenu();
+}
+
 function attemptParry() {
   if (battleOver || parryCooldownMs > 0) return;
   parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
   const aliveMonsters = monsterCombatants.filter((mc) => mc.hp > 0);
   const isMultiMob = aliveMonsters.length > 1;
+  // Raised 2026-09-04: "when you parry multi mob the parries all overlap and
+  // look bad" - each parried monster used to fire its own PARRY! badge/flash
+  // on the hero's own zone (resolveMonsterWindup's playHeroEffect), so
+  // catching three mid-windup monsters in one press stacked three badges on
+  // the exact same spot. playHeroEffect: false below skips that per-monster
+  // call; one shared effect fires after the loop instead, if anything
+  // actually landed.
+  let anyParried = false;
   for (const mc of aliveMonsters) {
     if (!mc.windup.active) continue;
     if (isMultiMob) {
       // No zone requirement in multi-mob - catching everyone currently
       // mid-wind-up is the whole point of this rework (see the design
       // doc's Purpose section).
-      resolveMonsterWindup(mc, true, { requireZone: false });
-    } else if (resolveParryAttempt(windupElapsedPercent(mc.windup))) {
-      resolveMonsterWindup(mc, true);
+      if (resolveMonsterWindup(mc, true, { requireZone: false, playHeroEffect: false })) anyParried = true;
+    } else if (resolveParryAttempt(windupElapsedPercent(mc.windup), playerEffectBonuses.parryWindowBonusPercent)) {
+      if (resolveMonsterWindup(mc, true, { playHeroEffect: false })) anyParried = true;
     }
   }
+  if (anyParried) playParryEffect(elements.heroZone, elements.heroEmoji);
   // Explicit re-render: resolveMonsterWindup() above already calls
   // updateMenu() when it actually resolves a monster, but a total whiff
   // (cooldown just started, nothing was in its zone) would otherwise wait
@@ -1245,6 +1492,12 @@ function attemptParry() {
 function handleKeydown(event) {
   if (battleOver) return;
   const key = event.key;
+  // dialogChrome's own bindEscapeClose (attached in openFalloffExplainer)
+  // handles Escape-to-close on its own window listener - every other key
+  // just no-ops here, same intent as the battlePaused check below but
+  // checked first since 'p' shouldn't toggle pause independently while this
+  // is open.
+  if (explainerOpen) return;
   if (itemMenuOpen) {
     handleItemMenuKeydown(event);
     return;
@@ -1277,17 +1530,15 @@ function handleKeydown(event) {
     return;
   }
   if (event.code === 'Space') {
-    // Super Scream lives on Space instead of a digit key, and unlike every
-    // other ability it's exempt from the swing-timer-ready gate entirely -
-    // see canUseAbility's alwaysReady param. The existing abilityActionInFlight
-    // guard inside playerUseAbility already keeps this safe if Space is
-    // pressed while another ability's resolution is still in flight: that
-    // call just no-ops.
+    // Super Scream lives on Space instead of a digit key. The existing
+    // abilityActionInFlight guard inside playerUseAbility already keeps
+    // this safe if Space is pressed while another ability's resolution is
+    // still in flight: that call just no-ops.
     event.preventDefault();
     const superScream = ABILITIES.find((a) => a.id === 'superScream');
     const locked = state.player.level < superScream.unlockLevel;
     const onCooldown = (abilityCooldowns[superScream.id] || 0) > 0;
-    if (canUseAbility({ locked, onCooldown, ready: isReady(playerCombatant.atb), alwaysReady: true })) {
+    if (canUseAbility({ locked, onCooldown })) {
       playerUseAbility(superScream.id);
     }
     return;
@@ -1295,14 +1546,13 @@ function handleKeydown(event) {
   if (key === 'a' || key === 'A') {
     playerAttack();
   } else if (key === 'Escape' || key === 'f' || key === 'F') {
-    if (!isReady(playerCombatant.atb)) return;
     playerFlee();
   } else if (key >= '1' && key <= '4') {
     const ability = getUnlockedAbilities(state.player.level)[Number(key) - 1];
     if (!ability) return;
     const onCooldown = (abilityCooldowns[ability.id] || 0) > 0;
     const retriggerWindowOpen = ability.id === 'slash' && lacerateRetriggerOpen;
-    if (canUseAbility({ locked: false, onCooldown, ready: isReady(playerCombatant.atb), retriggerWindowOpen })) {
+    if (canUseAbility({ locked: false, onCooldown, retriggerWindowOpen })) {
       playerUseAbility(ability.id);
     }
   }
@@ -1330,10 +1580,16 @@ function resolveOneAttack(countsTowardStreak) {
     attackStreakIdleMs = 0;
     attackCooldownMs = attackCooldownMsForStreak(attackStreak);
     attackCooldownTotalMs = attackCooldownMs;
+    // Spamming Attack now bleeds into the abilities' own shared GCD too, not
+    // just Attack's own cooldown above - see attackStreakGcdBonusMs's own
+    // comment in js/systems/combat.js for why. usedAbilityId: null means no
+    // ability gets its per-ability overrideCooldownMs floor here, just the
+    // plain GCD applied uniformly.
+    const gcdMs = abilityGcdMsForSpeed(playerCombatant.speed) + attackStreakGcdBonusMs(attackStreak);
+    ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(state.player.level), null, gcdMs, abilityCooldownTotals));
   }
   target.hp = result.monsterHp;
   target.atb = result.monsterAtb;
-  playerCombatant.atb = result.playerAtb;
   maybeMarkSplitDeath(target, result);
   log.push(result.isCrit
     ? `Critical! You hit ${target.name} for ${result.damage}!`
@@ -1353,13 +1609,20 @@ function resolveOneAttack(countsTowardStreak) {
   playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
   recordPlayerDamage('attack', result.damage, elements.monsterZones[targetIndex]);
   applyOnHitEffects(target, result.damage, streakMultiplier);
+  if (countsTowardStreak && state.settings.featureFlags?.mechanicExplainersBeta) {
+    const alreadySeenFalloff = hasSeenScreen(state.seenScreens, ATTACK_FALLOFF_SEEN_KEY);
+    if (attackFalloffJustTriggered(streakMultiplier, alreadySeenFalloff)) {
+      state.seenScreens = markScreenSeen(state.seenScreens, ATTACK_FALLOFF_SEEN_KEY);
+      openFalloffExplainer();
+    }
+  }
 }
 
 function playerAttack() {
   // Same re-entrancy hazard as playerUseAbility's own guard, but from the other
-  // direction: while an ability's timing meter is pending, playerCombatant.atb
-  // hasn't been reset and updateMenu() hasn't re-rendered, so Attack (button or
-  // the 'a' keydown path) is still clickable/pressable. Left unguarded, a
+  // direction: while an ability's timing meter is pending, updateMenu()
+  // hasn't re-rendered yet, so Attack (button or the 'a' keydown path) is
+  // still clickable/pressable. Left unguarded, a
   // resolvePlayerAttack() here could end the battle (checkOutcome -> endBattle)
   // while the pending ability's await is still outstanding - see the
   // `if (battleOver) return;` added after that await below for the other half
@@ -1369,7 +1632,7 @@ function playerAttack() {
   // without it, clicking a still-visible-but-inert button during the
   // post-battle pause would re-run a real attack against an already-over
   // battle and call checkOutcome() -> endBattle() a second time.
-  if (battleOver || battlePaused) return;
+  if (battleOver || battlePaused || playerStunDebuff) return;
   if (abilityActionInFlight || attackCooldownMs > 0) return;
   resolveOneAttack(true);
   updateHpBars();
@@ -1400,7 +1663,7 @@ function playerAttack() {
 
 async function playerUseAbility(abilityId) {
   // See playerAttack's own comment on this same guard.
-  if (battleOver || battlePaused) return;
+  if (battleOver || battlePaused || playerStunDebuff) return;
   // Deliberately checked, and acted on, before the abilityActionInFlight
   // guard below - a well-timed Lacerate re-press must land even while
   // Lacerate's own prior press is still "in flight" (it isn't, by the time
@@ -1426,8 +1689,9 @@ async function playerUseAbility(abilityId) {
   try {
     const ability = ABILITIES.find((a) => a.id === abilityId);
     logEvent('ability_used', { abilityId, inBattle: true, ngPlusCycle: state.ngPlusCycle });
+    const gcdMs = abilityGcdMsForSpeed(playerCombatant.speed);
     if (ability.type === 'buff') {
-      buffState = activateBuff(ability);
+      buffState = activateBuff(ability, ability.id);
       abilityCooldowns[abilityId] = ability.cooldownMs;
       attackStreak = 0;
       attackStreakIdleMs = 0;
@@ -1446,7 +1710,7 @@ async function playerUseAbility(abilityId) {
         .map((mc, i) => i)
         .filter((i) => monsterCombatants[i].hp > 0);
       const debuffSnapshots = targetIndices.map((i) => monsterCombatants[i].defenseDebuff);
-      abilityCooldowns[abilityId] = ability.cooldownMs;
+      ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(state.player.level), abilityId, gcdMs, abilityCooldownTotals));
       attackStreak = 0;
       attackStreakIdleMs = 0;
       const livingIndices = targetIndices.filter((i) => monsterCombatants[i].hp > 0);
@@ -1460,7 +1724,6 @@ async function playerUseAbility(abilityId) {
         const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(mc, debuffSnapshots[n]), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
         mc.hp = result.monsterHp;
         mc.atb = result.monsterAtb;
-        playerCombatant.atb = result.playerAtb;
         maybeMarkSplitDeath(mc, result);
         mc.defenseDebuff = createDefenseDebuff(ability);
         log.push(result.isCrit
@@ -1491,9 +1754,8 @@ async function playerUseAbility(abilityId) {
     const result = resolveAbilityUse(playerCombatant, applyDefenseDebuff(target, defenseDebuffAtPress), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
     target.hp = result.monsterHp;
     target.atb = result.monsterAtb;
-    playerCombatant.atb = result.playerAtb;
     maybeMarkSplitDeath(target, result);
-    abilityCooldowns[abilityId] = ability.cooldownMs;
+    ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(abilityCooldowns, getUnlockedAbilities(state.player.level), abilityId, gcdMs, abilityCooldownTotals));
     attackStreak = 0;
     attackStreakIdleMs = 0;
     if (ability.id === 'slash') {
@@ -1503,13 +1765,22 @@ async function playerUseAbility(abilityId) {
     log.push(result.isCrit
       ? `Critical! You use ${ability.name} on ${target.name} for ${result.damage}!`
       : `You use ${ability.name} on ${target.name} for ${result.damage}.`);
-    playPlayerSwing(ability, elements.monsterZones[targetIndex], result.isCrit);
+    playPlayerSwing(ability, elements.monsterZones[targetIndex], result.isCrit, widenActive);
     playHitEffect(elements.monsterZones[targetIndex], elements.monsterEmojis[targetIndex], result.damage, result.isCrit);
     recordPlayerDamage(abilityId, result.damage, elements.monsterZones[targetIndex]);
     applyOnHitEffects(target, result.damage);
+    // Raised 2026-09-04: extra targets (Sever's own extraTargetCount, or any
+    // ability widened by Faultline's buff) used to get no swing of their
+    // own at all here - only playHitEffect's flash, with zero delay from the
+    // primary hit. That's why multi-target hits read as one simultaneous
+    // AoE tick instead of the character actually swinging at each one in
+    // turn. EXTRA_TARGET_STAGGER_MS spaces them out a beat apart instead, so
+    // it reads as the hero swinging at each one in sequence.
     for (const extraIndex of extraTargetIndices) {
       const extraTarget = monsterCombatants[extraIndex];
       if (extraTarget.hp <= 0) continue;
+      await sleep(EXTRA_TARGET_STAGGER_MS);
+      if (battleOver || unmounted) return;
       const extraResult = resolveAbilityUse(playerCombatant, applyDefenseDebuff(extraTarget, extraTarget.defenseDebuff), ability, buffActiveAtPress, Math.random, consumeGuaranteedCritBonus());
       extraTarget.hp = extraResult.monsterHp;
       extraTarget.atb = extraResult.monsterAtb;
@@ -1520,9 +1791,13 @@ async function playerUseAbility(abilityId) {
       log.push(extraResult.isCrit
         ? `Critical! You use ${ability.name} on ${extraTarget.name} for ${extraResult.damage}!`
         : `You use ${ability.name} on ${extraTarget.name} for ${extraResult.damage}.`);
+      playPlayerSwing(ability, elements.monsterZones[extraIndex], extraResult.isCrit, widenActive);
       playHitEffect(elements.monsterZones[extraIndex], elements.monsterEmojis[extraIndex], extraResult.damage, extraResult.isCrit);
       recordPlayerDamage(abilityId, extraResult.damage, elements.monsterZones[extraIndex]);
       applyOnHitEffects(extraTarget, extraResult.damage);
+      updateHpBars();
+      updateAtbBars();
+      updateLog();
     }
     updateHpBars();
     updateAtbBars();
@@ -1542,7 +1817,6 @@ function playerFlee() {
   if (abilityActionInFlight) return;
   if (monsterIds.some((id) => MONSTERS[id].isBoss)) {
     log.push('You cannot flee from this battle!');
-    playerCombatant.atb = 0;
     updateAtbBars();
     updateLog();
     updateMenu();
@@ -1568,7 +1842,7 @@ function applyMonsterAttackImpact(monster, result) {
   checkOutcome();
 }
 
-function monsterAttack(monster) {
+function monsterAttack(monster, special = null) {
   const result = resolveMonsterAttack(monster, playerCombatant, Math.random, playerEffectBonuses.thornsPercent);
   playerCombatant.hp = result.playerHp;
   if (playerCombatant.hp <= 0 && secondWindAvailable) {
@@ -1576,7 +1850,6 @@ function monsterAttack(monster) {
     playerCombatant.hp = 1;
     log.push('Second Wind kicks in! You survive with 1 HP.');
   }
-  playerCombatant.atb = result.playerAtb;
   monster.atb = result.monsterAtb;
   monster.hp = result.monsterHp;
   const monsterIndex = monsterCombatants.indexOf(monster);
@@ -1591,35 +1864,73 @@ function monsterAttack(monster) {
   // unreliable - real regression from adding the projectile animation,
   // not his timing.
   applyMonsterAttackImpact(monster, result);
+  if (special) applySpecialAttackEffect(monster, special);
 }
 
-function resolveMonsterWindup(monster, parried, { requireZone = true } = {}) {
-  if (battleOver || battlePaused) return;
-  if (monster.hp <= 0) return;
-  if (!monster.windup.active) return;
+// Applies a superboss's special-attack effect on top of the normal hit
+// that already landed above - only reached when the parry was missed or
+// not attempted (resolveMonsterWindup never calls monsterAttack on a
+// successful parry).
+function applySpecialAttackEffect(monster, special) {
+  // Clamped to 0: a future item/upgrade combination pushing
+  // debuffDurationPercent past 100 should floor the debuff at "instant",
+  // not go negative.
+  const durationMs = Math.max(0, Math.round(special.durationMs * (1 - playerEffectBonuses.debuffDurationPercent / 100)));
+  if (special.type === 'slow') {
+    playerSlowDebuff = createPlayerSlowDebuff(special.slowPercent, durationMs);
+    log.push(`${monster.name}'s attack slows you down!`);
+  } else if (special.type === 'stun') {
+    playerStunDebuff = createPlayerStunDebuff(durationMs);
+    log.push(`${monster.name}'s attack leaves you reeling!`);
+  } else if (special.type === 'cooldownOverload') {
+    ({ cooldowns: abilityCooldowns, totals: abilityCooldownTotals } = applyAbilityGcd(
+      abilityCooldowns, getUnlockedAbilities(state.player.level), null, special.gcdMs, abilityCooldownTotals
+    ));
+    log.push(`${monster.name}'s attack disrupts your rotation!`);
+  }
+  updateLog();
+  updateMenu();
+}
+
+// playHeroEffect: false lets a caller resolving several monsters in one
+// pass (attemptParry's multi-mob loop) suppress this function's own
+// hero-side PARRY! badge/flash and fire one shared effect itself instead -
+// see attemptParry's own comment for why. Returns whether this call actually
+// landed a parry, so that caller knows whether to fire its shared effect.
+function resolveMonsterWindup(monster, parried, { requireZone = true, playHeroEffect = true } = {}) {
+  if (battleOver || battlePaused) return false;
+  if (monster.hp <= 0) return false;
+  if (!monster.windup.active) return false;
   const elapsedPercent = windupElapsedPercent(monster.windup);
   monster.windup = createWindupState();
+  const special = monster.pendingSpecialAttack;
+  monster.pendingSpecialAttack = null;
   const index = monsterCombatants.indexOf(monster);
-  if (parried && (!requireZone || resolveParryAttempt(elapsedPercent))) {
+  if (parried && (!requireZone || resolveParryAttempt(elapsedPercent, playerEffectBonuses.parryWindowBonusPercent))) {
     const { damage, isCrit } = rollIncomingDamage(monster, playerCombatant);
     const result = resolveParrySuccess(monster, damage);
     monster.hp = result.monsterHp;
     monster.atb = result.monsterAtb;
-    log.push(`You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
+    log.push(special
+      ? `You parry ${monster.name}'s strange attack and negate it, striking back for ${result.reflectedDamage}!`
+      : `You parry ${monster.name}'s attack and strike back for ${result.reflectedDamage}!`);
     // Same ordering fix as playerAttack/playerUseAbility: play the hit effect
     // before updateHpBars() hides a killed monster's slot. isCrit is `true`
     // here (not a rolled crit) so a landed parry gets the same shake/flash
     // punch as one - "perfect timing" is exactly what a parry read is.
     playHitEffect(elements.monsterZones[index], elements.monsterEmojis[index], result.reflectedDamage, true);
-    playParryEffect(elements.heroZone, elements.heroEmoji);
+    if (playHeroEffect) playParryEffect(elements.heroZone, elements.heroEmoji);
     updateHpBars();
     updateLog();
     checkOutcome();
-  } else {
-    monsterAttack(monster);
+    updateAtbBars();
+    updateMenu();
+    return true;
   }
+  monsterAttack(monster, special);
   updateAtbBars();
   updateMenu();
+  return false;
 }
 
 function checkOutcome() {
@@ -1632,17 +1943,14 @@ function checkOutcome() {
 
 function tick() {
   if (battleOver) return;
+  lastTickAt = Date.now();
   battleElapsedMs += 300;
   updateDpsDisplay();
-  playerCombatant.atb = tickGauge(playerCombatant.atb, playerCombatant.speed, 1);
   // Attack's decayed streak only resets passively after a sustained
   // real-time idle stretch with no Attack presses (ATTACK_STREAK_RECOVERY_MS) -
-  // deliberately slow, and deliberately decoupled from the ATB gauge above:
-  // that gauge caps at ATB_MAX and abilities read the same value for their
-  // own readiness, so it can't be pushed further to represent a slower
-  // recharge on its own. Landing an ability still resets the streak
-  // instantly (elsewhere in this file) - only the "just wait it out" path
-  // is slow.
+  // deliberately slow on purpose. Landing an ability still resets the
+  // streak instantly (elsewhere in this file) - only the "just wait it
+  // out" path is slow.
   if (attackStreak > 0) {
     attackStreakIdleMs += 300;
     if (attackStreakIdleMs >= ATTACK_STREAK_RECOVERY_MS) {
@@ -1654,13 +1962,9 @@ function tick() {
   parryCooldownMs = Math.max(0, parryCooldownMs - 300);
   abilityCooldowns = tickCooldowns(abilityCooldowns, 300);
   buffState = tickBuff(buffState, 300);
-  if (lacerateRetriggerOpen) {
-    const lacerate = ABILITIES.find((a) => a.id === 'slash');
-    if (performance.now() - lacerateRetriggerStartedAt >= lacerate.retrigger.windowMs) {
-      closeLacerateRetriggerWindow();
-    }
-  }
   widenBuffState = tickDefenseDebuff(widenBuffState, 300);
+  playerSlowDebuff = tickPlayerSlowDebuff(playerSlowDebuff, 300);
+  playerStunDebuff = tickPlayerStunDebuff(playerStunDebuff, 300);
   activeBuffs = tickActiveBuffs(activeBuffs, 300);
   recomputeEffectBonuses();
 
@@ -1669,6 +1973,11 @@ function tick() {
     mc.atb = tickGauge(mc.atb, mc.speed, 1);
     if (isReady(mc.atb) && !mc.windup.active) {
       mc.windup = startWindup();
+      mc.pendingSpecialAttack = rollSpecialAttack(mc.specialAttacks);
+      if (mc.pendingSpecialAttack) {
+        log.push(`${mc.name} winds up for something different...`);
+        updateLog();
+      }
       // Kick off the real-time fill animation at the exact instant the
       // windup starts, rather than waiting for the next updateAtbBars()
       // poll - see the battle-windup-fill comment in css/styles.css.
@@ -1720,6 +2029,19 @@ function tick() {
   updateBuffIndicator();
   updateWidenIndicator();
   updatePotionBuffIndicator();
+  // Checked right after rendering, not before it, so the tick whose real
+  // elapsed time first lands at/past windowMs still gets to render once
+  // more with the window state that produced it (e.g. the sweet-spot flash
+  // class in abilityButtonEntries()) before the flag flips - closing it
+  // ahead of updateMenu() used to cut that last render off before it could
+  // ever show, since a 1200ms window and 300ms ticks can put the boundary
+  // tick exactly at windowMs.
+  if (lacerateRetriggerOpen) {
+    const lacerate = ABILITIES.find((a) => a.id === 'slash');
+    if (performance.now() - lacerateRetriggerStartedAt >= lacerate.retrigger.windowMs) {
+      closeLacerateRetriggerWindow();
+    }
+  }
 }
 
 // Freezes everything that decides a battle outcome: the 300ms tick (ATB
@@ -1801,7 +2123,7 @@ function resumeBattle() {
 }
 
 function toggleBattlePause() {
-  if (itemMenuOpen) return;
+  if (itemMenuOpen || explainerOpen) return;
   if (battlePaused) resumeBattle();
   else pauseBattle();
 }
@@ -1823,6 +2145,14 @@ function endBattle(outcome) {
     itemMenuOpen = false;
     elements.itemMenuOverlay.hidden = true;
     clearItemMenuAutoCloseTimer();
+  }
+  if (explainerOpen) {
+    explainerOpen = false;
+    elements.explainerOverlay.hidden = true;
+    unbindExplainerEscape?.();
+    unbindExplainerBackdrop?.();
+    unbindExplainerEscape = null;
+    unbindExplainerBackdrop = null;
   }
   clearInterval(intervalId);
   state.player.hp = playerCombatant.hp;
@@ -1851,6 +2181,66 @@ function endBattle(outcome) {
   }, exitAnimDelayMs + EXIT_ANIM_MS);
 }
 
+// Smooths the cooldown "clock wipe" (css/styles.css's conic-gradient on
+// .battle-ability-cooldown-wipe) between tick()'s own 300ms steps, which is
+// otherwise the only thing that ever updates --pct - visibly chunky at
+// 300ms granularity (raised 2026-09-03: "make the cooldown indication a
+// smooth animation instead of just big chunks suddenly going away"). Can't
+// use a plain CSS transition here: updateMenu() rebuilds each button's
+// entire subtree (including the wipe div) from scratch every tick, so
+// there's no persisting element for a transition to animate between values
+// on. Instead this runs its own requestAnimationFrame loop, independent of
+// the 300ms tick, and writes directly to whichever wipe element currently
+// exists in the DOM (found by id - see actionButtonHtml) - same
+// real-elapsed-time-since-the-last-known-good-value approach as the parry
+// windup's own real-time fill (js/systems/parry.js), just for a cosmetic
+// value instead of a fairness-critical one. Purely visual: the underlying
+// cooldown accounting (abilityCooldowns/attackCooldownMs/parryCooldownMs)
+// is untouched, still ticked in fixed 300ms steps by tick() itself.
+function animateCooldownWipes() {
+  cooldownWipeAnimFrameId = requestAnimationFrame(animateCooldownWipes);
+  if (battleOver || unmounted) return;
+  // While hard-paused (P key, timeScale 0) tick() stops firing entirely, so
+  // "time since the last tick" would otherwise grow without bound and drag
+  // every wipe down to 0% while paused - freeze instead (elapsed 0). At a
+  // fractional timeScale (slow-mo), tick() still fires, just on a longer
+  // interval (300 / pauseTimeScale) - clamp to that instead of the normal
+  // 300 so the interpolation window matches how far apart ticks actually
+  // are right now.
+  const intervalMs = battlePaused ? (pauseTimeScale > 0 ? 300 / pauseTimeScale : Infinity) : 300;
+  const elapsed = intervalMs === Infinity ? 0 : Math.min(Math.max(0, Date.now() - lastTickAt), intervalMs);
+
+  const setWipePct = (id, remainingMs, totalMs) => {
+    if (remainingMs <= 0 || totalMs <= 0) return;
+    const smoothedRemaining = Math.max(0, remainingMs - elapsed);
+    const pct = String((smoothedRemaining / totalMs) * 100);
+    const wipeEl = document.getElementById(`${id}-wipe`);
+    if (wipeEl) wipeEl.style.setProperty('--pct', pct);
+  };
+
+  // Attack's ready-ring runs on its own timer (attackReadyRingPct in
+  // combat.js), separate from the swing cooldown setWipePct above smooths -
+  // idleMs counts UP toward recovery instead of counting down, so it can't
+  // share setWipePct's countdown math. Skipped entirely once the streak is
+  // already 0: the ring is already frozen fully-closed/glowing from the last
+  // updateMenu() rebuild and there's nothing left to interpolate toward.
+  if (attackStreak > 0) {
+    const smoothedIdleMs = Math.min(ATTACK_STREAK_RECOVERY_MS, attackStreakIdleMs + elapsed);
+    const ringEl = document.getElementById('btn-attack-ready-ring');
+    if (ringEl) ringEl.style.setProperty('--pct', String(attackReadyRingPct(attackStreak, smoothedIdleMs)));
+  }
+
+  // Buff-type abilities (Super Scream) skip the shared GCD (applyAbilityGcd
+  // explicitly leaves them alone) but tick() still decrements their own
+  // fixed cooldownMs the same chunky way, so they get smoothed here too -
+  // same cooldownPct denominator fallback as abilityButtonEntries above.
+  for (const ability of ABILITIES) {
+    setWipePct(`btn-ability-${ability.id}`, abilityCooldowns[ability.id] || 0, abilityCooldownTotals[ability.id] || ability.cooldownMs);
+  }
+  setWipePct('btn-attack', attackCooldownMs, attackCooldownTotalMs);
+  setWipePct('btn-parry', parryCooldownMs, parryCooldownTotalMs);
+}
+
 export function mount(root, props) {
   rootEl = root;
   state = props.state;
@@ -1863,13 +2253,19 @@ export function mount(root, props) {
   itemMenuOpen = false;
   itemMenuSelectedIndex = 0;
   itemMenuAutoCloseTimeoutId = null;
+  explainerOpen = false;
+  unbindExplainerEscape = null;
+  unbindExplainerBackdrop = null;
   equipmentBonuses = getEquipmentBonuses(state);
   activeBuffs = createActiveBuffs();
   guaranteedCritNextHit = false;
   secondWindAvailable = false;
+  playerSlowDebuff = null;
+  playerStunDebuff = null;
   recomputeEffectBonuses();
   playerCombatant = buildPlayerCombatant(playerEffectBonuses);
   abilityCooldowns = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
+  abilityCooldownTotals = Object.fromEntries(ABILITIES.map((ability) => [ability.id, 0]));
   buffState = createBuffState();
   widenBuffState = null;
   lacerateRetriggerOpen = false;
@@ -1909,17 +2305,11 @@ export function mount(root, props) {
     };
     elements.monsterAtbBars[i].onclick = (event) => {
       event.stopPropagation();
-      if (parryCooldownMs > 0) return;
-      parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
-      resolveMonsterWindup(mc, true);
-      updateMenu();
+      attemptParryOnMonster(mc);
     };
     elements.parryHints[i].onclick = (event) => {
       event.stopPropagation();
-      if (parryCooldownMs > 0) return;
-      parryCooldownMs = parryCooldownTotalMs = PARRY_COOLDOWN_MS;
-      resolveMonsterWindup(mc, true);
-      updateMenu();
+      attemptParryOnMonster(mc);
     };
   });
   selectedMonsterIndex = 0;
@@ -1930,27 +2320,27 @@ export function mount(root, props) {
   updateLog();
   updateMenu();
   elements.pauseBtn.onclick = toggleBattlePause;
+  lastTickAt = Date.now();
   intervalId = setInterval(tick, 300);
+  cooldownWipeAnimFrameId = requestAnimationFrame(animateCooldownWipes);
   window.addEventListener('keydown', handleKeydown);
 }
 
 export function unmount() {
   unmounted = true;
   clearInterval(intervalId);
+  cancelAnimationFrame(cooldownWipeAnimFrameId);
   clearTimeout(endBattleTimeoutId);
   clearTimeout(exitAnimTimeoutId);
   clearTimeout(itemMenuAutoCloseTimeoutId);
   window.removeEventListener('keydown', handleKeydown);
-  liveDamageNumbers.forEach(({ el, timeoutId }) => {
+  unbindExplainerEscape?.();
+  unbindExplainerBackdrop?.();
+  livePopups.forEach(({ el, timeoutId }) => {
     clearTimeout(timeoutId);
     el.remove();
   });
-  liveDamageNumbers = [];
-  livePerfectBadges.forEach(({ el, timeoutId }) => {
-    clearTimeout(timeoutId);
-    el.remove();
-  });
-  livePerfectBadges = [];
+  livePopups = [];
   liveSwingSprites.forEach(({ el, timeoutId }) => {
     clearTimeout(timeoutId);
     el.remove();

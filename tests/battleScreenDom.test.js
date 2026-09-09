@@ -49,6 +49,21 @@ async function waitUntilZoneMidpoint(windupStart) {
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
+// Same fix as tests/battleSpecialAttacks.test.js's identically-named helper
+// (0.26.6, commit 3c6e9fd) - polls for the real outcome instead of guessing a
+// fixed wall-clock duration for a windup to naturally complete. A few tests
+// below still guessed a duration for that specific race (letting a windup
+// resolve unparried via tick()'s own 300ms poll) and were never touched by
+// that fix - same latent CI-flakiness pattern, just hadn't actually flaked
+// yet (see the BACKLOG.md entry raised alongside this fix, 2026-09-07).
+async function waitForCondition(predicate, description, timeoutMs = 5000) {
+  const pollStart = Date.now();
+  while (!predicate()) {
+    if (Date.now() - pollStart > timeoutMs) throw new Error(`Timed out waiting for ${description}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 async function mountBattle(monsterIds, { state = baseState(), callbacks = {}, monsterOverrides } = {}) {
   const { mount } = await import('../js/screens/battleScreen.js');
   const root = createRoot();
@@ -85,6 +100,15 @@ test('battleScreen DOM', async (t) => {
     assert.equal(root.querySelector('#btn-ability-chop'), null); // unlocks at 4
   });
 
+  // Raised 2026-09-04: "seems silly when fighting the character is staring
+  // back at the player" - the hero's own emoji gets a silhouette look in
+  // battle only (css/styles.css's .battle-hero-silhouette), never on the
+  // overworld map where facing the player is normal.
+  await t.test('the hero\'s own battle emoji gets the silhouette styling class', async () => {
+    const { root } = await mountBattle(['boar']);
+    assert.equal(root.querySelector('#battle-hero-emoji').classList.contains('battle-hero-silhouette'), true);
+  });
+
   // Raised 2026-08-31: with pause now able to freeze mid-battle specifically
   // so a player can go read tooltips (see the mid-battle pause entry in
   // BACKLOG_SHIPPED.md), every action button needs an actual "what this
@@ -103,6 +127,27 @@ test('battleScreen DOM', async (t) => {
     assert.match(root.querySelector('#btn-ability-slash').title, /bleeds for extra damage/);
     assert.match(root.querySelector('#btn-ability-sweep').title, /every living enemy/);
     assert.match(root.querySelector('#btn-ability-superScream').title, /boosts all your damage/);
+  });
+
+  // Raised 2026-09-04: "seems silly... doesn't let you know when it's at
+  // full power again... maybe a border that slowly draws until full." Scoped
+  // to just the Attack button - the four abilities already show their own
+  // cooldown-wipe overlay and (Lacerate) a retrigger glow.
+  await t.test('only the Attack button gets a ready-ring, present even before it has ever been on cooldown', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
+    assert.ok(root.querySelector('#btn-attack-ready-ring'), 'Attack should always render its ready-ring, even at rest');
+    assert.equal(root.querySelector('#btn-attack-ready-ring circle').getAttribute('cx'), '28');
+    assert.equal(root.querySelector('#btn-parry-ready-ring'), null, 'Parry should not get a ready-ring');
+    assert.equal(root.querySelector('#btn-ability-stab-ready-ring'), null, 'abilities should not get a ready-ring');
+  });
+
+  await t.test('the Attack ready-ring tracks the same --pct as its cooldown-wipe overlay', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    const wipePct = Number(root.querySelector('#btn-attack-wipe').style.getPropertyValue('--pct'));
+    const ringPct = Number(root.querySelector('#btn-attack-ready-ring').style.getPropertyValue('--pct'));
+    assert.ok(wipePct > 0, 'sanity check: Attack should actually be on cooldown after a real press');
+    assert.equal(ringPct, wipePct, 'the ready-ring should start at the same remaining-cooldown percent as the wipe');
   });
 
   await t.test('clicking Attack deals damage to the target monster', async () => {
@@ -302,6 +347,11 @@ test('battleScreen DOM', async (t) => {
     const hpText = (i) => root.querySelector(`#battle-monster-hp-text-${i}`).textContent;
     const before = [hpText(0), hpText(1), hpText(2)];
     click(root.querySelector('#btn-ability-chop'));
+    // The extra target now lands EXTRA_TARGET_STAGGER_MS after the primary
+    // one, not in the same synchronous click handler - see
+    // playerUseAbility's own comment in battleScreen.js for why (staggering
+    // multi-target hits so they read as independent swings).
+    await new Promise((resolve) => setTimeout(resolve, 200));
     const after = [hpText(0), hpText(1), hpText(2)];
     const hitCount = after.filter((text, i) => text !== before[i]).length;
     assert.equal(hitCount, 2, 'Sever should hit exactly the selected target plus one other');
@@ -324,6 +374,9 @@ test('battleScreen DOM', async (t) => {
 
     const before = [hpText(0), hpText(1), hpText(2)];
     click(root.querySelector('#btn-ability-stab'));
+    // See the plain Sever test above for why this needs to wait out
+    // EXTRA_TARGET_STAGGER_MS now.
+    await new Promise((resolve) => setTimeout(resolve, 200));
     const after = [hpText(0), hpText(1), hpText(2)];
     const hitCount = after.filter((text, i) => text !== before[i]).length;
     assert.equal(hitCount, 2, 'Impale should hit its target plus one extra while the widen buff is active');
@@ -349,6 +402,9 @@ test('battleScreen DOM', async (t) => {
 
     const before = [hpText(0), hpText(1), hpText(2), hpText(3)];
     click(root.querySelector('#btn-ability-chop'));
+    // Two extra targets now, each staggered EXTRA_TARGET_STAGGER_MS apart -
+    // see the plain Sever test above for why. Margin for both.
+    await new Promise((resolve) => setTimeout(resolve, 400));
     const after = [hpText(0), hpText(1), hpText(2), hpText(3)];
     const hitCount = after.filter((text, i) => text !== before[i]).length;
     assert.equal(hitCount, 3, 'Sever should hit its target plus its own extra plus one more from the widen buff');
@@ -462,6 +518,22 @@ test('battleScreen DOM', async (t) => {
     assert.equal((log.match(/You parry/g) || []).length, 3, 'all three monsters mid-wind-up should be parried, even this early');
   });
 
+  // Raised 2026-09-04: "when you parry multi mob the parries all overlap and
+  // look bad" - each parried monster used to fire its own PARRY! badge/flash
+  // on the hero's own zone, so three landing at once stacked three badges on
+  // top of each other. Only one shared badge/flash should appear regardless
+  // of how many monsters got parried in the same press.
+  await t.test('multi-mob parry shows only one shared PARRY! badge, not one per monster', async () => {
+    const { root } = await mountBattle(['boar', 'boar', 'boar'], {
+      monsterOverrides: [{ speed: 1000 }, { speed: 1000 }, { speed: 1000 }],
+    });
+    const fill0 = root.querySelector('#battle-monster-atb-fill-0');
+    await waitForWindupStart(fill0);
+    keydown('s');
+    assert.equal((root.querySelector('#battle-log').textContent.match(/You parry/g) || []).length, 3);
+    assert.equal(document.querySelectorAll('.battle-perfect-timing-badge-parry').length, 1, 'expected exactly one PARRY! badge even though three monsters landed');
+  });
+
   await t.test('clicking a monster\'s ATB bar to parry also respects the shared cooldown', async () => {
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
     const fill = root.querySelector('#battle-monster-atb-fill-0');
@@ -475,6 +547,29 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#battle-monster-atb-bar-0'));
     const log = root.querySelector('#battle-log').textContent;
     assert.equal((log.match(/You parry/g) || []).length, 1, 'clicking the ATB bar while on cooldown should not land a second parry');
+  });
+
+  // Raised 2026-09-05, fixed 2026-09-07: a click on the ATB bar/parry hint
+  // used to call resolveMonsterWindup(mc, true) unconditionally, with no
+  // pre-check - a miss (click before the 80-100% zone) still fell into
+  // resolveMonsterWindup's own failed-zone-check branch, which resolves
+  // monsterAttack() immediately instead of leaving the wind-up to finish on
+  // its own. The "s" shortcut's single-mob path never had this problem: it
+  // only calls resolveMonsterWindup at all once resolveParryAttempt has
+  // already passed. attemptParryOnMonster() now gives clicks the same
+  // pre-check-then-call shape.
+  await t.test('clicking a monster\'s ATB bar too early misses cleanly instead of forcing its attack to resolve immediately', async () => {
+    const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
+    // Well before the 80-100% parry zone opens.
+    const earlyElapsedMs = (20 / 100) * PARRY_WINDUP_DURATION_MS;
+    const remaining = windupStart + earlyElapsedMs - Date.now();
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+    click(root.querySelector('#battle-monster-atb-bar-0'));
+    const log = root.querySelector('#battle-log').textContent;
+    assert.doesNotMatch(log, /hits you for/, 'an early click should not force the monster\'s attack to resolve immediately');
+    assert.doesNotMatch(log, /You parry/, 'an early click obviously should not land a parry either');
   });
 
   await t.test('a landed parry shows a distinct PARRY! badge and hero-emoji flash, with no dialog shake', async () => {
@@ -512,53 +607,41 @@ test('battleScreen DOM', async (t) => {
       state: baseState({ equipment: { ...createNewGame().equipment, accessory: 'retributionCharm' } }),
       monsterOverrides: [{ speed: 1000 }],
     });
-    // windup starts on the first tick (~300ms); wait past the full
-    // PARRY_WINDUP_DURATION_MS (1000ms) without pressing the parry key
-    // ('s'), then past one more 300ms tick so tick()'s own
-    // isWindupComplete poll catches it and resolves an unparried attack -
-    // same windup mechanics the existing parry tests above use, just
-    // letting the window close instead of pressing in time.
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    // Let the windup naturally complete unparried (no 's' press) - poll for
+    // tick()'s own isWindupComplete check to actually resolve it instead of
+    // guessing how long that takes under CI load.
+    await waitForCondition(
+      () => /Retribution Charm reflects/.test(root.querySelector('#battle-log').textContent),
+      'the unparried attack to resolve and Retribution Charm to reflect it',
+    );
     const log = root.querySelector('#battle-log').textContent;
     assert.match(log, /hits you for/);
     assert.match(log, /Retribution Charm reflects/);
   });
 
-  await t.test('clicking Attack spawns a swing sprite carrying the equipped weapon\'s emoji', async () => {
+  await t.test('clicking Attack spawns a shockwave ring on the target, not a traveling weapon-emoji sprite', async () => {
+    // Raised 2026-09-04: Timothy's own read on the old traveling-weapon-emoji
+    // sprite was "looks so silly spinning around" - also, since that sprite's
+    // animation started centered on the hero's own zone before traveling, it
+    // briefly covered the "You" label too (a separate bug report, same root
+    // cause). First replaced with a CSS-drawn slash mark, then (same day, a
+    // later mockup pass - "i like shockwave ring") replaced again with
+    // playAttackImpact's ring - see .battle-attack-ring in css/styles.css.
     const { root } = await mountBattle(['boar']);
     click(root.querySelector('#btn-attack'));
-    const sprite = document.querySelector('.battle-swing-sprite');
-    assert.ok(sprite, 'expected a swing sprite element on a basic Attack');
-    // createNewGame() starts the player with starterSword equipped (js/state.js) -
-    // its item emoji (js/data/items.js) is what Attack's swing should carry,
-    // since Attack has no ability icon of its own to fall back on.
-    assert.equal(sprite.textContent, '🗡️');
+    assert.ok(document.querySelector('.battle-attack-ring'), 'expected a shockwave-ring element on a basic Attack');
+    assert.equal(document.querySelector('.battle-swing-sprite'), null, 'Attack should no longer spawn the old emoji sprite');
   });
 
-  await t.test('clicking Attack with the Dragon Fang Blade equipped swings a blade, not its own tooth-shaped inventory icon', async () => {
-    // Raised 2026-08-30: Timothy equipped Dragon Fang Blade (js/data/items.js,
-    // emoji '🦷' - a literal tooth, chosen for inventory-row flavor, not for
-    // being swung) and the Attack swing carried that tooth emoji verbatim.
-    // A weapon's swingEmoji override (when present) should win over its own
-    // display emoji for this specific purpose.
-    const state = baseState();
-    state.equipment.weapon = 'dragonFang';
-    const { root } = await mountBattle(['boar'], { state });
-    click(root.querySelector('#btn-attack'));
-    const sprite = document.querySelector('.battle-swing-sprite');
-    assert.ok(sprite, 'expected a swing sprite element on a basic Attack');
-    assert.notEqual(sprite.textContent, '🦷', 'should not swing the raw tooth emoji');
-  });
-
-  await t.test('using Chop spawns a swing sprite carrying Chop\'s own icon, not the equipped weapon\'s', async () => {
+  await t.test('using Chop spawns a crescent-arc decal on the target, not a traveling swing sprite', async () => {
+    // Raised 2026-09-04: replaced the traveling axe-emoji sprite with
+    // playSeverDecal's own curved arc, drawn directly on the target - see
+    // .battle-sever-arc in css/styles.css.
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 4 } }) });
     // Every ability resolves synchronously post-rotation-v2 (js/systems/abilities.js) - no timing-meter wait needed for any of them.
     click(root.querySelector('#btn-ability-chop'));
-    const sprite = document.querySelector('.battle-swing-sprite');
-    assert.ok(sprite, 'expected a swing sprite element on using Chop');
-    assert.equal(sprite.textContent, '🪓');
+    assert.ok(document.querySelector('.battle-sever-arc'), 'expected a Sever arc decal element on using Chop');
+    assert.equal(document.querySelector('.battle-swing-sprite'), null, 'Chop should no longer spawn the old emoji sprite');
   });
 
   await t.test('using Sweep hits each target in sequence with a single traveling swing sprite, not all at once', async () => {
@@ -601,30 +684,33 @@ test('battleScreen DOM', async (t) => {
     await new Promise((resolve) => setTimeout(resolve, 900));
   });
 
-  await t.test('a crit hit\'s swing gets an afterimage trail', async () => {
+  // Attack's own hit mark has no traveling sprite to grow an afterimage
+  // trail on, so a crit escalates by spawning a second, bigger ring a beat
+  // after the first instead (playAttackImpact, js/screens/battleScreen.js).
+  await t.test('a crit Attack spawns a second, bigger shockwave ring', async () => {
     const originalRandom = Math.random;
-    // Forces every rollCrit() roll (js/systems/combat.js's CRIT_CHANCE = 0.1)
-    // to land as a crit, for the whole test.
+    // Forces every rollCrit() roll (js/systems/combat.js's CRIT_CHANCE = 0.1) to land as a crit.
     Math.random = () => 0.01;
     try {
       const { root } = await mountBattle(['boar']);
       click(root.querySelector('#btn-attack'));
-      // Let all staggered trail ghosts (TRAIL_GHOST_STAGGER_MS apart) spawn.
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      assert.ok(document.querySelectorAll('.battle-swing-trail').length > 0, 'a crit swing should spawn afterimage trail ghosts');
+      const rings = document.querySelectorAll('.battle-attack-ring');
+      assert.equal(rings.length, 2, 'a crit Attack should spawn a second ring alongside the first');
+      assert.ok([...rings].every((ring) => ring.classList.contains('battle-attack-ring-big')), 'both rings should carry the bigger crit styling');
     } finally {
       Math.random = originalRandom;
     }
   });
 
-  await t.test('a non-crit hit\'s swing has no afterimage trail', async () => {
+  await t.test('a non-crit Attack spawns only one, normal-sized shockwave ring', async () => {
     const originalRandom = Math.random;
     Math.random = () => 0.99; // never satisfies rollCrit()'s < 0.1 check
     try {
       const { root } = await mountBattle(['boar']);
       click(root.querySelector('#btn-attack'));
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      assert.equal(document.querySelectorAll('.battle-swing-trail').length, 0, 'a non-crit swing should not spawn any trail ghosts');
+      const rings = document.querySelectorAll('.battle-attack-ring');
+      assert.equal(rings.length, 1, 'a non-crit Attack should spawn only one ring');
+      assert.equal(rings[0].classList.contains('battle-attack-ring-big'), false);
     } finally {
       Math.random = originalRandom;
     }
@@ -710,8 +796,9 @@ test('battleScreen DOM', async (t) => {
     // PERFECT_TIMING_BADGE_MS (900ms as of this writing) and
     // .battle-perfect-timing-badge in css/styles.css.
     const { root } = await mountBattle(['boar'], { monsterOverrides: [{ speed: 1000 }] });
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    await new Promise((resolve) => setTimeout(resolve, 850));
+    const fill = root.querySelector('#battle-monster-atb-fill-0');
+    const windupStart = await waitForWindupStart(fill);
+    await waitUntilZoneMidpoint(windupStart);
     keydown('s');
     assert.match(root.querySelector('#battle-log').textContent, /You parry/);
     const badge = document.querySelector('.battle-perfect-timing-badge-parry');
@@ -733,6 +820,42 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-attack'));
     const badge = document.querySelector('.battle-perfect-timing-badge-max');
     assert.equal(badge, null, 'an already-unbeatable recorded best should show no badge');
+  });
+
+  // Raised 2026-09-04 from a screen recording: two hits landing close
+  // together used to spawn their floating "-N" numbers at the exact same
+  // point, fully overlapping for their whole 1.4s lifetime. showDamageNumber
+  // now gives every popup on a zone its own horizontal column via
+  // claimPopupColumn() - this exercises that through a real double-Attack
+  // rather than reaching into the unexported allocator.
+  await t.test('two damage numbers landing close together on the same target end up in different columns, not stacked', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    // attackStreak is now 1, so the cooldown this hit set is
+    // attackCooldownMsForStreak(1) = 500 + 1*200 = 700ms, ticking down
+    // 300ms per tick() - clears on the 3rd tick (900ms). Waited well past
+    // that but still comfortably inside the number's own 1400ms lifetime.
+    await new Promise((resolve) => setTimeout(resolve, 950));
+    click(root.querySelector('#btn-attack'));
+    const numbers = document.querySelectorAll('.battle-damage-number');
+    assert.equal(numbers.length, 2, 'expected both hits\' numbers still on stage at once');
+    assert.notEqual(numbers[0].style.left, numbers[1].style.left,
+      'two concurrent damage numbers on the same target must not share a horizontal position');
+  });
+
+  // The New Max! badge fires from the very same hit as its own damage
+  // number (recordPlayerDamage calls playNewMaxEffect right after
+  // showDamageNumber) - the closest-possible timing for two *different*
+  // popup kinds to collide, and exactly the case claimPopupColumn's shared
+  // per-zone tracking (not two independent per-kind counters) is for.
+  await t.test('a New Max! badge and its own hit\'s damage number land in different columns', async () => {
+    const { root } = await mountBattle(['boar']);
+    click(root.querySelector('#btn-attack'));
+    const numberEl = document.querySelector('.battle-damage-number');
+    const badgeEl = document.querySelector('.battle-perfect-timing-badge-max');
+    assert.ok(numberEl && badgeEl, 'expected both a damage number and a NEW MAX! badge on a fresh battle\'s first hit');
+    assert.notEqual(numberEl.style.left, badgeEl.style.left,
+      'a damage number and a badge on the same target must not share a horizontal position');
   });
 
   await t.test('the DPS meter reads DPS: 0.0 immediately on mount, before any damage is dealt', async () => {
@@ -842,6 +965,83 @@ test('battleScreen DOM', async (t) => {
     assert.notEqual(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
   });
 
+  // The attack-falloff explainer (js/systems/combat.js's
+  // attackFalloffJustTriggered) fires the first time a real Attack lands at
+  // less than full strength - the second consecutive Attack, once the first
+  // one's own spam-cooldown (attackCooldownMsForStreak, streak 1 = 700ms)
+  // has cleared. Gated behind the mechanicExplainersBeta feature flag (off
+  // by default - see js/data/abilityExplainers.js's header for why the
+  // content is still empty placeholders).
+  async function triggerFalloff(root) {
+    click(root.querySelector('#btn-attack'));
+    await new Promise((resolve) => setTimeout(resolve, 950));
+    click(root.querySelector('#btn-attack'));
+  }
+
+  await t.test('the second consecutive Attack opens the falloff explainer and pauses the battle, when the beta flag is on', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    const overlay = root.querySelector('#battle-explainer-overlay');
+    assert.equal(overlay.hidden, true);
+    await triggerFalloff(root);
+    assert.equal(overlay.hidden, false);
+    assert.equal(root.querySelector('#battle-paused-overlay').hidden, false);
+  });
+
+  await t.test('the falloff explainer never opens when the beta flag is off', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState() });
+    await triggerFalloff(root);
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+  });
+
+  await t.test('the falloff explainer only opens once ever - marked seen in state.seenScreens, not reshown on a later decayed hit', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    state.seenScreens = { 'mechanic:attackFalloff': true };
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+  });
+
+  await t.test('the falloff explainer marks itself seen in state.seenScreens once opened', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    assert.equal(state.seenScreens['mechanic:attackFalloff'], true);
+  });
+
+  await t.test('"Got it" closes the falloff explainer and resumes the battle', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    click(root.querySelector('#battle-explainer-close'));
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+    assert.equal(root.querySelector('#battle-paused-overlay').hidden, true);
+  });
+
+  await t.test('Escape closes the falloff explainer', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    keydown('Escape');
+    assert.equal(root.querySelector('#battle-explainer-overlay').hidden, true);
+  });
+
+  await t.test('while the falloff explainer is open, Attack is a no-op', async () => {
+    const state = baseState();
+    state.settings.featureFlags.mechanicExplainersBeta = true;
+    const { root } = await mountBattle(['boar'], { state });
+    await triggerFalloff(root);
+    const hpBefore = root.querySelector('#battle-monster-hp-text-0').textContent;
+    click(root.querySelector('#btn-attack'));
+    keydown('a');
+    assert.equal(root.querySelector('#battle-monster-hp-text-0').textContent, hpBefore);
+  });
+
   await t.test('an active Strength Draught increases Attack damage over the unbuffed baseline', async () => {
     const originalRandom = Math.random;
     Math.random = () => 0.5; // fixed variance roll, no crit (rollCrit needs < 0.1)
@@ -938,13 +1138,14 @@ test('battleScreen DOM', async (t) => {
     // are tuned for that cadence, not the item menu's 25% slow-mo.
     keydown('Escape');
     // Same unparried-hit forcing pattern as the existing "a Retribution
-    // Charm reflects damage..." test above: wait past the first tick
-    // (windup starts, ~300ms), then past the full PARRY_WINDUP_DURATION_MS
-    // without pressing parry, then one more tick so tick()'s own
-    // isWindupComplete poll resolves the attack.
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    await new Promise((resolve) => setTimeout(resolve, PARRY_WINDUP_DURATION_MS));
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    // Charm reflects damage..." test above: let the windup naturally
+    // complete without pressing parry, polling for the real outcome instead
+    // of guessing how long tick()'s own isWindupComplete poll takes under
+    // CI load.
+    await waitForCondition(
+      () => /Second Wind kicks in/.test(root.querySelector('#battle-log').textContent),
+      'the unparried attack to resolve and Second Wind to kick in',
+    );
     assert.equal(state.player.hp, 1);
     assert.match(root.querySelector('#battle-log').textContent, /Second Wind kicks in/);
   });
@@ -975,6 +1176,37 @@ test('battleScreen DOM', async (t) => {
     assert.equal(lacerateBtn.disabled, false, 'Lacerate should stay clickable during its own retrigger window, despite being on cooldown');
   });
 
+  await t.test('the retrigger glow gets a distinct flash class once the window reaches its sweet-spot sub-range', async () => {
+    // High HP override: Lacerate's own delayed bleed tick (900ms after use,
+    // ~75% into this 1200ms retrigger window) would otherwise finish off a
+    // regular boar and end the battle before the window's own 80-100%
+    // sweet spot is ever reached - every tick after battleOver bails at the
+    // top of tick(), so updateMenu() (and this flash) would never run again.
+    const { root } = await mountBattle(['boar'], {
+      state: baseState({ player: { ...createNewGame().player, level: 6 } }),
+      monsterOverrides: [{ hp: 100000 }],
+    });
+    click(root.querySelector('#btn-ability-slash'));
+    // Poll rather than wait for a fixed delay - the flash only appears on
+    // whichever 300ms tick's render happens to land inside the sweet spot's
+    // sub-range (see abilityButtonEntries()'s own comment on why this can't
+    // be a precisely-timed one-shot like the parry zone's pulse), so the
+    // exact real-time offset isn't fixed the way the retrigger press itself
+    // is. Bounded past the window's own 1200ms so a genuine regression
+    // still fails instead of hanging.
+    const pollStart = Date.now();
+    let sawFlash = false;
+    while (Date.now() - pollStart < 1500) {
+      const btn = root.querySelector('#btn-ability-slash');
+      if (btn?.classList.contains('battle-ability-button-retrigger-sweetspot')) {
+        sawFlash = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.ok(sawFlash, 'expected the sweet-spot flash class to appear at some point during the retrigger window');
+  });
+
   await t.test('landing the re-press inside the sweet spot buffs the other abilities', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     click(root.querySelector('#btn-ability-slash'));
@@ -987,26 +1219,49 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-ability-slash'));
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
     assert.equal(root.querySelector('#btn-ability-slash').classList.contains('battle-ability-button-retrigger'), false, 'the glow should clear once the window is resolved');
+    // Raised 2026-09-04, fixed 2026-09-07: Lacerate's retrigger buff and
+    // Super Scream's buff used to read as the exact same indicator - this
+    // one should get its own color-distinguishing class (see the Super
+    // Scream buff test further below for the non-Lacerate case).
+    assert.ok(
+      root.querySelector('#battle-buff-indicator').classList.contains('battle-buff-indicator-lacerate'),
+      'Lacerate\'s buff should get its own distinguishing class, not read as Super Scream\'s',
+    );
   });
 
   await t.test('the "3" key also lands the re-press during Lacerate\'s window, not just clicking its button', async () => {
-    // speed: 999 is a test-only override, not part of the brief's literal
-    // setup - see the comment just below for why it's needed. Unrelated to
-    // retrigger mechanics themselves.
-    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6, speed: 999 } }) });
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     // Level 6 unlocks stab(1)/chop(2)/slash(3) - Lacerate is slot 3.
-    // Unlike click() (a plain .onclick handler with no readiness gate - a
-    // pre-existing jsdom quirk the click-based ability tests elsewhere in
-    // this file already lean on, confirmed: dispatching a synthetic click
-    // on a genuinely `disabled` button still fires its handler here),
-    // handleKeydown's digit-key branch explicitly requires
-    // isReady(playerCombatant.atb) before calling playerUseAbility. ATB
-    // starts at 0 at mount and only fills at `speed` per 300ms tick, so the
-    // very first "3" press needs at least one real tick to land - bump
-    // speed so a single tick is enough and wait past it first. This is
-    // about the ability landing at all, not about the retrigger window.
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    // No ATB gate to wait past anymore (see the ability-GCD rework) - a
+    // fresh battle starts every ability off cooldown, so "3" lands on the
+    // very first press.
     keydown('3');
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    keydown('3');
+    assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
+  });
+
+  await t.test('Lacerate\'s retrigger window still wins even after its own cooldown clears first (confirmed intentional, not a fresh re-cast)', async () => {
+    // speed: 22 pushes Lacerate's own cooldown (the bare speed-scaled GCD -
+    // see abilityGcdMsForSpeed) down to its 500ms floor, well under the
+    // 1200ms retrigger window - so by the time of the re-press below, a
+    // fresh cast is also legal again on cooldown grounds alone. Confirmed
+    // with the project owner: the retrigger window is still supposed to
+    // win in that overlap (playerUseAbility checks lacerateRetriggerOpen
+    // before it ever looks at cooldown state - see its own comment on
+    // that ordering), not silently fall back to treating the press as a
+    // fresh cast. This pins that as deliberate, since it's untested
+    // otherwise and would silently flip if someone "fixed" the ordering
+    // later without realizing it was on purpose.
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6, speed: 22 } }) });
+    // Level 6 unlocks stab(1)/chop(2)/slash(3) - Lacerate is slot 3.
+    keydown('3');
+    // By ~600ms in, Lacerate's own 500ms-floor cooldown has already ticked
+    // down to 0 (tick() decrements every 300ms) - but the 1200ms retrigger
+    // window opened by that first press is still open at this 1100ms mark
+    // (same wait the sweet-spot re-press tests above use), so this re-press
+    // lands squarely in the overlap between "cooldown cleared" and
+    // "retrigger window still open."
     await new Promise((resolve) => setTimeout(resolve, 1100));
     keydown('3');
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
@@ -1015,7 +1270,15 @@ test('battleScreen DOM', async (t) => {
   await t.test('missing the re-press window entirely (letting it lapse) grants no buff', async () => {
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     click(root.querySelector('#btn-ability-slash'));
-    await new Promise((resolve) => setTimeout(resolve, 1500)); // past the 1200ms window, tick() polls it closed
+    // Past the 1200ms window plus one more full 300ms tick: tick() now
+    // renders once more with the window still open on the tick that first
+    // crosses windowMs (so the sweet-spot flash gets a chance to show right
+    // up to the boundary - see abilityButtonEntries()'s and tick()'s own
+    // comments on the retrigger close-check's ordering), closing only
+    // after that render. The glow doesn't actually clear from the DOM
+    // until the following tick's own render, one 300ms tick later than it
+    // used to.
+    await new Promise((resolve) => setTimeout(resolve, 1800));
     assert.equal(root.querySelector('#battle-buff-indicator').textContent, '');
     // Re-query rather than reuse a pre-click reference - see the comment on
     // the first retrigger test above for why.
@@ -1027,6 +1290,11 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-ability-superScream'));
     const buffTextAfterScream = root.querySelector('#battle-buff-indicator').textContent;
     assert.match(buffTextAfterScream, /12s/);
+    assert.equal(
+      root.querySelector('#battle-buff-indicator').classList.contains('battle-buff-indicator-lacerate'),
+      false,
+      'Super Scream\'s own buff should not carry Lacerate\'s distinguishing class',
+    );
 
     const lacerateBtn = root.querySelector('#btn-ability-slash');
     click(lacerateBtn);
@@ -1036,5 +1304,56 @@ test('battleScreen DOM', async (t) => {
     // remaining ~12s at this point, so a real stack would show >12s and a
     // refresh would show exactly 9s (the single shared buffState replaced).
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /9s/);
+    assert.ok(
+      root.querySelector('#battle-buff-indicator').classList.contains('battle-buff-indicator-lacerate'),
+      'once Lacerate\'s re-press refreshes the shared buffState, the indicator should switch to Lacerate\'s class',
+    );
+  });
+
+  await t.test('using one ability puts every other unlocked ability on cooldown too (the shared GCD)', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    // Level 8 unlocks stab(1)/chop(2)/slash(3)/sweep(4).
+    click(root.querySelector('#btn-ability-stab'));
+    assert.equal(root.querySelector('#btn-ability-chop').disabled, true, 'chop should be on the shared GCD too, even though it was never pressed');
+    assert.equal(root.querySelector('#btn-ability-sweep').disabled, true, 'sweep should be on the shared GCD too');
+  });
+
+  await t.test('the shared GCD does not touch Super Scream (a buff-type ability)', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
+    click(root.querySelector('#btn-ability-stab'));
+    assert.equal(root.querySelector('#btn-ability-superScream').disabled, false, 'Super Scream is not part of the shared GCD propagation');
+  });
+
+  await t.test('every ability button\'s cooldown-wipe percentage divides by the duration that actually applied, not a stale config value', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 8 } }) });
+    click(root.querySelector('#btn-ability-stab'));
+    const chopWipe = root.querySelector('#btn-ability-chop .battle-ability-cooldown-wipe');
+    assert.ok(chopWipe, 'chop should show a cooldown-wipe animation from the shared GCD');
+    const pct = Number(chopWipe.style.getPropertyValue('--pct'));
+    assert.ok(pct > 90 && pct <= 100, `expected a fresh cooldown to read near 100%, got ${pct}`);
+  });
+
+  await t.test('an ability can be used the instant it comes off cooldown, with no extra wait for a swing timer to refill', async () => {
+    const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 2, speed: 1 } }) });
+    // speed: 1 deliberately kept low - under the old ATB gauge this would
+    // make readiness take a long time to refill. Assert on .disabled
+    // directly (not via click()+HP-changed, which jsdom fires even on a
+    // disabled button - playerUseAbility itself never gated on readiness,
+    // only abilityButtonEntries/updateMenu/handleKeydown did, so a
+    // click-based version of this test would have passed against the old
+    // ATB-gated code too and wouldn't actually be exercising the gate that
+    // was removed) so this test actually pins the behavior that changed.
+    assert.equal(root.querySelector('#btn-ability-stab').disabled, false);
+  });
+
+  await t.test('the player no longer has an ATB gauge bar - only monsters do', async () => {
+    const { root } = await mountBattle(['boar']);
+    assert.equal(root.querySelector('#battle-hero-atb-fill'), null);
+    assert.ok(root.querySelector('[id^="battle-monster-atb-fill-"]'), 'monster ATB bars should still exist, untouched');
+  });
+
+  await t.test('Flee is available instantly at the start of battle, with no wait', async () => {
+    const { root } = await mountBattle(['boar']);
+    assert.equal(root.querySelector('#btn-flee').disabled, false);
   });
 });

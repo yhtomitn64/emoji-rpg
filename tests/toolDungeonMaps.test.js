@@ -135,14 +135,18 @@ test('TOOL_DUNGEON_ENTRANCES positions are in-bounds and resolve to a walkable e
   }
 });
 
+// Raised 2026-09-05: this used to iterate TOOL_DUNGEON_ENTRANCES itself,
+// relying on portal's own screenId still being null - true when portal was
+// the last unplaced entrance, no longer true now that Timothy's placed it
+// via tools/terrain-painter/ (southSouthwest, 16,17). All four tool
+// dungeons are placed as of this commit, so nothing in real data is left
+// to exercise this case - a synthetic entry pins the same invariant down
+// without depending on any tool staying unplaced going forward.
 test("a not-yet-placed TOOL_DUNGEON_ENTRANCES entry (null screenId) is inert everywhere that matches on screenId", () => {
-  const placeholders = Object.entries(TOOL_DUNGEON_ENTRANCES).filter(([, entry]) => entry.screenId === null);
-  assert.ok(placeholders.length > 0, 'expected at least one not-yet-placed entrance to exist for this test to mean anything');
-  for (const [toolId, entry] of placeholders) {
-    // Every real screenId is a non-empty string, so `screenConfig.id ===
-    // entry.screenId` (js/screens/mapScreen.js's tileAt()) can never match
-    // null - this just pins that invariant down explicitly.
-    assert.equal(entry.screenId, null, `${toolId} placeholder`);
-    assert.notEqual(typeof 'anyRealScreenId', typeof entry.screenId);
-  }
+  const placeholder = { screenId: null, x: null, y: null, mapId: 'someDungeon', tileKind: 'someDungeonEntrance' };
+  // Every real screenId is a non-empty string, so `screenConfig.id ===
+  // entry.screenId` (js/screens/mapScreen.js's tileAt()) can never match
+  // null - this just pins that invariant down explicitly.
+  assert.equal(placeholder.screenId, null);
+  assert.notEqual(typeof 'anyRealScreenId', typeof placeholder.screenId);
 });

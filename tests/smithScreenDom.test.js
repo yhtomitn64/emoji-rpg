@@ -42,6 +42,18 @@ test('smithScreen reforge DOM', async (t) => {
     assert.equal(root.querySelector('button[data-reforge="weapon"]'), null);
   });
 
+  // Raised 2026-09-07: the upgrade cap shown on every slot is driven entirely
+  // by ngPlusCycle, but nothing on this screen said what cycle was active.
+  await t.test('shows the current NG+ cycle badge once past NG+0', async () => {
+    const root = await mountSmith(buildState({ ngPlusCycle: 2 }));
+    assert.match(root.querySelector('.ngplus-badge').textContent, /New Game\+2/);
+  });
+
+  await t.test('shows no NG+ badge at NG+0', async () => {
+    const root = await mountSmith(buildState({ ngPlusCycle: 0 }));
+    assert.equal(root.querySelector('.ngplus-badge'), null);
+  });
+
   await t.test('hides the Reforge button for a non-Superior tier', async () => {
     const root = await mountSmith(buildState({ equipmentTiers: {} }));
     assert.equal(root.querySelector('button[data-reforge="weapon"]'), null);
@@ -99,6 +111,29 @@ test('smithScreen reforge DOM', async (t) => {
     assert.equal(upgradeEvent.newLevel, 1);
     assert.equal(upgradeEvent.goldSpent, 20);
     assert.equal(upgradeEvent.ngPlusCycle, 1);
+  });
+
+  await t.test('shows a disabled, maxed-out button once a slot hits its NG+ cycle upgrade cap', async () => {
+    // buildState defaults to ngPlusCycle: 1, whose cap is MAX_UPGRADE_LEVEL (3) + 2 = 5.
+    const root = await mountSmith(buildState({
+      upgrades: { 'ironSword:superior': 5 },
+      inventory: [{ itemId: 'ironScrap', quantity: 1 }],
+    }));
+    const button = root.querySelector('button[data-slot="weapon"]');
+    assert.ok(button.disabled);
+    assert.ok(button.textContent.includes('Maxed for NG+1'));
+  });
+
+  await t.test('clicking a maxed-out upgrade button is a no-op (disabled, but confirms no state change even if clicked)', async () => {
+    let upgraded = false;
+    const state = buildState({
+      upgrades: { 'ironSword:superior': 5 },
+      inventory: [{ itemId: 'ironScrap', quantity: 1 }],
+    });
+    const root = await mountSmith(state, { onUpgrade: () => { upgraded = true; }, onLeave: () => {} });
+    click(root.querySelector('button[data-slot="weapon"]'));
+    assert.equal(upgraded, false);
+    assert.equal(state.upgrades['ironSword:superior'], 5);
   });
 
   await t.test('the X button calls onLeave', async () => {

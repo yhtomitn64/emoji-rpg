@@ -19,6 +19,17 @@ export const TILES = {
   shop: { emoji: '🏪', walkable: true, encounter: false, action: 'enterShop', description: 'Shop — buy and sell gear' },
   smith: { emoji: '⚒️', walkable: true, encounter: false, action: 'enterSmith', description: 'Smith — upgrade your equipment' },
   exit: { emoji: '🚪', walkable: true, encounter: false, action: 'exitMap', description: 'Door — leave this area' },
+  // Town's own exits (see docs/superpowers/specs/2026-09-03-town-exits-
+  // and-signage-design.md) - deliberately no emoji ("not even a door,
+  // just a break in the trees"), one tile kind per direction so each
+  // carries its own explicit action, matching the enterAxeDungeon/
+  // enterPickDungeon/etc. convention rather than inferring direction
+  // from where the tile sits in the map. `exit` above is untouched and
+  // still used by dungeon/tool-dungeon doors.
+  treeGapNorth: { emoji: '', walkable: true, encounter: false, action: 'exitTownNorth', description: 'A break in the trees' },
+  treeGapSouth: { emoji: '', walkable: true, encounter: false, action: 'exitTownSouth', description: 'A break in the trees' },
+  treeGapEast: { emoji: '', walkable: true, encounter: false, action: 'exitTownEast', description: 'A break in the trees' },
+  treeGapWest: { emoji: '', walkable: true, encounter: false, action: 'exitTownWest', description: 'A break in the trees' },
   boss: { emoji: '🐉', walkable: true, encounter: false, action: 'bossBattle', description: 'The dragon awaits' },
   caveFloor: { emoji: '⬛', walkable: true, encounter: true, description: 'Cave floor — wild monsters may appear' },
   caveWall: { emoji: '🪨', walkable: false, encounter: false, description: 'Cave wall — blocks the way' },
@@ -47,4 +58,6 @@ export const TILES = {
   portalOrigin: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToTown', description: 'A swirling portal — steps through to town' },
   portalReturn: { emoji: '🌌', walkable: true, encounter: false, action: 'enterPortalToOrigin', description: 'A swirling portal — steps through back where you left it' },
   guardian: { emoji: '⚔️', walkable: true, encounter: false, action: 'guardianBattle', description: 'A guardian blocks the way — defeat it to claim its tool' },
+  superBossMarker: { emoji: '💀', walkable: true, encounter: false, action: 'superBossBattle', description: 'A powerful presence looms here - only the best-prepared should approach' },
+  superBossEntrance: { emoji: '🌋', walkable: true, encounter: false, action: 'enterSuperBossDungeon', description: 'A guarded passage - something far stronger than a guardian lies beyond' },
 };

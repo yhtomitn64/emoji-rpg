@@ -1,4 +1,5 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags } from './state.js';
+import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
 import * as battleScreen from './screens/battleScreen.js';
@@ -19,6 +20,7 @@ import { pickDungeonMap } from './maps/toolDungeons/pickDungeon.js';
 import { canoeDungeonMap } from './maps/toolDungeons/canoeDungeon.js';
 import { portalDungeonMap } from './maps/toolDungeons/portalDungeon.js';
 import { TOOL_DUNGEON_ENTRANCES } from './data/toolDungeons.js';
+import { SUPER_BOSSES } from './data/superBosses.js';
 import { centerMap } from './maps/wilderness/center.js';
 import { northMap } from './maps/wilderness/north.js';
 import { southMap } from './maps/wilderness/south.js';
@@ -56,20 +58,22 @@ import { showFlavorBanner } from './screens/flavorBanner.js';
 import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/messageLog.js';
 import { playCelebration, playToolCelebration } from './screens/celebrationEffect.js';
 import { playItemPickupToast } from './screens/itemPickupToast.js';
+import { initItemTooltip } from './screens/itemTooltip.js';
 import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
-import { ABILITIES } from './systems/abilities.js';
+import { ABILITIES, buildAbilityExplainerSections } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
 import { addGold, addItem, spendGold, getEquipmentBonuses, migrateUpgradesToPerTier, getUpgradeLevel } from './systems/inventory.js';
 import { startSession, logEvent, getElapsedMs } from './systems/telemetry.js';
-import { isValidSavedPosition } from './systems/world.js';
+import { isValidSavedPosition, resolveTownExitLanding } from './systems/world.js';
 import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
+import { applyDebugCharacterFromUrl } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
-import { pickMonsterVariant } from './systems/monsterVariants.js';
+import { pickVariantOverrides } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
 import { TOWN_PORTAL_POSITION, hasPortalTool, dropPortal, markReturnPending } from './systems/portal.js';
@@ -78,8 +82,12 @@ import { incrementLossStreak, potionsForStreak, getComebackMessage, postDeathWar
 import * as questBoardScreen from './screens/questBoardScreen.js';
 import * as changelogScreen from './screens/changelogScreen.js';
 import { PLAYER_CHANGELOG } from './data/playerChangelog.js';
+import * as mechanicExplainerScreen from './screens/mechanicExplainerScreen.js';
+import { ABILITY_EXPLAINERS } from './data/abilityExplainers.js';
 
+import { superBossOneDungeonMap } from './maps/superBosses/superBossOneDungeon.js';
 const MAPS = {
+  superBossOneDungeon: superBossOneDungeonMap,
   town: townMap,
   dungeon: dungeonMap,
   center: centerMap,
@@ -120,8 +128,26 @@ const MAPS = {
 
 const WORLD_GRID = buildWorldGrid(MAPS);
 
+// The @ tile's fixed position on 'center' - town's only real link to the
+// wilderness (see docs/superpowers/specs/2026-09-03-town-exits-and-
+// signage-design.md). All 4 town exits land 1 tile out from this point
+// in the matching direction. tests/maps.test.js has two guards: "center
+// screen has open, walkable ground on all 4 sides..." confirms the real
+// @ position has room to land on every side, and a second test pins this
+// constant's literal value against center.js's real @ position - if that
+// second test ever fails, center.js's @ moved and this constant is now
+// stale.
+const TOWN_ENTRANCE = { x: 14, y: 12 };
+
+function findSuperBossAt(screenId, x, y) {
+  return Object.values(SUPER_BOSSES).find(
+    (entry) => entry.screenId === screenId && entry.x === x && entry.y === y
+  );
+}
+
 let state = null;
 let activeSlotId = null;
+let audioStarted = false;
 
 function startGame(loadedState, slotId) {
   state = migrateUpgradesToPerTier(loadedState);
@@ -131,6 +157,8 @@ function startGame(loadedState, slotId) {
   state = migrateBestDamage(state);
   state = migrateLoadout(state);
   state = migrateSettings(state);
+  state = migrateAudioSettings(state);
+  state = migrateFeatureFlags(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';
@@ -205,6 +233,17 @@ function startGame(loadedState, slotId) {
   if (!state.player.emoji) {
     state.player.emoji = DEFAULT_HERO_EMOJI;
   }
+  // Gated behind the audioBeta feature flag (Settings > Feature Flags) while
+  // real sound assets are still being produced - guarded to run at most once
+  // per session once the flag is on, since startGame's other call sites
+  // (NG+ restart) happen mid-session with audio already initialized and
+  // only need their settings re-synced.
+  if (!audioStarted && state.settings.featureFlags.audioBeta) {
+    audioStarted = true;
+    initAudio();
+    unlockAudio(); // startGame's first call only ever runs from a real click (save-slot select), so this satisfies the browser's autoplay-gesture requirement.
+  }
+  syncAudioSettings(state.settings);
   renderHud();
   goToMap(state.map);
 }
@@ -366,7 +405,18 @@ function openSettings() {
   mountOverlay(settingsScreen, {
     state,
     callbacks: {
-      onChange: () => persist(),
+      onChange: () => {
+        persist();
+        // Flipping the audioBeta flag on mid-session (rather than at the
+        // next game load) should take effect immediately, same guard as
+        // startGame's own audio-init block.
+        if (!audioStarted && state.settings.featureFlags.audioBeta) {
+          audioStarted = true;
+          initAudio();
+          unlockAudio(); // openSettings only ever runs from a real click, so this satisfies the browser's autoplay-gesture requirement too.
+        }
+        syncAudioSettings(state.settings);
+      },
       onClose: () => unmountOverlay(),
     },
   });
@@ -470,8 +520,9 @@ function handleTileAction(action) {
   if (action === 'usePortalTool') return handleUsePortalTool();
   if (action === 'enterPortalToTown') return handleEnterPortalToTown();
   if (action === 'enterPortalToOrigin') return handleEnterPortalToOrigin();
+  const townExitLanding = resolveTownExitLanding(action, TOWN_ENTRANCE);
+  if (townExitLanding) return enterMap('center', townExitLanding);
   if (action === 'exitMap') {
-    if (state.map === 'town') return enterMap('center');
     // Land back on the exact entrance tile, not the destination screen's
     // generic startPosition - otherwise leaving a dungeon drops the player
     // somewhere else on the screen entirely, with no immediate way back to
@@ -486,6 +537,11 @@ function handleTileAction(action) {
         return enterMap(toolEntrance.screenId, { x: toolEntrance.x, y: toolEntrance.y });
       }
     }
+    for (const superBoss of Object.values(SUPER_BOSSES)) {
+      if (superBoss.hasDungeon && state.map === superBoss.dungeonMapId) {
+        return enterMap(superBoss.screenId, { x: superBoss.x, y: superBoss.y });
+      }
+    }
     return;
   }
   if (action === 'enterShop') return goToShop();
@@ -497,6 +553,16 @@ function handleTileAction(action) {
   }
   if (action === 'guardianBattle') {
     handleEncounter([MAPS[state.map].guardianMonsterId]);
+    return;
+  }
+  if (action === 'superBossBattle') {
+    const superBoss = findSuperBossAt(state.map, state.position.x, state.position.y);
+    if (superBoss) handleEncounter([superBoss.monsterId]);
+    return;
+  }
+  if (action === 'enterSuperBossDungeon') {
+    const superBoss = findSuperBossAt(state.map, state.position.x, state.position.y);
+    if (superBoss) return enterMap(superBoss.dungeonMapId);
     return;
   }
   if (action === 'exitMiniDungeon') return handleExitMiniDungeon();
@@ -517,6 +583,7 @@ function handleUseWell() {
   state.player.hp = effectiveMaxHp;
   persist();
   renderHud();
+  mapScreen.playWellHealEffect();
   showFlavorBanner('You rest at the well and feel fully restored.');
 }
 
@@ -754,7 +821,9 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
   // fights always pass their own explicit tier overrides, so this branch
   // never fires for those. Each monster in the group independently rolls a
   // named stat variant (js/systems/monsterVariants.js).
-  const variantOverridesList = monsterOverridesList || monsterIds.map((monsterId) => pickMonsterVariant(MONSTERS[monsterId]));
+  // forceFullBattle monsters (tool guardians, superbosses) are exempt from
+  // the variant roll - see pickVariantOverrides in monsterVariants.js.
+  const variantOverridesList = monsterOverridesList || monsterIds.map((monsterId) => pickVariantOverrides(MONSTERS[monsterId]));
   const ngPlusOverridesList = monsterIds.map((monsterId, i) => {
     const overrides = variantOverridesList[i];
     const preScaled = { ...MONSTERS[monsterId], ...(overrides || {}) };
@@ -902,6 +971,20 @@ function handleBattleEnd(outcome, killedMonsterIds) {
         // BURST_DURATION_MS, 1400ms) so the two show in sequence instead.
         setTimeout(() => {
           playCelebration(emoji, `New ability unlocked: ${names}!`);
+          // Combined popup (one per level-up event, covering every ability
+          // that just unlocked) rather than one per ability - see the
+          // brainstorming design's "Multi-unlock" decision. No seenScreens
+          // gate needed: unlockLevel is crossed exactly once per ability per
+          // NG+ cycle by construction, same as the banner above it. Gated
+          // behind mechanicExplainersBeta while the explainer text itself is
+          // still empty placeholders (js/data/abilityExplainers.js).
+          if (state.settings.featureFlags?.mechanicExplainersBeta) {
+            mountOverlay(mechanicExplainerScreen, {
+              title: 'New Ability!',
+              sections: buildAbilityExplainerSections(newlyUnlockedAbilities, ABILITY_EXPLAINERS),
+              callbacks: { onClose: () => unmountOverlay() },
+            });
+          }
         }, 1600);
       }
       for (let lvl = levelBeforeRewards + 1; lvl <= state.player.level; lvl += 1) {
@@ -1001,5 +1084,7 @@ function promptPostDeathTravel() {
 }
 
 migrateLegacySave();
+applyDebugCharacterFromUrl();
 mountStartScreen();
 renderVersionFooter();
+initItemTooltip();

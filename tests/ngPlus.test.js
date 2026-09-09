@@ -17,22 +17,22 @@ function assertClose(actual, expected, epsilon = 1e-6) {
 
 test('getNgPlusCombatOverrides at cycle 0 matches the base monster exactly', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 0);
-  assert.deepEqual(stats, { hp: 150, attack: 34, defense: 12, speed: 11 });
+  assert.deepEqual(stats, { hp: 600, attack: 58, defense: 22, speed: 13 });
 });
 
 test('getNgPlusCombatOverrides at cycle 1 doubles hp and raises attack/defense ~25%', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 1);
-  assert.deepEqual(stats, { hp: 300, attack: 43, defense: 15, speed: 11 });
+  assert.deepEqual(stats, { hp: 1200, attack: 73, defense: 28, speed: 13 });
 });
 
 test('getNgPlusCombatOverrides at cycle 2 compounds correctly', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 2);
-  assert.deepEqual(stats, { hp: 600, attack: 53, defense: 19, speed: 11 });
+  assert.deepEqual(stats, { hp: 2400, attack: 91, defense: 34, speed: 13 });
 });
 
 test('getNgPlusCombatOverrides keeps compounding with no ceiling past cycle 2', () => {
   const stats = getNgPlusCombatOverrides(MONSTERS.dragon, 5);
-  assert.deepEqual(stats, { hp: 4800, attack: 104, defense: 37, speed: 11 });
+  assert.deepEqual(stats, { hp: 19200, attack: 177, defense: 67, speed: 13 });
 });
 
 test('getNgPlusRewardMultiplier compounds 1.5x per cycle', () => {

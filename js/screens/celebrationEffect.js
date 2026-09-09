@@ -1,4 +1,5 @@
 import { showFlavorBanner } from './flavorBanner.js';
+import { playSfx } from '../systems/audio.js';
 
 const BURST_DURATION_MS = 1400;
 const BIG_TEXT_DURATION_MS = 1400;
@@ -21,6 +22,7 @@ let hideToolCalloutTimeoutId = null;
 
 export function playCelebration(emoji, message, options = {}) {
   showFlavorBanner(message);
+  playSfx('celebrationGeneric');
 
   const burstEl = document.getElementById('celebration-burst');
   burstEl.textContent = emoji;
@@ -86,6 +88,7 @@ function anchorBurstToPlayer(burstEl) {
 
 export function playToolCelebration(emoji, message, capabilityText) {
   showFlavorBanner(message);
+  playSfx('toolCelebration');
 
   const burstEl = document.getElementById('celebration-burst');
   burstEl.textContent = emoji;

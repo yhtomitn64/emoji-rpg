@@ -22,6 +22,26 @@ export function applyKnockback(atb, amount) {
   return Math.max(0, atb - amount);
 }
 
+// Raised 2026-09-04: landing a hit used to knock the target's ATB back
+// every single time, no roll at all - with abilities now cooling down in
+// seconds rather than under a second, that stopped being "spam control"
+// and started just making the enemy's own attack timer crawl. Rather than
+// the streak-decay approach already used for Attack's own knockback
+// (attackKnockbackMultiplier below), Timothy's own call was simpler: make
+// the knockback itself a low-probability proc instead of guaranteed, same
+// shape as the game's other chance-based combat modifiers (rollCrit,
+// on-hit effect procs) rather than adding another streak counter to
+// track. Only wraps the player-hits-monster direction (resolvePlayerAttack/
+// resolveAbilityUse's monsterAtb) - resolveMonsterAttack's playerAtb
+// knockback is dead code today (nothing reads it; the player's own ATB
+// gauge was removed from the UI in the ability-GCD rework), so it's left
+// alone rather than changed for no observable effect.
+export const ATB_KNOCKBACK_CHANCE = 0.05;
+
+export function rollKnockback(atb, amount, rng = Math.random) {
+  return rng() < ATB_KNOCKBACK_CHANCE ? applyKnockback(atb, amount) : atb;
+}
+
 // A player who has invested enough in speed (leveling and/or gear like Wind
 // Greaves) to reach this threshold gets a small damage bonus, so speed stays
 // worth chasing past the point where it's already fast enough to act often.
@@ -34,6 +54,40 @@ export function applySpeedDamageBonus(damage, speed) {
 
 export function applyEnemySlow(speed, slowPercent) {
   return Math.max(1, Math.round(speed * (1 - slowPercent / 100)));
+}
+
+// Player-side counterpart to applyEnemySlow above - a superboss special
+// attack (js/screens/battleScreen.js) slows the PLAYER instead of the
+// player slowing a monster, same math, opposite direction. null means "no
+// debuff active" (same convention as abilities.js's createDefenseDebuff/
+// tickDefenseDebuff), not an {active: false} object.
+export function createPlayerSlowDebuff(slowPercent, durationMs) {
+  return { slowPercent, remainingMs: durationMs };
+}
+
+export function tickPlayerSlowDebuff(debuff, dt) {
+  if (!debuff) return null;
+  const remainingMs = Math.max(0, debuff.remainingMs - dt);
+  return remainingMs === 0 ? null : { ...debuff, remainingMs };
+}
+
+export function applyPlayerSlowDebuff(speed, debuff) {
+  if (!debuff) return speed;
+  return applyEnemySlow(speed, debuff.slowPercent);
+}
+
+// Blocks Attack/ability/item actions while active (js/screens/
+// battleScreen.js's own guards) - Flee is deliberately NOT blocked, so a
+// missed parry against a superboss's special attack costs you a beat of
+// action, not the ability to disengage.
+export function createPlayerStunDebuff(durationMs) {
+  return { remainingMs: durationMs };
+}
+
+export function tickPlayerStunDebuff(debuff, dt) {
+  if (!debuff) return null;
+  const remainingMs = Math.max(0, debuff.remainingMs - dt);
+  return remainingMs === 0 ? null : { remainingMs };
 }
 
 export const CRIT_CHANCE = 0.1;
@@ -122,6 +176,72 @@ export function attackCooldownMsForStreak(streak) {
   return ATTACK_COOLDOWN_BASE_MS + streak * ATTACK_COOLDOWN_GROWTH_MS;
 }
 
+// Powers the in-battle explainer for the streak-decay mechanic above: fire
+// once, the first time a real attack actually lands at less than full
+// strength - not at the moment the streak starts, and not again once the
+// player has already seen it (alreadySeen comes from state.seenScreens via
+// js/systems/screenSeen.js, keyed by battleScreen.js's own
+// ATTACK_FALLOFF_SEEN_KEY).
+export function attackFalloffJustTriggered(streakMultiplier, alreadySeen) {
+  return streakMultiplier < 1 && !alreadySeen;
+}
+
+// Powers the Attack button's ready-ring (css/styles.css's
+// .battle-ability-ready-ring, battleScreen.js's actionButtonHtml/
+// animateCooldownWipes). Raised 2026-09-07: "is the ring actually at full
+// power when it's full, or still under diminishing returns? line up that
+// effect with when it's actually at full power" - it wasn't lined up: the
+// ring used to read the exact same --pct as the red cooldown wipe
+// (attackCooldownMsForStreak, capped at a couple seconds even deep into a
+// streak), so it closed and glowed the instant that brief swing cooldown
+// ended - long before ATTACK_STREAK_RECOVERY_MS's much slower idle timer
+// actually zeroed the streak back out and restored full damage. This reads
+// idleMs against that slower timer instead, same remaining/total-percent
+// shape as cooldownPct (100 = just decayed, counting down to 0 = fully
+// recovered) so the same --pct convention and animateCooldownWipes()
+// smoothing loop still apply - streak <= 0 short-circuits to 0 (fully
+// closed/glowing) since there's nothing left to recover from.
+export function attackReadyRingPct(streak, idleMs) {
+  if (streak <= 0) return 0;
+  return Math.max(0, ((ATTACK_STREAK_RECOVERY_MS - idleMs) / ATTACK_STREAK_RECOVERY_MS) * 100);
+}
+
+// Speed-scaled shared cooldown for abilities 1-4 (Impale/Sever/Lacerate/
+// Faultline), replacing the player ATB "swing timer" gate those abilities
+// used to wait on - see docs/superpowers/specs/2026-09-03-ability-gcd-
+// rework-design.md. Starting values give exactly 1000ms at the player's
+// starting speed of 5, floored at 500ms around speed 22 (just past
+// SPEED_DAMAGE_BONUS_THRESHOLD) - a starting point for the balance pass
+// in that same spec's workflow section, not a final tuning.
+export const ABILITY_GCD_BASE_MS = 1150;
+export const ABILITY_GCD_MS_PER_SPEED = 30;
+export const ABILITY_GCD_FLOOR_MS = 500;
+
+// Raised 2026-09-04: "if you spam attack it slows down the global cooldown
+// all abilities are tied to" - until now, Attack's own spam-decay (streak
+// multiplier/knockback/cooldown above) was entirely independent of the
+// abilities' shared GCD, so a player could spam Attack at full speed AND
+// still fire an ability the instant its own cooldown expired, undercutting
+// the GCD's own point. battleScreen.js applies this on every real Attack
+// press (not an extraSwingChance bonus swing) via abilities.js's
+// applyAbilityGcd with no specific ability id, the same "floor every
+// unlocked ability's cooldown up to at least this" mechanism a real ability
+// use already applies to its GCD siblings. Smaller per-streak growth than
+// Attack's own cooldown (100ms vs 200ms) - "slight," not a full second
+// throttle - since this is a secondary pressure on top of Attack's own
+// already-growing cooldown, not the main lever. First-pass number, not yet
+// played against a real rotation to confirm it reads as a small nudge
+// rather than actually locking abilities out.
+export const ATTACK_STREAK_GCD_GROWTH_MS = 100;
+
+export function attackStreakGcdBonusMs(streak) {
+  return streak * ATTACK_STREAK_GCD_GROWTH_MS;
+}
+
+export function abilityGcdMsForSpeed(speed) {
+  return Math.max(ABILITY_GCD_FLOOR_MS, ABILITY_GCD_BASE_MS - speed * ABILITY_GCD_MS_PER_SPEED);
+}
+
 export function resolvePlayerAttack(player, monster, rng = Math.random, streakMultiplier = 1, knockbackMultiplier = 1, critChanceBonus = 0) {
   const isCrit = rollCrit(rng, critChanceBonus);
   let damage = calculateDamage(player, monster, rng);
@@ -132,7 +252,7 @@ export function resolvePlayerAttack(player, monster, rng = Math.random, streakMu
     damage,
     isCrit,
     monsterHp: Math.max(0, monster.hp - damage),
-    monsterAtb: applyKnockback(monster.atb, ATB_KNOCKBACK * knockbackMultiplier),
+    monsterAtb: rollKnockback(monster.atb, ATB_KNOCKBACK * knockbackMultiplier, rng),
     playerAtb: 0,
   };
 }
@@ -151,6 +271,19 @@ export function resolveMonsterAttack(monster, player, rng = Math.random, thornsP
     monsterHp: Math.max(0, monster.hp - reflectedDamage),
     reflectedDamage,
   };
+}
+
+// Mutually exclusive, first-match-wins roll through a monster's own
+// specialAttacks list (empty for every non-superboss monster today) -
+// returns the chosen config or null for a plain attack this turn. Shared
+// between the real game (js/screens/battleScreen.js's windup-start roll)
+// and scripts/simulate-balance.js's headless matchup sim, so both roll the
+// exact same odds instead of the sim quietly drifting from a re-derived copy.
+export function rollSpecialAttack(specialAttacks, rng = Math.random) {
+  for (const special of specialAttacks) {
+    if (rng() < special.chancePerTurn) return special;
+  }
+  return null;
 }
 
 export function resolvePotionUse(player, healAmount, rng = Math.random, critChanceBonus = 0) {

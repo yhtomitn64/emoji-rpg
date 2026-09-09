@@ -6,27 +6,56 @@ import { logEvent } from '../systems/telemetry.js';
 // Raised 2026-08-29: "you never really need to buy more than 1 equipment
 // item, the only thing that really needs multiples is the potions." Bulk
 // quantities only make sense for stackable consumables - equipping is a
-// one-copy-at-a-time slot, so a Buy 5x/10x/100x on a sword just clutters
-// the row with buttons that are never useful (worst case, buying extras
-// unequipped, which Sell Duplicate Gear above now exists specifically to
-// clean back up).
+// one-copy-at-a-time slot, so buying a sword 5x/10x/100x at once just means
+// buying extras that sit unequipped (worst case, Sell Duplicate Gear above
+// exists specifically to clean those back up). This is why the shared qty
+// toggle below (design: docs, "Battle FX & Shop Lab" artifact, section 05)
+// is ignored for gear cards - only a consumable's Buy button ever reads it.
 const CONSUMABLE_BUY_QUANTITIES = [1, 5, 10, 100];
-const GEAR_BUY_QUANTITIES = [1];
+
+const CATEGORY_TABS = [
+  { key: 'weapon', label: 'Weapons' },
+  { key: 'armor', label: 'Armor' },
+  { key: 'potion', label: 'Potions' },
+];
+
+function categoryOf(item) {
+  if (item.type === 'consumable') return 'potion';
+  return item.slot === 'weapon' ? 'weapon' : 'armor';
+}
 
 let rootEl = null;
 let state = null;
 let callbacks = null;
-let pendingEquip = null;
+let activeCategory = 'weapon';
+let selectedQty = 1;
+// A queue, not a single slot (raised 2026-09-04: "if you buy multiple the
+// equip now should stay up for all of them you bought so you can buy 4
+// pieces then equip them all") - buying a second not-yet-equipped item used
+// to silently overwrite the first one's prompt, dropping it with no way
+// back short of digging through Inventory. Keyed by itemId (deduped in
+// buyItem below) rather than index, so a click's dataset always names the
+// right row even after another row is removed in between renders.
+let pendingEquipQueue = [];
 let sellDuplicatesMessage = null;
 
 function renderEquipPrompt() {
-  if (!pendingEquip) return '';
-  const item = ITEMS[pendingEquip];
-  const deltaText = formatStatDelta(getItemStatDelta(state, pendingEquip));
-  return `<div class="shop-equip-prompt">
-    <span>Equip ${item.emoji} ${item.name} now?${deltaText ? ` (${deltaText})` : ''}</span>
-    <button id="btn-equip-prompt-yes">Equip</button>
-    <button id="btn-equip-prompt-no">Not now</button>
+  if (pendingEquipQueue.length === 0) return '';
+  const rows = pendingEquipQueue.map((itemId) => {
+    const item = ITEMS[itemId];
+    const deltaText = formatStatDelta(getItemStatDelta(state, itemId));
+    return `<div class="shop-equip-prompt">
+      <span>Equip ${item.emoji} ${item.name} now?${deltaText ? ` (${deltaText})` : ''}</span>
+      <button data-equip-yes="${itemId}">Equip</button>
+      <button data-equip-no="${itemId}">Not now</button>
+    </div>`;
+  }).join('');
+  return `<div class="shop-equip-prompt-banner">
+    <div class="shop-equip-prompt-banner-head">
+      <span>Equip your new gear?</span>
+      <button class="shop-equip-prompt-close-all" id="btn-equip-prompt-close-all" aria-label="Dismiss all equip prompts">✕</button>
+    </div>
+    ${rows}
   </div>`;
 }
 
@@ -55,7 +84,7 @@ function tieredSellRowsHtml(itemId) {
     const entry = state.inventory.find((e) => e.itemId === itemId && e.tier === tier);
     if (!entry || entry.quantity === 0) return '';
     return `<div class="shop-row">
-      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} (own ${entry.quantity})</span>
+      <span data-tooltip="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} (own ${entry.quantity})</span>
       <span class="shop-row-buttons">
         <button data-sell="${itemId}" data-tier="${tier}">Sell (${sellPrice(item.price)}g)</button>
       </span>
@@ -63,28 +92,58 @@ function tieredSellRowsHtml(itemId) {
   }).join('');
 }
 
+// Option A ("card grid") from the "Battle FX & Shop Lab" artifact, section
+// 05: bigger emoji, one Buy button per item instead of four, category tabs
+// instead of one long list.
+function itemCardHtml(itemId) {
+  const item = ITEMS[itemId];
+  const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId && !entry.tier);
+  const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
+  // Tier-aware: only the Plain copy is "this card, equipped" - a worn Fine/
+  // Superior copy is a different (better) item than what the shop sells.
+  const isEquipped = item.slot && state.equipment[item.slot] === itemId && !state.equipmentTiers?.[item.slot];
+  const isConsumable = item.type === 'consumable';
+  const buyQty = isConsumable ? selectedQty : 1; // see CONSUMABLE_BUY_QUANTITIES's comment above
+  const affordable = maxAffordableQuantity(state.player.gold, item.price, buyQty) === buyQty;
+  const buyLabel = isConsumable && buyQty !== 1 ? `Buy ${buyQty}x` : 'Buy';
+  const metaBits = [`${item.price}g`];
+  if (ownedQty > 0) metaBits.push(`own ${ownedQty}`);
+  if (isEquipped) metaBits.push('✓ Equipped');
+  // data-tooltip lives on the whole card, not just the name span below it -
+  // raised 2026-09-07: hovering the big emoji icon (the natural target)
+  // used to show nothing at all, since only the small name text carried a
+  // tooltip. See itemTooltip.js's own comment for the instant-hover half of
+  // this fix.
+  return `<div class="item-card" data-tooltip="${describeItem(state, itemId)}">
+    <span class="item-card-emoji">${item.emoji}</span>
+    <span class="item-card-name">${item.name}</span>
+    <span class="item-card-meta">${metaBits.join(' · ')}</span>
+    <div class="item-card-actions">
+      <button class="item-card-buy" data-item="${itemId}" data-qty="${buyQty}" ${affordable ? '' : 'disabled'}>${buyLabel}</button>
+      <button class="item-card-sell" data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
+    </div>
+  </div>`;
+}
+
+function tabsHtml() {
+  return CATEGORY_TABS.map(({ key, label }) =>
+    `<button class="shop-tab ${key === activeCategory ? 'active' : ''}" data-cat="${key}">${label}</button>`
+  ).join('');
+}
+
+function qtyToggleHtml() {
+  return CONSUMABLE_BUY_QUANTITIES.map((qty) =>
+    `<button class="shop-qty-btn ${qty === selectedQty ? 'active' : ''}" data-qty="${qty}">${qty}×</button>`
+  ).join('');
+}
+
 function render() {
-  const rows = SHOP_CATALOG.map((itemId) => {
-    const item = ITEMS[itemId];
-    const ownedEntry = state.inventory.find((entry) => entry.itemId === itemId && !entry.tier);
-    const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
-    // Tier-aware: only the Plain copy is "this row, equipped" - a worn Fine/
-    // Superior copy is a different (better) item than what the shop sells.
-    const isEquipped = item.slot && state.equipment[item.slot] === itemId && !state.equipmentTiers?.[item.slot];
-    const buyQuantities = item.type === 'consumable' ? CONSUMABLE_BUY_QUANTITIES : GEAR_BUY_QUANTITIES;
-    const buyButtons = buyQuantities.map((qty) => {
-      const affordable = maxAffordableQuantity(state.player.gold, item.price, qty) === qty;
-      const label = qty === 1 ? 'Buy' : `Buy ${qty}x`;
-      return `<button data-item="${itemId}" data-qty="${qty}" ${affordable ? '' : 'disabled'}>${label}</button>`;
-    }).join('');
-    return `<div class="shop-row">
-      <span title="${describeItem(state, itemId)}">${item.emoji} ${item.name} — ${item.price}g${ownedQty > 0 ? ` (own ${ownedQty})` : ''}${isEquipped ? ' ✓ Equipped' : ''}</span>
-      <span class="shop-row-buttons">
-        ${buyButtons}
-        <button data-sell="${itemId}" ${ownedQty === 0 ? 'disabled' : ''}>Sell (${sellPrice(item.price)}g)</button>
-      </span>
-    </div>${item.slot ? tieredSellRowsHtml(itemId) : ''}`;
-  }).join('');
+  const categoryItemIds = SHOP_CATALOG.filter((itemId) => categoryOf(ITEMS[itemId]) === activeCategory);
+  const cardsHtml = categoryItemIds.map(itemCardHtml).join('');
+  const tieredHtml = categoryItemIds
+    .filter((itemId) => ITEMS[itemId].slot)
+    .map((itemId) => tieredSellRowsHtml(itemId))
+    .join('');
 
   rootEl.innerHTML = `
     <div class="shop-screen">
@@ -92,11 +151,22 @@ function render() {
       <h2>Shop (Gold: ${state.player.gold})</h2>
       ${renderEquipPrompt()}
       ${renderSellDuplicatesControl()}
-      ${rows}
+      <div class="shop-toolbar">
+        <div class="shop-tabs">${tabsHtml()}</div>
+        <div class="shop-qty-toggle"><span class="shop-qty-label">Buy qty:</span>${qtyToggleHtml()}</div>
+      </div>
+      <div class="item-grid">${cardsHtml}</div>
+      ${tieredHtml}
       <button id="btn-leave">Leave</button>
     </div>
   `;
 
+  rootEl.querySelectorAll('.shop-tab').forEach((btn) => {
+    btn.onclick = () => { activeCategory = btn.dataset.cat; render(); };
+  });
+  rootEl.querySelectorAll('.shop-qty-btn').forEach((btn) => {
+    btn.onclick = () => { selectedQty = Number(btn.dataset.qty); render(); };
+  });
   rootEl.querySelectorAll('button[data-item]').forEach((btn) => {
     btn.onclick = () => buyItem(btn.dataset.item, Number(btn.dataset.qty));
   });
@@ -111,23 +181,33 @@ function render() {
       sellDuplicatesMessage = result.soldCount === 0
         ? 'No duplicates to sell.'
         : `Sold ${result.soldCount} duplicate item${result.soldCount === 1 ? '' : 's'} for ${result.goldEarned}g.`;
-      pendingEquip = null;
+      pendingEquipQueue = [];
       callbacks.onPurchase();
       render();
     };
   }
-  if (pendingEquip) {
-    document.getElementById('btn-equip-prompt-yes').onclick = () => {
-      const slot = ITEMS[pendingEquip].slot;
+  rootEl.querySelectorAll('button[data-equip-yes]').forEach((btn) => {
+    btn.onclick = () => {
+      const itemId = btn.dataset.equipYes;
+      const slot = ITEMS[itemId].slot;
       const replacedItemId = state.equipment[slot] || null;
-      Object.assign(state, equipItem(state, pendingEquip, slot));
-      logEvent('gear_equipped', { itemId: pendingEquip, slot, tier: null, upgradeLevel: getUpgradeLevel(state, pendingEquip, undefined), replacedItemId, ngPlusCycle: state.ngPlusCycle });
-      pendingEquip = null;
+      Object.assign(state, equipItem(state, itemId, slot));
+      logEvent('gear_equipped', { itemId, slot, tier: null, upgradeLevel: getUpgradeLevel(state, itemId, undefined), replacedItemId, ngPlusCycle: state.ngPlusCycle });
+      pendingEquipQueue = pendingEquipQueue.filter((id) => id !== itemId);
       callbacks.onPurchase();
       render();
     };
-    document.getElementById('btn-equip-prompt-no').onclick = () => {
-      pendingEquip = null;
+  });
+  rootEl.querySelectorAll('button[data-equip-no]').forEach((btn) => {
+    btn.onclick = () => {
+      pendingEquipQueue = pendingEquipQueue.filter((id) => id !== btn.dataset.equipNo);
+      render();
+    };
+  });
+  const closeAllEquipPromptsBtn = document.getElementById('btn-equip-prompt-close-all');
+  if (closeAllEquipPromptsBtn) {
+    closeAllEquipPromptsBtn.onclick = () => {
+      pendingEquipQueue = [];
       render();
     };
   }
@@ -143,7 +223,9 @@ function buyItem(itemId, quantity = 1) {
   let next = spendGold(state, item.price * quantity);
   next = addItem(next, itemId, quantity);
   Object.assign(state, next);
-  pendingEquip = (item.slot && state.equipment[item.slot] !== itemId) ? itemId : null;
+  if (item.slot && state.equipment[item.slot] !== itemId && !pendingEquipQueue.includes(itemId)) {
+    pendingEquipQueue.push(itemId);
+  }
   sellDuplicatesMessage = null;
   callbacks.onPurchase();
   render();
@@ -168,7 +250,7 @@ function sellItem(itemId, tier) {
   let next = removeItem(state, itemId, 1, tier); // tier undefined for the Plain row's button, 'fine'/'superior' for a tiered row's
   next = addGold(next, sellPrice(ITEMS[itemId].price));
   Object.assign(state, next);
-  pendingEquip = null;
+  pendingEquipQueue = [];
   sellDuplicatesMessage = null;
   callbacks.onPurchase();
   render();
@@ -178,8 +260,10 @@ export function mount(root, props) {
   rootEl = root;
   state = props.state;
   callbacks = props.callbacks;
-  pendingEquip = null;
+  pendingEquipQueue = [];
   sellDuplicatesMessage = null;
+  activeCategory = 'weapon';
+  selectedQty = 1;
   render();
   window.addEventListener('keydown', handleKeydown);
 }

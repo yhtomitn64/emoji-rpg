@@ -11,8 +11,10 @@ import { hasRequiredTool, getLockedGateMessage, getToolClearedMessage, getGatePr
 import { rollEncounterGroup } from '../systems/groupEncounters.js';
 import { rollEliteEncounter, ELITE_MONSTER_ID } from '../systems/eliteEncounter.js';
 import { TOOL_DUNGEON_ENTRANCES } from '../data/toolDungeons.js';
+import { SUPER_BOSSES } from '../data/superBosses.js';
 import { hasAnyQuestReady } from '../systems/quests.js';
 import { TOWN_PORTAL_POSITION } from '../systems/portal.js';
+import { playSfx } from '../systems/audio.js';
 
 // Raised 2026-08-29: random encounters had no memory of the last one, so
 // two fights on consecutive steps was always possible (just rare per-pair -
@@ -22,6 +24,20 @@ import { TOWN_PORTAL_POSITION } from '../systems/portal.js';
 // are deterministic, not random rolls.
 const ENCOUNTER_COOLDOWN_STEPS = 2;
 
+// Raised 2026-09-06: stepping onto a portal used to fire its action
+// (enterPortalToTown/enterPortalToOrigin/enterPortalDungeon) in the same
+// tick as the render() that first showed the player standing on it - an
+// instant cut with no warning. These three now get a brief "being pulled
+// in" pause first - see playPortalPullEffect and PORTAL_PULL_EFFECT_MS
+// below, and .map-tile-player-portal-pull in css/styles.css.
+const PORTAL_ACTION_TILES = new Set([TILES.portalOrigin, TILES.portalReturn, TILES.portalDungeonEntrance]);
+const PORTAL_PULL_EFFECT_MS = 420;
+// Guards against a second keypress landing mid-pull (e.g. moving away, or
+// re-triggering the same portal) before the delayed callbacks.onAction
+// above actually fires - reset on every mount() alongside every other
+// piece of this module's state.
+let portalTransitionPending = false;
+
 const CACHE_MARKER_EMOJI = '💰';
 const MINI_DUNGEON_MARKER_EMOJI = '🥾';
 const CACHE_MARKER_DESCRIPTION = 'A stash of gold (maybe an item too) — step here to collect it';
@@ -30,6 +46,17 @@ const MINI_DUNGEON_MARKER_DESCRIPTION = 'A mysterious opening — explore it';
 // under the player's own emoji instead of replacing it (e.g. riding the
 // boat across water rather than turning into a boat).
 const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
+
+// Town's always-on signpost labels (see docs/superpowers/specs/2026-09-03-
+// town-exits-and-signage-design.md) - keyed by tile identity, not gated on
+// mapConfig.id === 'town', since these 4 tile kinds only ever appear in
+// js/maps/townMap.js's own legend.
+const SIGN_LABEL_BY_TILE = new Map([
+  [TILES.shop, 'Shop'],
+  [TILES.smith, 'Blacksmith'],
+  [TILES.questBoard, 'Quest Board'],
+  [TILES.well, 'Well'],
+]);
 
 // Non-moving obstacles render full-square and up (100-150% of a tile's own
 // height, deterministic per position via hash01), tall enough to overlap
@@ -44,29 +71,49 @@ const MOUNT_EMOJI_FOR_TOOL = { boat: '🛶' };
 // it gets the same natural sizing as every other obstacle, both painted
 // and at the auto-sealed edge.
 const RANDOM_SIZE_OBSTACLES = new Set([TILES.tree, TILES.mountain, TILES.mountainCache, TILES.mountainWall, TILES.thicket, TILES.thicketCache]);
-// Shared "fills the tile" reference size (cqb = % of the tile's own
-// rendered height) - used both as the obstacles' 100% baseline (see
-// OBSTACLE_MAX_EXTRA below) and, unscaled, for landmarks that should always
-// read as prominent/findable rather than small: town and cave/dungeon
-// entrances. The hero and loot get their own, slightly smaller size -
-// see HERO_AND_LOOT_CQB.
-const FULL_SQUARE_CQB = 85;
-const HERO_AND_LOOT_CQB = 75;
-const OBSTACLE_MAX_EXTRA = 0.5; // up to +50% (150% total, i.e. 50% overlap)
 
 // Fixed real pixel size for every tile - the viewport's own CSS size
 // (.map-viewport in css/styles.css) then determines how many whole tiles
 // fit, which is what makes a smaller window/screen naturally show less of
 // the stitched world. Tunable; not load-bearing for correctness.
 const TILE_SIZE_PX = 48;
+// Shared "fills the tile" reference size, in real px derived from
+// TILE_SIZE_PX (used to be a `cqb` percentage read against a `container-type:
+// size` on .map-tile - dropped 2026-09-09, since TILE_SIZE_PX above is a
+// fixed constant, never actually variable at runtime, so the per-tile size
+// containment a container query needs was solving a problem that didn't
+// exist and cost real layout performance for no benefit) - used both as the
+// obstacles' 100% baseline (see OBSTACLE_MAX_EXTRA below) and, unscaled, for
+// landmarks that should always read as prominent/findable rather than
+// small: town and cave/dungeon entrances. The hero and loot get their own,
+// slightly smaller size - see HERO_AND_LOOT_PX.
+const FULL_SQUARE_PX = 0.85 * TILE_SIZE_PX;
+const HERO_AND_LOOT_PX = 0.75 * TILE_SIZE_PX;
+const OBSTACLE_MAX_EXTRA = 0.5; // up to +50% (150% total, i.e. 50% overlap)
+// Raised 2026-09-07: "make the tool bosses take up like 4 tiles instead
+// of 1 so they look big and scary." Reuses .map-tile-fullsize's own
+// centered-flex-box-with-overflow-visible rendering rather than a real
+// multi-cell sprite - .map-tile-obstacle already proves an oversized child
+// span happily bleeds past its own tile's edges into neighbors with zero
+// grid/collision changes, so the guardian's actual walkable/action tile
+// underneath stays exactly one cell. 220% centered bleeds ~60% of a tile
+// width into all four neighbors (left/right/above/below), reading as
+// roughly a 2x2 footprint. See GUARDIAN_ZINDEX_MARKERS below for why it
+// also needs the same always-on-top treatment portals get.
+const GUARDIAN_PX = 2.2 * TILE_SIZE_PX;
+
 // jsdom has no real layout engine (tests/helpers/dom.js), so
 // .clientWidth/.clientHeight always read 0 there - this is the fallback
 // viewport size used whenever a real measurement isn't available, keeping
 // DOM tests deterministic without needing to stub layout. Not a real-browser
 // floor (see css/styles.css - .map-viewport fills whatever space #app has,
-// no fixed cap) - chosen only because it clears dungeonMap's 20x11 (the
-// widest/tallest non-wilderness map) with margin, same as any normal
-// desktop window comfortably does today.
+// no fixed cap) - chosen only because it comfortably clears dungeonMap's
+// 20x11, same as any normal desktop window does today. As of the
+// 2026-09-03 resize, town (js/maps/townMap.js) is 20x14 and is actually
+// the tallest non-wilderness map now, 1 row taller than this fallback's
+// height - so jsdom-based tests of town pan slightly and don't render its
+// full extent (e.g. town's row 0, where the north exit gap sits, isn't
+// visible in the default fallback viewport).
 const DEFAULT_VIEWPORT_TILES_WIDE = 21;
 const DEFAULT_VIEWPORT_TILES_TALL = 13;
 
@@ -79,8 +126,19 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.axeDungeonEntrance,
   TILES.pickDungeonEntrance,
   TILES.canoeDungeonEntrance,
+  TILES.superBossEntrance,
+  TILES.superBossMarker,
   TILES.miniDungeonEntrance,
   TILES.miniDungeonTreasure,
+  // Raised 2026-09-06: these three were missing from this set, so - per
+  // the "append earlier = paints behind" comment on the trail-fragment
+  // append below - a portal's plain in-flow emoji had no `position`,
+  // meaning the trail SVG (which IS positioned) always painted on top of
+  // it regardless of DOM order. Full-size marker rendering fixes that for
+  // free, the same way it already does for every other landmark tile.
+  TILES.portalOrigin,
+  TILES.portalReturn,
+  TILES.portalDungeonEntrance,
   // The town interior's own action tiles - previously missing from this
   // set, so they fell through to the tiny plain-text render (the
   // .map-tile's own 1.2rem font-size) instead of reading as landmarks.
@@ -89,6 +147,7 @@ const FULL_SQUARE_MARKERS = new Set([
   TILES.questBoard,
   TILES.well,
   TILES.exit,
+  TILES.guardian,
 ]);
 
 // The subset of FULL_SQUARE_MARKERS above that always sit on a grass
@@ -109,11 +168,18 @@ const GRASS_CONTEXT_MARKERS = new Set([
   TILES.axeDungeonEntrance,
   TILES.pickDungeonEntrance,
   TILES.canoeDungeonEntrance,
+  TILES.superBossEntrance,
+  TILES.superBossMarker,
   TILES.shop,
   TILES.smith,
   TILES.questBoard,
   TILES.well,
   TILES.exit,
+  TILES.guardian,
+  TILES.treeGapNorth,
+  TILES.treeGapSouth,
+  TILES.treeGapEast,
+  TILES.treeGapWest,
 ]);
 
 // A cleared thicket/mountain (see CLEARED_GATE_REPLACEMENT below) reads as
@@ -177,6 +243,26 @@ let mapConfig = null;
 let maps = null;
 let worldGrid = null;
 let callbacks = null;
+// Persistent grid state for renderStep()'s diffing - see renderFull()/
+// renderStep() below. gridEl/viewportEl are the current .map-grid/
+// .map-viewport elements, kept alive across steps instead of torn down and
+// rebuilt every time (the old behavior, and the root cause of the large-
+// window hitching this diffing replaced). cellCache maps a world coordinate
+// (`${gx},${gy}`) to the cell element currently showing it, its current
+// on-screen (row, col), and the logical signature last used to build its
+// content - keyed by world coordinate (not screen row/col) because the
+// camera pans under the player, so a cell's on-screen position changes far
+// more often than its content does.
+let gridEl = null;
+let viewportEl = null;
+let cellCache = new Map();
+// The (tilesWide, tilesTall) gridEl's own gridTemplateColumns/Rows was built
+// for - renderStep() only diffs safely when this still matches; if it
+// doesn't (the viewport's pixel size changed without a 'resize' event
+// reaching handleResize, which shouldn't normally happen but would silently
+// mis-lay-out the grid if it did), it falls back to a full rebuild instead.
+let lastTilesWide = 0;
+let lastTilesTall = 0;
 
 const KEY_TO_DELTA = {
   ArrowUp: [0, -1], w: [0, -1],
@@ -233,6 +319,11 @@ function tileAt(screenConfig, x, y) {
   for (const toolEntrance of Object.values(TOOL_DUNGEON_ENTRANCES)) {
     if (screenConfig.id === toolEntrance.screenId && x === toolEntrance.x && y === toolEntrance.y) {
       return TILES[toolEntrance.tileKind];
+    }
+  }
+  for (const superBoss of Object.values(SUPER_BOSSES)) {
+    if (screenConfig.id === superBoss.screenId && x === superBoss.x && y === superBoss.y) {
+      return TILES[superBoss.hasDungeon ? 'superBossEntrance' : 'superBossMarker'];
     }
   }
   if (state.portal && screenConfig.id === state.portal.originScreenId && x === state.portal.originX && y === state.portal.originY) {
@@ -428,181 +519,339 @@ function computeViewportTileCount(viewportEl) {
   };
 }
 
-function render() {
-  const viewport = document.createElement('div');
-  viewport.className = 'map-viewport';
-  rootEl.innerHTML = '';
-  rootEl.appendChild(viewport);
+// The pure "what should this cell look like" computation, entirely free of
+// DOM - every value here is a cheap lookup against state/maps, not a node
+// creation, which is what makes it safe to run for every visible cell on
+// every step (renderStep() below) without reintroducing the cost this
+// rewrite exists to remove. Compared against the previous call's signature
+// (via signaturesEqual) to decide whether a cell's content needs rebuilding
+// at all.
+function computeCellSignature(screenId, x, y) {
+  const screenConfig = maps[screenId];
+  const tile = tileAt(screenConfig, x, y);
+  const isPlayer = screenId === mapConfig.id && state.position.x === x && state.position.y === y;
+  const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, screenId, x, y);
+  const hasTileCache = hasCache(state.caches, screenId, x, y);
+  // A tile currently blocking the way is never shown as visited, even if
+  // state.visited has a stale record from before the map was repainted (the
+  // player really did stand on grass there once, but that record shouldn't
+  // outlive the terrain it was standing on) - a permanent or still-locked
+  // obstacle can never actually have been walked on.
+  const isCurrentlyPassable = isPassableTile(tile);
+  const visited = isCurrentlyPassable && isVisited(state.visited, screenId, x, y);
+  const fraction = visited ? trailWearFraction(getVisitCount(state.visited, screenId, x, y)) : 0;
+  const dirs = visited ? getVisitDirs(state.visited, screenId, x, y) : [];
+  // Visible from a distance so a completed quest doesn't only turn up by
+  // walking in and checking - see docs/superpowers/BACKLOG.md's "Quest
+  // board should glow..." item.
+  const questReady = tile === TILES.questBoard && hasAnyQuestReady(state);
+  // Portal tiles get a flat +1000 z-index boost on top of the row-based
+  // depth sort (see applyCellPosition below) - guardians get the same
+  // treatment. See the original comment preserved on applyCellPosition.
+  const zBoosted = PORTAL_ACTION_TILES.has(tile) || tile === TILES.guardian;
+  return { resolved: true, screenId, x, y, tile, isPlayer, hasMiniDungeon, hasTileCache, visited, fraction, dirs, questReady, zBoosted };
+}
 
+const EMPTY_SIGNATURE = { resolved: false, zBoosted: false };
+
+function sameDirs(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function signaturesEqual(a, b) {
+  if (a.resolved !== b.resolved) return false;
+  if (!a.resolved) return true;
+  return a.screenId === b.screenId && a.x === b.x && a.y === b.y && a.tile === b.tile
+    && a.isPlayer === b.isPlayer && a.hasMiniDungeon === b.hasMiniDungeon && a.hasTileCache === b.hasTileCache
+    && a.visited === b.visited && a.fraction === b.fraction && sameDirs(a.dirs, b.dirs) && a.questReady === b.questReady;
+}
+
+// Rebuilds one cell's content in place from a signature - used both for a
+// brand-new cell and for an existing cell whose signature just changed
+// (renderStep() clears the cell's children first in that second case).
+function applyCellContent(cell, gx, gy, signature) {
+  // Reachable whenever the viewport is bigger than the current screen's
+  // whole cluster (computeViewportOrigin then centers the cluster inside
+  // the viewport instead of panning past its edges - see
+  // js/systems/world.js) - true for every map smaller than the viewport:
+  // town, mini-dungeons, tool dungeons. The padding cells around that
+  // centered cluster resolve to nothing here and render as a bare,
+  // content-less .map-tile.
+  if (!signature.resolved) {
+    cell.className = 'map-tile';
+    cell.removeAttribute('title');
+    return;
+  }
+  const { screenId, x, y, tile, isPlayer, hasMiniDungeon, hasTileCache, visited, fraction, dirs, questReady } = signature;
+  // Obstacles grow out of the grass, so they keep its green background
+  // rather than looking like a hole cut in the field - see
+  // RANDOM_SIZE_OBSTACLES above. Grass-context landmarks (town/
+  // wilderness/dungeon action tiles) are their own distinct tile type
+  // but conceptually sit on that same grass, so they get it too - see
+  // GRASS_CONTEXT_MARKERS above. Stump/rubble (what those obstacles
+  // become once cleared - see STUMP_AND_RUBBLE above) get the same
+  // treatment as grass itself, not just the obstacle set.
+  cell.className = 'map-tile'
+    + (tile === TILES.grass || STUMP_AND_RUBBLE.has(tile) || RANDOM_SIZE_OBSTACLES.has(tile) || GRASS_CONTEXT_MARKERS.has(tile) ? ' map-tile-grass' : '')
+    + (tile === TILES.water ? ' map-tile-water' : '')
+    + (isPlayer ? ' map-tile-player' : '')
+    + (questReady ? ' map-tile-quest-ready' : '')
+    + (tile === TILES.portalOrigin ? ' map-tile-portal map-tile-portal-origin' : '')
+    + (tile === TILES.portalReturn ? ' map-tile-portal map-tile-portal-return' : '')
+    + (tile === TILES.portalDungeonEntrance ? ' map-tile-portal' : '');
+  // A tile's own worn-path trail: dirt strokes reaching toward whichever
+  // directions the player has actually walked across at this exact tile
+  // (getVisitDirs - never inferred from a neighbor's own state, see
+  // exploration.js), or a small dot if it's been visited but nothing's
+  // been walked across it yet. Appended first so it paints underneath
+  // every other *positioned* branch below (mount/rider, obstacle,
+  // fullsize marker, decoration - same "append earlier = paints behind"
+  // rule the decoration-behind-hero fix uses), with one exception: the
+  // plain in-flow `cell.append(emoji)` fallback branch has no
+  // `position`, and non-positioned in-flow content always paints before
+  // positioned descendants regardless of DOM order - so on a tile that
+  // falls through to that branch, the trail SVG actually paints ON TOP
+  // of the emoji, not underneath it.
+  if (visited) {
+    const color = getTrailColor(tile);
+    const groundColor = getGroundColor(tile);
+    cell.appendChild(buildTrailFragment(x, y, gx, gy, dirs, fraction, color, groundColor));
+  }
+  const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
+  const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
+    ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
+  const isRandomSizeObstacle = !hasMiniDungeon && !hasTileCache && RANDOM_SIZE_OBSTACLES.has(tile);
+  const isFullSquareMarker = hasMiniDungeon || hasTileCache || FULL_SQUARE_MARKERS.has(tile);
+  const isDecoratedGrass = !isFullSquareMarker && (tile === TILES.grass || STUMP_AND_RUBBLE.has(tile)) && emoji !== '';
+  // Appended before the hero/marker span below (when both apply to the
+  // same tile) so the decoration sits underneath it in paint order,
+  // peeking out from around the edges instead of hiding whatever's
+  // standing on the tile.
+  function appendDecoration() {
+    const decoration = document.createElement('span');
+    decoration.className = 'map-tile-decoration';
+    decoration.textContent = emoji;
+    // Independently-salted hash streams so size and position don't
+    // move in lockstep with each other or with the decoration pick.
+    const scale = DECORATION_MIN_SCALE + hash01(x + 1000, y + 1000) * (DECORATION_MAX_SCALE - DECORATION_MIN_SCALE);
+    const left = DECORATION_POSITION_MIN_PCT + hash01(x + 2000, y + 2000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
+    const top = DECORATION_POSITION_MIN_PCT + hash01(x + 3000, y + 3000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
+    decoration.style.fontSize = `${(DECORATION_BASE_REM * scale).toFixed(2)}rem`;
+    decoration.style.left = `${left.toFixed(1)}%`;
+    decoration.style.top = `${top.toFixed(1)}%`;
+    cell.appendChild(decoration);
+  }
+  if (mountEmoji) {
+    const mount = document.createElement('span');
+    mount.className = 'map-tile-mount';
+    mount.textContent = mountEmoji;
+    const rider = document.createElement('span');
+    rider.className = 'map-tile-rider';
+    rider.textContent = state.player.emoji;
+    cell.append(mount, rider);
+  } else if (isRandomSizeObstacle) {
+    const obstacle = document.createElement('span');
+    obstacle.className = 'map-tile-obstacle';
+    obstacle.textContent = emoji;
+    const size = FULL_SQUARE_PX * (1 + hash01(x, y) * OBSTACLE_MAX_EXTRA);
+    obstacle.style.fontSize = `${size.toFixed(1)}px`;
+    cell.appendChild(obstacle);
+  } else if (isFullSquareMarker || isPlayer) {
+    // The hero can land on a decorated grass tile - render the
+    // decoration first so it still peeks out from behind the hero
+    // instead of the hero vanishing behind it (the old bug: this
+    // branch used to be checked *after* isDecoratedGrass, so the
+    // decoration won outright and hid the player entirely).
+    if (isDecoratedGrass) appendDecoration();
+    // The hero is always full-square.
+    const marker = document.createElement('span');
+    marker.className = 'map-tile-fullsize';
+    marker.textContent = isPlayer ? state.player.emoji : emoji;
+    // Hero and loot read better a touch smaller than town/cave
+    // entrances - FULL_SQUARE_PX stays the default for everything else
+    // in this branch (set inline below, since every fullsize marker now
+    // gets its font-size from a single source of truth rather than
+    // splitting the default between CSS and these overrides).
+    marker.style.fontSize = `${FULL_SQUARE_PX.toFixed(1)}px`;
+    const isHeroOrLoot = isPlayer || hasTileCache || tile === TILES.miniDungeonTreasure;
+    if (isHeroOrLoot) marker.style.fontSize = `${HERO_AND_LOOT_PX.toFixed(1)}px`;
+    // "Big and scary" - see GUARDIAN_PX's own comment above.
+    if (tile === TILES.guardian) marker.style.fontSize = `${GUARDIAN_PX.toFixed(1)}px`;
+    // Portal tiles: crop the emoji's own baked-in border rather than
+    // appending it plain - see .map-tile-portal-crop's own comment in
+    // css/styles.css. Excludes isPlayer: when the hero is standing on
+    // the portal tile, marker.textContent above is the hero's own
+    // emoji, not 🌌 - that one has no border to crop and must stay
+    // unscaled for playPortalPullEffect's own selector/animation to
+    // read its real, un-transformed size.
+    if (PORTAL_ACTION_TILES.has(tile) && !isPlayer) {
+      const crop = document.createElement('span');
+      crop.className = 'map-tile-portal-crop';
+      crop.appendChild(marker);
+      cell.appendChild(crop);
+    } else {
+      cell.appendChild(marker);
+    }
+  } else if (isDecoratedGrass) {
+    appendDecoration();
+  } else if (emoji) {
+    cell.append(emoji);
+  }
+  cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
+  const signLabel = SIGN_LABEL_BY_TILE.get(tile);
+  if (signLabel) {
+    const signpost = document.createElement('span');
+    signpost.className = 'map-tile-signpost';
+    signpost.textContent = signLabel;
+    cell.appendChild(signpost);
+  }
+}
+
+// Depth-sort by viewport row instead of a fixed always-on-top/always-behind
+// z-index: a row's cells sit above every cell in the row above it, so a tall
+// obstacle's canopy (which overflows upward into the row above, see
+// .map-tile-obstacle) correctly paints over whatever's there - including the
+// player - while a player standing in a row below an obstacle still renders
+// in front of it, same as any other ground content would.
+// Portal tiles get a flat +1000 on top of that: .map-tile-portal's shadow
+// (css/styles.css) deliberately bleeds past this tile's own edge into every
+// neighbor, including ones later in the row (same z-index, later in DOM =
+// painted on top by default) and the row below (higher z-index under the
+// scheme above) - without the boost, the shadow would only be visible on the
+// up/left sides, painted over everywhere else. Portals are static POI tiles,
+// not obstacles anything needs to walk behind, so always-on-top here doesn't
+// cost the row-based scheme anything. Guardian tiles get the same boost,
+// same reasoning - raised 2026-09-07 alongside GUARDIAN_PX above: at 220%
+// its oversized sprite bleeds downward into the row below too (unlike
+// .map-tile-obstacle, which only ever bleeds upward), and without this that
+// row's own cell (a higher z-index under the plain row-based scheme, since
+// it's further down) would paint over and clip the bottom of the guardian.
+function applyCellPosition(cell, row, col, zBoosted) {
+  // Explicit placement (not CSS auto-flow) so a gap - a viewport cell that
+  // resolves to nothing - just renders as an empty tile in its correct spot
+  // instead of every subsequent real cell shifting left to fill the hole.
+  // Grid lines are 1-indexed.
+  cell.style.gridColumn = String(col + 1);
+  cell.style.gridRow = String(row + 1);
+  cell.style.zIndex = String(zBoosted ? row + 1000 : row);
+}
+
+function computeViewportGeometry(viewport) {
   const { tilesWide, tilesTall } = computeViewportTileCount(viewport);
   const centerGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
   const bounds = clusterBounds(worldGrid, mapConfig.id);
   const { originGx, originGy } = computeViewportOrigin(centerGlobal.gx, centerGlobal.gy, tilesWide, tilesTall, bounds);
+  return { tilesWide, tilesTall, originGx, originGy };
+}
+
+function signatureAt(gx, gy) {
+  const resolved = globalToScreen(worldGrid, mapConfig.id, gx, gy);
+  return resolved ? computeCellSignature(resolved.screenId, resolved.localX, resolved.localY) : EMPTY_SIGNATURE;
+}
+
+// Full teardown + rebuild of every visible cell - called from mount() and
+// handleResize(), both already-infrequent one-shot events with no need for
+// renderStep()'s diffing. Also the only place cellCache is reset, since a
+// resize can change tilesWide/tilesTall (invalidating every cached (row,
+// col)) and a fresh mount has nothing to diff against yet.
+function renderFull() {
+  const viewport = document.createElement('div');
+  viewport.className = 'map-viewport';
+  rootEl.innerHTML = '';
+  rootEl.appendChild(viewport);
+  viewportEl = viewport;
+
+  const { tilesWide, tilesTall, originGx, originGy } = computeViewportGeometry(viewport);
 
   const grid = document.createElement('div');
   grid.className = 'map-grid';
   grid.style.gridTemplateColumns = `repeat(${tilesWide}, ${TILE_SIZE_PX}px)`;
   grid.style.gridTemplateRows = `repeat(${tilesTall}, ${TILE_SIZE_PX}px)`;
 
+  cellCache = new Map();
   for (let row = 0; row < tilesTall; row++) {
     for (let col = 0; col < tilesWide; col++) {
       const gx = originGx + col;
       const gy = originGy + row;
-      const resolved = globalToScreen(worldGrid, mapConfig.id, gx, gy);
-
+      const signature = signatureAt(gx, gy);
       const cell = document.createElement('div');
-      // Explicit placement (not CSS auto-flow) so a gap below - a viewport
-      // cell that resolves to nothing - just renders as an empty tile in its
-      // correct spot instead of every subsequent real cell shifting left to
-      // fill the hole. Grid lines are 1-indexed.
-      cell.style.gridColumn = String(col + 1);
-      cell.style.gridRow = String(row + 1);
-
-      // Reachable whenever the viewport is bigger than the current screen's
-      // whole cluster (computeViewportOrigin then centers the cluster inside
-      // the viewport instead of panning past its edges - see
-      // js/systems/world.js) - true for every map smaller than the viewport:
-      // town, mini-dungeons, tool dungeons. The padding cells around that
-      // centered cluster resolve to nothing here and render as a bare,
-      // content-less .map-tile.
-      if (!resolved) {
-        cell.className = 'map-tile';
-        grid.appendChild(cell);
-        continue;
-      }
-      const { screenId, localX: x, localY: y } = resolved;
-      const screenConfig = maps[screenId];
-
-      const tile = tileAt(screenConfig, x, y);
-      const isPlayer = screenId === mapConfig.id && state.position.x === x && state.position.y === y;
-      const hasMiniDungeon = hasMiniDungeonEntrance(state.miniDungeons, screenId, x, y);
-      const hasTileCache = hasCache(state.caches, screenId, x, y);
-      // A tile currently blocking the way is never shown as visited, even if
-      // state.visited has a stale record from before the map was repainted
-      // (the player really did stand on grass there once, but that record
-      // shouldn't outlive the terrain it was standing on) - a permanent or
-      // still-locked obstacle can never actually have been walked on.
-      const isCurrentlyPassable = isPassableTile(tile);
-      // Obstacles grow out of the grass, so they keep its green background
-      // rather than looking like a hole cut in the field - see
-      // RANDOM_SIZE_OBSTACLES above. Grass-context landmarks (town/
-      // wilderness/dungeon action tiles) are their own distinct tile type
-      // but conceptually sit on that same grass, so they get it too - see
-      // GRASS_CONTEXT_MARKERS above. Stump/rubble (what those obstacles
-      // become once cleared - see STUMP_AND_RUBBLE above) get the same
-      // treatment as grass itself, not just the obstacle set.
-      cell.className = 'map-tile'
-        + (tile === TILES.grass || STUMP_AND_RUBBLE.has(tile) || RANDOM_SIZE_OBSTACLES.has(tile) || GRASS_CONTEXT_MARKERS.has(tile) ? ' map-tile-grass' : '')
-        + (tile === TILES.water ? ' map-tile-water' : '')
-        + (isPlayer ? ' map-tile-player' : '')
-        // Visible from a distance so a completed quest doesn't only turn up
-        // by walking in and checking - see docs/superpowers/BACKLOG.md's
-        // "Quest board should glow..." item.
-        + (tile === TILES.questBoard && hasAnyQuestReady(state) ? ' map-tile-quest-ready' : '')
-        + (tile === TILES.portalOrigin ? ' map-tile-portal-origin' : '')
-        + (tile === TILES.portalReturn ? ' map-tile-portal-return' : '');
-      // A tile's own worn-path trail: dirt strokes reaching toward whichever
-      // directions the player has actually walked across at this exact tile
-      // (getVisitDirs - never inferred from a neighbor's own state, see
-      // exploration.js), or a small dot if it's been visited but nothing's
-      // been walked across it yet. Appended first so it paints underneath
-      // every other *positioned* branch below (mount/rider, obstacle,
-      // fullsize marker, decoration - same "append earlier = paints behind"
-      // rule the decoration-behind-hero fix uses), with one exception: the
-      // plain in-flow `cell.append(emoji)` fallback branch has no
-      // `position`, and non-positioned in-flow content always paints before
-      // positioned descendants regardless of DOM order - so on a tile that
-      // falls through to that branch, the trail SVG actually paints ON TOP
-      // of the emoji, not underneath it.
-      if (isCurrentlyPassable && isVisited(state.visited, screenId, x, y)) {
-        const fraction = trailWearFraction(getVisitCount(state.visited, screenId, x, y));
-        const color = getTrailColor(tile);
-        const groundColor = getGroundColor(tile);
-        const dirs = getVisitDirs(state.visited, screenId, x, y);
-        cell.appendChild(buildTrailFragment(x, y, gx, gy, dirs, fraction, color, groundColor));
-      }
-      // Depth-sort by viewport row instead of a fixed always-on-top/always-
-      // behind z-index: a row's cells sit above every cell in the row above
-      // it, so a tall obstacle's canopy (which overflows upward into the row
-      // above, see .map-tile-obstacle) correctly paints over whatever's
-      // there - including the player - while a player standing in a row
-      // below an obstacle still renders in front of it, same as any other
-      // ground content would.
-      cell.style.zIndex = String(row);
-      const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
-      const mountEmoji = isPlayer && tile.requiresTool && hasRequiredTool(tile, state.inventory)
-        ? MOUNT_EMOJI_FOR_TOOL[tile.requiresTool] : null;
-      const isRandomSizeObstacle = !hasMiniDungeon && !hasTileCache && RANDOM_SIZE_OBSTACLES.has(tile);
-      const isFullSquareMarker = hasMiniDungeon || hasTileCache || FULL_SQUARE_MARKERS.has(tile);
-      const isDecoratedGrass = !isFullSquareMarker && (tile === TILES.grass || STUMP_AND_RUBBLE.has(tile)) && emoji !== '';
-      // Appended before the hero/marker span below (when both apply to the
-      // same tile) so the decoration sits underneath it in paint order,
-      // peeking out from around the edges instead of hiding whatever's
-      // standing on the tile.
-      function appendDecoration() {
-        const decoration = document.createElement('span');
-        decoration.className = 'map-tile-decoration';
-        decoration.textContent = emoji;
-        // Independently-salted hash streams so size and position don't
-        // move in lockstep with each other or with the decoration pick.
-        const scale = DECORATION_MIN_SCALE + hash01(x + 1000, y + 1000) * (DECORATION_MAX_SCALE - DECORATION_MIN_SCALE);
-        const left = DECORATION_POSITION_MIN_PCT + hash01(x + 2000, y + 2000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
-        const top = DECORATION_POSITION_MIN_PCT + hash01(x + 3000, y + 3000) * (DECORATION_POSITION_MAX_PCT - DECORATION_POSITION_MIN_PCT);
-        decoration.style.fontSize = `${(DECORATION_BASE_REM * scale).toFixed(2)}rem`;
-        decoration.style.left = `${left.toFixed(1)}%`;
-        decoration.style.top = `${top.toFixed(1)}%`;
-        cell.appendChild(decoration);
-      }
-      if (mountEmoji) {
-        const mount = document.createElement('span');
-        mount.className = 'map-tile-mount';
-        mount.textContent = mountEmoji;
-        const rider = document.createElement('span');
-        rider.className = 'map-tile-rider';
-        rider.textContent = state.player.emoji;
-        cell.append(mount, rider);
-      } else if (isRandomSizeObstacle) {
-        const obstacle = document.createElement('span');
-        obstacle.className = 'map-tile-obstacle';
-        obstacle.textContent = emoji;
-        const size = FULL_SQUARE_CQB * (1 + hash01(x, y) * OBSTACLE_MAX_EXTRA);
-        obstacle.style.fontSize = `${size.toFixed(1)}cqb`;
-        cell.appendChild(obstacle);
-      } else if (isFullSquareMarker || isPlayer) {
-        // The hero can land on a decorated grass tile - render the
-        // decoration first so it still peeks out from behind the hero
-        // instead of the hero vanishing behind it (the old bug: this
-        // branch used to be checked *after* isDecoratedGrass, so the
-        // decoration won outright and hid the player entirely).
-        if (isDecoratedGrass) appendDecoration();
-        // The hero is always full-square. cqb units only resolve against
-        // the nearest ANCESTOR query container - .map-tile establishes
-        // that containment itself, so this has to be a child span, not a
-        // class on the cell, or cqb falls through past it to the
-        // viewport (an early version of this did exactly that).
-        const marker = document.createElement('span');
-        marker.className = 'map-tile-fullsize';
-        marker.textContent = isPlayer ? state.player.emoji : emoji;
-        // Hero and loot read better a touch smaller than town/cave
-        // entrances - the CSS class's own font-size (FULL_SQUARE_CQB)
-        // stays the default for everything else in this branch.
-        const isHeroOrLoot = isPlayer || hasTileCache || tile === TILES.miniDungeonTreasure;
-        if (isHeroOrLoot) marker.style.fontSize = `${HERO_AND_LOOT_CQB}cqb`;
-        cell.appendChild(marker);
-      } else if (isDecoratedGrass) {
-        appendDecoration();
-      } else if (emoji) {
-        cell.append(emoji);
-      }
-      cell.title = hasMiniDungeon ? MINI_DUNGEON_MARKER_DESCRIPTION : hasTileCache ? CACHE_MARKER_DESCRIPTION : tile.description;
+      applyCellContent(cell, gx, gy, signature);
+      applyCellPosition(cell, row, col, signature.zBoosted);
       grid.appendChild(cell);
+      cellCache.set(`${gx},${gy}`, { el: cell, row, col, signature });
     }
   }
 
   viewport.appendChild(grid);
+  gridEl = grid;
+  lastTilesWide = tilesWide;
+  lastTilesTall = tilesTall;
+}
+
+// The hot path - called from tryMove() on every step instead of a full
+// rebuild. Keeps gridEl/cellCache from the last render and only touches
+// cells whose world content or on-screen position actually changed; see the
+// module-level cellCache comment above for why cells are keyed by world
+// coordinate rather than (row, col).
+function renderStep() {
+  if (!gridEl || !viewportEl) {
+    renderFull();
+    return;
+  }
+  const { tilesWide, tilesTall, originGx, originGy } = computeViewportGeometry(viewportEl);
+  if (tilesWide !== lastTilesWide || tilesTall !== lastTilesTall) {
+    renderFull();
+    return;
+  }
+
+  const nextKeys = new Set();
+  for (let row = 0; row < tilesTall; row++) {
+    for (let col = 0; col < tilesWide; col++) {
+      const gx = originGx + col;
+      const gy = originGy + row;
+      const key = `${gx},${gy}`;
+      nextKeys.add(key);
+      const signature = signatureAt(gx, gy);
+      const cached = cellCache.get(key);
+      if (cached) {
+        if (!signaturesEqual(cached.signature, signature)) {
+          cached.el.replaceChildren();
+          applyCellContent(cached.el, gx, gy, signature);
+          cached.signature = signature;
+        }
+        if (cached.row !== row || cached.col !== col) {
+          applyCellPosition(cached.el, row, col, signature.zBoosted);
+          cached.row = row;
+          cached.col = col;
+        } else {
+          // Row/col unchanged but z-boost could still have flipped as part
+          // of a content change just above (e.g. a portal appearing on a
+          // tile that didn't need to move) - cheap enough to just always
+          // keep in sync rather than tracking that specially.
+          cached.el.style.zIndex = String(signature.zBoosted ? row + 1000 : row);
+        }
+      } else {
+        const cell = document.createElement('div');
+        applyCellContent(cell, gx, gy, signature);
+        applyCellPosition(cell, row, col, signature.zBoosted);
+        gridEl.appendChild(cell);
+        cellCache.set(key, { el: cell, row, col, signature });
+      }
+    }
+  }
+
+  for (const [key, entry] of cellCache) {
+    if (!nextKeys.has(key)) {
+      entry.el.remove();
+      cellCache.delete(key);
+    }
+  }
 }
 
 function tryMove(dx, dy) {
+  if (portalTransitionPending) return;
   const currentGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
   const resolved = globalToScreen(worldGrid, mapConfig.id, currentGlobal.gx + dx, currentGlobal.gy + dy);
   // Past this cluster's outer edge - e.g. a one-screen map's (town,
@@ -689,7 +938,7 @@ function tryMove(dx, dy) {
   // encounter opens a battle *overlay* on top of this still-mounted map, so the
   // world underneath must already show the tile the player just stepped onto
   // (including a freshly discovered cache or mini-dungeon marker).
-  render();
+  renderStep();
 
   callbacks.onMove(state.position);
   checkGateProximity(nx, ny);
@@ -700,6 +949,15 @@ function tryMove(dx, dy) {
   }
 
   if (tile.action) {
+    if (PORTAL_ACTION_TILES.has(tile)) {
+      portalTransitionPending = true;
+      playPortalPullEffect();
+      setTimeout(() => {
+        portalTransitionPending = false;
+        callbacks.onAction(tile.action);
+      }, PORTAL_PULL_EFFECT_MS);
+      return;
+    }
     callbacks.onAction(tile.action);
     return;
   }
@@ -756,7 +1014,7 @@ function handleKeydown(event) {
 // tracks, which the fixed-pixel-size grid above no longer uses).
 function handleResize() {
   if (!rootEl || !mapConfig) return;
-  render();
+  renderFull();
 }
 
 // Fires callbacks.onFirstVisit the first time the player ever sets foot on
@@ -777,8 +1035,9 @@ export function mount(root, props) {
   maps = props.maps;
   worldGrid = props.worldGrid;
   callbacks = props.callbacks;
+  portalTransitionPending = false;
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
-  render();
+  renderFull();
   announceScreenIfNew(mapConfig);
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('resize', handleResize);
@@ -797,6 +1056,16 @@ export function resume() {
   window.addEventListener('keydown', handleKeydown);
 }
 
+// Not exported - only ever called from tryMove itself, right where the
+// portal action would otherwise fire immediately (see PORTAL_ACTION_TILES
+// above), unlike the other effect helpers below which react to a
+// main.js-side state change this screen doesn't know about on its own.
+function playPortalPullEffect() {
+  const marker = rootEl?.querySelector('.map-tile-player .map-tile-fullsize');
+  if (!marker) return;
+  marker.classList.add('map-tile-player-portal-pull');
+}
+
 const LEVEL_UP_EFFECT_DURATION_MS = 1200;
 
 // A level-up always resolves right after a battle overlay unmounts, which
@@ -806,6 +1075,7 @@ const LEVEL_UP_EFFECT_DURATION_MS = 1200;
 export function playLevelUpEffect() {
   const playerCell = rootEl?.querySelector('.map-tile-player');
   if (!playerCell) return;
+  playSfx('levelUp');
 
   playerCell.classList.remove('map-tile-levelup');
   void playerCell.offsetWidth; // force reflow so re-triggering restarts the animation
@@ -819,6 +1089,32 @@ export function playLevelUpEffect() {
     playerCell.classList.remove('map-tile-levelup');
     rays.remove();
   }, LEVEL_UP_EFFECT_DURATION_MS);
+}
+
+const WELL_HEAL_EFFECT_DURATION_MS = 1100;
+
+// Raised 2026-09-04, "Ring + Warm Landing Glow" from the mockup pass: resting
+// at the well used to just silently set HP to max with no on-screen effect
+// at all. handleUseWell() (js/main.js) already skips calling this whenever
+// the player is already at full HP ("if at full health than no circle"), so
+// this only ever needs to handle the "actually healed" case. Same
+// grab-the-already-rendered-player-cell approach as playLevelUpEffect above.
+export function playWellHealEffect() {
+  const playerCell = rootEl?.querySelector('.map-tile-player');
+  if (!playerCell) return;
+
+  const ring = document.createElement('div');
+  ring.className = 'map-well-heal-ring';
+  playerCell.appendChild(ring);
+
+  const glow = document.createElement('div');
+  glow.className = 'map-well-heal-glow';
+  playerCell.appendChild(glow);
+
+  setTimeout(() => {
+    ring.remove();
+    glow.remove();
+  }, WELL_HEAL_EFFECT_DURATION_MS);
 }
 
 const MONSTER_FLEE_EFFECT_DURATION_MS = 700;

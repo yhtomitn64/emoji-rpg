@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { MONSTERS } from '../js/data/monsters.js';
 import { ITEMS, SHOP_CATALOG } from '../js/data/items.js';
 import { QUEST_REQUIREMENTS } from '../js/systems/quests.js';
+import { ABILITIES } from '../js/systems/abilities.js';
+import { ABILITY_EXPLAINERS, ATTACK_FALLOFF_EXPLAINER } from '../js/data/abilityExplainers.js';
 
 test('every monster has required fields and a valid drop table', () => {
   for (const [id, monster] of Object.entries(MONSTERS)) {
@@ -57,7 +59,7 @@ test('near-town, far-corner, dungeon, and dragon monsters have the savage-early-
     goblin: { hp: 67, attack: 15, defense: 2, speed: 4, xp: 22, goldRange: [5, 13] },
     direWolf: { hp: 100, attack: 19, defense: 3, speed: 6, xp: 32, goldRange: [8, 15] },
     spider: { hp: 85, attack: 17, defense: 2, speed: 5, xp: 29, goldRange: [7, 14] },
-    dragon: { hp: 150, attack: 34, defense: 12, speed: 11, xp: 200, goldRange: [65, 100] },
+    dragon: { hp: 600, attack: 58, defense: 22, speed: 13, xp: 200, goldRange: [65, 100] },
     orc: { hp: 180, attack: 32, defense: 8, speed: 8, xp: 60, goldRange: [18, 28] },
     wraith: { hp: 170, attack: 32, defense: 4, speed: 11, xp: 63, goldRange: [18, 30] },
   };
@@ -217,4 +219,11 @@ test('tools are only ever a guaranteed guardian drop, never a stray chance-drop 
   assert.equal(ITEMS.miningPick.price, 0);
   assert.equal(ITEMS.axe.type, 'tool');
   assert.equal(ITEMS.axe.price, 0);
+});
+
+test('every ability has an entry in ABILITY_EXPLAINERS, and the attack-falloff mechanic has its own explainer', () => {
+  for (const ability of ABILITIES) {
+    assert.ok(ability.id in ABILITY_EXPLAINERS, `${ability.id} is missing from ABILITY_EXPLAINERS`);
+  }
+  assert.equal(typeof ATTACK_FALLOFF_EXPLAINER, 'string');
 });

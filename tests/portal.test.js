@@ -1,9 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TOWN_PORTAL_POSITION, hasPortalTool, dropPortal, markReturnPending } from '../js/systems/portal.js';
+import { townMap } from '../js/maps/townMap.js';
+import { isWalkableAt } from '../js/systems/world.js';
 
 test('TOWN_PORTAL_POSITION is a fixed in-town spot', () => {
   assert.deepEqual(TOWN_PORTAL_POSITION, { x: 7, y: 4 });
+});
+
+test('TOWN_PORTAL_POSITION lands on walkable ground in the real town map', () => {
+  assert.ok(isWalkableAt(townMap, TOWN_PORTAL_POSITION.x, TOWN_PORTAL_POSITION.y),
+    'TOWN_PORTAL_POSITION must stay walkable if townMap is ever resized again');
 });
 
 test('hasPortalTool is false with an empty inventory', () => {

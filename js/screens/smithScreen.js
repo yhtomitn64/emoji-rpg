@@ -1,6 +1,6 @@
 import { ITEMS } from '../data/items.js';
 import {
-  upgradeCost, upgradeItem, describeItem, getUpgradeLevel,
+  upgradeCost, upgradeItem, describeItem, getUpgradeLevel, getMaxUpgradeLevel,
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
@@ -44,30 +44,44 @@ function render() {
       // upgrade path here, ever, so skip the select/button entirely rather
       // than show a control that can never work.
       return `<div class="smith-row">
-      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span data-tooltip="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       ${reforgeButton}
     </div>`;
     }
 
     const cost = upgradeCost(level);
+    const maxLevel = getMaxUpgradeLevel(state.ngPlusCycle);
+    const atCap = level >= maxLevel;
     const materials = materialOptionsForSlot(slot);
     const canAfford = state.player.gold >= cost;
     const options = materials
       .map((m) => `<option value="${m.itemId}" title="${describeItem(state, m.itemId)}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)
       .join('');
+    const upgradeButton = atCap
+      ? `<button data-slot="${slot}" disabled title="Upgrade cap for NG+${state.ngPlusCycle} is +${maxLevel}">Maxed for NG+${state.ngPlusCycle}</button>`
+      : `<button data-slot="${slot}" ${materials.length === 0 || !canAfford ? 'disabled' : ''}>Upgrade (${cost}g)</button>`;
 
     return `<div class="smith-row">
-      <span title="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
+      <span data-tooltip="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       <select data-slot="${slot}">${options}</select>
-      <button data-slot="${slot}" ${materials.length === 0 || !canAfford ? 'disabled' : ''}>Upgrade (${cost}g)</button>
+      ${upgradeButton}
       ${reforgeButton}
     </div>`;
   }).join('');
+
+  // Surfaced 2026-09-07 while investigating a "why can this be upgraded so
+  // high" question: the upgrade cap shown on every row is driven entirely by
+  // ngPlusCycle, but nothing here ever showed what cycle is active - a
+  // player had to leave the smith and check the Stats panel (which already
+  // has this exact badge) to find out. Reuses statsPanel.js's own
+  // .ngplus-badge styling for consistency.
+  const ngPlusBadge = state.ngPlusCycle > 0 ? `<div class="ngplus-badge">New Game+${state.ngPlusCycle}</div>` : '';
 
   rootEl.innerHTML = `
     <div class="smith-screen">
       <button class="screen-close-x" id="btn-close-x" aria-label="Leave smith">✕</button>
       <h2>Smith (Gold: ${state.player.gold})</h2>
+      ${ngPlusBadge}
       ${rows}
       <button id="btn-leave">Leave</button>
     </div>
