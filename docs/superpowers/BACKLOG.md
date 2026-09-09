@@ -332,6 +332,14 @@ same-day items below; these are the ones left open):**
   in, so this should be designed *after* those two ship and reconcile
   against whatever rates they settle on, not compound blindly on top of
   today's numbers).
+- **Map render performance, raised 2026-09-09.** First pass shipped
+  (0.26.13, this session) - diffed `render()` and dropped `cqb`/
+  `container-type`. Real improvement, but panning across a large open
+  wilderness screen still isn't fully smooth (a non-panning screen like
+  town already is) - see the full section near the end of this file for
+  the diagnosis and the next concrete step (a `transform`-based camera).
+  Continuing on Timothy's home machine, likely with real browser
+  profiling this time.
 
 ## Story / narrative
 
@@ -2271,3 +2279,93 @@ doc above.
   dedicated styling, and `.overlay-panel` has no `max-height`/
   `overflow-y` — worth a look on a small viewport once the panel's
   final row count is settled.
+
+## Map render performance, raised 2026-09-09
+
+Timothy noticed frame drops/stutter walking around on large/maximized
+browser windows - worse in Safari, tolerable-but-not-great in Chrome.
+Investigated by code-tracing (this session deliberately avoided driving a
+real Chrome session for verification - see the "browser automation cost"
+note this project has been operating under; profiling was inferred from
+source, not measured).
+
+**Root cause found and partially fixed, shipped 2026-09-09 (0.26.13).**
+`render()` (`js/screens/mapScreen.js`) did a full `rootEl.innerHTML = ''`
+teardown-and-rebuild of every visible map tile on every single step
+(`tryMove()` called it on every move), and the number of visible tiles
+scales with window area (`computeViewportTileCount` = `floor(width/48) ×
+floor(height/48)`, uncapped) - a bigger window meant hundreds more tiles
+rebuilt per keypress, with no ceiling. Timothy explicitly did not want a
+viewport cap - the fix had to make a big viewport free, not shrink it.
+Two changes landed:
+- `render()` split into `renderFull()` (mount/resize only - unchanged
+  full rebuild, both already-infrequent one-shot events) and a new
+  `renderStep()` hot path (called from `tryMove()`) that keeps the grid's
+  DOM persistent across steps and diffs by **world coordinate**
+  (`` `${gx},${gy}` ``, not screen row/col - see the module-level
+  `cellCache` comment in `mapScreen.js`), only touching cells whose
+  logical content (`computeCellSignature`/`signaturesEqual`) or on-screen
+  position actually changed.
+- Dropped `container-type: size`/`cqb` sizing on `.map-tile`
+  (`css/styles.css`) in favor of plain px (`FULL_SQUARE_PX`/
+  `HERO_AND_LOOT_PX`/`GUARDIAN_PX` in `mapScreen.js`, derived from
+  `TILE_SIZE_PX`), since the tile's pixel size never actually varies at
+  runtime - that per-tile layout-containment context was pure overhead,
+  paid on every visible tile.
+
+Both covered by tests (`tests/mapScreenDom.test.js`, including a new
+element-identity-persists-across-steps test) - `npm run test` green,
+1020 tests.
+
+**Still open: panning itself is still expensive, independent of the fix
+above.** `computeViewportOrigin` only pans the camera when the current
+screen/cluster is bigger than the viewport - town's cluster fits
+entirely in view, so its origin never moves, and Timothy confirmed
+walking around town now feels "super smooth." In the wilderness the
+camera re-centers on the player every step, so on an ordinary step
+nearly every visible cell's `(row, col)` shifts by one. `renderStep()`
+still writes new `grid-column`/`grid-row` values to almost all of those
+cells even though their *content* didn't change - and a `display: grid`
+explicit-placement change forces a full layout pass across the grid,
+same order of cost as the old full rebuild for that part specifically
+(just without the DOM-churn/SVG-rebuild cost on top, which is why it's
+better but not fully smooth).
+
+**Next concrete step, not started:** a `transform`-based camera. Anchor
+each cell's `grid-column`/`grid-row` to a stable **world-relative**
+frame (e.g. relative to the current screen-cluster's own
+`clusterBounds` origin, not the viewport's `originGx/originGy`) so a
+cell's grid position never changes just because the camera panned -
+only cells actually entering/leaving the cluster's edge would ever need
+their assignment touched. Move the camera by applying a single
+`transform: translate(...)` to the `.map-grid` container instead
+(recomputed each step from `originGx/originGy` relative to the
+cluster's own anchor) - `transform` is a compositor-only property (no
+layout, no repaint of unrelated content), so this should make panning
+O(1) with respect to window size/tile count, matching town's already-
+buttery feel. Needs care around: sizing the grid's own
+`gridTemplateColumns`/`Rows` to cover the full cluster extent rather
+than just the viewport (CSS Grid tolerates a template much larger than
+the tiles actually populated - untested here whether that's free at the
+sizes a 5x5 wilderness cluster reaches); re-anchoring (falling back to
+`renderFull()`, which the diffing already does gracefully) on a
+screen-cluster-boundary crossing, since the anchor is only stable within
+one cluster.
+
+**Also raised, not yet built:** a jsdom-based (no browser needed) perf
+regression test - mount `mapScreen`, fire a few thousand rapid
+`ArrowRight`/`ArrowLeft` keydowns, time it with `performance.now()`
+(and/or run under `node --cpu-prof` for a real flame graph of which
+function dominates). This can catch JS-side regressions (e.g. an O(n)
+scan creeping into `isVisited`/`hasCache`/`getVisitDirs` as save data
+grows) cheaply and permanently, without any browser/Chrome-automation
+cost - but jsdom has no real layout engine, so it can't measure the
+actual layout/paint cost the "still open" panning issue above is about;
+that part still needs a real DevTools trace.
+
+**Plan for continuing:** Timothy is moving this to his home machine,
+where he's fine with a bigger one-off token spend (e.g. an actual
+Chrome DevTools Performance recording, before/after, to confirm the
+`transform`-based fix actually closes the gap) rather than inferring
+everything from source reading the way this session had to on the work
+machine.
