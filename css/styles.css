@@ -57,10 +57,14 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   font-size: 1.2rem;
   background: #333;
   position: relative;
-  /* Lets .map-tile-obstacle size itself off this tile's own rendered
-     height (cqb units) - a fixed pixel size now, not a 1fr-stretched
-     column. */
-  container-type: size;
+  /* .map-tile-obstacle/.map-tile-fullsize used to size themselves off this
+     tile's own rendered height via `cqb` units, which needed this to be a
+     query container (`container-type: size`) - dropped 2026-09-09:
+     TILE_SIZE_PX (js/screens/mapScreen.js) is a hardcoded constant, never
+     actually variable at runtime, so those spans now just get a plain px
+     font-size computed from it directly, and the per-tile containment
+     context (real layout cost, especially on WebKit, across every visible
+     tile) is gone for free. */
 }
 /* Solid green so adjacent grass tiles blend into one contiguous field
    instead of reading as separate boxes - see js/screens/mapScreen.js. */
@@ -106,10 +110,12 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 /* Non-moving obstacles (tree/mountain/thicket) render larger than their
    own cell and anchored to its bottom edge, so a tall one visually
    overlaps into the row above instead of floating small and centered -
-   see js/screens/mapScreen.js. font-size is set inline per tile (a
-   deterministic per-position random size, 100-150% of FULL_SQUARE_CQB
-   below); cqb scales that with the tile's actual rendered height so it
-   still fills the square correctly at any viewport/column count. */
+   see js/screens/mapScreen.js. font-size is set inline per tile in px (a
+   deterministic per-position random size, 100-150% of FULL_SQUARE_PX
+   below) - a fixed px value works because TILE_SIZE_PX is a hardcoded
+   constant, never actually variable at runtime (dropped the `cqb`/
+   `container-type: size` this used to need 2026-09-09, once that became
+   clear - see .map-tile's own comment above). */
 .map-tile-obstacle {
   position: absolute;
   left: 0;
@@ -123,19 +129,16 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   pointer-events: none;
 }
 /* Landmarks that need to be spotted at a glance (town, cave/dungeon
-   entrances, loot) and the hero's own tile - sized off the tile's own
-   rendered height, same reference value as the obstacles' 100% baseline
-   (js/screens/mapScreen.js's FULL_SQUARE_CQB), just centered normally
-   instead of bottom-anchored/overlapping. A child span, not a class on
-   the cell - cqb only resolves against the nearest ANCESTOR query
-   container, and .map-tile establishes that containment itself. */
+   entrances, loot) and the hero's own tile. font-size is set inline in px
+   from js/screens/mapScreen.js's FULL_SQUARE_PX/HERO_AND_LOOT_PX/
+   GUARDIAN_PX (a child span, not a class on the cell, so a portal's own
+   crop wrapper - .map-tile-portal-crop below - can still scale it). */
 .map-tile-fullsize {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 85cqb;
   line-height: 1;
 }
 /* Raised 2026-09-07, replacing the 2026-09-06 version above: the 🌌
@@ -177,8 +180,8 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   }
 }
 /* Clips the 🌌 emoji's own baked-in border - see the comment above. The
-   marker (.map-tile-fullsize) renders at its usual 85cqb inside here,
-   then gets scaled up past this wrapper's own edge by the sibling rule
+   marker (.map-tile-fullsize) renders at its usual FULL_SQUARE_PX size
+   inside here, then gets scaled up past this wrapper's own edge by the sibling rule
    below; overflow: hidden cuts off exactly what that scale pushes past
    the tile's boundary. Two elements are required for this to crop
    anything: transforming this wrapper itself would scale its own clip

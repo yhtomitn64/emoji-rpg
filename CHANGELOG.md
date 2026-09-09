@@ -24,6 +24,33 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.13] - 2026-09-09
+
+### Changed
+- **Large/maximized browser windows dropped frames while walking, worse in
+  Safari than Chrome.** `render()` (js/screens/mapScreen.js) did a full
+  `rootEl.innerHTML = ''` teardown-and-rebuild of every visible map tile on
+  every single step, and the number of visible tiles scales with window
+  area (`computeViewportTileCount`) with no cap - a bigger window meant
+  hundreds more tiles rebuilt per keypress. Split into `renderFull()`
+  (mount/resize only) and a new `renderStep()` hot path that keeps the grid's
+  DOM persistent and diffs by world coordinate, only touching cells whose
+  content or on-screen position actually changed - most steps now update a
+  handful of cells instead of every visible one. Also dropped `container-type:
+  size`/`cqb` sizing on `.map-tile` (css/styles.css) in favor of plain px,
+  since the tile pixel size (`TILE_SIZE_PX`) is a hardcoded constant that
+  never actually varies - that per-tile layout containment was pure
+  overhead. Noticeably smoother, though panning across a large open
+  wilderness screen (as opposed to a small, non-panning one like town, whose
+  whole cluster fits inside the viewport with no panning at all) still isn't
+  fully smooth - each step still reassigns `grid-column`/`grid-row` on
+  nearly every visible cell to reflect the pan, which still forces a
+  layout pass across the whole grid even though no DOM nodes are
+  created/destroyed anymore. Next step, not yet done: a `transform`-based
+  camera that keeps each cell's grid position anchored to world
+  coordinates (so panning is one compositor-only style write on the grid
+  container, not a per-cell layout change).
+
 ## [0.26.12] - 2026-09-07
 
 ### Fixed

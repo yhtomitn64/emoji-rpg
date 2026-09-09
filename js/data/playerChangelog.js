@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.26.13',
+    date: '2026-09-09',
+    highlights: [
+      'Changed: smoother movement on large/maximized windows - the map used to redraw everything on every step, which could cause stutter. Still working on fully smoothing out panning across big open areas.',
+    ],
+  },
+  {
     version: '0.26.12',
     date: '2026-09-07',
     highlights: [

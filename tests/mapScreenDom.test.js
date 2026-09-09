@@ -239,6 +239,64 @@ test('mapScreen DOM - resize triggers a fresh render', async (t) => {
 // tool-gated tile used to teleport past tryMove's own passability check
 // entirely (the old onEdgeTransition path), so a pick-in-hand player
 // landing on a mountain never converted it to rubble.
+// Root cause of the large-window hitching Timothy reported: render() used to
+// do rootEl.innerHTML = '' + a full rebuild of every visible tile on every
+// single step (tryMove -> render()), so a bigger window (more visible tiles)
+// meant more DOM work per keypress with no ceiling. The fix keeps a
+// persistent grid and only touches cells whose world content actually
+// changed - see mapScreen.js's renderStep()/cellCache. This fixture map (7
+// wide) is far smaller than jsdom's 21-wide fallback viewport, so per
+// computeViewportOrigin (js/systems/world.js) the origin never pans as the
+// player moves - every viewport cell maps to the exact same world tile
+// before and after the step, so every .map-tile element (not just ones
+// untouched by the step) should be the same DOM node reference, with only
+// content mutated in place.
+test('mapScreen DOM - render diffing reuses DOM elements across steps', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  await t.test('a step does not replace any .map-tile element (world-to-screen mapping is unchanged)', async () => {
+    const plains = {
+      id: 'plains',
+      legend: { '.': 'grass' },
+      rows: ['.......', '.......', '.......'],
+      neighbors: {},
+      monsterTable: [],
+      encounterChance: 0,
+      cacheChance: 0,
+    };
+    const maps = { plains };
+    const worldGrid = buildWorldGrid(maps);
+    const state = baseState({ position: { x: 1, y: 1 }, map: 'plains' });
+
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    mount(root, {
+      state, mapConfig: plains, maps, worldGrid,
+      callbacks: {
+        onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
+        onToolGateNearby: () => {}, onAction: () => {}, onEnterMiniDungeon: () => {}, onCacheFound: () => {},
+        onGateReward: () => {}, onEncounter: () => {},
+      },
+    });
+
+    const cellsBefore = [...root.querySelectorAll('.map-tile')];
+    assert.equal(cellsBefore.length, 21 * 13, 'sanity check: fallback viewport size');
+
+    keydown('ArrowRight');
+
+    const cellsAfter = [...root.querySelectorAll('.map-tile')];
+    assert.equal(cellsAfter.length, cellsBefore.length);
+    for (let i = 0; i < cellsBefore.length; i++) {
+      assert.equal(cellsAfter[i], cellsBefore[i], `expected .map-tile at index ${i} to be the same DOM element across a step`);
+    }
+  });
+});
+
 test('mapScreen DOM - crossing a screen boundary onto a tool-gated tile', async (t) => {
   t.beforeEach(() => setupDom());
   t.afterEach(async () => {
@@ -693,14 +751,14 @@ test('mapScreen DOM - tool dungeon guardian rendering', async (t) => {
   });
 
   // "Make the tool bosses take up like 4 tiles instead of 1 so they look
-  // big and scary" - see GUARDIAN_CQB's own comment in mapScreen.js.
-  await t.test('guardian renders oversized (GUARDIAN_CQB), not the plain 85cqb landmark size', async () => {
+  // big and scary" - see GUARDIAN_PX's own comment in mapScreen.js.
+  await t.test('guardian renders oversized (GUARDIAN_PX), not the plain FULL_SQUARE_PX landmark size', async () => {
     const { root, axeDungeonMap } = await mountAxeDungeon();
     const { x, y } = findGuardianPosition(axeDungeonMap);
     const cell = tileAtViewportPosition(root, axeDungeonMap, x, y);
     const marker = cell.querySelector('.map-tile-fullsize');
     assert.ok(marker, 'expected a .map-tile-fullsize marker on the guardian tile');
-    assert.equal(marker.style.fontSize, '220cqb');
+    assert.equal(marker.style.fontSize, '105.6px');
   });
 
   // Without this, an oversized sprite bleeding downward would be painted
