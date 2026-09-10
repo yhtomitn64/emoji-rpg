@@ -405,6 +405,23 @@ same-day items below; these are the ones left open):**
   the full history.
 
 **New threads raised 2026-09-10:**
+- **Worn-path trail costs a full repaint every frame, raised 2026-09-10
+  (after 0.32.4).** Timothy: "when I make the window really really big
+  and walk around I get frame drops ... when I walk away from an area
+  with no paths then performance back to top speed fps." Measured, not
+  inferred: at a maximised window with fully-walked ground the map costs
+  **7.70ms/frame of JS and 46,668 canvas ops**, against 0.76ms/3,537 ops
+  on unwalked ground — the trail is ~92% of all draw calls, and window
+  area multiplies it. 7.70ms is 46% of a frame budget *before* the
+  browser rasterises any of it. Cause: `frame()` rebuilds and repaints
+  the whole draw list every frame, including every trail stroke, for
+  content that only changes when the player steps on a tile. Fix is a
+  static-layer offscreen cache — but the cut is static-vs-animated, NOT
+  floor-vs-sprite, because paint order is per-cell interleaved (see the
+  plan for why the naive split changes obstacle overlap and trail ends).
+  Full measurements, the design, the invalidation scheme and the traps
+  are in `docs/superpowers/plans/2026-09-10-static-layer-cache-plan.md`.
+  Not started. Pre-existing, not caused by 0.32.4.
 - ~~**Battle screen overflows on big group encounters**~~ — **shipped
   2026-09-10 (0.30.0)**. The card's vmin scale ramp is now capped by a
   measured fit-to-viewport factor, so a wrapped monster grid scales down
