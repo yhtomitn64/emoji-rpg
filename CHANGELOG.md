@@ -24,6 +24,33 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Changed
+- **WIP, not shippable yet: static-layer cache for the map renderer.**
+  Timothy reported frame drops walking on heavily-walked ground at a
+  large window, recovering on untrodden ground. Measured first: at a
+  maximised window over fully-walked ground the map cost 7.70ms of JS
+  and 46,668 canvas ops per frame; the worn trail was ~92% of every draw
+  call, all of it rebuilt and repainted every frame for content that
+  only changes when the player steps on a tile. Ground, trail and static
+  sprites now paint once into an offscreen canvas that is blitted with a
+  single `drawImage`; only the 3x3 block around the player, the pulsing
+  portal/quest cells, the hero and effects are drawn live. The split is
+  static-vs-**animated**, not floor-vs-sprite, because paint order is
+  per-cell interleaved - see `isDynamicCell`'s header.
+  - Measured after: maximised/fully-walked **7.70ms -> 3.71ms** and
+    **46,668 -> 20,182 ops**; unwalked ground at the same size 3,537 ->
+    1,498 ops.
+  - **Why it is only half the available win, and why this is WIP:** the
+    cache is currently invalidated on every step, so it fully repaints
+    roughly every 6.6 frames. The remaining work is the hot-zone scheme
+    in `docs/superpowers/plans/2026-09-10-static-layer-cache-plan.md`
+    (patch the cells leaving the live block instead of invalidating the
+    whole layer), which should take the steady-state cost close to the
+    unwalked-ground numbers. **Needs a version bump, a
+    `playerChangelog.js` entry and a real-browser visual check (obstacle
+    overlap, trail ends at unvisited tiles, town quest-board glow,
+    portal shadow bleed) before it goes anywhere near a push.**
+
 ## [0.32.5] - 2026-09-10
 
 ### Changed

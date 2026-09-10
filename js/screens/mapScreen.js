@@ -426,7 +426,11 @@ function computeViewportGeometry(viewport) {
   const centerGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
   const bounds = clusterBounds(worldGrid, mapConfig.id);
   const { originGx, originGy } = computeViewportOrigin(centerGlobal.gx, centerGlobal.gy, tilesWide, tilesTall, bounds);
-  return { tilesWide, tilesTall, originGx, originGy, bounds };
+  // playerGx/playerGy travel with the geometry so the renderer never has to
+  // scan the whole viewport looking for the player's own cell - see
+  // buildDynamicOps in mapDrawList.js, which only visits a handful of tiles
+  // per frame and so has nothing to scan.
+  return { tilesWide, tilesTall, originGx, originGy, bounds, playerGx: centerGlobal.gx, playerGy: centerGlobal.gy };
 }
 
 // Raised 2026-09-09 during the map render perf follow-up (see BACKLOG.md):
@@ -447,7 +451,11 @@ function computeStepGeometry() {
   const centerGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
   const bounds = clusterBounds(worldGrid, mapConfig.id);
   const { originGx, originGy } = computeViewportOrigin(centerGlobal.gx, centerGlobal.gy, tilesWide, tilesTall, bounds);
-  return { tilesWide, tilesTall, originGx, originGy, bounds };
+  // playerGx/playerGy travel with the geometry so the renderer never has to
+  // scan the whole viewport looking for the player's own cell - see
+  // buildDynamicOps in mapDrawList.js, which only visits a handful of tiles
+  // per frame and so has nothing to scan.
+  return { tilesWide, tilesTall, originGx, originGy, bounds, playerGx: centerGlobal.gx, playerGy: centerGlobal.gy };
 }
 
 function signatureAt(gx, gy) {
