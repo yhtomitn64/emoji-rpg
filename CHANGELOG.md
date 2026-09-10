@@ -24,6 +24,81 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-09-10
+
+### Added
+- **Holding two perpendicular directions walks the staircase for you.**
+  Raised by Timothy: "if you hold down up/right or up/left can the
+  character go that direction... it seems it can't handle two keypresses
+  at once." Then, crucially, on being shown what diagonal movement would
+  cost: "I don't even care if the character can travel diagonally, I
+  actually like that they have to go up and then right. I just want to be
+  able to hold both keys to make the game do that."
+  - That reframing removed the entire problem. A true diagonal step
+    crosses a tile *corner*, and the worn-path trail only knows the four
+    edge directions — so diagonals would have needed corner-directed
+    strokes, a shared-jitter rule for corners (a corner touches four
+    tiles, not two), and new tests, or else diagonal routes would have
+    rendered as disconnected dots. Alternating two cardinal steps
+    instead keeps every step a single cardinal move, so collision,
+    screen-crossing and the trail all work untouched. **No change to
+    `trail.js` at all.**
+  - Walking into an obstacle with both keys held doesn't halve your
+    speed: a look-ahead (`canStepToward`, no side effects) spends the
+    tick on whichever direction is actually open. Two opposing keys
+    resolve to the most recently pressed rather than deadlocking.
+
+### Changed
+- **Holding a direction now walks at a fixed cadence instead of the
+  browser's key auto-repeat.** Raised: "if you hold down
+  up/left/right/down it's kind of janky and not smooth... if you hold
+  down character should walk fast just smoothly." Auto-repeat is an OS
+  setting — it waits roughly half a second before starting, then fires
+  at whatever rate that machine is configured for, so a held key gave
+  one step, a pause, then a machine-dependent burst, and travel speed
+  was never the same for two players. `event.repeat` keydowns are now
+  ignored outright and a 110ms cadence owned by `mapScreen.js` drives
+  the repeat. Keys are tracked as held from keydown to keyup, and
+  released on window blur (alt-tabbing away delivers no keyup, which
+  would otherwise leave the character walking on its own) and on
+  `pause()` (so an encounter firing mid-walk doesn't leave the map
+  walking underneath the battle overlay).
+- **The character now walks smoothly between tiles** rather than
+  jumping a whole tile at a time — "the character seems to snap between
+  squares. Can they go smoothly too just like the map does now?" Their
+  logical position stays a whole tile (collision, trail and encounter
+  rolls are all defined on the grid); only the drawing interpolates.
+  Deliberately a constant speed matched to the walk cadence rather than
+  the camera's easing — an ease would restart on every tile and read as
+  fast-slow-fast-slow instead of one unbroken walk.
+- **The camera-glide default is now 250ms** (was 80ms), and the slider
+  reaches 400ms so the default no longer sits on its own maximum. A save
+  still holding the superseded 80ms is moved up to the new default —
+  that was the default for less than a day, so those saves have almost
+  certainly never had the slider touched; any other value is treated as
+  a real choice and left alone. `0` still means the pre-canvas instant
+  snap, for both camera and character.
+
+### Fixed
+- **The character was being sliced in half while walking**, which read
+  as blinking in and out — caught by Timothy on a screen recording.
+  Hero sprites were drawn in row-major order at their *logical* tile but
+  positioned at their *interpolated* one, so mid-stride the overhang
+  landed on a tile painted later, whose ground fill covered it. Walking
+  up or left hit it every time, and two-key walking sends half its steps
+  upward. Hero sprites now draw in a final pass. Tradeoff taken
+  deliberately: a tall obstacle in the row below no longer paints over
+  the character's feet, which the row-based depth sort used to arrange —
+  losing sight of your own character behind a tree is the worse of the
+  two.
+- **The terrain juddered under a gliding camera** — "map kind of herky
+  jerky now too." Ground tiles were rounding their position to whole
+  pixels (an over-eager attempt at avoiding seams between them) while
+  trees, flowers, the trail and the character all drew at fractional
+  positions, so the whole ground grid snapped along a 1px lattice
+  underneath smoothly-moving sprites. The 1px overlap is what actually
+  prevents seams; the rounding only did harm.
+
 ## [0.31.0] - 2026-09-10
 
 ### Added
@@ -298,6 +373,7 @@ public API, no formal release process — commits land straight on
   Spec's roster table and the duration assertions in
   `tests/buffPotions.test.js`/`tests/battleScreenDom.test.js` updated to
   match.
+
 ## [0.27.3] - 2026-09-09
 
 ### Changed

@@ -64,10 +64,31 @@ const QUEST_GLOW_MIN_ALPHA = 0.35;
 // of its target, so a lerp that would asymptote forever actually settles and
 // lets the render loop go idle.
 const CAMERA_SETTLE_TILES = 0.002;
-// A camera further behind than this snaps instead of lerping - holding an
-// arrow key produces steps faster than any smoothing can follow, and the
-// hero must never visibly outrun the view.
-const CAMERA_SNAP_TILES = 1.5;
+// A camera further behind than this gives up on catching up smoothly and
+// snaps. Deliberately generous, because a steady lag behind the hero while
+// they walk is normal and wanted - it's what makes the glide read as a
+// camera following rather than a rigid frame - and snapping mid-walk is
+// exactly the stutter this threshold used to cause.
+//
+// Raised from 1.5 to 6 on 2026-09-10 alongside the held-key walk cadence in
+// mapScreen.js. At 1.5 a held key could sit permanently past the threshold:
+// steady-state lag is (tiles gained per frame / fraction closed per frame),
+// which at the old OS-auto-repeat step rate worked out near 2.8 tiles at the
+// slowest glide setting - so the camera lerped, crossed the line, hard
+// snapped, and did it again every few frames. Nothing in normal play
+// approaches 6 tiles now that the walk cadence is fixed (worst case is under
+// one tile), so this only catches genuine desync. A screen or cluster change
+// doesn't rely on it at all - those rebuild through renderFull(), which
+// places the camera exactly rather than lerping in from the old position.
+const CAMERA_SNAP_TILES = 6;
+
+// The hero's own sub-tile position settles/snaps on the same terms the camera
+// does - see CAMERA_SETTLE_TILES/CAMERA_SNAP_TILES. The snap distance is much
+// tighter because nothing should ever move the hero more than a tile at a
+// time except a teleport, and a teleport rebuilds through renderFull() which
+// places them exactly anyway.
+const HERO_SETTLE_TILES = 0.002;
+const HERO_SNAP_TILES = 2.5;
 
 let canvasEl = null;
 let ctx2d = null;
@@ -81,6 +102,18 @@ let lastFrameMs = 0;
 // first render, which places it exactly (never lerping in from nowhere).
 let camGx = null;
 let camGy = null;
+// The hero's own drawn position in world tiles, fractional while they're
+// mid-stride between two of them. Same null-means-place-exactly rule as the
+// camera above.
+//
+// Raised by Timothy 2026-09-10, right after the camera glide landed: "the
+// character seems to snap between squares. Can they go smoothly too just like
+// the map does now?" Their logical position (state.position) is necessarily a
+// whole tile - everything from collision to the trail to encounter rolls is
+// defined on the grid - so smoothing has to happen here, at draw time, rather
+// than by making the game's own coordinates fractional.
+let heroGx = null;
+let heroGy = null;
 let lastPlayerTile = null;
 let hoverTile = null;
 
@@ -394,15 +427,40 @@ function paint(drawList, effectOps, suppressHeroGlyph, nowMs) {
     return minAlpha + (1 - minAlpha) * phase;
   };
 
-  for (const op of drawList.ops) {
-    const px = (op.gx - camGx) * TILE_SIZE_PX;
-    const py = (op.gy - camGy) * TILE_SIZE_PX;
+  // Anything riding with the hero (the hero themselves, and the boat under
+  // them on a tool-gated crossing) is held back and drawn after every tile,
+  // rather than in its own tile's place in the row-major order.
+  //
+  // It has to be: the hero draws at their interpolated position, which while
+  // mid-stride overhangs a neighbouring tile - and walking up or left, that
+  // neighbour is painted LATER in row-major order, so its ground fill covered
+  // the overhanging half of the hero. The result was the hero being sliced
+  // clean through at a tile boundary on every other step, which with two-key
+  // staircase walking (half of whose steps go up) read as constant blinking.
+  // Raised by Timothy 2026-09-10: "the character kind of blinks in and out."
+  //
+  // The tradeoff, taken deliberately: a tall obstacle in the row below no
+  // longer paints over the hero's feet the way the row-based depth sort used
+  // to arrange. Losing sight of your own character behind a tree is the worse
+  // of the two, and at this sprite size the occlusion cue was slight.
+  const heroOps = [];
+
+  const drawOp = (op) => {
+    const followsHero = op.followsHero && heroGx !== null;
+    const px = ((followsHero ? heroGx : op.gx) - camGx) * TILE_SIZE_PX;
+    const py = ((followsHero ? heroGy : op.gy) - camGy) * TILE_SIZE_PX;
     switch (op.op) {
       case 'ground':
         ctx2d.fillStyle = op.color;
-        // Rounded outward by a hair so neighbouring tiles never leave a
-        // seam of background showing through at fractional camera offsets.
-        ctx2d.fillRect(Math.floor(px), Math.floor(py), Math.ceil(TILE_SIZE_PX) + 1, Math.ceil(TILE_SIZE_PX) + 1);
+        // Drawn at the exact fractional position, overlapping its right and
+        // bottom neighbour by a pixel so no seam of background shows through
+        // between tiles. The overlap is what prevents the seam - an earlier
+        // version also rounded the position to whole pixels, which snapped
+        // the whole terrain grid to a 1px lattice while every sprite on top
+        // of it (trees, the trail, the hero) kept moving smoothly, so the
+        // ground visibly juddered under them as the camera glided. Raised by
+        // Timothy 2026-09-10: "map kind of herky jerky now too".
+        ctx2d.fillRect(px, py, TILE_SIZE_PX + 1, TILE_SIZE_PX + 1);
         break;
       case 'questGlow': {
         const sprite = getQuestGlowSprite();
@@ -436,7 +494,13 @@ function paint(drawList, effectOps, suppressHeroGlyph, nowMs) {
       default:
         break;
     }
+  };
+
+  for (const op of drawList.ops) {
+    if (op.followsHero) heroOps.push(op);
+    else drawOp(op);
   }
+  for (const op of heroOps) drawOp(op);
 
   for (const op of effectOps) {
     const px = (op.gx - camGx) * TILE_SIZE_PX;
@@ -504,10 +568,62 @@ function advanceCamera(dtMs) {
   return result.settled;
 }
 
+// The hero's stride toward the tile they logically occupy. Deliberately a
+// CONSTANT speed - one tile per `stepMs` - rather than the camera's
+// exponential ease: an ease per step would restart on every tile, so holding
+// a direction would read as fast-slow-fast-slow rather than one unbroken
+// walk. Constant speed matched to the walk cadence means the hero arrives at
+// each tile exactly as the next step is taken, which is what makes continuous
+// walking look continuous.
+export function computeHeroStep(hero, target, stepMs, dtMs) {
+  if (hero === null) return { heroGx: target.gx, heroGy: target.gy, settled: true };
+  const dx = target.gx - hero.gx;
+  const dy = target.gy - hero.gy;
+  const distance = Math.hypot(dx, dy);
+  if (distance < HERO_SETTLE_TILES) return { heroGx: target.gx, heroGy: target.gy, settled: true };
+  // stepMs of 0 is the "camera glide off" setting - see resolveHeroStepMs.
+  if (stepMs <= 0 || distance > HERO_SNAP_TILES) {
+    return { heroGx: target.gx, heroGy: target.gy, settled: true };
+  }
+  // Same "no measured delta yet, wait for a real frame" rule the camera has -
+  // see computeCameraStep for the bug that came from conflating this with
+  // snapping.
+  if (dtMs <= 0) return { heroGx: hero.gx, heroGy: hero.gy, settled: false };
+  const maxMove = dtMs / stepMs;
+  if (distance <= maxMove) return { heroGx: target.gx, heroGy: target.gy, settled: true };
+  return {
+    heroGx: hero.gx + (dx / distance) * maxMove,
+    heroGy: hero.gy + (dy / distance) * maxMove,
+    settled: false,
+  };
+}
+
+// The hero's stride is tied to the walk cadence, not to the camera-glide
+// slider's own value: at a 250ms glide the hero would otherwise take 250ms to
+// cross a tile while steps keep arriving every 110ms, so they'd fall further
+// and further behind the tile they're actually standing on. The slider still
+// gates it though - 0 means "no smoothing anywhere", which is what makes that
+// end of the slider reproduce the pre-canvas feel exactly.
+function resolveHeroStepMs() {
+  return renderContext.cameraSmoothingMs > 0 ? renderContext.walkStepMs : 0;
+}
+
+function advanceHero(dtMs, playerTile) {
+  if (!playerTile) return true;
+  const hero = heroGx === null ? null : { gx: heroGx, gy: heroGy };
+  const result = computeHeroStep(hero, playerTile, resolveHeroStepMs(), dtMs);
+  heroGx = result.heroGx;
+  heroGy = result.heroGy;
+  return result.settled;
+}
+
 // Exported for tests only - see computeCameraStep's own header for why the
 // camera's state machine needs a seam like this rather than being driven
 // through real requestAnimationFrame calls.
-export const __testables = { computeCameraStep, CAMERA_SETTLE_TILES, CAMERA_SNAP_TILES };
+export const __testables = {
+  computeCameraStep, CAMERA_SETTLE_TILES, CAMERA_SNAP_TILES,
+  computeHeroStep, HERO_SETTLE_TILES, HERO_SNAP_TILES,
+};
 
 function frame(nowMs) {
   rafId = null;
@@ -518,8 +634,13 @@ function frame(nowMs) {
   const cameraSettled = advanceCamera(dtMs);
   const drawList = buildDrawList(expandForMargin(renderContext));
   lastPlayerTile = drawList.playerTile;
+  const heroSettled = advanceHero(dtMs, drawList.playerTile);
+  // Effects anchor to where the hero is actually drawn, not to the tile they
+  // logically occupy - otherwise a level-up burst would fire from the tile
+  // ahead of them while they're still mid-stride toward it.
+  const effectAnchor = heroGx === null ? drawList.playerTile : { gx: heroGx, gy: heroGy };
   const { ops: effectOps, suppressHeroGlyph } = sampleEffects(
-    nowMs, drawList.playerTile, renderContext.playerEmoji, HERO_AND_LOOT_PX,
+    nowMs, effectAnchor, renderContext.playerEmoji, HERO_AND_LOOT_PX,
   );
 
   paint(drawList, effectOps, suppressHeroGlyph, nowMs);
@@ -527,7 +648,7 @@ function frame(nowMs) {
 
   // Keep the loop alive only while something is actually changing. Standing
   // still with nothing animating on screen schedules no frames at all.
-  if (!cameraSettled || hasActiveEffect(nowMs) || drawList.hasContinuousAnimation || needsPaint) {
+  if (!cameraSettled || !heroSettled || hasActiveEffect(nowMs) || drawList.hasContinuousAnimation || needsPaint) {
     schedule();
   } else {
     lastFrameMs = 0;
@@ -600,6 +721,8 @@ export function renderFull(viewport, context) {
   renderContext = context;
   camGx = null;
   camGy = null;
+  heroGx = null;
+  heroGy = null;
   hoverTile = null;
 
   const canvas = document.createElement('canvas');
@@ -671,6 +794,8 @@ export function destroy() {
   renderContext = null;
   camGx = null;
   camGy = null;
+  heroGx = null;
+  heroGy = null;
   lastPlayerTile = null;
   hoverTile = null;
   lastFrameMs = 0;
@@ -687,9 +812,14 @@ export function destroy() {
 export function getPlayerScreenRect() {
   if (!canvasEl || !lastPlayerTile || camGx === null) return null;
   const rect = canvasEl.getBoundingClientRect();
+  // Their drawn position, not their tile's - an effect anchored here while
+  // they're mid-stride (a tool celebration, a fleeing monster) has to start
+  // from where they actually appear to be.
+  const gx = heroGx === null ? lastPlayerTile.gx : heroGx;
+  const gy = heroGy === null ? lastPlayerTile.gy : heroGy;
   return {
-    left: rect.left + (lastPlayerTile.gx - camGx) * TILE_SIZE_PX,
-    top: rect.top + (lastPlayerTile.gy - camGy) * TILE_SIZE_PX,
+    left: rect.left + (gx - camGx) * TILE_SIZE_PX,
+    top: rect.top + (gy - camGy) * TILE_SIZE_PX,
     width: TILE_SIZE_PX,
     height: TILE_SIZE_PX,
   };

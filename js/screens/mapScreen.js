@@ -15,6 +15,7 @@ import { SUPER_BOSSES } from '../data/superBosses.js';
 import { hasAnyQuestReady } from '../systems/quests.js';
 import { TOWN_PORTAL_POSITION } from '../systems/portal.js';
 import { playSfx } from '../systems/audio.js';
+import { DEFAULT_CAMERA_SMOOTHING_MS } from '../state.js';
 import {
   CACHE_MARKER_DESCRIPTION, MINI_DUNGEON_MARKER_DESCRIPTION, PORTAL_ACTION_TILES,
   TILE_SIZE_PX, DEFAULT_VIEWPORT_TILES_WIDE, DEFAULT_VIEWPORT_TILES_TALL,
@@ -142,8 +143,8 @@ function readRendererParam() {
 // just a small number - see the Settings slider in
 // js/screens/settingsScreen.js. Only the canvas renderer reads this; the DOM
 // renderer has no way to honor it (its camera is a discrete grid transform).
-export const DEFAULT_CAMERA_SMOOTHING_MS = 80;
-
+// The default itself lives in js/state.js alongside the save field it backs,
+// rather than being restated here where the two could drift apart.
 function resolveCameraSmoothingMs() {
   const raw = state?.settings?.cameraSmoothingMs;
   return Number.isFinite(raw) ? raw : DEFAULT_CAMERA_SMOOTHING_MS;
@@ -155,6 +156,48 @@ const KEY_TO_DELTA = {
   ArrowLeft: [-1, 0], a: [-1, 0],
   ArrowRight: [1, 0], d: [1, 0],
 };
+
+// How long a held direction key waits between steps. Raised by Timothy
+// 2026-09-10: "if you hold down up/left/right/down it's kind of janky and
+// not smooth... if you hold down character should walk fast just smoothly."
+//
+// Holding a key used to be driven entirely by the browser's own keyboard
+// auto-repeat - every repeated `keydown` event called tryMove directly. That
+// repeat is an OS setting, not a game one: it waits roughly half a second
+// before it starts (so a held key gave one step, a clear pause, then a
+// burst), and then fires at whatever rate that machine happens to be
+// configured for, which on a fast setting is ~30 steps a second. Two
+// consequences, both of which read as jank:
+//   - the cadence is uneven by construction, and differs per machine, so
+//     travel speed was never the same for two players;
+//   - at ~30 steps/sec the camera cannot keep up at higher glide settings.
+//     Its steady-state lag (tiles added per frame / fraction closed per
+//     frame) works out past CAMERA_SNAP_TILES, so the camera would lerp,
+//     exceed the threshold, hard-snap, and repeat - a visible stutter every
+//     few frames, worst at exactly the smoothest-looking slider values.
+// A fixed cadence owned here fixes both: `event.repeat` keydowns are ignored
+// outright and walkTick below is the only thing that repeats. 110ms keeps
+// the camera's steady-state lag under a tile even at the slowest glide
+// setting and 30fps, while still being a brisk walk.
+const WALK_REPEAT_INTERVAL_MS = 110;
+// The cadence actually in use. Overridable via props.walkRepeatMs, which
+// exists for tests: the behavior worth asserting is "does it repeat, alternate
+// and stop", and at the real 110ms a handful of those cost seconds of real
+// waiting each. Node runs test files in parallel, so that much wall-clock time
+// spent asleep is enough to starve other timing-sensitive suites - this was
+// caught making an unrelated battle test flake. Same reasoning as the
+// `renderer` prop.
+let walkRepeatMs = WALK_REPEAT_INTERVAL_MS;
+// Movement keys currently held, most recently pressed last. An ordered list
+// rather than a single key so that pressing a second direction without
+// releasing the first turns immediately, and releasing that second one falls
+// back to the direction still held instead of stopping dead - which is how
+// holding two keys through a corner actually feels in any other game.
+let heldMoveKeys = [];
+let walkTimerId = null;
+// Which axis the last step travelled on, so that holding two perpendicular
+// directions can alternate between them - see chooseWalkKey.
+let lastWalkAxis = null;
 
 // No "zone" concept exists in the map registry (js/main.js's MAPS object is
 // a flat list) - this is the explicit list of the 24 wilderness screens
@@ -395,6 +438,9 @@ function buildRenderContext(geometry) {
     playerEmoji: state.player.emoji,
     hasToolFor: (tile) => hasRequiredTool(tile, state.inventory),
     cameraSmoothingMs: resolveCameraSmoothingMs(),
+    // How long the hero takes to walk one tile, which is the walk cadence
+    // itself - they should arrive exactly as the next held-key step fires.
+    walkStepMs: walkRepeatMs,
   };
 }
 
@@ -580,21 +626,147 @@ function tryMove(dx, dy) {
   }
 }
 
-function handleKeydown(event) {
-  const delta = KEY_TO_DELTA[event.key];
-  if (delta) {
-    tryMove(delta[0], delta[1]);
+// Shift changes the character a letter key reports ('w' -> 'W'), not what the
+// player meant by it. Normalising here matters for more than tidiness: the
+// held-key bookkeeping below matches keyup against keydown by name, so
+// pressing 'w', then shift, then releasing would otherwise deliver a keyup
+// for 'W' that never matches the held 'w' - leaving the key stuck down and
+// the character walking on its own. Named keys ('ArrowUp') are already
+// case-stable and pass through untouched.
+function normalizeKey(key) {
+  return key.length === 1 ? key.toLowerCase() : key;
+}
+
+function startWalkTimer() {
+  if (walkTimerId !== null) return;
+  walkTimerId = setInterval(walkTick, walkRepeatMs);
+}
+
+function stopWalkTimer() {
+  if (walkTimerId === null) return;
+  clearInterval(walkTimerId);
+  walkTimerId = null;
+}
+
+function releaseAllMoveKeys() {
+  heldMoveKeys = [];
+  lastWalkAxis = null;
+  stopWalkTimer();
+}
+
+// Which axis a direction key travels on, derived from its own delta rather
+// than a second table that could drift out of sync with KEY_TO_DELTA.
+function axisOfKey(key) {
+  return KEY_TO_DELTA[key][0] !== 0 ? 'h' : 'v';
+}
+
+// The most recently pressed key still held on one axis. Most-recent wins so
+// that holding Left and then Right (which cancel each other out) walks the
+// way you last asked for, rather than deadlocking.
+function heldKeyOnAxis(axis) {
+  for (let i = heldMoveKeys.length - 1; i >= 0; i--) {
+    if (axisOfKey(heldMoveKeys[i]) === axis) return heldMoveKeys[i];
+  }
+  return null;
+}
+
+// Whether a step that way would actually land somewhere - a pure look-ahead
+// with none of tryMove's side effects (no gate messages, no tile clearing),
+// so it's safe to ask speculatively every tick.
+function canStepToward(key) {
+  const [dx, dy] = KEY_TO_DELTA[key];
+  const current = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
+  const resolved = globalToScreen(worldGrid, mapConfig.id, current.gx + dx, current.gy + dy);
+  if (!resolved) return false;
+  return isPassableTile(tileAt(maps[resolved.screenId], resolved.localX, resolved.localY));
+}
+
+// Which way this tick's step goes. Raised by Timothy 2026-09-10: "I don't
+// even care if the character can travel diagonally, I actually like that they
+// have to go up and then right... I just want to be able to hold both keys to
+// make the game do that."
+//
+// So holding two perpendicular directions alternates between them, walking
+// the staircase by hand-holding rather than by pressing keys in turn. This is
+// deliberately NOT diagonal movement: every step stays a single cardinal
+// move, which means collision, screen-crossing and - most importantly - the
+// worn-path trail all keep working exactly as they already do. The trail
+// simply records wherever the character actually walked, and a staircase
+// connects up like any other route.
+function chooseWalkKey() {
+  const horizontal = heldKeyOnAxis('h');
+  const vertical = heldKeyOnAxis('v');
+  if (!horizontal) return vertical;
+  if (!vertical) return horizontal;
+  const preferred = lastWalkAxis === 'h' ? vertical : horizontal;
+  const other = preferred === horizontal ? vertical : horizontal;
+  // Alternate, except don't spend the tick walking into a wall while the
+  // other direction is still open - hugging an obstacle with both keys down
+  // would otherwise drop to half speed and stutter. If both are blocked, fall
+  // through to the preferred one so tryMove still reports the blockage the
+  // same way a single held key would.
+  if (canStepToward(preferred) || !canStepToward(other)) return preferred;
+  return other;
+}
+
+function stepInDirection(key) {
+  const delta = KEY_TO_DELTA[key];
+  if (!delta) return;
+  lastWalkAxis = axisOfKey(key);
+  tryMove(delta[0], delta[1]);
+}
+
+// One step per tick in whichever direction is currently held - see
+// WALK_REPEAT_INTERVAL_MS.
+function walkTick() {
+  const key = chooseWalkKey();
+  if (!key) {
+    stopWalkTimer();
     return;
   }
-  // 'p'/'P' for the Circle of Ultimate Portaling - not part of
-  // KEY_TO_DELTA since it's an action, not a move. Confirmed
-  // non-colliding with battleScreen.js's own p/P (pause): that screen's
-  // keydown listener is detached (screenManager.js pause()) whenever this
-  // one is active, same reasoning as the documented 's'/parry collision
-  // there.
-  if (event.key === 'p' || event.key === 'P') {
+  stepInDirection(key);
+}
+
+function handleKeydown(event) {
+  const key = normalizeKey(event.key);
+  const delta = KEY_TO_DELTA[key];
+  if (delta) {
+    // The browser's own auto-repeat is deliberately ignored - walkTick owns
+    // the cadence for as long as the key stays down. See
+    // WALK_REPEAT_INTERVAL_MS for why.
+    if (event.repeat) return;
+    if (!heldMoveKeys.includes(key)) heldMoveKeys.push(key);
+    startWalkTimer();
+    // Step immediately rather than waiting out the first interval, so a
+    // single tap responds instantly - and step the way this key points, not
+    // whatever the alternation was due next, so pressing a second direction
+    // turns straight away instead of a tick later.
+    stepInDirection(key);
+    return;
+  }
+  // 'p' for the Circle of Ultimate Portaling - not part of KEY_TO_DELTA
+  // since it's an action, not a move. Confirmed non-colliding with
+  // battleScreen.js's own p/P (pause): that screen's keydown listener is
+  // detached (screenManager.js pause()) whenever this one is active, same
+  // reasoning as the documented 's'/parry collision there.
+  if (key === 'p') {
     callbacks.onAction('usePortalTool');
   }
+}
+
+function handleKeyup(event) {
+  const key = normalizeKey(event.key);
+  if (!KEY_TO_DELTA[key]) return;
+  heldMoveKeys = heldMoveKeys.filter((held) => held !== key);
+  if (heldMoveKeys.length === 0) stopWalkTimer();
+}
+
+// A window that loses focus never delivers the matching keyup - alt-tabbing
+// away mid-walk is the everyday case - which would otherwise leave the key
+// recorded as held forever and the character walking off on its own the
+// moment focus came back.
+function handleWindowBlur() {
+  releaseAllMoveKeys();
 }
 
 // Window resize can change how many tiles fit in the viewport (see
@@ -628,16 +800,23 @@ export function mount(root, props) {
   debugNoEncounters = Boolean(props.debugNoEncounters);
   portalTransitionPending = false;
   renderer = resolveRenderer(props.renderer);
+  walkRepeatMs = Number.isFinite(props.walkRepeatMs) ? props.walkRepeatMs : WALK_REPEAT_INTERVAL_MS;
+  releaseAllMoveKeys();
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
   renderFull();
   announceScreenIfNew(mapConfig);
   window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('keyup', handleKeyup);
+  window.addEventListener('blur', handleWindowBlur);
   window.addEventListener('resize', handleResize);
 }
 
 export function unmount() {
   window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('keyup', handleKeyup);
+  window.removeEventListener('blur', handleWindowBlur);
   window.removeEventListener('resize', handleResize);
+  releaseAllMoveKeys();
   // The canvas renderer holds a requestAnimationFrame loop and its own
   // listeners (hover, devicePixelRatio) - without this they'd outlive the
   // screen and keep drawing into a detached canvas forever. The DOM renderer
@@ -652,10 +831,19 @@ export function unmount() {
 
 export function pause() {
   window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('keyup', handleKeyup);
+  // Stops walking outright rather than only muting input: an encounter can
+  // fire on a step taken while a direction is still held, and the battle
+  // overlay that opens on top must not leave this screen's walk timer
+  // ticking underneath it. The keyup that eventually arrives would land on a
+  // detached listener anyway, so the held-key record has to be cleared here
+  // rather than waiting for it.
+  releaseAllMoveKeys();
 }
 
 export function resume() {
   window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('keyup', handleKeyup);
 }
 
 // Test-only seam. jsdom has no canvas implementation at all

@@ -13,6 +13,9 @@ import {
   SKIN_TONES,
   isToneCapableEmoji,
   applySkinTone,
+  migrateCameraSettings,
+  DEFAULT_CAMERA_SMOOTHING_MS,
+  MAX_CAMERA_SMOOTHING_MS,
   migrateRingSlots,
   migratePowerRingSlot,
   migrateAccessorySlots,
@@ -458,4 +461,35 @@ test('migrateCharacterId preserves an already-set characterId rather than regene
   const state = createNewGame();
   const migrated = migrateCharacterId(state);
   assert.equal(migrated.characterId, state.characterId);
+});
+
+// The camera-glide default moved 80ms -> 250ms on 2026-09-10, a day after the
+// slider shipped. migrateCameraSettings therefore does something migrations
+// normally shouldn't: it overwrites one specific existing value. See its own
+// comment for why 80 in particular is treated as "never chosen".
+test('migrateCameraSettings fills in the default for a save that predates the setting', () => {
+  const migrated = migrateCameraSettings({ settings: { itemMenuAutoCloseMs: 1000 } });
+  assert.equal(migrated.settings.cameraSmoothingMs, DEFAULT_CAMERA_SMOOTHING_MS);
+  assert.equal(migrated.settings.itemMenuAutoCloseMs, 1000, 'must not disturb other settings');
+});
+
+test('migrateCameraSettings moves a save still on the superseded 80ms default up to the new one', () => {
+  const migrated = migrateCameraSettings({ settings: { cameraSmoothingMs: 80 } });
+  assert.equal(migrated.settings.cameraSmoothingMs, DEFAULT_CAMERA_SMOOTHING_MS);
+});
+
+test('migrateCameraSettings leaves a deliberately chosen value alone, including 0', () => {
+  // 0 is the "snap instantly, like the old renderer" end of the slider - a
+  // real choice, and falsy, so exactly the value a careless check would eat.
+  assert.equal(migrateCameraSettings({ settings: { cameraSmoothingMs: 0 } }).settings.cameraSmoothingMs, 0);
+  assert.equal(migrateCameraSettings({ settings: { cameraSmoothingMs: 140 } }).settings.cameraSmoothingMs, 140);
+  assert.equal(migrateCameraSettings({ settings: { cameraSmoothingMs: 400 } }).settings.cameraSmoothingMs, 400);
+});
+
+test('a new character starts on the camera-glide default, and the slider can reach past it', () => {
+  assert.equal(createNewGame().settings.cameraSmoothingMs, DEFAULT_CAMERA_SMOOTHING_MS);
+  assert.ok(
+    MAX_CAMERA_SMOOTHING_MS > DEFAULT_CAMERA_SMOOTHING_MS,
+    'a default sitting on the slider maximum could only ever be turned down',
+  );
 });

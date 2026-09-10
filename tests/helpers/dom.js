@@ -109,6 +109,16 @@ export function keydown(key, extra = {}) {
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...extra }));
 }
 
+// The matching keyup. Most tests can ignore it - a single keydown is enough
+// to drive one action - but mapScreen.js treats a movement key as HELD from
+// keydown until keyup and steps on a timer for as long as it is (see
+// WALK_REPEAT_INTERVAL_MS there), so any test that dispatches a direction and
+// then waits on real time has to release it, exactly as a real browser would,
+// or the character keeps walking underneath the thing being asserted.
+export function keyup(key, extra = {}) {
+  window.dispatchEvent(new window.KeyboardEvent('keyup', { key, bubbles: true, cancelable: true, ...extra }));
+}
+
 // mouseover/mouseout, both bubbling (itemTooltip.js listens on `document`,
 // relying on bubbling exactly like the real browser) and both accepting a
 // relatedTarget - itemTooltip.js's mouseout handler reads it to tell "moved

@@ -53,8 +53,15 @@ export const DEFAULT_ITEM_MENU_AUTO_CLOSE_MS = 1000;
 // the instant tile-snap the game had before the canvas rewrite exactly, so
 // the slider spans "exactly how it used to feel" through to a visible glide
 // rather than only offering degrees of a new behavior.
-export const DEFAULT_CAMERA_SMOOTHING_MS = 80;
-export const MAX_CAMERA_SMOOTHING_MS = 250;
+export const DEFAULT_CAMERA_SMOOTHING_MS = 250;
+// Headroom above the default rather than stopping at it - a slider whose
+// default sits on its own maximum can only ever be turned down, which reads
+// as a mistake even when the default is the value you want.
+export const MAX_CAMERA_SMOOTHING_MS = 400;
+// What the default was before 2026-09-10. Kept only so migrateCameraSettings
+// can tell "still on the old default" apart from "deliberately chose 80" -
+// see its own comment.
+const SUPERSEDED_CAMERA_SMOOTHING_MS = 80;
 
 const DEFAULT_AUDIO_SETTINGS = {
   soundTheme: 'realistic',
@@ -286,8 +293,16 @@ export function migrateAudioSettings(state) {
 // falsy check because 0 is a real, deliberately-chosen value here - "snap
 // instantly, exactly like the old renderer" - and `|| DEFAULT` would quietly
 // overwrite it every single load.
+//
+// The one value it will overwrite is the superseded 80ms default. That was
+// the default for less than a day before 250ms replaced it, so a save still
+// holding exactly 80 has almost certainly never had the slider touched - and
+// leaving those saves behind on a value nobody picked would mean the new
+// default effectively only reached brand-new characters. A save on any other
+// value, 80-adjacent or not, is treated as a real choice and left alone.
 export function migrateCameraSettings(state) {
-  if (state.settings && 'cameraSmoothingMs' in state.settings) return state;
+  const current = state.settings?.cameraSmoothingMs;
+  if (current !== undefined && current !== SUPERSEDED_CAMERA_SMOOTHING_MS) return state;
   return {
     ...state,
     settings: { ...state.settings, cameraSmoothingMs: DEFAULT_CAMERA_SMOOTHING_MS },

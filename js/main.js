@@ -1235,7 +1235,7 @@ initItemTooltip();
 // automated, not tied to the real CHANGELOG.md version. Gated on hostname
 // (never shows on the deployed site) rather than a URL param, so it works
 // on a plain reload with no param to remember.
-const DEV_BUILD_TAG = 'canvas-dev2-camera-fix';
+const DEV_BUILD_TAG = 'canvas-dev7-glide250';
 if (typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   const badge = document.createElement('div');
   badge.textContent = `dev build loaded: ${DEV_BUILD_TAG}`;

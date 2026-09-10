@@ -6,6 +6,17 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.32.0',
+    date: '2026-09-10',
+    highlights: [
+      'Added: hold two directions at once (up + right, say) and your character now walks the staircase automatically, instead of only going the way you pressed last.',
+      'Changed: holding a direction now walks at a steady speed instead of relying on your keyboard\'s own repeat rate - no more pause-then-burst when you first hold a key, and everyone travels at the same speed now.',
+      'Changed: your character now walks smoothly between tiles rather than jumping a square at a time.',
+      'Changed: the map camera glide now defaults to a longer, smoother follow - the Settings slider goes further too, and 0 still gives you the old instant snap.',
+      'Fixed: the character could appear to blink or get cut in half while walking, and the ground could judder as the camera moved.',
+    ],
+  },
+  {
     version: '0.31.0',
     date: '2026-09-10',
     highlights: [

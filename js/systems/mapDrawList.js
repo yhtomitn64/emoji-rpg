@@ -189,8 +189,11 @@ function buildCellOps(ctx, gx, gy, signature, out) {
   if (mountEmoji) {
     // Riding across a tool-gated tile (the boat on water) renders the mount
     // under the hero rather than replacing them.
-    out.push({ op: 'glyph', gx, gy, emoji: mountEmoji, sizePx: MOUNT_FONT_PX, anchor: ANCHOR_CENTER });
-    out.push({ op: 'glyph', gx, gy, emoji: ctx.playerEmoji, sizePx: RIDER_FONT_PX, anchor: ANCHOR_TOP, offsetYPx: RIDER_OFFSET_Y_PX, isPlayer: true });
+    // The boat rides along with the hero (followsHero) but is not the hero
+    // (isPlayer), so an effect that redraws the hero itself - a level-up
+    // pulse, a portal pull - replaces only the rider and leaves the boat.
+    out.push({ op: 'glyph', gx, gy, emoji: mountEmoji, sizePx: MOUNT_FONT_PX, anchor: ANCHOR_CENTER, followsHero: true });
+    out.push({ op: 'glyph', gx, gy, emoji: ctx.playerEmoji, sizePx: RIDER_FONT_PX, anchor: ANCHOR_TOP, offsetYPx: RIDER_OFFSET_Y_PX, isPlayer: true, followsHero: true });
   } else if (isRandomSizeObstacle) {
     // 100-150% of a tile, deterministic per position, bottom-anchored so the
     // canopy overlaps into the row above.
@@ -218,6 +221,7 @@ function buildCellOps(ctx, gx, gy, signature, out) {
       emoji: isPlayer ? ctx.playerEmoji : emoji,
       sizePx, anchor: ANCHOR_CENTER, cropped,
       isPlayer: Boolean(isPlayer),
+      followsHero: Boolean(isPlayer),
     });
   } else if (isDecoratedGrass) {
     pushDecoration();

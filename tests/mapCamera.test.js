@@ -26,7 +26,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { __testables } from '../js/screens/mapCanvasRenderer.js';
 
-const { computeCameraStep, CAMERA_SETTLE_TILES, CAMERA_SNAP_TILES } = __testables;
+const {
+  computeCameraStep, CAMERA_SETTLE_TILES, CAMERA_SNAP_TILES,
+  computeHeroStep, HERO_SNAP_TILES,
+} = __testables;
 
 const FAR = { gx: 10, gy: 0 }; // 10 tiles away - inside CAMERA_SNAP_TILES's "no" range is huge, so pick a nearby target for normal-step tests
 const ONE_TILE_AWAY = { gx: 1, gy: 0 };
@@ -112,5 +115,71 @@ test('mapCamera - snap conditions', async (t) => {
     const result = computeCameraStep(almostThere, ONE_TILE_AWAY, 80, 16);
     assert.deepEqual({ gx: result.camGx, gy: result.camGy }, ONE_TILE_AWAY);
     assert.equal(result.settled, true);
+  });
+});
+
+// The hero's own sub-tile stride, added 2026-09-10: "the character seems to
+// snap between squares. Can they go smoothly too just like the map does now?"
+// Their logical position is always a whole tile, so this interpolates only
+// what's drawn. Constant speed rather than the camera's easing - see
+// computeHeroStep's own header for why easing would make a held key stutter.
+test('mapHero - the stride between tiles', async (t) => {
+  const STEP_MS = 110;
+
+  await t.test('crosses exactly one tile per step interval, at a constant rate', () => {
+    // Half an interval covers half a tile - not most of it, which is what an
+    // ease-out would do, and not a sliver, which is what an ease-in would.
+    const half = computeHeroStep({ gx: 0, gy: 0 }, { gx: 1, gy: 0 }, STEP_MS, STEP_MS / 2);
+    assert.ok(Math.abs(half.heroGx - 0.5) < 1e-9, `expected exactly half a tile, got ${half.heroGx}`);
+    assert.equal(half.settled, false);
+  });
+
+  await t.test('arrives exactly on the tile at the end of the interval, never overshooting', () => {
+    const arrived = computeHeroStep({ gx: 0, gy: 0 }, { gx: 1, gy: 0 }, STEP_MS, STEP_MS);
+    assert.deepEqual({ gx: arrived.heroGx, gy: arrived.heroGy }, { gx: 1, gy: 0 });
+    assert.equal(arrived.settled, true, 'arriving must settle so the render loop can go idle');
+
+    const overshot = computeHeroStep({ gx: 0, gy: 0 }, { gx: 1, gy: 0 }, STEP_MS, STEP_MS * 5);
+    assert.deepEqual({ gx: overshot.heroGx, gy: overshot.heroGy }, { gx: 1, gy: 0 }, 'a long frame clamps to the tile rather than sailing past it');
+  });
+
+  await t.test('covers the same distance per frame diagonally as it does straight', () => {
+    // The rate is along the path, not per-axis - otherwise moving on both
+    // axes at once would quietly travel faster. A quarter-interval frame so
+    // neither case arrives, and both targets stay inside HERO_SNAP_TILES so
+    // neither snaps instead of striding.
+    const dt = STEP_MS / 4;
+    const straight = computeHeroStep({ gx: 0, gy: 0 }, { gx: 1, gy: 0 }, STEP_MS, dt);
+    const diagonal = computeHeroStep({ gx: 0, gy: 0 }, { gx: 1, gy: 1 }, STEP_MS, dt);
+    assert.equal(straight.settled, false, 'test setup: expected a partial stride, not an arrival');
+    assert.equal(diagonal.settled, false, 'test setup: expected a partial stride, not an arrival');
+    const straightMoved = Math.hypot(straight.heroGx, straight.heroGy);
+    const diagonalMoved = Math.hypot(diagonal.heroGx, diagonal.heroGy);
+    assert.ok(Math.abs(straightMoved - diagonalMoved) < 1e-9, `expected the same distance covered either way, got ${straightMoved} vs ${diagonalMoved}`);
+  });
+
+  await t.test('a fresh mount places the hero exactly, never sliding in from nowhere', () => {
+    const result = computeHeroStep(null, { gx: 7, gy: 3 }, STEP_MS, 16);
+    assert.deepEqual({ gx: result.heroGx, gy: result.heroGy }, { gx: 7, gy: 3 });
+    assert.equal(result.settled, true);
+  });
+
+  await t.test('stepMs of 0 - the glide slider turned off - snaps, reproducing the pre-canvas feel', () => {
+    const result = computeHeroStep({ gx: 0, gy: 0 }, { gx: 1, gy: 0 }, 0, 16);
+    assert.deepEqual({ gx: result.heroGx, gy: result.heroGy }, { gx: 1, gy: 0 });
+    assert.equal(result.settled, true);
+  });
+
+  await t.test('a teleport-sized jump snaps rather than gliding across the map', () => {
+    const far = { gx: HERO_SNAP_TILES + 5, gy: 0 };
+    const result = computeHeroStep({ gx: 0, gy: 0 }, far, STEP_MS, 16);
+    assert.deepEqual({ gx: result.heroGx, gy: result.heroGy }, far);
+    assert.equal(result.settled, true);
+  });
+
+  await t.test('a zero-delta frame waits rather than snapping - same rule the camera has', () => {
+    const result = computeHeroStep({ gx: 0, gy: 0 }, { gx: 1, gy: 0 }, STEP_MS, 0);
+    assert.deepEqual({ gx: result.heroGx, gy: result.heroGy }, { gx: 0, gy: 0 });
+    assert.equal(result.settled, false);
   });
 });

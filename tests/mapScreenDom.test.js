@@ -13,7 +13,7 @@
 // draw list (pure data) rather than pixels.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupDom, teardownDom, createRoot, keydown } from './helpers/dom.js';
+import { setupDom, teardownDom, createRoot, keydown, keyup } from './helpers/dom.js';
 import { createNewGame } from '../js/state.js';
 import { townMap } from '../js/maps/townMap.js';
 import { buildWorldGrid } from '../js/systems/worldGrid.js';
@@ -139,6 +139,9 @@ test('mapScreen DOM - portal pull effect delays the action', async (t) => {
     });
 
     keydown('ArrowUp');
+    // Released before the wait below: a movement key counts as held until
+    // keyup, and a held key keeps stepping on mapScreen's own walk timer.
+    keyup('ArrowUp');
     assert.deepEqual(seenActions, [], 'expected enterPortalToOrigin to not fire in the same tick as the step');
     const marker = root.querySelector('.map-tile-player .map-tile-fullsize');
     assert.ok(marker?.classList.contains('map-tile-player-portal-pull'), 'expected the pull animation class on the player marker');
@@ -169,6 +172,9 @@ test('mapScreen DOM - portal pull effect delays the action', async (t) => {
     keydown('ArrowDown');
     assert.equal(state.position.y, TOWN_PORTAL_POSITION.y, 'expected the second keypress to be ignored while a portal transition is pending, position unchanged');
 
+    // Both released before the wait - see the note on the previous test.
+    keyup('ArrowUp');
+    keyup('ArrowDown');
     await new Promise((resolve) => setTimeout(resolve, 500));
     assert.deepEqual(seenActions, ['enterPortalToOrigin'], 'expected exactly one delayed action, not a stale/duplicate fire');
   });
