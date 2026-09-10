@@ -64,6 +64,17 @@ const DEFAULT_AUDIO_SETTINGS = {
   audioMusicVolume: 0.6, audioMusicMuted: false,
 };
 
+// Display preferences - plain on-by-default toggles, not feature flags:
+// they're finished behavior a player might simply not want on screen, so
+// they live above the "Feature Flags" section in Settings rather than
+// inside it. showXpInHud puts the XP-to-next-level bar in the top HUD;
+// the same numbers have always been on the Stats screen, this is the
+// always-visible version (raised 2026-09-10: "I know it's in the stats
+// screen but maybe something a bit more visible somewhere too").
+const DEFAULT_HUD_SETTINGS = {
+  showXpInHud: true,
+};
+
 // In-progress features gated behind a visible Settings toggle rather than a
 // hidden unlock - this is a small personal project with a handful of known
 // players, so "off by default, flip it on when you want to help test" is
@@ -152,6 +163,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
       itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
       cameraSmoothingMs: DEFAULT_CAMERA_SMOOTHING_MS,
       ...DEFAULT_AUDIO_SETTINGS,
+      ...DEFAULT_HUD_SETTINGS,
       featureFlags: { ...DEFAULT_FEATURE_FLAGS },
     },
   };
@@ -280,6 +292,14 @@ export function migrateCameraSettings(state) {
     ...state,
     settings: { ...state.settings, cameraSmoothingMs: DEFAULT_CAMERA_SMOOTHING_MS },
   };
+}
+
+// One-time migration for saves from before the HUD display toggles existed
+// - merges in only missing keys, same shape as migrateAudioSettings, so a
+// save where the player has already turned one off doesn't get it switched
+// back on the next time they load.
+export function migrateHudSettings(state) {
+  return { ...state, settings: { ...DEFAULT_HUD_SETTINGS, ...state.settings } };
 }
 
 // One-time migration for saves from before feature flags existed - merges

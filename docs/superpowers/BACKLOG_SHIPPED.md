@@ -1975,3 +1975,98 @@ static shell/noscript content, not the actual game) wasn't addressed —
 would need real SSR/prerendering, a much bigger project, not attempted
 here. (The privacy-friendly-analytics suggestion raised alongside this
 is still open — see BACKLOG.md.)
+
+## ~~Battle screen doesn't fit big group encounters~~ Raised and shipped 2026-09-10 (0.28.0)
+
+Raised with a screenshot: "when there are lots of enemies the whole
+battle screen too big. maybe make it wider or just make sure it scales
+to fit?"
+
+In the screenshot the battle overlay has grown past the bottom of the
+window - the ability buttons (1-4) are only half visible and the hotkey
+row under them (s / a / Spc / i / f) is clipped off entirely by the
+taskbar. That row is how you parry and flee, so this isn't only
+cosmetic: on a tall group encounter the controls you most need can be
+off-screen. Not yet investigated; no cause identified.
+
+Two directions named in the ask, not yet chosen between:
+- **Scale to fit** - shrink the monster row (emoji size, per-monster HP
+  bar/label block) as the count grows, so total height stays inside the
+  viewport.
+- **Go wider** - lay monsters out horizontally / wrap them, using the
+  width that's already free rather than stacking into more height.
+
+Worth checking whether the monster block, the battle log panel, or the
+overlay's own sizing is what actually overflows before picking one -
+`#app` already has `overflow-y: auto` as a safety net (`css/styles.css`),
+so something inside the battle overlay is likely establishing its own
+height instead of shrinking.
+
+## ~~Instant-resolve encounter scope~~ Raised and shipped 2026-09-10 (0.28.0)
+
+Asked: "can all enemies get insta defeated w/o bringing up fight dialog.
+feel like it only happens on super super easy stuff so not sure the
+logic on that."
+
+Answering the "not sure the logic" half - it's `resolveWeakMobEncounter`
+(`js/systems/combat.js`), called once pre-fight from `startEncounter`
+(`js/main.js`). Four gates, all of which must pass:
+
+1. **Solo only.** `monsterIds.length === 1` - any group encounter always
+   opens the dialog, regardless of how weak the mobs are.
+2. **Not a boss, not `forceFullBattle`** (tool-dungeon guardians,
+   superbosses) - guardians are exempt so a "fled-empty" roll can't rob
+   them of their guaranteed drop.
+3. **Outclassed**, via `isMonsterOutclassed`: killable in
+   `WEAK_MOB_HITS_TO_KILL_THRESHOLD` (3) hits or fewer at an average
+   damage roll.
+4. **A 35% roll** (`WEAK_MOB_TRIGGER_CHANCE`) - so even a qualifying
+   mob fights normally about two times in three.
+
+Gates 1 and 4 are why it reads as rare: group encounters never qualify
+at all, and qualifying solo mobs still only skip the dialog about a
+third of the time. Gate 3 is why it only ever happens on "super super
+easy stuff" specifically.
+
+Widening it is a real design decision, not a bug fix - each knob trades
+away something:
+- Raising the hits-to-kill threshold pulls in mobs that aren't
+  *obviously* trivial, where skipping the fight starts feeling like
+  lost agency rather than saved time.
+- Raising the trigger chance toward 100% makes it consistent, but the
+  current randomness is also what keeps a weak encounter from becoming
+  a guaranteed no-op.
+- Extending it to groups is the biggest change: the three-way outcome
+  split (surrender / fled-with-loot / fled-empty) is currently decided
+  for one monster, so a group version needs to decide whether the whole
+  group resolves together or per-monster.
+
+Nothing decided yet.
+
+**Shipped 2026-09-10 (0.28.0).** Both halves of this were built the same
+day they were raised:
+
+- **Overflow:** cause was `--battle-scale` (`css/styles.css`), which
+  ramped the whole card up to 1.7x purely from a `100vmin` term while a
+  wrapped `.battle-monster-row` independently made it taller - the two
+  compounded. That rule's own comment had already conceded the footprint
+  "can still exceed the viewport" and left `#overlay`'s overflow as the
+  safety net, which isn't usable for a real-time battle. Fix keeps the
+  vmin ramp as a ceiling and caps it with `--battle-fit-scale`, measured
+  from the card's real untransformed `offsetWidth`/`offsetHeight` by
+  `fitBattleScaleToViewport` (`js/screens/battleScreen.js`) and combined
+  via CSS `min()`. Recomputed on window resize; a no-op under jsdom,
+  which reports 0 for both.
+- **Instant-resolve scope:** the answer to "not sure the logic on that"
+  is archived above. Widened to groups per the follow-up ask ("I think
+  we should make it so we can auto kill groups of enemies too") - new
+  `resolveWeakGroupEncounter`/`isGroupOutclassed` (`js/systems/combat.js`),
+  with `resolveWeakMobEncounter` kept as the one-element case.
+  Every monster present must be outclassed, and one trigger roll +
+  one outcome roll cover the whole pack, so a four-mob group is exactly
+  as likely to skip the dialog as a solo mob. The three remaining gates
+  (boss/`forceFullBattle` exemption, ≤3 hits to kill, 35% trigger) were
+  left alone. Caught while wiring it: the `fled-with-loot` branch in
+  `js/main.js` read `encounterMonsterIds[0]` alone, which would have
+  quietly paid out one monster's loot for a fleeing pack of three - it
+  loops the roster now.

@@ -50,6 +50,33 @@ test('settingsScreen DOM', async (t) => {
     assert.equal(state.settings.itemMenuAutoCloseMs, 250);
   });
 
+  await t.test('the XP-in-HUD toggle is checked on a default save (the setting is on by default)', async () => {
+    const root = await mountSettings(createNewGame());
+    assert.equal(root.querySelector('#settings-show-xp-in-hud').checked, true);
+  });
+
+  await t.test('the XP-in-HUD toggle is unchecked when the player has turned it off', async () => {
+    const state = createNewGame();
+    state.settings.showXpInHud = false;
+    const root = await mountSettings(state);
+    assert.equal(root.querySelector('#settings-show-xp-in-hud').checked, false);
+  });
+
+  await t.test('toggling XP-in-HUD updates state and calls onChange (which re-renders the HUD)', async () => {
+    let changed = 0;
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => { changed += 1; }, onClose: () => {} });
+    const box = root.querySelector('#settings-show-xp-in-hud');
+    box.checked = false;
+    box.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.showXpInHud, false);
+    assert.equal(changed, 1);
+    box.checked = true;
+    box.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.showXpInHud, true);
+    assert.equal(changed, 2);
+  });
+
   await t.test('Close calls onClose', async () => {
     let closed = false;
     const root = await mountSettings(createNewGame(), { onChange: () => {}, onClose: () => { closed = true; } });

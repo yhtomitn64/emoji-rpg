@@ -24,6 +24,122 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- **Sound variants.** A sound id can now have several recorded takes and
+  playback rotates between them, instead of firing the same file every
+  time — `hitNormal` and `walking` repeat constantly, and one sample on
+  a loop is the classic giveaway. Declared in one place
+  (`SOUND_VARIANTS` in `js/data/soundManifest.js`: the sound id and how
+  many takes exist), with files named `<soundId>.mp3`,
+  `<soundId>-2.mp3`, … so adding a take is a number bump plus dropping
+  the file in — no other code change. New `resolvePaths()` returns every
+  take (always an array, single-take sounds included) alongside the
+  existing single-path `resolvePath()`. `playSfx` picks per play and
+  never repeats the same take twice in a row: with only 2-3 takes, an
+  unguarded random pick collides often enough to undo the point. Buffer
+  cache is keyed per variant. Nothing declares variants yet — the
+  mechanism is in place ahead of the audio files themselves.
+- **`abilitySweepImpact`**, Faultline's own per-enemy impact sound.
+  Faultline resolves as a staggered walk across every living enemy
+  (`SWEEP_STAGGER_MS`, 260ms apart), so its impacts need to be shorter
+  and more brittle than the general-purpose `hitNormal` thud or
+  consecutive hits smear into each other. `playHitEffect` takes an
+  optional `impactSoundId` override for this; crits still play
+  `hitCrit` either way so a crit keeps reading as a crit.
+
+## [0.30.0] - 2026-09-10
+
+### Changed
+- **Group encounters can now resolve before the battle dialog opens**,
+  same as solo ones always could. Raised 2026-09-10: "I think we should
+  make it so we can auto kill groups of enemies too." New
+  `resolveWeakGroupEncounter`/`isGroupOutclassed`
+  (`js/systems/combat.js`), with `resolveWeakMobEncounter` kept as the
+  one-element case so nothing else had to change. **Every** monster in
+  the group must be outclassed (one dangerous straggler makes the fight
+  worth opening), and one trigger roll + one outcome roll cover the whole
+  pack rather than rolling per monster - so a four-mob group is exactly
+  as likely to skip the dialog as a solo mob, and there's no partial
+  "two of the three ran away" state. The other gates are untouched:
+  bosses and `forceFullBattle` guardians are still exempt, still ≤ 3
+  hits-to-kill, still a 35% trigger.
+  - Found while wiring it: the `fled-with-loot` branch in `js/main.js`
+    read `encounterMonsterIds[0]` alone, which would have quietly paid
+    out a single monster's loot for a fleeing pack of three. It loops the
+    whole roster now. (`surrender` already looped, so it needed no
+    change.)
+- **The monster flee animation is much slower and more visible**
+  (`playMonsterFleeEffect`, `js/screens/mapScreen.js`). Raised
+  2026-09-10: "slow down the animation when they enemies fly away and
+  make them slowly get bigger as they fly spinning away so you really
+  see it." 700ms → 2000ms, travel 120px → 220px, and it now **grows** to
+  2.6x while spinning 3 turns instead of shrinking to 0.3x with no
+  rotation - so the emoji reads as tumbling toward the viewer rather
+  than dwindling away. Spin direction is randomized per monster, and a
+  fleeing group staggers 120ms apart so they don't leave as one clump.
+  - The fade is deliberately held off until the last third: a
+    `easing` passed in the *options* object remaps overall progress
+    before keyframe offsets are looked up rather than easing each
+    segment, and a first cut with a strong ease-out there measured 44%
+    opacity only 800ms into the 2000ms flight - visually over before it
+    was half done. Options easing is `linear` now, with per-keyframe
+    easing on the outward drift instead. Verified by seeking the
+    animation: fully opaque through 1200ms while growing 1.0 → 1.7x,
+    then fading across the last 800ms.
+- **The battle screen scales down to fit instead of overflowing the
+  window on big group encounters.** Raised 2026-09-10 with a screenshot:
+  "when there are lots of enemies the whole battle screen too big. maybe
+  make it wider or just make sure it scales to fit?" - the ability
+  buttons were half cut off and the `s`/`a`/`Spc`/`i`/`f` hotkey row
+  below them was clipped away entirely, which matters because that row
+  is how you parry and flee.
+  - Cause: `--battle-scale` (`css/styles.css`) ramped the whole card
+    *up* to 1.7x from a `100vmin` term, while a big group independently
+    wrapped `.battle-monster-row` onto extra lines and made it taller -
+    the two compounded, since a transform can't know how tall its own
+    content got. That rule's comment already conceded the footprint "can
+    still exceed the viewport" and left `#overlay`'s scrollbars as the
+    safety net, which isn't a usable answer for a real-time battle.
+  - Fix: the vmin ramp is now only a ceiling, capped via CSS `min()` by
+    `--battle-fit-scale` - measured from the card's real untransformed
+    `offsetWidth`/`offsetHeight` by `fitBattleScaleToViewport`
+    (`js/screens/battleScreen.js`) and recomputed on window resize.
+    Measured deliberately rather than via `getBoundingClientRect`, which
+    would feed the previous scale back in and compound on every resize.
+    A no-op under jsdom (which reports 0 for both), so it doesn't affect
+    the DOM tests. Verified live at 12 monsters: the card wanted 1948px
+    in a 1255px viewport before the cap and now lands at 1231px with the
+    full hotkey row on screen; at 2 and 6 monsters the fit factor stays
+    above 1.7, so ordinary encounters render exactly as before.
+
+### Added
+- **XP progress now shows in the top HUD bar** - a short progress bar
+  plus `current/needed`, sitting after Lv./HP/Gold (`renderHud`,
+  `js/main.js`), with a `title` tooltip giving the exact remaining
+  amount. Raised 2026-09-10: "I know it's in the stats screen but maybe
+  something a bit more visible somewhere too." Reads the same
+  `xpForLevel` (`js/systems/leveling.js`) the Stats screen has always
+  used, so the two readouts can't disagree. The element is nested inside
+  the existing Lv./HP/Gold span rather than appended to `#hud` directly
+  - `#hud` is a `space-between` flex, so a new direct child would get
+  spread across the bar instead of sitting with the other numbers.
+- **Settings > Display > "Show XP progress in the top bar"** toggles it
+  (`state.settings.showXpInHud`, default on). New `DEFAULT_HUD_SETTINGS`
+  + `migrateHudSettings` (`js/state.js`), merge-only in the same shape as
+  `migrateAudioSettings`, so a save where it's already been turned off
+  never gets switched back on at load. Deliberately a plain Display
+  section above "🚧 Feature Flags" rather than inside it: this is
+  finished behavior a player might just not want on screen, not a beta.
+  Settings' `onChange` in `js/main.js` now also calls `renderHud()`, so
+  flipping it takes effect immediately behind the still-open overlay.
+
+### Changed
+- Backlog: logged two threads raised the same session - the battle
+  screen overflowing the viewport on large group encounters (ability bar
+  and hotkey row clipped), and the scope of the pre-fight instant-resolve
+  path (`resolveWeakMobEncounter`), including a write-up of its four
+  existing gates since "not sure the logic on that" was half the ask.
+
 ## [0.29.0] - 2026-09-10
 
 ### Changed

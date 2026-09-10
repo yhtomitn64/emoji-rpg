@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SOUND_CATEGORY, DEFAULT_THEME, SOUND_THEMES, resolvePath } from '../js/data/soundManifest.js';
+import { SOUND_CATEGORY, DEFAULT_THEME, SOUND_THEMES, SOUND_VARIANTS, resolvePath, resolvePaths } from '../js/data/soundManifest.js';
 
 test('DEFAULT_THEME is realistic and every sound has a path in it', () => {
   assert.equal(DEFAULT_THEME, 'realistic');
@@ -31,4 +31,27 @@ test('resolvePath falls back to DEFAULT_THEME when the requested theme lacks the
 
 test('resolvePath returns null for an unknown sound id', () => {
   assert.equal(resolvePath('realistic', 'notARealSoundId'), null);
+});
+
+test('resolvePaths always returns an array, single-take sounds included', () => {
+  const paths = resolvePaths('realistic', 'levelUp');
+  assert.ok(Array.isArray(paths));
+  assert.equal(paths.length, 1);
+  assert.equal(paths[0], resolvePath('realistic', 'levelUp'));
+});
+
+test('resolvePaths returns one path per declared variant, first one unsuffixed', () => {
+  // Driven off SOUND_VARIANTS rather than a hardcoded id so this keeps
+  // testing the real behaviour as takes get added over time.
+  const [soundId, count] = Object.entries(SOUND_VARIANTS)[0] ?? [];
+  if (!soundId) return; // no multi-take sounds declared yet
+  const paths = resolvePaths(DEFAULT_THEME, soundId);
+  assert.equal(paths.length, count);
+  assert.ok(paths[0].endsWith(`/${soundId}.mp3`));
+  assert.ok(paths[1].endsWith(`/${soundId}-2.mp3`));
+  assert.equal(new Set(paths).size, paths.length, 'variant paths must be distinct');
+});
+
+test('resolvePaths returns an empty array for an unknown sound id', () => {
+  assert.deepEqual(resolvePaths('realistic', 'notARealSoundId'), []);
 });

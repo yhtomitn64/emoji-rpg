@@ -23,6 +23,34 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   flex-direction: column;
   overflow-y: auto;
 }
+/* XP readout in the top HUD (js/main.js's renderHud, behind
+   state.settings.showXpInHud). Sits inside the Lv./HP/Gold span, so it
+   inherits #hud's 1.1rem - deliberately stepped down from that, since it's
+   secondary to the HP number next to it. */
+.hud-xp {
+  margin-left: 10px;
+  font-size: 0.85rem;
+  color: #b9a7dd;
+  white-space: nowrap;
+}
+
+.hud-xp-bar {
+  display: inline-block;
+  width: 60px;
+  height: 8px;
+  vertical-align: middle;
+  border-radius: 4px;
+  background: #2a2a33;
+  overflow: hidden;
+}
+
+.hud-xp-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #8b5cf6;
+}
+
 #version-footer { flex-shrink: 0; }
 
 /* The camera's visible window - a fixed real-world tile size (not stretched
@@ -376,7 +404,16 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   display: flex;
   flex-direction: column;
   max-width: min(92vw, 860px);
-  --battle-scale: clamp(1, calc((100vmin - 700px) / 500px + 1), 1.7);
+  /* The vmin ramp is only the CEILING now. --battle-fit-scale is measured
+     and set by fitBattleScaleToViewport (js/screens/battleScreen.js) from
+     the card's real untransformed height, so a big group encounter that
+     wraps .battle-monster-row onto extra lines scales DOWN to fit instead
+     of pushing the action bar (and its parry/flee hotkey row) off the
+     bottom of the window. The 99 fallback means "no cap" - the value
+     before JS measures, and in any context that renders this card without
+     that measurement running. */
+  --battle-fit-scale: 99;
+  --battle-scale: min(clamp(1, calc((100vmin - 700px) / 500px + 1), 1.7), var(--battle-fit-scale));
   transform: scale(var(--battle-scale));
   transform-origin: center;
   /* Anchors .battle-pause-btn/.battle-paused-overlay below, which need to

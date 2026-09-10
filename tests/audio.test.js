@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initAudio, unlockAudio, CATEGORIES, playSfx, playMusic, stopMusic, setCategoryVolume, setCategoryMuted, setTheme, syncAudioSettings, _getCategoryGainValueForTests } from '../js/systems/audio.js';
+import { initAudio, unlockAudio, CATEGORIES, playSfx, playMusic, stopMusic, setCategoryVolume, setCategoryMuted, setTheme, syncAudioSettings, _getCategoryGainValueForTests, _pickVariantForTests } from '../js/systems/audio.js';
 import { createNewGame } from '../js/state.js';
 
 function categoryGainValueFor(category) {
@@ -187,4 +187,41 @@ test('syncAudioSettings consumes a real createNewGame() settings object', () => 
   syncAudioSettings(createNewGame().settings);
   assert.equal(categoryGainValueFor('combat'), 0.8);
   assert.equal(categoryGainValueFor('music'), 0.6);
+});
+
+test('pickVariant returns 0 for a single-take sound without consuming randomness', () => {
+  let rngCalls = 0;
+  const rng = () => { rngCalls += 1; return 0; };
+  assert.equal(_pickVariantForTests('hitNormal', 1, rng), 0);
+  assert.equal(rngCalls, 0);
+});
+
+test('pickVariant never returns the same variant twice in a row', () => {
+  initAudio({ AudioContextClass: FakeAudioContext });
+  // Worst case for rotation: an rng that always wants the same index. Two
+  // identical hits back-to-back is exactly what multiple takes exist to
+  // avoid, so this must still alternate.
+  const stubbornRng = () => 0;
+  const picks = [];
+  for (let i = 0; i < 6; i += 1) picks.push(_pickVariantForTests('hitNormal', 3, stubbornRng));
+  for (let i = 1; i < picks.length; i += 1) {
+    assert.notEqual(picks[i], picks[i - 1], `variant repeated back-to-back at index ${i}`);
+  }
+});
+
+test('pickVariant stays within range for every rng value', () => {
+  initAudio({ AudioContextClass: FakeAudioContext });
+  for (const value of [0, 0.5, 0.999999]) {
+    const index = _pickVariantForTests('walking', 3, () => value);
+    assert.ok(index >= 0 && index < 3, `index ${index} out of range for rng ${value}`);
+  }
+});
+
+test('each sound tracks its own last-played variant independently', () => {
+  initAudio({ AudioContextClass: FakeAudioContext });
+  const first = _pickVariantForTests('hitNormal', 2, () => 0);
+  const other = _pickVariantForTests('walking', 2, () => 0);
+  // walking has its own history, so it is free to pick what hitNormal just did.
+  assert.equal(other, 0);
+  assert.equal(first, 0);
 });

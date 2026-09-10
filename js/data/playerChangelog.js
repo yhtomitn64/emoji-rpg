@@ -6,6 +6,17 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.30.0',
+    date: '2026-09-10',
+    highlights: [
+      'Added: your XP progress toward the next level now shows in the bar at the top of the screen, so you can see it while you play instead of opening Stats. Hover it for the exact amount still to go.',
+      "Added: a Display section in Settings to turn that XP readout off if you'd rather not have it on screen.",
+      'Changed: groups of enemies can now give up or run off before the fight even starts, the same way single weak enemies already did - as long as every one of them is far enough below you.',
+      'Changed: enemies that run away now tumble off much more slowly, spinning and growing as they go, so you actually get to watch it happen.',
+      'Fixed: the battle screen no longer grows past the bottom of the window when you run into a big group - it now shrinks to fit, so your ability buttons and the key hints under them stay visible.',
+    ],
+  },
+  {
     version: '0.29.0',
     date: '2026-09-10',
     highlights: [

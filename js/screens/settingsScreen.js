@@ -179,6 +179,18 @@ function render() {
         <span id="play-log-status" hidden></span>
       </div>
       <textarea id="play-log-fallback" readonly hidden></textarea>
+      <h3>Display</h3>
+      <div class="settings-row settings-display-toggle">
+        <label for="settings-show-xp-in-hud">
+          Show XP progress in the top bar — the same XP the Stats screen
+          shows, kept on screen while you play
+        </label>
+        <input
+          type="checkbox"
+          id="settings-show-xp-in-hud"
+          ${state.settings.showXpInHud ? 'checked' : ''}
+        />
+      </div>
       <h3>🚧 Feature Flags</h3>
       <div class="settings-row settings-feature-flag">
         <label for="settings-flag-audio-beta">
@@ -297,6 +309,10 @@ function render() {
     callbacks.onChange();
   };
   document.getElementById('btn-copy-play-log').onclick = () => copyPlayLog();
+  document.getElementById('settings-show-xp-in-hud').onchange = (e) => {
+    state.settings = { ...state.settings, showXpInHud: e.target.checked };
+    callbacks.onChange(); // main.js's onChange re-renders the HUD, so this shows/hides behind the open overlay
+  };
   document.getElementById('settings-flag-audio-beta').onchange = (e) => {
     state.settings = {
       ...state.settings,

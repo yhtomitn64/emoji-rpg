@@ -379,6 +379,19 @@ same-day items below; these are the ones left open):**
   duplicating). See the dedicated section near the end of this file for
   the full history.
 
+**New threads raised 2026-09-10:**
+- ~~**Battle screen overflows on big group encounters**~~ — **shipped
+  2026-09-10 (0.28.0)**. The card's vmin scale ramp is now capped by a
+  measured fit-to-viewport factor, so a wrapped monster grid scales down
+  instead of pushing the action bar off screen. See BACKLOG_SHIPPED.md.
+- ~~**Instant-resolve (no fight dialog) only fires on very weak solo
+  mobs**~~ — **shipped 2026-09-10 (0.28.0)**. Groups now qualify too,
+  when every monster in them is outclassed. See BACKLOG_SHIPPED.md.
+- **Faultline's chain blocks every other input while it resolves** —
+  you can't act until the sweep has finished walking the whole enemy
+  row. See the "Faultline's sweep locks out other abilities" section
+  below. Not started.
+
 ## Story / narrative
 
 ### The game needs an actual story
@@ -2689,3 +2702,46 @@ main backlog list above for the shipped architecture and the one bug
   tests. Caught by running the full suite before pushing, not by
   inspection - worth remembering next time something gets added inside
   `createNewGame()`.
+
+## Faultline's sweep locks out other abilities, raised 2026-09-10
+
+Raised: "while faultine is going from enemy to enemey you shoudl still
+be able to use other ablities, seems like it pasues you being able to do
+other stuff."
+
+Confirmed in the code, not just a feel thing. `playerUseAbility`
+(`js/screens/battleScreen.js`) sets `abilityActionInFlight = true` for
+the whole duration of an ability's resolution and only clears it in the
+`finally` at the end. Faultline (`sweep`, `js/systems/abilities.js`) is
+`aoe: true` and walks the living enemies one at a time, `await
+sleep(SWEEP_STAGGER_MS)` between each - `SWEEP_STAGGER_MS` is 260ms, so
+against a full row that's roughly a second-plus where the guard stays
+set.
+
+Everything that checks that guard is dead for that whole window:
+- every other ability (`playerUseAbility`'s own `if
+  (abilityActionInFlight) return;`)
+- Attack (`playerAttack`)
+- Flee (`playerFlee`)
+
+So the lockout is real and scales with how many enemies are in the
+fight - i.e. it's worst exactly when Faultline is most worth casting.
+
+Note the one existing carve-out to model a fix on: Lacerate's retrigger
+press is deliberately checked *before* the guard, with a comment
+explaining it's safe because `handleLacerateRetriggerPress` only touches
+`buffState`/log/menu and never combatant hp/atb. A general fix needs to
+decide what's actually being protected against - the guard exists for
+re-entrancy (two resolutions interleaving mid-`await` and corrupting
+hp/atb), so "just remove it" isn't right. Plausible directions, none
+chosen:
+- Make the guard per-ability rather than global, so Faultline blocks
+  only a second Faultline.
+- Keep the guard only around each individual hit's state mutation
+  instead of spanning the `await`s between hits.
+- Resolve the whole sweep's damage up front and let the staggered
+  visuals play out purely as animation, with no in-flight guard at all.
+
+The shared ability GCD (`abilityGcdMsForSpeed`) already exists as the
+intended pacing limiter, which is an argument that this lockout is
+incidental rather than a designed cost.

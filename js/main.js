@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateAccessorySlots, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags, migrateCameraSettings, migrateCharacterId } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateAccessorySlots, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateHudSettings, migrateFeatureFlags, migrateCameraSettings, migrateCharacterId } from './state.js';
 import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
@@ -59,7 +59,7 @@ import { formatBattleOutcomeMessage, describeMonsterGroup } from './systems/mess
 import { playCelebration, playToolCelebration } from './screens/celebrationEffect.js';
 import { playItemPickupToast } from './screens/itemPickupToast.js';
 import { initItemTooltip } from './screens/itemTooltip.js';
-import { applyXp, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
+import { applyXp, xpForLevel, LATE_GAME_LEVEL_THRESHOLD, LEVEL_UP_PARTIAL_HEAL_FRACTION, hasEverKilledSomething } from './systems/leveling.js';
 import { ABILITIES, buildAbilityExplainerSections } from './systems/abilities.js';
 import { rollDrop } from './systems/loot.js';
 import { tierLabel } from './systems/itemQuality.js';
@@ -74,7 +74,7 @@ import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, import
 import { applyDebugCharacterFromUrl, isNoEncountersDebugFlagSet } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
 import { pickVariantOverrides } from './systems/monsterVariants.js';
-import { resolveWeakMobEncounter } from './systems/combat.js';
+import { resolveWeakGroupEncounter } from './systems/combat.js';
 import { incrementQuestProgress } from './systems/quests.js';
 import { TOWN_PORTAL_POSITION, hasPortalTool, dropPortal, markReturnPending } from './systems/portal.js';
 import { incrementKillCount } from './systems/groupEncounters.js';
@@ -159,6 +159,7 @@ function startGame(loadedState, slotId) {
   state = migrateLoadout(state);
   state = migrateSettings(state);
   state = migrateAudioSettings(state);
+  state = migrateHudSettings(state);
   state = migrateFeatureFlags(state);
   state = migrateCameraSettings(state);
   state = migrateCharacterId(state);
@@ -351,9 +352,9 @@ let activeBossTierAttempt = null;
 // Set just before an encounter's battle overlay mounts, holding the full list of
 // monster ids in that encounter (not just the ones that end up killed). handleBattleEnd
 // reads and clears it. Needed because callbacks.onBattleEnd only reports killedMonsterIds,
-// which is always empty for the pre-fight weak-mob 'fled-with-loot' outcome (the solo
-// monster flees before taking any damage) - that branch still needs to know which monster
-// it was to price the loot roll.
+// which is always empty for the pre-fight weak-mob 'fled-with-loot' outcome (the
+// monsters flee before taking any damage) - that branch still needs to know which
+// monsters they were to price the loot rolls.
 let activeEncounterMonsterIds = null;
 
 let lastLevelUpElapsedMs = 0;
@@ -398,6 +399,32 @@ function renderHud() {
 
   const label = document.createElement('span');
   label.textContent = `Lv.${state.player.level} HP:${state.player.hp}/${state.player.maxHp + bonuses.maxHp} Gold:${state.player.gold}`;
+
+  // Optional XP-to-next-level readout (state.settings.showXpInHud, on by
+  // default). Same numbers the Stats screen has always shown via
+  // xpForLevel - this is just the always-visible copy, so the two can't
+  // disagree. Nested inside `label` rather than appended to #hud
+  // directly: #hud is a space-between flex, so a new direct child would
+  // get spread across the bar instead of sitting with Lv./HP/Gold.
+  if (state.settings.showXpInHud) {
+    const xpNeeded = xpForLevel(state.player.level);
+    // applyXp drains xp below xpNeeded on every level-up, so xp can't
+    // exceed it in a settled state - the clamp is only for the brief
+    // window where a caller has added xp but not yet re-run applyXp.
+    const filledPercent = Math.min(100, Math.round((state.player.xp / xpNeeded) * 100));
+    const xpEl = document.createElement('span');
+    xpEl.id = 'hud-xp';
+    xpEl.className = 'hud-xp';
+    xpEl.title = `${Math.max(0, xpNeeded - state.player.xp)} XP to level ${state.player.level + 1}`;
+    const bar = document.createElement('span');
+    bar.className = 'hud-xp-bar';
+    const fill = document.createElement('span');
+    fill.className = 'hud-xp-fill';
+    fill.style.width = `${filledPercent}%`;
+    bar.appendChild(fill);
+    xpEl.append('XP ', bar, ` ${state.player.xp}/${xpNeeded}`);
+    label.appendChild(xpEl);
+  }
 
   const statsButton = document.createElement('button');
   statsButton.id = 'btn-open-stats';
@@ -500,6 +527,7 @@ function openSettings() {
           unlockAudio(); // openSettings only ever runs from a real click, so this satisfies the browser's autoplay-gesture requirement too.
         }
         syncAudioSettings(state.settings);
+        renderHud(); // showXpInHud has to take effect behind the still-open Settings overlay
       },
       // Never touches the current slot or live in-memory `state` - either
       // overwrites a *different* existing slot in place (see
@@ -923,24 +951,36 @@ function handleEncounter(monsterIds, monsterOverridesList = null) {
     return overrides && overrides.name ? { ...ngPlusStats, name: overrides.name } : ngPlusStats;
   });
 
-  // Solo, non-boss encounters get a pre-fight chance to resolve instantly
+  // Non-boss encounters get a pre-fight chance to resolve instantly
   // (surrender/flee) without ever opening the battle dialog - per Timothy's
   // explicit ask, the player shouldn't see a dialog open and close again for
-  // an outcome that was already decided. Multi-mob groups are unaffected,
-  // matching this mechanic's existing scope. forceFullBattle monsters (tool-
-  // dungeon guardians) are also exempt - a "fled-empty" outcome here would
-  // drop them with no reward, breaking their guaranteed-drop guarantee. Not
-  // using isBoss for that exemption: isBoss also flips
+  // an outcome that was already decided. forceFullBattle monsters (tool-
+  // dungeon guardians) are exempt - a "fled-empty" outcome here would drop
+  // them with no reward, breaking their guaranteed-drop guarantee. Not using
+  // isBoss for that exemption: isBoss also flips
   // state.flags.dungeonBossDefeated (NG+ eligibility, meant only for the
   // real dragon) and blocks mid-battle fleeing, neither of which a guardian
   // fight should do.
-  if (monsterIds.length === 1 && !MONSTERS[monsterIds[0]].isBoss && !MONSTERS[monsterIds[0]].forceFullBattle) {
+  //
+  // Groups were excluded until 2026-09-10 ("I think we should make it so we
+  // can auto kill groups of enemies too"); now a whole group qualifies, but
+  // only if EVERY monster in it is outclassed and none is a boss/guardian -
+  // see resolveWeakGroupEncounter (js/systems/combat.js) for why the outcome
+  // is decided once for the pack rather than per monster.
+  const anyExemptFromInstantResolve = monsterIds.some(
+    (monsterId) => MONSTERS[monsterId].isBoss || MONSTERS[monsterId].forceFullBattle,
+  );
+  if (!anyExemptFromInstantResolve) {
     const bonuses = getEquipmentBonuses(state);
     const playerStats = { attack: state.player.attack + bonuses.attack, defense: state.player.defense + bonuses.defense };
-    const weakMobOutcome = resolveWeakMobEncounter(playerStats, ngPlusOverridesList[0], false);
+    const weakMobOutcome = resolveWeakGroupEncounter(playerStats, ngPlusOverridesList, false);
     if (weakMobOutcome) {
       activeEncounterMonsterIds = monsterIds;
-      mapScreen.playMonsterFleeEffect(MONSTERS[monsterIds[0]].emoji);
+      // One flee puff per monster, staggered so a group reads as several
+      // separate things bolting rather than one clump leaving at once.
+      monsterIds.forEach((monsterId, i) => {
+        mapScreen.playMonsterFleeEffect(MONSTERS[monsterId].emoji, i);
+      });
       handleBattleEnd(weakMobOutcome, []);
       return;
     }
@@ -1007,8 +1047,10 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
     const levelBeforeRewards = state.player.level;
     let leveledUpThisBattle = false;
-    // A surrender leaves the monster at full HP - killedMonsterIds is empty,
-    // so surrender (always solo) must reward the full original roster instead.
+    // A surrender leaves the monsters at full HP - killedMonsterIds is empty,
+    // so surrender must reward the full original roster instead. Already a
+    // loop over that roster, so it needed no change when groups started
+    // qualifying for the pre-fight instant resolve (2026-09-10).
     const rewardedMonsterIds = outcome === 'surrender' ? encounterMonsterIds : killedMonsterIds;
     for (const monsterId of rewardedMonsterIds) {
       const monster = MONSTERS[monsterId];
@@ -1099,22 +1141,27 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     renderHud();
     promptPostDeathTravel();
   } else if (outcome === 'fled-with-loot') {
-    // Solo-only outcome from the pre-fight weak-mob check (battleScreen.js gates it to
-    // monsterIds.length === 1) - the monster flees before taking any damage, so
-    // killedMonsterIds is always empty here and can't tell us which monster it was.
-    // encounterMonsterIds (captured in handleEncounter) is the only source left.
-    const monster = MONSTERS[encounterMonsterIds[0]];
+    // Only ever comes from the pre-fight weak-mob check (startEncounter) - the
+    // monsters flee before taking any damage, so killedMonsterIds is always
+    // empty here and can't tell us which they were. encounterMonsterIds
+    // (captured in startEncounter) is the only source left. Loops the whole
+    // roster since 2026-09-10, when groups started qualifying for the instant
+    // resolve: this used to read encounterMonsterIds[0] alone, which would
+    // have silently paid out one monster's loot for a fleeing pack of three.
     const rewardMultiplier = getNgPlusRewardMultiplier(state.ngPlusCycle);
-    const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
-    const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
-    logDropEvent(drop, encounterMonsterIds[0]);
-    const gold = Math.round(drop.gold * rewardMultiplier.gold);
-    Object.assign(state, addGold(state, gold));
-    if (drop.item) {
-      grantDropItem(drop.item, drop.tier);
-    }
-    if (drop.potionId) {
-      grantDropItem(drop.potionId);
+    for (const monsterId of encounterMonsterIds) {
+      const monster = MONSTERS[monsterId];
+      const scaledMonster = { ...monster, dropTable: scaleDropTable(monster.dropTable, state.ngPlusCycle) };
+      const drop = rollDrop(scaledMonster, Math.random, state.ngPlusCycle);
+      logDropEvent(drop, monsterId);
+      const gold = Math.round(drop.gold * rewardMultiplier.gold);
+      Object.assign(state, addGold(state, gold));
+      if (drop.item) {
+        grantDropItem(drop.item, drop.tier);
+      }
+      if (drop.potionId) {
+        grantDropItem(drop.potionId);
+      }
     }
     persist();
     renderHud();

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, rollKnockback, ATB_KNOCKBACK_CHANCE, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, resolveWeakMobEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS, attackFalloffJustTriggered, attackReadyRingPct, ABILITY_GCD_BASE_MS, ABILITY_GCD_MS_PER_SPEED, ABILITY_GCD_FLOOR_MS, abilityGcdMsForSpeed, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff } from '../js/systems/combat.js';
+import { calculateDamage, tickGauge, isReady, ATB_MAX, rollCrit, applyCritMultiplier, pickAppearLine, FLAVOR_LINE_CHANCE, applyKnockback, ATB_KNOCKBACK, rollKnockback, ATB_KNOCKBACK_CHANCE, applySpeedDamageBonus, SPEED_DAMAGE_BONUS_THRESHOLD, applyEnemySlow, resolvePlayerAttack, resolveMonsterAttack, resolvePotionUse, isMonsterOutclassed, isGroupOutclassed, resolveWeakMobEncounter, resolveWeakGroupEncounter, WEAK_MOB_HITS_TO_KILL_THRESHOLD, WEAK_MOB_TRIGGER_CHANCE, attackStreakMultiplier, ATTACK_STREAK_DECAY, ATTACK_STREAK_FLOOR, ATTACK_STREAK_FLOOR_PER_ABILITY, ATTACK_STREAK_RECOVERY_MS, attackKnockbackMultiplier, ATTACK_KNOCKBACK_DECAY, attackCooldownMsForStreak, ATTACK_COOLDOWN_BASE_MS, ATTACK_COOLDOWN_GROWTH_MS, attackFalloffJustTriggered, attackReadyRingPct, ABILITY_GCD_BASE_MS, ABILITY_GCD_MS_PER_SPEED, ABILITY_GCD_FLOOR_MS, abilityGcdMsForSpeed, createPlayerSlowDebuff, tickPlayerSlowDebuff, applyPlayerSlowDebuff, createPlayerStunDebuff, tickPlayerStunDebuff } from '../js/systems/combat.js';
 
 test('calculateDamage returns at least 1 even against high defense', () => {
   const attacker = { attack: 5 };
@@ -283,6 +283,55 @@ test('resolveWeakMobEncounter resolves to fled-with-loot on a mid second roll', 
   let i = 0;
   const rng = () => values[i++];
   assert.equal(resolveWeakMobEncounter(player, monster, false, rng), 'fled-with-loot');
+});
+
+test('isGroupOutclassed is true only when every monster in the group is outclassed', () => {
+  const player = { attack: 10 };
+  const weak = { defense: 0, hp: 30 };
+  const tough = { defense: 0, hp: 31 };
+  assert.equal(isGroupOutclassed(player, [weak, weak, weak]), true);
+  assert.equal(isGroupOutclassed(player, [weak, tough, weak]), false);
+});
+
+test('isGroupOutclassed is false for an empty roster', () => {
+  assert.equal(isGroupOutclassed({ attack: 10 }, []), false);
+});
+
+test('resolveWeakGroupEncounter resolves a whole group of outclassed monsters', () => {
+  const player = { attack: 10 };
+  const weak = { defense: 0, hp: 30 };
+  const values = [0, 0];
+  let i = 0;
+  const rng = () => values[i++];
+  assert.equal(resolveWeakGroupEncounter(player, [weak, weak, weak], false, rng), 'surrender');
+});
+
+test('resolveWeakGroupEncounter returns null when one monster in the group is not outclassed', () => {
+  const player = { attack: 10 };
+  const weak = { defense: 0, hp: 30 };
+  const tough = { defense: 0, hp: 31 };
+  assert.equal(resolveWeakGroupEncounter(player, [weak, tough], false, () => 0), null);
+});
+
+test('resolveWeakGroupEncounter rolls the trigger once for the group, not once per monster', () => {
+  const player = { attack: 10 };
+  const weak = { defense: 0, hp: 30 };
+  let rolls = 0;
+  const rng = () => { rolls += 1; return 0; };
+  resolveWeakGroupEncounter(player, [weak, weak, weak, weak], false, rng);
+  // One trigger roll + one outcome roll, regardless of group size - a
+  // four-mob pack is exactly as likely to skip the dialog as a solo mob.
+  assert.equal(rolls, 2);
+});
+
+test('resolveWeakMobEncounter is the one-element case of resolveWeakGroupEncounter', () => {
+  const player = { attack: 10 };
+  const monster = { defense: 0, hp: 30 };
+  for (const outcomeRoll of [0, 0.5, 0.9]) {
+    const solo = (() => { const v = [0, outcomeRoll]; let i = 0; return resolveWeakMobEncounter(player, monster, false, () => v[i++]); })();
+    const group = (() => { const v = [0, outcomeRoll]; let i = 0; return resolveWeakGroupEncounter(player, [monster], false, () => v[i++]); })();
+    assert.equal(solo, group);
+  }
 });
 
 test('resolveWeakMobEncounter resolves to fled-empty on a high second roll', () => {

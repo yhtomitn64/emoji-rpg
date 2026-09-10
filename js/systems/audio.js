@@ -1,5 +1,5 @@
 // js/systems/audio.js
-import { SOUND_CATEGORY, DEFAULT_THEME, resolvePath } from '../data/soundManifest.js';
+import { SOUND_CATEGORY, DEFAULT_THEME, resolvePaths } from '../data/soundManifest.js';
 
 export const CATEGORIES = ['combat', 'ui', 'world', 'music'];
 
@@ -35,6 +35,7 @@ export function initAudio({ AudioContextClass = globalThis.AudioContext ?? globa
   currentTheme = DEFAULT_THEME;
   bufferCache = new Map();
   warnedMissing = new Set();
+  lastVariant.clear();
   currentMusic = null;
 }
 
@@ -43,11 +44,13 @@ export async function unlockAudio() {
   await audioContext.resume?.();
 }
 
-async function loadBuffer(soundId) {
-  const cacheKey = `${currentTheme}:${soundId}`;
+async function loadBuffer(soundId, variantIndex = 0) {
+  // Variant index is part of the cache key - two takes of the same sound are
+  // different files and each needs its own decoded buffer.
+  const cacheKey = `${currentTheme}:${soundId}:${variantIndex}`;
   if (bufferCache.has(cacheKey)) return bufferCache.get(cacheKey);
 
-  const path = resolvePath(currentTheme, soundId);
+  const path = resolvePaths(currentTheme, soundId)[variantIndex];
   if (!path) {
     warnOnce(cacheKey, `unknown sound id "${soundId}"`);
     const failed = Promise.resolve(null);
@@ -75,10 +78,25 @@ function warnOnce(cacheKey, message) {
   console.warn(`[audio] ${message}`);
 }
 
-export async function playSfx(soundId) {
+// Last variant played per sound, so a rotation never repeats back-to-back -
+// two identical hits in a row is the exact thing multiple takes exist to
+// avoid, and pure random picks that often with only 2-3 takes.
+const lastVariant = new Map();
+
+function pickVariant(soundId, count, rng = Math.random) {
+  if (count <= 1) return 0;
+  const previous = lastVariant.get(soundId);
+  let index = Math.floor(rng() * count);
+  if (index === previous) index = (index + 1) % count;
+  lastVariant.set(soundId, index);
+  return index;
+}
+
+export async function playSfx(soundId, { rng = Math.random } = {}) {
   if (!audioContext) return;
   const category = SOUND_CATEGORY[soundId];
-  const buffer = await loadBuffer(soundId);
+  const variantCount = resolvePaths(currentTheme, soundId).length;
+  const buffer = await loadBuffer(soundId, pickVariant(soundId, variantCount, rng));
   if (!buffer || !category) return;
   const source = audioContext.createBufferSource();
   source.buffer = buffer;
@@ -166,4 +184,11 @@ export function syncAudioSettings(settings) {
 // whole map, so production code never has a reason to reach in from outside.
 export function _getCategoryGainValueForTests(category) {
   return categoryGains[category].gain.value;
+}
+
+// Test-only, same rationale as above: variant rotation can't be exercised
+// through playSfx until a sound actually declares multiple takes in
+// SOUND_VARIANTS (and has the files on disk to match).
+export function _pickVariantForTests(soundId, count, rng) {
+  return pickVariant(soundId, count, rng);
 }

@@ -1042,11 +1042,14 @@ function updateDpsDisplay() {
   elements.dpsDisplay.textContent = `DPS: ${dps.toFixed(1)}`;
 }
 
-function playHitEffect(zoneEl, emojiEl, amount, isCrit) {
+// impactSoundId overrides the normal hit sound for abilities whose impacts
+// need their own character (Faultline's staggered rock-cracks). Crits keep
+// hitCrit either way so the crit still reads as a crit.
+function playHitEffect(zoneEl, emojiEl, amount, isCrit, { impactSoundId = null } = {}) {
   emojiEl.classList.add('battle-hit-flash');
   zoneEl.classList.add('battle-hit-shake');
   showDamageNumber(zoneEl, amount, isCrit);
-  playSfx(isCrit ? 'hitCrit' : 'hitNormal');
+  playSfx(isCrit ? 'hitCrit' : (impactSoundId || 'hitNormal'));
   if (isCrit) {
     playCritReaction(elements.decoration);
   }
@@ -1729,7 +1732,7 @@ async function playerUseAbility(abilityId) {
         log.push(result.isCrit
           ? `Critical! You use ${ability.name} on ${mc.name} for ${result.damage}!`
           : `You use ${ability.name} on ${mc.name} for ${result.damage}.`);
-        playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit);
+        playHitEffect(elements.monsterZones[monsterIndex], elements.monsterEmojis[monsterIndex], result.damage, result.isCrit, { impactSoundId: 'abilitySweepImpact' });
         recordPlayerDamage(abilityId, result.damage, elements.monsterZones[monsterIndex]);
         applyOnHitEffects(mc, result.damage);
         updateHpBars();
@@ -2241,6 +2244,56 @@ function animateCooldownWipes() {
   setWipePct('btn-parry', parryCooldownMs, parryCooldownTotalMs);
 }
 
+// Raised 2026-09-10 with a screenshot: "when there are lots of enemies the
+// whole battle screen too big. maybe make it wider or just make sure it
+// scales to fit?" - the ability buttons were half cut off and the s/a/Spc/
+// i/f hotkey row under them was clipped away entirely, which matters
+// because that row is how you parry and flee.
+//
+// Cause: .battle-screen-stack's --battle-scale (css/styles.css) ramps the
+// whole card UP to 1.7x from a 100vmin term, and a transform can't know how
+// tall its own content got. A big group wraps .battle-monster-row onto
+// extra lines, and that taller card then gets multiplied by a scale chosen
+// purely from viewport size - so the two compound instead of cancelling.
+// The CSS comment there already conceded "on a near-square window the
+// visual footprint can still exceed the viewport" and left #overlay's
+// overflow as the safety net; scrolling a real-time battle isn't a usable
+// answer, so this measures instead.
+//
+// Fix: keep the vmin ramp as the ceiling and cap it with a measured
+// fit-to-viewport factor, via CSS `min()` of the two.
+const BATTLE_FIT_MARGIN_PX = 24;
+// Floor so a pathologically small window shrinks the card to unreadable
+// rather than silently clipping it - past this, being able to see the
+// controls at all is worth more than legibility of the numbers.
+const BATTLE_MIN_FIT_SCALE = 0.45;
+
+function fitBattleScaleToViewport() {
+  const stack = elements?.stack;
+  if (!stack) return;
+  // offsetWidth/offsetHeight are the UNTRANSFORMED layout box, so this
+  // measurement is independent of whatever scale is currently applied -
+  // getBoundingClientRect() here would feed the previous frame's scale back
+  // into the next one and compound on every resize. Both are 0 in jsdom
+  // (no layout), which makes this a no-op under test rather than pinning
+  // the scale to 0.
+  const naturalWidth = stack.offsetWidth;
+  const naturalHeight = stack.offsetHeight;
+  if (!naturalWidth || !naturalHeight) return;
+  const fit = Math.min(
+    (window.innerWidth - BATTLE_FIT_MARGIN_PX) / naturalWidth,
+    (window.innerHeight - BATTLE_FIT_MARGIN_PX) / naturalHeight,
+  );
+  stack.style.setProperty('--battle-fit-scale', String(Math.max(BATTLE_MIN_FIT_SCALE, fit)));
+}
+
+// Monsters never join mid-battle, but a dead one keeps its slot (see
+// .battle-monster-slot-dead), so the card's natural size is stable for the
+// whole battle - only a window resize can invalidate it.
+function handleBattleResize() {
+  fitBattleScaleToViewport();
+}
+
 export function mount(root, props) {
   rootEl = root;
   state = props.state;
@@ -2324,6 +2377,8 @@ export function mount(root, props) {
   intervalId = setInterval(tick, 300);
   cooldownWipeAnimFrameId = requestAnimationFrame(animateCooldownWipes);
   window.addEventListener('keydown', handleKeydown);
+  fitBattleScaleToViewport();
+  window.addEventListener('resize', handleBattleResize);
 }
 
 export function unmount() {
@@ -2334,6 +2389,7 @@ export function unmount() {
   clearTimeout(exitAnimTimeoutId);
   clearTimeout(itemMenuAutoCloseTimeoutId);
   window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('resize', handleBattleResize);
   unbindExplainerEscape?.();
   unbindExplainerBackdrop?.();
   livePopups.forEach(({ el, timeoutId }) => {

@@ -714,19 +714,36 @@ export function playWellHealEffect() {
   renderer.playWellHealEffect(WELL_HEAL_EFFECT_DURATION_MS);
 }
 
-const MONSTER_FLEE_EFFECT_DURATION_MS = 700;
-const MONSTER_FLEE_DISTANCE_PX = 120;
+// Reworked 2026-09-10: "slow down the animation when they enemies fly away
+// and make them slowly get bigger as they fly spinning away so you really
+// see it." Was 700ms, shrinking to 0.3x with no rotation - the monster
+// dwindled to nothing almost immediately, which is exactly what made the
+// instant-resolve outcome easy to miss. Now it runs nearly 3x as long,
+// grows instead of shrinking, and spins the whole way out.
+const MONSTER_FLEE_EFFECT_DURATION_MS = 2000;
+const MONSTER_FLEE_DISTANCE_PX = 220;
+// Scale at the end of the flight. Above 1 on purpose - the emoji reads as
+// coming toward the viewer as it tumbles off, rather than receding.
+const MONSTER_FLEE_END_SCALE = 2.6;
+const MONSTER_FLEE_SPIN_TURNS = 3;
+// Staggered start per monster so a fleeing group doesn't leave as one
+// synchronized clump - see startEncounter (js/main.js), which passes each
+// monster's index in the encounter.
+const MONSTER_FLEE_STAGGER_MS = 120;
 
 // Fired for a weak-mob encounter that resolves (surrender/flee) before the
-// battle dialog ever opens - the player still gets to see the monster
-// appear and immediately bail, rather than nothing happening at all.
+// battle dialog ever opens - the player still gets to see the monsters
+// appear and immediately bail, rather than nothing happening at all. Called
+// once per monster in the encounter, with its index for the stagger.
 //
 // Deliberately stays a document.body element under both renderers rather
 // than becoming a canvas draw: it flies MONSTER_FLEE_DISTANCE_PX in a random
 // direction and is meant to escape the map viewport entirely (over the HUD,
 // past the edge of the world), which anything drawn into the canvas would be
 // clipped to. It has no relationship to the tile grid beyond its start point.
-export function playMonsterFleeEffect(emoji) {
+// That argument only got stronger when the flight grew to 220px and 2.6x
+// scale - it now leaves the viewport by a wide margin.
+export function playMonsterFleeEffect(emoji, index = 0) {
   const rect = renderer.getPlayerScreenRect();
   if (!rect) return;
   const el = document.createElement('div');
@@ -738,12 +755,50 @@ export function playMonsterFleeEffect(emoji) {
   const angle = Math.random() * Math.PI * 2;
   const dx = Math.cos(angle) * MONSTER_FLEE_DISTANCE_PX;
   const dy = Math.sin(angle) * MONSTER_FLEE_DISTANCE_PX;
+  // Spin direction is random per monster so a group doesn't all tumble the
+  // same way - the flight angle is already random, this keeps the rest of
+  // the motion from looking copy-pasted between them.
+  const turns = Math.random() < 0.5 ? -MONSTER_FLEE_SPIN_TURNS : MONSTER_FLEE_SPIN_TURNS;
+  // A 3-keyframe curve, not 2, and the fade is deliberately pushed into the
+  // last stretch: the whole point of the rework is that the flight is
+  // watchable, so the emoji has to still be solid while it's growing and
+  // spinning. Only the tail end fades.
+  //
+  // The option-level `easing` is linear on purpose. An easing passed there
+  // is NOT a per-segment curve - it remaps the animation's overall progress
+  // before keyframe offsets are looked up, so a strong ease-out there drags
+  // the whole timeline (opacity included) toward the end frames early. A
+  // first cut used cubic-bezier(0.22, 0.61, 0.36, 1) here and measured 44%
+  // opacity at 800ms of a 2000ms flight - visually over less than halfway
+  // through. Per-keyframe `easing` below eases the outward drift instead,
+  // which is the only part that wanted it.
+  const midScale = 1 + (MONSTER_FLEE_END_SCALE - 1) * 0.45;
   const animation = el.animate(
     [
-      { transform: 'translate(-50%, -50%) translate(0, 0) scale(1)', opacity: 1 },
-      { transform: `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(0.3)`, opacity: 0 },
+      {
+        transform: 'translate(-50%, -50%) translate(0, 0) scale(1) rotate(0turn)',
+        opacity: 1,
+        offset: 0,
+        easing: 'cubic-bezier(0.3, 0.5, 0.5, 1)',
+      },
+      {
+        transform: `translate(-50%, -50%) translate(${dx * 0.62}px, ${dy * 0.62}px) scale(${midScale}) rotate(${turns * 0.62}turn)`,
+        opacity: 1,
+        offset: 0.65,
+        easing: 'linear',
+      },
+      {
+        transform: `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(${MONSTER_FLEE_END_SCALE}) rotate(${turns}turn)`,
+        opacity: 0,
+        offset: 1,
+      },
     ],
-    { duration: MONSTER_FLEE_EFFECT_DURATION_MS, easing: 'ease-in' },
+    {
+      duration: MONSTER_FLEE_EFFECT_DURATION_MS,
+      delay: index * MONSTER_FLEE_STAGGER_MS,
+      easing: 'linear',
+      fill: 'backwards', // holds the start frame during a staggered monster's delay, so it doesn't pop in unscaled
+    },
   );
   animation.onfinish = () => el.remove();
 }

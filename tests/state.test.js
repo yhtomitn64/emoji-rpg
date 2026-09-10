@@ -20,6 +20,7 @@ import {
   migrateLoadout,
   migrateSettings,
   migrateAudioSettings,
+  migrateHudSettings,
   migrateFeatureFlags,
   migrateCharacterId,
   DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
@@ -394,6 +395,25 @@ test('migrateAudioSettings is a no-op (same values) when fields already exist', 
   state.settings.audioCombatVolume = 0.1;
   const migrated = migrateAudioSettings(state);
   assert.equal(migrated.settings.audioCombatVolume, 0.1);
+});
+
+test('createNewGame defaults showXpInHud to true', () => {
+  const state = createNewGame();
+  assert.equal(state.settings.showXpInHud, true);
+});
+
+test('migrateHudSettings fills in showXpInHud on an old save without touching existing settings', () => {
+  const oldState = { settings: { itemMenuAutoCloseMs: 900 } };
+  const migrated = migrateHudSettings(oldState);
+  assert.equal(migrated.settings.showXpInHud, true);
+  assert.equal(migrated.settings.itemMenuAutoCloseMs, 900);
+});
+
+test('migrateHudSettings leaves an already-turned-off showXpInHud off', () => {
+  const state = createNewGame();
+  state.settings.showXpInHud = false;
+  const migrated = migrateHudSettings(state);
+  assert.equal(migrated.settings.showXpInHud, false);
 });
 
 test('createNewGame defaults featureFlags.audioBeta to false', () => {

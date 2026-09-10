@@ -308,19 +308,41 @@ export function isMonsterOutclassed(player, monster) {
   return hitsToKill <= WEAK_MOB_HITS_TO_KILL_THRESHOLD;
 }
 
+// Every monster present has to be outclassed for a group to qualify - one
+// dangerous straggler is enough to make the fight worth actually opening,
+// and the outcome is decided for the whole group at once (there's no
+// partial "two of the three run away, fight the last one" state for a
+// pre-fight resolution). An empty roster never qualifies.
+export function isGroupOutclassed(player, monsters) {
+  return monsters.length > 0 && monsters.every((monster) => isMonsterOutclassed(player, monster));
+}
+
 // Bosses never surrender/flee (they already can't be fled from), so isBoss
 // short-circuits regardless of how outclassed they are. Otherwise, an
-// outclassed monster has a WEAK_MOB_TRIGGER_CHANCE shot at a three-way split:
+// outclassed group has a WEAK_MOB_TRIGGER_CHANCE shot at a three-way split:
 // giving up outright (full win rewards), fleeing but dropping loot on the way
 // out, or fleeing with nothing.
-export function resolveWeakMobEncounter(player, monster, isBoss, rng = Math.random) {
+//
+// Groups were excluded entirely until 2026-09-10 ("I think we should make it
+// so we can auto kill groups of enemies too") - that gate lived in
+// startEncounter (js/main.js), not here. One trigger roll and one outcome
+// cover the whole group, so a three-mob encounter is exactly as likely to
+// skip the dialog as a solo one, rather than rolling per monster and
+// resolving a fraction of the pack.
+export function resolveWeakGroupEncounter(player, monsters, isBoss, rng = Math.random) {
   if (isBoss) return null;
-  if (!isMonsterOutclassed(player, monster)) return null;
+  if (!isGroupOutclassed(player, monsters)) return null;
   if (rng() >= WEAK_MOB_TRIGGER_CHANCE) return null;
   const roll = rng();
   if (roll < 1 / 3) return 'surrender';
   if (roll < 2 / 3) return 'fled-with-loot';
   return 'fled-empty';
+}
+
+// Solo form, kept as the single-monster entry point - identical behavior to
+// passing a one-element array to resolveWeakGroupEncounter.
+export function resolveWeakMobEncounter(player, monster, isBoss, rng = Math.random) {
+  return resolveWeakGroupEncounter(player, [monster], isBoss, rng);
 }
 
 export const FLAVOR_LINE_CHANCE = 0.35;
