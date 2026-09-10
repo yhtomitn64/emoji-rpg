@@ -7,6 +7,6 @@
     "relock": "rm -rf node_modules package-lock.json && npm install --registry https://registry.npmjs.org/"
   },
   "devDependencies": {
-    "jsdom": "^29.1.1"
+    "jsdom": "^30.0.1"
   }
 }
