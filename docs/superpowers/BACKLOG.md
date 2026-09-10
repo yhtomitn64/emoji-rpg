@@ -346,8 +346,9 @@ same-day items below; these are the ones left open):**
   (never early, usually a few ms late), so the stride finished first and
   the hero stood still waiting. Steps now accumulate frame time, so both
   cross their thresholds on the same frame. Frozen frames 1.5% → 0.5%,
-  spread of per-frame movement 0.17 → 0.07. **A small residual remains
-  and is accepted — see "Residual walk micro-stutter" below.**
+  spread of per-frame movement 0.17 → 0.07. **A small residual remained,
+  and was fixed in turn by 0.32.4 — see "Residual walk micro-stutter"
+  below, including why that entry's own diagnosis was wrong.**
   - Worth carrying forward as a method, not just a fix: the candidates
     were **simulated before one was picked**, and the measurement
     overturned the plan. `computeHeroStep` is exported, so 20s of
@@ -359,8 +360,12 @@ same-day items below; these are the ones left open):**
     optimising anything in this loop.
 - **Delete the DOM map renderer scaffolding, raised 2026-09-10.** See
   the "Delete the DOM map renderer scaffolding" section below.
-- **Residual walk micro-stutter, raised 2026-09-10.** Accepted, not a
-  bug to fix on sight — see the section below before touching it.
+- ~~**Residual walk micro-stutter, raised 2026-09-10.**~~ — **fixed
+  2026-09-10 (0.32.4).** It was not the two-rAF-loops thing this entry
+  used to blame, and merging those loops was measured and found to buy
+  nothing. The camera was a third clock: it aimed at the hero's logical
+  tile, so it surged and crawled between steps while the hero's stride
+  ran at constant speed. See the section below.
 - **Hero draws over obstacles in the row below, raised 2026-09-10.** A
   deliberate tradeoff taken to stop the character being sliced in half;
   see the section below.
@@ -2636,20 +2641,72 @@ fine; collapsing the interface itself is a separate decision.
 
 ## Residual walk micro-stutter, raised 2026-09-10
 
-**Accepted, not an open defect** — recorded so it isn't rediscovered and
-"fixed" at a cost nobody agreed to. After 0.32.2 put walk steps and the
-character's stride on one clock, a small unevenness remains: `mapScreen`'s
-walk loop and the renderer's draw loop are two separate
-`requestAnimationFrame` registrations, so within a single frame a step can
-land either side of the hero advance. That never freezes a frame — it
-makes one frame's movement slightly uneven.
+**Fixed 2026-09-10 (0.32.4).** Worth reading as a diagnosis that was
+wrong, because the wrong answer was written down here confidently and
+would have cost a lot to act on.
 
-Closing it means merging the two loops, i.e. real coupling between input
-and the renderer, which the DOM renderer and the jsdom tests don't have.
-Timothy, playing the live build: "there is still some microstutter which
-isn't a huge deal ... don't really notice/bother me." Leave it unless it
-ever becomes noticeable, and if it does, measure first — see the
-simulation note on the micro-pause entry in the index.
+**What this entry used to say** (kept verbatim, because it was the
+accepted position for a day): the residual was blamed on `mapScreen`'s
+walk loop and the renderer's draw loop being two separate
+`requestAnimationFrame` registrations, so within a single frame a step
+could land either side of the hero advance. Closing it was thought to
+mean merging the two loops — real coupling between input and the
+renderer, which the DOM renderer and the jsdom tests don't have — so it
+was marked accepted, on Timothy's own "there is still some microstutter
+which isn't a huge deal ... don't really notice/bother me."
+
+**What it actually was.** Timothy came back to it: "both the map and
+character are a little stuttery and maybe the issue is we need to tie it
+all together." There was a third clock, and nobody had looked at it. The
+camera aimed at `computeViewportOrigin`, which is computed from the
+hero's *logical tile*, so its target jumped a whole tile the instant a
+step landed; its exponential ease then sprinted right after each step and
+crawled just before the next. The hero's stride is deliberately constant
+speed. Two velocity profiles for one motion, ~9Hz apart, and what the eye
+sees is the difference between them.
+
+The reason it hid for so long is a measurement gap, not a subtle
+mechanism: the camera had been measured on its own and the stride had
+been measured on its own, and each looked fine. The composite — the
+hero's position **on screen**, `hero - camera` — had never been measured
+at all, and it is the only one of the three a player can actually see.
+When a system's parts each pass and the whole still feels wrong, measure
+the thing the eye receives.
+
+**The fix** is `computeCameraOrigin` (`js/systems/world.js`): the same
+placement arithmetic as `computeViewportOrigin` but centred on a
+fractional tile, with the camera pointed at the hero's interpolated
+position through it. Deliberately identical arithmetic rather than a
+rewrite, so the two agree *exactly* once the hero lands on a whole tile —
+otherwise a glide of 0 would settle the camera somewhere different from
+where it has always settled. `frame()` was also reordered: the hero
+advances first, the camera then aims at where the hero now is.
+
+Measured over 20s of held-key walking at the default glide: per-frame
+spread of the hero's on-screen position 2.80px → 0.18px, of the map's
+scroll 3.10px → 1.33px, against realistic frame jitter. Against clean
+vsync both go to exactly 0.00 — every frame moves the map the identical
+distance. The residual in the jittered case is the injected dropped
+frames themselves.
+
+**The two loops are still two loops, and that is now a measured
+decision rather than an unexamined one.** Driving the hero's sub-tile
+position straight off the walk accumulator's own phase (which removes
+the stride's arrival clamp entirely, and is the closest cheap stand-in
+for merging the loops) scored *identically* to the camera coupling alone
+at every glide setting tested. The arrival clamp is not a material term
+once the camera is coupled. Don't pay for that coupling on the strength
+of this entry's older text.
+
+**Also landed with it:** the canvas renderer's `frame()` has integration
+coverage for the first time. jsdom returns null from `getContext('2d')`,
+so the loop no-opped out on its first line in every existing test —
+every pure function was covered and the wiring between them was not,
+which is exactly where this bug lived. `tests/mapWalkSmoothness.test.js`
+gives it a recording stub context and a hand-driven animation-frame
+queue. Note the queue: a single-callback rAF stub silently drops one of
+the two competing registrations and the character never takes a second
+step, which cost a debugging round to spot and will again.
 
 ## Hero draws over obstacles in the row below, raised 2026-09-10
 

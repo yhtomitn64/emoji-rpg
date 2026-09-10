@@ -24,6 +24,67 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.32.4] - 2026-09-10
+
+### Fixed
+- **The residual walk micro-stutter, in both the map and the character.**
+  Raised by Timothy: "I am wondering if we can take another stab at
+  making the character walking perfectly smooth with no microstutter. It
+  seems to me both the map and character are a little stuttery and maybe
+  the issue is we need to tie it all together." That last guess was
+  right, and it was a *third* clock nobody had looked at. 0.32.2 put the
+  walk cadence and the hero's stride on one clock; the camera was still
+  on its own.
+  - **What was wrong.** The camera aimed at `computeViewportOrigin`,
+    which is computed from the hero's *logical tile* — so its target
+    jumped a whole tile the instant a step landed. The camera's
+    exponential ease then sprinted right after each step and crawled
+    just before the next one: a ~9Hz surge, once per 110ms step, for as
+    long as a direction was held. The hero's own stride, meanwhile, is
+    deliberately *constant* speed (see `computeHeroStep`'s header for
+    why). Two different velocity profiles for the same motion, and what
+    the eye actually sees is the difference between them — the character
+    sliding back and forth on screen while the ground scrolls unevenly
+    underneath. Both halves had been measured separately before and each
+    looked fine on its own; the composite — the hero's position *on
+    screen*, which is `hero - camera` — had never been measured at all.
+  - **The fix.** A new `computeCameraOrigin` (`js/systems/world.js`) is
+    the same camera placement as `computeViewportOrigin` but centred on
+    a *fractional* tile, and `mapCanvasRenderer.js` points the camera at
+    the hero's interpolated position through it instead of at the
+    logical tile. The target now moves at the same constant speed the
+    hero does, so the camera settles to a constant lag and a constant
+    velocity. `frame()` also had to be reordered — the hero advances
+    first and the camera then aims at where the hero *now* is, rather
+    than at where they were last frame.
+  - **Measured, per this loop's standing rule** (see BACKLOG.md's
+    "Micro-pause once per step" entry, where simulation once overturned
+    the plan). Over 20s of held-key walking at the default glide, per-
+    frame spread of the hero's on-screen position went 2.80px → 0.18px
+    and of the map's scroll 3.10px → 1.33px against realistic frame
+    jitter; against clean vsync both go to exactly **0.00**, i.e. every
+    frame moves the map the identical distance. The remaining jittered-
+    case spread is the injected dropped frames themselves, not
+    unevenness the code adds.
+  - **A candidate was measured and rejected**, which is why the two rAF
+    loops are still two loops: driving the hero's sub-tile position
+    straight off the walk accumulator's own phase (removing the stride's
+    arrival clamp entirely) scored *identically* to the camera coupling
+    alone at every glide setting. The arrival clamp simply isn't a
+    material term once the camera is coupled, so the coupling between
+    input and renderer that BACKLOG.md's "Residual walk micro-stutter"
+    entry warned about buys nothing and wasn't taken.
+  - **The canvas renderer's `frame()` now has integration coverage at
+    all**, which it never had: jsdom returns null from
+    `getContext('2d')`, so the loop no-opped out on its first line in
+    every existing test. `tests/mapWalkSmoothness.test.js` gives it a
+    recording stub context and a hand-driven animation-frame *queue*
+    (a single-callback stub silently drops one of the two competing rAF
+    registrations, and the character never takes a second step), then
+    asserts the real loop's camera against the real walk loop's steps.
+    Verified to fail — 8.7px/frame of hero wobble — with the coupling
+    reverted.
+
 ## [0.32.3] - 2026-09-10
 
 ### Fixed

@@ -25,6 +25,7 @@ import {
   LEVEL_UP_RAY_COUNT, LEVEL_UP_RAY_ARC_DEG, LEVEL_UP_RAY_COLOR,
 } from '../systems/mapEffects.js';
 import { TILE_SIZE_PX, HERO_AND_LOOT_PX, TRAIL_VIEWBOX_SIZE } from '../systems/mapRenderModel.js';
+import { computeCameraOrigin } from '../systems/world.js';
 
 const TAU = Math.PI * 2;
 
@@ -559,10 +560,24 @@ export function computeCameraStep(cam, target, smoothingMs, dtMs) {
   return { camGx: cam.gx + dx * k, camGy: cam.gy + dy * k, settled: false };
 }
 
+// Where the camera is trying to be, given where the hero is actually being
+// drawn this frame. Deliberately NOT renderContext.originGx/originGy: those
+// are computed from the hero's logical tile and so jump a whole tile the
+// moment a step lands, which is what used to make the camera surge-and-crawl
+// once per step - see computeCameraOrigin's own header in world.js for the
+// measurements. Falls back to the context's own origin before the hero has a
+// position (the frame right after a mount).
+function cameraTarget() {
+  if (heroGx === null) return { gx: renderContext.originGx, gy: renderContext.originGy };
+  const { originGx, originGy } = computeCameraOrigin(
+    heroGx, heroGy, renderContext.tilesWide, renderContext.tilesTall, renderContext.bounds,
+  );
+  return { gx: originGx, gy: originGy };
+}
+
 function advanceCamera(dtMs) {
   const cam = camGx === null ? null : { gx: camGx, gy: camGy };
-  const target = { gx: renderContext.originGx, gy: renderContext.originGy };
-  const result = computeCameraStep(cam, target, renderContext.cameraSmoothingMs, dtMs);
+  const result = computeCameraStep(cam, cameraTarget(), renderContext.cameraSmoothingMs, dtMs);
   camGx = result.camGx;
   camGy = result.camGy;
   return result.settled;
@@ -623,6 +638,12 @@ function advanceHero(dtMs, playerTile) {
 export const __testables = {
   computeCameraStep, CAMERA_SETTLE_TILES, CAMERA_SNAP_TILES,
   computeHeroStep, HERO_SETTLE_TILES, HERO_SNAP_TILES,
+  // Where the camera and the hero actually ended up after the frames that
+  // have run. The pure functions above can each be correct while frame()
+  // wires them together wrongly - which is the whole subject of the
+  // camera/hero coupling - and nothing else in this module is observable
+  // from outside without a real canvas. See tests/mapWalkSmoothness.test.js.
+  readCameraState: () => ({ camGx, camGy, heroGx, heroGy }),
 };
 
 function frame(nowMs) {
@@ -631,10 +652,14 @@ function frame(nowMs) {
   const dtMs = lastFrameMs ? nowMs - lastFrameMs : 0;
   lastFrameMs = nowMs;
 
-  const cameraSettled = advanceCamera(dtMs);
+  // Order matters: the hero advances first, then the camera aims at where the
+  // hero now is. Running the camera first would leave it aiming a frame
+  // behind the character it is following, which is the same disagreement -
+  // one frame's worth of it - that this coupling exists to remove.
   const drawList = buildDrawList(expandForMargin(renderContext));
   lastPlayerTile = drawList.playerTile;
   const heroSettled = advanceHero(dtMs, drawList.playerTile);
+  const cameraSettled = advanceCamera(dtMs);
   // Effects anchor to where the hero is actually drawn, not to the tile they
   // logically occupy - otherwise a level-up burst would fire from the tile
   // ahead of them while they're still mid-stride toward it.
@@ -663,11 +688,22 @@ function schedule() {
 // The draw list covers the viewport plus MARGIN_TILES on every side - see
 // that constant's comment. Done here rather than in mapScreen's own geometry
 // so the DOM renderer, which needs no margin, isn't made to carry one.
+//
+// Anchored to the CAMERA, not to the context's own origin. The two used to be
+// within a tile of each other, but now that the camera follows the hero's
+// interpolated position it trails the hero's logical tile by the hero's own
+// sub-tile offset plus the camera's steady-state lag - past two tiles at the
+// slowest glide setting, which would have left an unpainted strip at the
+// trailing edge. The camera is one frame stale here (it advances after the
+// draw list is built, so that it can aim at this frame's hero), which is
+// under a quarter tile of movement and well inside the margin.
 function expandForMargin(context) {
+  const anchorGx = camGx === null ? context.originGx : Math.floor(camGx);
+  const anchorGy = camGy === null ? context.originGy : Math.floor(camGy);
   return {
     ...context,
-    originGx: context.originGx - MARGIN_TILES,
-    originGy: context.originGy - MARGIN_TILES,
+    originGx: anchorGx - MARGIN_TILES,
+    originGy: anchorGy - MARGIN_TILES,
     tilesWide: context.tilesWide + MARGIN_TILES * 2,
     tilesTall: context.tilesTall + MARGIN_TILES * 2,
   };

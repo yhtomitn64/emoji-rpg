@@ -121,3 +121,47 @@ export function computeViewportOrigin(centerGx, centerGy, tilesWide, tilesTall, 
 
   return { originGx, originGy };
 }
+
+// The same camera placement as computeViewportOrigin, but centred on a
+// FRACTIONAL tile - what the canvas renderer points its camera at while the
+// hero is mid-stride between two tiles.
+//
+// Why it has to exist (raised 2026-09-10, "both the map and the character are
+// a little stuttery"): computeViewportOrigin above takes the hero's *logical*
+// tile, so its answer jumps a whole tile the instant a step lands. The camera
+// then eases toward that jump exponentially, which means it sprints right
+// after each step and crawls just before the next one - a ~9Hz surge, once
+// per 110ms step, for as long as you hold a direction. Because the hero's own
+// stride is constant-speed, the two disagree, and the difference is exactly
+// what the eye sees: the character slides back and forth on screen while the
+// map scrolls unevenly underneath.
+//
+// Pointing the camera at the hero's interpolated position instead makes the
+// target move at the same constant speed the hero does, so the camera settles
+// to a constant lag and a constant velocity. Simulated over 20s of held-key
+// walking (see the "Residual walk micro-stutter" entry in BACKLOG.md for the
+// method): per-frame spread of the hero's on-screen position 2.80px -> 0.18px
+// and of the map's scroll 3.10px -> 1.33px against realistic frame jitter;
+// against clean vsync both go to exactly 0.00, i.e. every frame moves the map
+// the identical distance.
+//
+// Deliberately identical arithmetic to computeViewportOrigin rather than a
+// rewrite: the two must agree exactly once the hero lands on a whole tile, or
+// the camera would visibly settle somewhere other than where a non-gliding
+// camera puts it. The Math.floor calls that remain are the ones that don't
+// depend on the centre at all (viewport-vs-world centring, and the half-
+// viewport offset, which is a whole-tile constant in both).
+export function computeCameraOrigin(centerGx, centerGy, tilesWide, tilesTall, bounds) {
+  const worldWidth = bounds.maxGx - bounds.minGx + 1;
+  const worldHeight = bounds.maxGy - bounds.minGy + 1;
+
+  const originGx = tilesWide >= worldWidth
+    ? bounds.minGx - Math.floor((tilesWide - worldWidth) / 2)
+    : Math.max(bounds.minGx, Math.min(centerGx - Math.floor(tilesWide / 2), bounds.maxGx - tilesWide + 1));
+
+  const originGy = tilesTall >= worldHeight
+    ? bounds.minGy - Math.floor((tilesTall - worldHeight) / 2)
+    : Math.max(bounds.minGy, Math.min(centerGy - Math.floor(tilesTall / 2), bounds.maxGy - tilesTall + 1));
+
+  return { originGx, originGy };
+}

@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.32.4',
+    date: '2026-09-10',
+    highlights: [
+      'Fixed: the last of the walking stutter. The camera was chasing the square you were walking towards rather than following you, so it kept surging and slowing between steps - your character drifted around on screen and the ground scrolled unevenly. It now follows you directly, so holding a direction scrolls the map the same amount every single frame.',
+    ],
+  },
+  {
     version: '0.32.3',
     date: '2026-09-10',
     highlights: [
