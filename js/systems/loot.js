@@ -3,7 +3,7 @@ import { ITEMS, SHOP_CATALOG } from '../data/items.js';
 import { MINI_DUNGEON_TREASURE_ITEM_POOL } from './miniDungeons.js';
 import {
   isToughnessEligible, monsterToughness, rollQualityTier, rollUniqueEffectChance,
-  rollMythicEssenceChance, RING_TOUGHNESS_FLOOR, BOSS_MYTHIC_CHANCE,
+  rollMythicEssenceChance, RING_TOUGHNESS_FLOOR,
 } from './itemQuality.js';
 
 export const EQUIPMENT_DROP_CHANCE = 0.10; // flat - toughness already drives
@@ -66,12 +66,17 @@ export function rollDrop(monster, rng = Math.random, ngPlusCycle = 0) {
 
   let item = null;
   let tier;
-  // Boss/elite/forceFullBattle monsters keep their own separate, already-
-  // guaranteed-exciting drop mechanisms untouched - excluded from every
-  // roll below, so an existing named drop like the dragon's dragonFang
-  // never picks up a stray tier roll either.
+  // Boss/elite/forceFullBattle monsters still keep their own separate,
+  // already-guaranteed-exciting drop *mechanisms* untouched (no bonus
+  // Unique-effect/generic-equipment roll layered on top below) - but their
+  // named drop's *quality tier* is no longer excluded (see the named-drop
+  // block below). toughness is computed unconditionally now: monsterToughness
+  // just clamps against the regular roster's xp range, so a boss/elite's
+  // way-above-range xp (dragon: 200 vs. a top eligible xp of 63) safely
+  // clamps to the toughest tier odds, same as the hardest regular monster -
+  // no special-casing needed.
   const eligible = isToughnessEligible(monster);
-  const toughness = eligible ? monsterToughness(monster) : 0;
+  const toughness = monsterToughness(monster);
 
   // Mythic Essence gets first dibs on the "at most one bonus item per kill"
   // slot, but only once ngPlusCycle >= 1 - the short-circuit on that check
@@ -81,7 +86,16 @@ export function rollDrop(monster, rng = Math.random, ngPlusCycle = 0) {
     if (ngPlusCycle >= 1 && rollMythicEssenceChance(toughness, rng)) {
       item = 'mythicEssence';
     } else if (rollUniqueEffectChance(toughness, rng)) {
+      // Raised 2026-09-10: Unique-effect items used to never roll a tier at
+      // all ("uniques aren't tiered - they ARE the rare tier", the original
+      // design's own words) - but once the Superior -> Mythic reforge system
+      // landed, that meant a Unique-effect item could never be reforged,
+      // permanently missing the tier multiplier a plain Iron Sword could
+      // reach via reforge. Folding uniques into the same roll closes that
+      // gap with no new mechanism.
       item = pickRandom(eligibleUniqueEffectPool(toughness, ngPlusCycle), rng);
+      const quality = rollQualityTier(toughness, rng, ngPlusCycle);
+      if (quality !== 'plain') tier = quality;
     } else if (rng() < EQUIPMENT_DROP_CHANCE) {
       item = pickRandom(EQUIPMENT_DROP_POOL, rng);
       const quality = rollQualityTier(toughness, rng, ngPlusCycle);
@@ -101,25 +115,25 @@ export function rollDrop(monster, rng = Math.random, ngPlusCycle = 0) {
         break;
       }
     }
-    // An existing named equipment drop (e.g. goblinClub) can still be a
-    // better-than-plain copy of itself, but never redirects into an
-    // unrelated Unique-effect item - the named drop IS that item.
-    if (item && eligible && ITEMS[item].slot) {
+    // An existing named equipment drop (e.g. goblinClub, or a boss's own
+    // dragonFang/dragonScaleMail) can still be a better-than-plain copy of
+    // itself, but never redirects into an unrelated Unique-effect item -
+    // the named drop IS that item. Raised 2026-09-10: this used to be
+    // gated on `eligible`, which excluded boss/elite named drops from ever
+    // getting a tier at all (they had their own separate, much narrower
+    // mechanism below - now removed). A named drop's tier no longer
+    // depends on whether its monster gets the *bonus* rolls above; those
+    // stay eligible-gated on purpose (a boss shouldn't also roll a random
+    // second item on top of its own guaranteed drop table), but the
+    // *tier* of the drop it already has is a different question.
+    if (item && ITEMS[item].slot) {
       const quality = rollQualityTier(toughness, rng, ngPlusCycle);
       if (quality !== 'plain') tier = quality;
     }
-    // Bosses are excluded from the toughness-weighted roll above
-    // (isToughnessEligible is false for isBoss), so their named drops never
-    // get a tier there - this is the separate mechanism that lets a dragon
-    // kill's dragonFang/dragonScaleMail become Mythic in NG+.
-    if (item && monster.isBoss && ngPlusCycle >= 1 && ITEMS[item].slot && rng() < BOSS_MYTHIC_CHANCE) {
-      tier = 'mythic';
-    }
     // A dropTable entry can name its own guaranteed tier directly (e.g. a
     // superboss's chance:1 drop at tier: 'apex') - bypasses the random
-    // rolls above entirely, since forceFullBattle monsters are already
-    // excluded from them (isToughnessEligible), so without this a
-    // guaranteed drop could never reach a non-plain tier at all.
+    // roll above entirely (overwriting whatever it produced), since a
+    // guaranteed drop should never randomly land below its intended floor.
     if (item && matchedEntry.tier) {
       tier = matchedEntry.tier;
     }

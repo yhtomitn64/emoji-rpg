@@ -24,6 +24,26 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.32.3] - 2026-09-10
+
+### Fixed
+- **Dragon gear and Unique-effect items could never be reforged to Mythic.**
+  Raised live: "why can't I reforge dragon stuff and some other things to
+  mythic?" Two older, separate design decisions had collided with the
+  newer Superior→Mythic reforge system without anyone revisiting them:
+  bosses were entirely excluded from the normal Plain/Fine/Superior/Mythic
+  roll (their named drop instead had its own flat 25%-Mythic-or-nothing
+  NG+-only mechanism, `BOSS_MYTHIC_CHANCE`, now removed), and Unique-effect
+  items (Vampiric Fang, Swift Strike Charm, Ember Ring, Keen Eye,
+  Retribution Charm, Windfury Ring) never rolled a tier at all by original
+  design ("uniques aren't tiered - they ARE the rare tier"). Since reforge
+  strictly requires a Superior-tier item, neither category could ever
+  reach it. `js/systems/loot.js`'s `rollDrop` now runs both through the
+  same toughness-weighted roll as everything else - a boss's xp clamps to
+  the top of the difficulty curve (same odds as the toughest regular
+  monster), so no special-casing was needed. Once one of these items lands
+  Superior, the existing Smith reforge option just works.
+
 ## [0.32.2] - 2026-09-10
 
 ### Fixed

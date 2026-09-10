@@ -4,7 +4,7 @@ import { MONSTERS } from '../js/data/monsters.js';
 import {
   isToughnessEligible, monsterToughness, rollQualityTier, rollUniqueEffectChance,
   rollMythicEssenceChance, QUALITY_TIER_MULTIPLIERS, tierLabel, RING_TOUGHNESS_FLOOR,
-  BOSS_MYTHIC_CHANCE, PRE_NG_PLUS_MYTHIC_CHANCE_MIN, PRE_NG_PLUS_MYTHIC_CHANCE_MAX,
+  PRE_NG_PLUS_MYTHIC_CHANCE_MIN, PRE_NG_PLUS_MYTHIC_CHANCE_MAX,
   MYTHIC_TIER_CHANCE_MIN, MYTHIC_TIER_CHANCE_MAX, MYTHIC_TIER_NG_PLUS_GROWTH,
 } from '../js/systems/itemQuality.js';
 
@@ -28,10 +28,13 @@ test('monsterToughness spreads a mid-roster monster proportionally between the e
   assert.ok(Math.abs(monsterToughness(MONSTERS.direWolf) - 21 / 52) < 1e-9);
 });
 
-test('monsterToughness clamps an ineligible monster (if ever called on one) into the 0-1 range', () => {
-  // Not called in practice (loot.js gates on isToughnessEligible first), but
-  // the function itself should never produce a value outside 0-1 even for a
-  // monster whose xp sits outside the eligible roster's range.
+test('monsterToughness clamps an ineligible monster into the 0-1 range', () => {
+  // Raised 2026-09-10: loot.js now calls this unconditionally (a boss/elite's
+  // named drop needs a real toughness for its own quality-tier roll), so this
+  // clamping behavior is exercised in practice, not just defensively. A
+  // monster whose xp sits outside the eligible roster's range (dragon: 200,
+  // well above wraith's 63) clamps to the top of the curve rather than
+  // extrapolating past it.
   assert.equal(monsterToughness(MONSTERS.dragon), 1); // xp 200, clamped to the max
 });
 
@@ -121,12 +124,11 @@ test('rollMythicEssenceChance hits at the documented 2% floor and 6% ceiling', (
   assert.equal(rollMythicEssenceChance(1, () => 0.07), false);
 });
 
-test('RING_TOUGHNESS_FLOOR and BOSS_MYTHIC_CHANCE match the documented starting values', () => {
+test('RING_TOUGHNESS_FLOOR matches the documented starting value', () => {
   // Lowered from 0.6 to 0.3 on 2026-09-09 to open a real ring (Ember Ring)
   // up to the far-corner roster, not just dungeon-tier - see the constant's
   // own comment in js/systems/itemQuality.js.
   assert.equal(RING_TOUGHNESS_FLOOR, 0.3);
-  assert.equal(BOSS_MYTHIC_CHANCE, 0.25);
 });
 
 test('apex is a real quality tier, above mythic', () => {

@@ -38,11 +38,12 @@ function lerp(min, max, t) { return min + (max - min) * t; }
 // New top tier for guaranteed super-boss drops, above mythic - name and
 // multiplier are both first-pass placeholders (Timothy writes the real
 // name; the multiplier is tuned via the simulator alongside each
-// superboss's own stat block, same as every number in this pass). Never
-// reachable via rollQualityTier's random roll (superbosses are
-// forceFullBattle, so isToughnessEligible excludes them) - only assigned
-// via an explicit `tier` field on a dropTable entry (see loot.js's
-// rollDrop).
+// superboss's own stat block, same as every number in this pass).
+// `rollQualityTier` structurally never returns `'apex'` - its own if-chain
+// only ever produces plain/fine/superior/mythic - so this tier is only ever
+// assigned via an explicit `tier` field on a dropTable entry (see loot.js's
+// rollDrop), regardless of what rolls a superboss's named drop otherwise
+// goes through.
 export const QUALITY_TIER_MULTIPLIERS = { fine: 1.10, superior: 1.20, mythic: 1.5, apex: 1.9 };
 
 // Very small but nonzero pre-NG+ Mythic band, and per-cycle growth for
@@ -106,11 +107,6 @@ export function rollMythicEssenceChance(toughness, rng = Math.random) {
 // dungeon, while near-town monsters (boar/bat/snake/frog/goblin, toughness
 // <0.3) still can't drop one.
 export const RING_TOUGHNESS_FLOOR = 0.3;
-
-// Bosses are excluded from rollQualityTier entirely (isToughnessEligible
-// returns false for isBoss) - a dragon kill's chance to tag its named drop
-// Mythic is a separate, flat roll in loot.js, not toughness-weighted.
-export const BOSS_MYTHIC_CHANCE = 0.25;
 
 export function tierLabel(tier) {
   if (tier === 'fine') return 'Fine ';

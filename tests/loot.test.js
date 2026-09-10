@@ -88,10 +88,23 @@ test('rollDrop never applies a tier to a material/potion/tool drop', () => {
 
 test('rollDrop can produce a Unique-effect item when the dropTable misses and the Unique-effect check hits', () => {
   const toughMonster = { goldRange: [18, 30], xp: 63, dropTable: [] }; // wraith-level, toughness 1 -> unique ceiling 5%
-  // sequence: [gold, unique-effect check (0.04 < 0.05 -> hits), pool pick]
-  const drop = rollDrop(toughMonster, sequence(0, 0.04, 0));
+  // sequence: [gold, unique-effect check (0.04 < 0.05 -> hits), pool pick,
+  //            quality roll (0.5, well above the mythic/superior/fine
+  //            thresholds at toughness 1 -> plain, i.e. no tier set)]
+  const drop = rollDrop(toughMonster, sequence(0, 0.04, 0, 0.5));
   assert.ok(UNIQUE_EFFECT_ITEM_IDS.includes(drop.item));
   assert.equal(drop.tier, undefined);
+});
+
+// Raised 2026-09-10: Unique-effect items used to never roll a tier at all -
+// closing the gap that made them permanently ineligible for the Superior ->
+// Mythic reforge system (see js/systems/loot.js's rollDrop comment).
+test('rollDrop now applies a quality tier to a Unique-effect item drop too, not just ordinary/named gear', () => {
+  const toughMonster = { goldRange: [18, 30], xp: 63, dropTable: [] };
+  // sequence: [gold, unique-effect check hits, pool pick, quality roll (0.05 -> superior at toughness 1)]
+  const drop = rollDrop(toughMonster, sequence(0, 0.04, 0, 0.05));
+  assert.ok(UNIQUE_EFFECT_ITEM_IDS.includes(drop.item));
+  assert.equal(drop.tier, 'superior');
 });
 
 test('rollDrop falls through to the ordinary-gear check only when the Unique-effect check misses', () => {
@@ -228,19 +241,28 @@ test('rollDrop can grant windfuryRing once ngPlusCycle >= 1 and the monster is a
   assert.equal(drop.item, 'windfuryRing');
 });
 
-test('rollDrop tags a boss\'s named drop as mythic once ngPlusCycle >= 1, per BOSS_MYTHIC_CHANCE', () => {
+// Raised 2026-09-10: a boss's named drop (dragonFang/dragonScaleMail) used
+// to be entirely excluded from the normal Plain/Fine/Superior/Mythic roll,
+// with its own separate flat 25%-Mythic-or-nothing NG+-only mechanism
+// instead (BOSS_MYTHIC_CHANCE, now removed). That meant it could never land
+// on Superior, so it could never be reforged either - same underlying gap
+// as the Unique-effect items above. Bosses now go through the exact same
+// roll as the toughest regular monster (their xp clamps to toughness 1, see
+// itemQuality.test.js's monsterToughness clamping test).
+test('rollDrop applies the normal quality-tier roll to a boss\'s named drop, e.g. dragonFang', () => {
   const bossLike = { goldRange: [65, 100], xp: 200, isBoss: true, dropTable: [{ itemId: 'dragonFang', chance: 1 }] };
-  // sequence: [gold, dropTable roll (hits dragonFang), boss-mythic roll (0.01 < 0.25 -> hits)]
-  const drop = rollDrop(bossLike, sequence(0, 0, 0.01), 1);
+  // sequence: [gold, dropTable roll (hits dragonFang), quality roll (0.2 -> fine at toughness 1, cycle 0)]
+  const drop = rollDrop(bossLike, sequence(0, 0, 0.2), 0);
   assert.equal(drop.item, 'dragonFang');
-  assert.equal(drop.tier, 'mythic');
+  assert.equal(drop.tier, 'fine');
 });
 
-test('rollDrop never tags a boss drop mythic when ngPlusCycle is 0', () => {
+test('rollDrop can land a boss\'s named drop on mythic even pre-NG+ now, at the same small odds as any other toughness-1 monster', () => {
   const bossLike = { goldRange: [65, 100], xp: 200, isBoss: true, dropTable: [{ itemId: 'dragonFang', chance: 1 }] };
-  const drop = rollDrop(bossLike, sequence(0, 0, 0), 0);
+  // sequence: [gold, dropTable roll (hits dragonFang), quality roll (0.001 < the 0.4% pre-NG+ mythic ceiling at toughness 1)]
+  const drop = rollDrop(bossLike, sequence(0, 0, 0.001), 0);
   assert.equal(drop.item, 'dragonFang');
-  assert.equal(drop.tier, undefined);
+  assert.equal(drop.tier, 'mythic');
 });
 
 test('getItemSources gives mythicEssence a real source instead of falling through to Unknown source', () => {

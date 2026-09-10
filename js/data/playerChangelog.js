@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.32.3',
+    date: '2026-09-10',
+    highlights: [
+      "Fixed: dragon gear and rare monster-drop items (Vampiric Fang, Ember Ring, Keen Eye, etc.) can now actually become Superior-tier and get reforged to Mythic at the Smith - they used to be stuck unable to reach it no matter what.",
+    ],
+  },
+  {
     version: '0.32.2',
     date: '2026-09-10',
     highlights: [
