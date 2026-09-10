@@ -24,6 +24,18 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.26.14] - 2026-09-09
+
+### Fixed
+- The "you're right next to something you could clear with your X" gate
+  proximity hint (`getGateProximityMessage` in `js/systems/toolGates.js`)
+  used the generic verb "clear" for every tool, including the boat - which
+  doesn't clear water, it crosses it. Now reuses the same
+  `TOOL_CLEAR_VERBS` map `getToolClearedMessage` already had (axe: "cut
+  through the thicket", miningPick: "clear the mountain", boat: "paddle
+  across the water") so the hint and the after-the-fact success message
+  agree.
+
 ## [0.26.13] - 2026-09-09
 
 ### Changed

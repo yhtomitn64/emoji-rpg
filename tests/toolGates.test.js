@@ -60,7 +60,11 @@ test('getGateProximityMessage nudges toward the required tool when lacking it', 
 test('getGateProximityMessage encourages using the tool when already carrying it', () => {
   assert.equal(
     getGateProximityMessage('axe', true),
-    "You're right next to something you could clear with your Axe."
+    "You're right next to something you could cut through the thicket with your Axe."
+  );
+  assert.equal(
+    getGateProximityMessage('boat', true),
+    "You're right next to something you could paddle across the water with your Boat."
   );
 });
 

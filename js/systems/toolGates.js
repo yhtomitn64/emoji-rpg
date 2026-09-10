@@ -31,7 +31,8 @@ export function getGateProximityMessage(toolId, hasTool) {
   const name = ITEMS[toolId].name;
   const article = /^[AEIOU]/.test(name) ? 'an' : 'a';
   if (hasTool) {
-    return `You're right next to something you could clear with your ${name}.`;
+    const verb = TOOL_CLEAR_VERBS[toolId] || 'clear the way';
+    return `You're right next to something you could ${verb} with your ${name}.`;
   }
   return `Something here looks like it'd need ${article} ${name} to get through.`;
 }

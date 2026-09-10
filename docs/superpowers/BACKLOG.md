@@ -340,6 +340,22 @@ same-day items below; these are the ones left open):**
   the diagnosis and the next concrete step (a `transform`-based camera).
   Continuing on Timothy's home machine, likely with real browser
   profiling this time.
+- ~~**Boat proximity-hint text said "clear" the water, which doesn't make
+  sense for a boat**~~ — **shipped 2026-09-09 (0.26.14)**. See the fuller
+  entry in the Bugs / open questions section below.
+- **`resolveStaticFilePath` (tools/dev-server.mjs) fails its own
+  path-traversal check on Windows, raised 2026-09-09** — a real,
+  pre-existing test failure (`npm run test` shows 1 failing), unrelated
+  to the boat-text fix that surfaced it. One-line fix identified
+  (normalize `rootDir` before the `startsWith` check) but not applied,
+  since `tools/dev-server.mjs` is actively being edited in another
+  session's performance work. See the Bugs section below.
+- **Cross-device save sync + auth (big idea, not designed), raised
+  2026-09-09** — Timothy wants to load his save on a different computer
+  without manual copy/paste. Storage (Cloudflare Workers KV vs. a GitHub
+  Gist) and auth (Sign in with Apple vs. Google Sign-In vs. no login/
+  device save-code) options discussed but nothing decided or scoped. See
+  the dedicated section near the end of this file.
 
 ## Story / narrative
 
@@ -1924,6 +1940,25 @@ number). Confirmed live 2026-09-04 via a `?debug=level10` test character
 (`js/systems/debugCharacters.js`, added the same session) - Timothy
 played real battles against it and confirmed the fix looks right.
 
+### `resolveStaticFilePath` (tools/dev-server.mjs) fails its own path-traversal check on Windows, raised 2026-09-09
+Noticed while running `npm run test` in an unrelated worktree (boat-text
+proximity-message fix session): `resolveStaticFilePath maps / to
+/index.html under the given root` fails on Windows - 1019/1020 tests
+passing, this one red. Root cause: the traversal guard does
+`resolved.startsWith(rootDir + path.sep)`, but `resolved` has already
+been through `path.normalize` (backslashes on Windows) while `rootDir`
+is used as-passed, un-normalized. Any caller that passes a forward-slash
+`rootDir` (including the test itself, `'/repo/root'`) mismatches and the
+function wrongly returns `null`, as if every request were a path-
+traversal attempt. Only actually breaks when `rootDir` isn't already
+backslash-normalized - real dev-server usage probably passes a
+Windows-normalized path already, which is likely why this hasn't been
+noticed live - but it's still a latent bug (and confusingly named test
+failure) worth a one-line fix: normalize `rootDir` once at the top of
+the function. Not fixed here - `tools/dev-server.mjs` is actively being
+edited in another session's performance work, deliberately left alone to
+avoid stepping on it.
+
 ## Infrastructure / deployment
 
 ### Deploy workflow: reuse more between builds, pin the wrangler version, raised 2026-09-04
@@ -2369,3 +2404,48 @@ Chrome DevTools Performance recording, before/after, to confirm the
 `transform`-based fix actually closes the gap) rather than inferring
 everything from source reading the way this session had to on the work
 machine.
+
+## Cross-device save sync (big idea — not designed), raised 2026-09-09
+
+Timothy wants to load his character on a different computer without
+manually copy/pasting the save JSON between them. Big idea, not
+scoped/designed yet - captured here so it isn't lost.
+
+**Storage options discussed:**
+- **Cloudflare Workers KV**, since the game already deploys to Cloudflare
+  Pages (`.github/workflows/deploy.yml`) - free tier (100k reads/day, 1k
+  writes/day, no card required) covers this easily. Add a Pages Function
+  doing `GET`/`PUT /save/:code`, storing the save blob keyed by a
+  short code. Tradeoff: KV is eventually consistent (fine for "load on a
+  different machine now and then," not for two tabs staying live-synced).
+- **GitHub Gist as storage** (private gist, PAT scoped to `gist`, written
+  from client JS) - zero new infra/account, but gists aren't built for
+  this (rate limits, no real query capability) - lower effort, worse fit.
+
+**Auth options discussed** (Timothy specifically asked about "Sign in
+with Apple" so he can hide his email, and what else is comparable):
+- **"Sign in with Apple"** — free to use, and its private-relay email
+  (Apple can issue a per-app forwarding address instead of the user's
+  real one) is exactly the "hide my email" behavior Timothy asked about.
+  The catch: it requires an active **Apple Developer Program
+  membership, $99/year**, plus registering the game as an app-ish entity
+  in Apple's developer portal (a Services ID + a device-verified domain)
+  even though the game itself stays a plain website with no App Store
+  listing. That's a real recurring cost/setup burden for a solo personal
+  project, not a quick hookup - worth being explicit about before
+  picking it.
+- **Google Sign-In** — genuinely free, no paid developer account
+  required, similarly one-click. Google's own email-hiding equivalent
+  (Hide My Email-style relay) isn't offered the way Apple's is, though a
+  player could get similar privacy by just using a Google account they
+  don't mind exposing, or a throwaway one.
+- **No login at all - device-generated save code** — skip third-party
+  auth entirely: generate a random code (or let the player set one)
+  client-side, show it once, and that code alone is both the KV key and
+  the "auth." Weakest security (anyone with the code can read/overwrite
+  that save) but zero integration cost and matches "personal project,
+  not multiplayer" stakes - probably the right starting point before
+  investing in a real auth provider at all.
+
+Not started - needs a design pass to actually pick between these before
+building anything.
