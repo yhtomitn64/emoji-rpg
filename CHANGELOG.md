@@ -24,6 +24,38 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-09-10
+
+### Fixed
+- **`tests/battleSpecialAttacks.test.js` no longer fails under a loaded
+  test runner**, which had blocked deploys: 0.30.0 and 0.31.0 were both
+  committed to `main` but never went live, so the site kept serving the
+  0.29.0 canvas-renderer build. Not a product bug - the test was timing-
+  fragile and CI is slower than a dev machine.
+  - The stun test waits on a *log line* and then asserts *live* button
+    state four statements later, so under contention the 300ms `tick()`
+    could expire the fixture's 3000ms stun in between; `updateMenu()`
+    re-enabled Attack and the assertion failed with "Attack should render
+    disabled while playerStunDebuff is live". That fixture's `durationMs`
+    is now 30000 - deliberately longer than `waitForCondition`'s own
+    timeout, so the window always outlasts the worst-case wait rather
+    than merely being bigger. Nothing in that test asserts the stun
+    expires, so a wider window costs it nothing.
+  - `waitForCondition`'s default timeout goes 5000ms → 20000ms. It's a
+    *failure deadline*, not a wait - the loop returns the moment its
+    predicate holds, so a green run never spends it. Found while checking
+    the above: the `cooldownOverload` test timed out at 5336ms on one run
+    of this file and passed on a re-run, i.e. a second instance of the
+    same fragility that hadn't been reported yet.
+  - The two `slow` tests in the same file were left alone deliberately -
+    they only assert append-only log text, so debuff expiry can't affect
+    them.
+  - Verified with three consecutive full-suite runs (1181/1181).
+
+  Diagnosis and the initial report came from two concurrent sessions
+  hitting this from different directions; the CI-failing case was
+  reported as reproducing on two consecutive runs while passing locally.
+
 ## [0.32.0] - 2026-09-10
 
 ### Added

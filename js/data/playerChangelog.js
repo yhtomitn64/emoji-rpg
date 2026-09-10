@@ -5,6 +5,19 @@
 // or care about while playing. Keep it in sync manually: add a new entry
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
+  // Internal-only fix, which normally wouldn't appear here at all (see this
+  // file's header). It gets an entry because tests/versionSync.test.js
+  // requires the newest dated CHANGELOG.md version to have a matching one,
+  // and CI separately requires any non-doc change to be bumped out of
+  // Unreleased - a test file counts as non-doc. Written in terms of the
+  // effect a player actually gets: the previous few updates finally ship.
+  {
+    version: '0.32.1',
+    date: '2026-09-10',
+    highlights: [
+      'Fixed: a problem in our release checks was stopping new versions from going out. The last few updates were finished but never reached you - they should all be live now.',
+    ],
+  },
   {
     version: '0.32.0',
     date: '2026-09-10',
