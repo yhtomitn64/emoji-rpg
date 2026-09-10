@@ -1568,6 +1568,20 @@ button:focus-visible {
 .settings-row input[type="number"] {
   width: 80px;
 }
+.settings-hint {
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin: 4px 0;
+}
+.cloud-save-code {
+  font-family: monospace;
+  font-size: 1.1em;
+  letter-spacing: 2px;
+}
+#cloud-code-load-input {
+  width: 70px;
+  text-transform: lowercase;
+}
 
 .ngplus-badge {
   display: inline-block;

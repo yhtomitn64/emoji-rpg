@@ -30,6 +30,23 @@ export function createSlot(name, heroEmoji = DEFAULT_HERO_EMOJI, storage = globa
   return { id, state };
 }
 
+// Adds a brand-new slot from an already-existing character (not
+// createNewGame() like createSlot) - used by cloud save (js/screens/
+// settingsScreen.js) so loading a save from another device/browser adds it
+// alongside whatever's already on this one, rather than overwriting
+// anything. Raised 2026-09-09: "be cool to do this in a way that you can
+// transfer from whatever number of other browsers you want and it just
+// adds all the characters to your list."
+export function importSlot(name, state, storage = globalThis.localStorage) {
+  const id = generateSlotId();
+  const now = Date.now();
+  const entries = readRegistry(storage);
+  entries.push({ id, name, createdAt: now, lastPlayed: now, level: state.player.level, ngPlusCycle: state.ngPlusCycle });
+  writeRegistry(entries, storage);
+  saveState(state, id, storage);
+  return { id, state };
+}
+
 // Overwrites (not appends) any existing entry with this exact id, unlike
 // createSlot's always-fresh generateSlotId() - used by
 // js/systems/debugCharacters.js so revisiting the same debug URL always

@@ -3,6 +3,12 @@ import { getBufferAsJsonl } from '../systems/telemetry.js';
 import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 import { CATEGORIES } from '../systems/audio.js';
 import { SOUND_THEMES } from '../data/soundManifest.js';
+import {
+  CODE_TRANSFER_TTL_SECONDS,
+  isValidSaveCode,
+  startCodeTransfer,
+  loadByCode,
+} from '../systems/cloudSave.js';
 
 const ITEM_MENU_AUTO_CLOSE_MIN_MS = 250;
 const ITEM_MENU_AUTO_CLOSE_MAX_MS = 5000;
@@ -18,6 +24,13 @@ let state = null;
 let callbacks = null;
 let unbindEscape = null;
 let unbindBackdrop = null;
+// The currently-live one-shot transfer code, if any - { code, expiresAtMs }
+// or null. Reset whenever Settings mounts/unmounts (see mount/unmount
+// below) rather than persisted, so a closed-and-reopened Settings panel
+// always starts from "no active transfer" instead of showing a stale
+// countdown for a code that may already be dead server-side.
+let activeTransfer = null;
+let transferIntervalId = null;
 
 async function copyPlayLog() {
   const jsonl = getBufferAsJsonl();
@@ -39,6 +52,99 @@ async function copyPlayLog() {
   fallbackEl.hidden = false;
   fallbackEl.select();
   statusEl.hidden = true;
+}
+
+function flashStatus(elId, text) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = text;
+}
+
+function clearTransferInterval() {
+  if (transferIntervalId) {
+    clearInterval(transferIntervalId);
+    transferIntervalId = null;
+  }
+}
+
+// Redraws just the code/countdown display without a full render() - a full
+// render() would rebuild the load-code text input too, discarding whatever
+// the player was mid-typing into it every second.
+function updateTransferCountdownUI() {
+  const codeEl = document.getElementById('cloud-transfer-code');
+  const countdownEl = document.getElementById('cloud-transfer-countdown');
+  if (!codeEl || !countdownEl) return; // section not mounted (flag off)
+  if (!activeTransfer) {
+    codeEl.hidden = true;
+    countdownEl.hidden = true;
+    return;
+  }
+  const remainingMs = activeTransfer.expiresAtMs - Date.now();
+  if (remainingMs <= 0) {
+    activeTransfer = null;
+    clearTransferInterval();
+    codeEl.hidden = true;
+    countdownEl.hidden = true;
+    flashStatus('cloud-code-status', 'Code expired - start a new transfer.');
+    return;
+  }
+  codeEl.hidden = false;
+  countdownEl.hidden = false;
+  codeEl.textContent = activeTransfer.code;
+  countdownEl.textContent = `expires in ${Math.ceil(remainingMs / 1000)}s`;
+}
+
+async function handleStartTransfer() {
+  document.getElementById('cloud-code-status').hidden = true;
+  flashStatus('cloud-code-status', 'Starting transfer...');
+  try {
+    const { code, ok } = await startCodeTransfer(state);
+    if (!ok) {
+      flashStatus('cloud-code-status', 'Failed to start transfer - try again.');
+      return;
+    }
+    document.getElementById('cloud-code-status').hidden = true;
+    clearTransferInterval();
+    activeTransfer = { code, expiresAtMs: Date.now() + CODE_TRANSFER_TTL_SECONDS * 1000 };
+    updateTransferCountdownUI();
+    transferIntervalId = setInterval(updateTransferCountdownUI, 1000);
+  } catch {
+    flashStatus('cloud-code-status', 'Failed to start transfer - check your connection.');
+  }
+}
+
+// Imports the loaded save as a brand-new character slot alongside whatever
+// is already on this browser, rather than overwriting anything - lets one
+// browser accumulate characters transferred in from any number of others.
+function importCloudSave(data) {
+  const defaultName = `Imported ${data?.player?.emoji || ''} Lv${data?.player?.level ?? '?'}`.trim();
+  const name = window.prompt('Name this imported character:', defaultName);
+  if (name === null) return false; // cancelled
+  callbacks.onCloudSaveImported(data, name.trim() || defaultName);
+  return true;
+}
+
+async function handleLoadFromCode() {
+  const input = document.getElementById('cloud-code-load-input');
+  const code = input.value.trim().toLowerCase();
+  if (!isValidSaveCode(code)) {
+    flashStatus('cloud-code-status', 'Enter the 4-character code shown on the other device.');
+    return;
+  }
+  flashStatus('cloud-code-status', 'Loading...');
+  try {
+    const data = await loadByCode(code);
+    if (data === null) {
+      flashStatus('cloud-code-status', 'No live transfer for that code - it may have expired.');
+      return;
+    }
+    const imported = importCloudSave(data);
+    flashStatus('cloud-code-status', imported ? 'Imported! Find it on the Character Select screen.' : 'Import cancelled.');
+    input.value = '';
+  } catch {
+    flashStatus('cloud-code-status', 'Load failed - check your connection.');
+  }
 }
 
 function render() {
@@ -88,6 +194,44 @@ function render() {
           ${state.settings.featureFlags?.mechanicExplainersBeta ? 'checked' : ''}
         />
       </div>
+      <div class="settings-row settings-feature-flag">
+        <label for="settings-flag-cloud-save-beta">
+          Cloud Save (beta) — move your character to another computer
+          without copy/pasting a save file
+        </label>
+        <input
+          type="checkbox"
+          id="settings-flag-cloud-save-beta"
+          ${state.settings.featureFlags?.cloudSaveBeta ? 'checked' : ''}
+        />
+      </div>
+      ${state.settings.featureFlags?.cloudSaveBeta ? `
+        <h3>☁️ Cloud Save</h3>
+        <p class="settings-hint">
+          Loading a code adds it as a new character on this browser's
+          Character Select screen - it never overwrites what's already
+          here, so you can pull in as many characters from as many other
+          browsers as you want.
+        </p>
+        <p class="settings-hint">
+          Transfer codes are low-security and short-lived on purpose: a
+          code is only usable for ${CODE_TRANSFER_TTL_SECONDS} seconds
+          after you click Start Transfer, then it's gone - start a new one
+          any time.
+        </p>
+        <div class="settings-row">
+          <button id="btn-cloud-start-transfer">Start Transfer</button>
+          <span id="cloud-transfer-code" class="cloud-save-code" hidden></span>
+          <span id="cloud-transfer-countdown" hidden></span>
+        </div>
+        <div class="settings-row">
+          <input type="text" id="cloud-code-load-input" maxlength="4" placeholder="code from another device" />
+          <button id="btn-cloud-code-load">Load</button>
+        </div>
+        <div class="settings-row">
+          <span id="cloud-code-status" hidden></span>
+        </div>
+      ` : ''}
       ${state.settings.featureFlags?.audioBeta ? `
         <h3>Sound</h3>
         <div class="settings-row">
@@ -145,6 +289,19 @@ function render() {
     };
     callbacks.onChange();
   };
+  document.getElementById('settings-flag-cloud-save-beta').onchange = (e) => {
+    state.settings = {
+      ...state.settings,
+      featureFlags: { ...state.settings.featureFlags, cloudSaveBeta: e.target.checked },
+    };
+    callbacks.onChange();
+    render(); // toggling the flag shows/hides the Cloud Save section immediately
+  };
+  if (state.settings.featureFlags?.cloudSaveBeta) {
+    document.getElementById('btn-cloud-start-transfer').onclick = () => handleStartTransfer();
+    document.getElementById('btn-cloud-code-load').onclick = () => handleLoadFromCode();
+    updateTransferCountdownUI(); // restores an in-progress countdown across a re-render (e.g. toggling another flag)
+  }
   const soundThemeSelect = document.getElementById('settings-sound-theme');
   if (soundThemeSelect) {
     soundThemeSelect.onchange = (e) => {
@@ -172,6 +329,8 @@ export function mount(root, props) {
   rootEl = root;
   state = props.state;
   callbacks = props.callbacks;
+  activeTransfer = null;
+  clearTransferInterval();
   render();
   unbindEscape = bindEscapeClose(() => callbacks.onClose());
   unbindBackdrop = bindBackdropClose(rootEl, () => callbacks.onClose());
@@ -180,4 +339,6 @@ export function mount(root, props) {
 export function unmount() {
   unbindEscape?.();
   unbindBackdrop?.();
+  clearTransferInterval();
+  activeTransfer = null;
 }

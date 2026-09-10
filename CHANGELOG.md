@@ -24,6 +24,30 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Added
+- **Cross-device save sync (Cloud Save), behind a new `cloudSaveBeta`
+  settings flag, off by default.** Settings gets a "Start Transfer"
+  button that generates a 4-character lowercase code and uploads the
+  current character to Cloudflare Workers KV under it
+  (`functions/api/save/code/[code].js`, `js/systems/cloudSave.js`); the
+  code is shown with a live countdown and expires after 60 seconds
+  (KV's own `expirationTtl`, its hard minimum) via a shared per-IP rate
+  limiter (`functions/_shared/rateLimit.js`) - a deliberate one-shot
+  transfer window rather than a standing address, since the code alone
+  is deliberately low-security (no login). Typing a live code into
+  another browser's "Load" field imports it as a brand-new character
+  slot (`importSlot`, `js/systems/saveSlots.js`) alongside whatever's
+  already there, rather than overwriting anything, so any number of
+  browsers' characters can be pulled into one. **Not yet live** - needs
+  a real Cloudflare KV namespace id in `wrangler.toml` (manual setup in
+  the Cloudflare dashboard/CLI, tracked in `docs/superpowers/BACKLOG.md`)
+  before Start Transfer/Load do anything; the flag stays off by default
+  until then.
+- Removed the real AdSense publisher id from `ads.txt` (kept as an empty
+  placeholder file, restorable from a comment inside it) - no AdSense
+  integration is actually wired into the game yet, so there was no
+  reason to ship a live publisher id.
+
 ## [0.26.14] - 2026-09-09
 
 ### Fixed

@@ -1,0 +1,18 @@
+# Cloudflare Pages config - only needed for the cross-device cloud save
+# feature (functions/api/save/), which needs a KV namespace binding that
+# `wrangler pages deploy` has no other way to pick up without this file.
+# The deploy command itself is unchanged (.github/workflows/deploy.yml still
+# runs `wrangler pages deploy dist ...`); wrangler reads this automatically
+# from the repo root.
+#
+# Setup required before Cloud Save works (see docs/superpowers/BACKLOG.md's
+# Cross-device save sync section for the full checklist):
+#   `wrangler login`, then `wrangler kv namespace create SAVES` - paste
+#   the returned id below in place of the placeholder.
+name = "emoji-rpg"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-09"
+
+[[kv_namespaces]]
+binding = "SAVES"
+id = "REPLACE_WITH_REAL_KV_NAMESPACE_ID"

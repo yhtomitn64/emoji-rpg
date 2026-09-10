@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, upsertSlot } from '../js/systems/saveSlots.js';
+import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, upsertSlot, importSlot } from '../js/systems/saveSlots.js';
 import { STORAGE_KEY, serializeState, createNewGame, loadState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION } from '../js/state.js';
 
 function createFakeStorage() {
@@ -142,6 +142,35 @@ test('upsertSlot overwrites an existing entry at the same id instead of duplicat
   assert.equal(slots.length, 1, 'a second upsertSlot at the same id should replace, not add');
   assert.equal(slots[0].level, 10);
   assert.equal(loadState('debug-level10', storage).player.level, 10);
+});
+
+test('importSlot adds a new registry entry using the given state, not a fresh createNewGame', () => {
+  const storage = createFakeStorage();
+  const imported = { ...createNewGame(), player: { ...createNewGame().player, level: 7, gold: 500 } };
+  const { id, state } = importSlot('Imported Hero', imported, storage);
+  assert.equal(state.player.level, 7);
+  const slots = listSlots(storage);
+  assert.equal(slots.length, 1);
+  assert.equal(slots[0].id, id);
+  assert.equal(slots[0].name, 'Imported Hero');
+  assert.equal(slots[0].level, 7);
+  assert.equal(loadState(id, storage).player.gold, 500);
+});
+
+test('importSlot generates a fresh id each call rather than reusing one', () => {
+  const storage = createFakeStorage();
+  const first = importSlot('One', createNewGame(), storage);
+  const second = importSlot('Two', createNewGame(), storage);
+  assert.notEqual(first.id, second.id);
+});
+
+test('importSlot leaves other slots untouched, unlike upsertSlot', () => {
+  const storage = createFakeStorage();
+  const { id: existingId } = createSlot('Existing', DEFAULT_HERO_EMOJI, storage);
+  importSlot('Imported', createNewGame(), storage);
+  const slots = listSlots(storage);
+  assert.equal(slots.length, 2);
+  assert.ok(slots.some((s) => s.id === existingId));
 });
 
 test('upsertSlot leaves other slots untouched', () => {

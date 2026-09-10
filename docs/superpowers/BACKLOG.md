@@ -355,12 +355,13 @@ same-day items below; these are the ones left open):**
   (normalize `rootDir` before the `startsWith` check) but not applied,
   since `tools/dev-server.mjs` is actively being edited in another
   session's performance work. See the Bugs section below.
-- **Cross-device save sync + auth (big idea, not designed), raised
-  2026-09-09** — Timothy wants to load his save on a different computer
-  without manual copy/paste. Storage (Cloudflare Workers KV vs. a GitHub
-  Gist) and auth (Sign in with Apple vs. Google Sign-In vs. no login/
-  device save-code) options discussed but nothing decided or scoped. See
-  the dedicated section near the end of this file.
+- **Cross-device save sync, raised and built 2026-09-09** — one-shot
+  60-second transfer codes (Cloudflare Workers KV, rate-limited), loading
+  a code adds a new character slot rather than overwriting anything.
+  Code written but **not yet deployed** - needs a real KV namespace id in
+  `wrangler.toml` (Timothy's own Cloudflare account/CLI) before it works
+  live. Google Sign-In was scaffolded then deliberately removed the same
+  session. See the dedicated section near the end of this file.
 
 ## Story / narrative
 
@@ -2429,47 +2430,79 @@ Chrome DevTools Performance recording, before/after, to confirm the
 everything from source reading the way this session had to on the work
 machine.
 
-## Cross-device save sync (big idea — not designed), raised 2026-09-09
+## Cross-device save sync, raised 2026-09-09
 
-Timothy wants to load his character on a different computer without
-manually copy/pasting the save JSON between them. Big idea, not
-scoped/designed yet - captured here so it isn't lost.
+Timothy wanted to load his character on a different computer without
+manually copy/pasting the save JSON between them. Discussed several
+storage/auth options (Cloudflare Workers KV vs. GitHub Gist; Sign in with
+Apple - $99/year Apple Developer membership required, ruled out - vs.
+Google Sign-In vs. no login), then **built and scoped down the same
+session**, ending on a code-transfer-only design. Code below is written
+but **not yet deployed live** - see the setup checklist at the bottom.
 
-**Storage options discussed:**
-- **Cloudflare Workers KV**, since the game already deploys to Cloudflare
-  Pages (`.github/workflows/deploy.yml`) - free tier (100k reads/day, 1k
-  writes/day, no card required) covers this easily. Add a Pages Function
-  doing `GET`/`PUT /save/:code`, storing the save blob keyed by a
-  short code. Tradeoff: KV is eventually consistent (fine for "load on a
-  different machine now and then," not for two tabs staying live-synced).
-- **GitHub Gist as storage** (private gist, PAT scoped to `gist`, written
-  from client JS) - zero new infra/account, but gists aren't built for
-  this (rate limits, no real query capability) - lower effort, worse fit.
+**Shipped design:** a one-shot "Start Transfer" flow, not a standing
+save-slot address:
+- Settings (behind the `cloudSaveBeta` flag, same pattern as
+  `audioBeta`/`mechanicExplainersBeta`) has a "Start Transfer" button.
+  Clicking it generates a fresh 4-character lowercase code
+  (`generateSaveCode`, `js/systems/cloudSave.js`) and PUTs the current
+  character to Cloudflare Workers KV under it
+  (`functions/api/save/code/[code].js`), showing the code with a live
+  countdown.
+- The other browser types that code into a "Load" field. A successful
+  load **adds the character as a brand-new slot** (`importSlot`,
+  `js/systems/saveSlots.js`) rather than overwriting anything already on
+  that browser - raised mid-build: "be cool to do this in a way that you
+  can transfer from whatever number of other browsers you want and it
+  just adds all the characters to your list." No page reload needed,
+  since it never touches the live in-memory game state.
+- **The code is only live for 60 seconds** after Start Transfer, enforced
+  server-side via KV's own `expirationTtl` (its own hard minimum, not a
+  chosen default) - raised mid-build after Timothy flagged that an
+  unauthenticated, indefinitely-guessable 4-char code (36^4 ≈ 1.68M
+  combinations) is a real griefing vector ("someone could just make some
+  sort of script that keeps hitting our save/load thing until they find
+  one and then delete everyones character"). Combined with a per-IP rate
+  limiter (`functions/_shared/rateLimit.js`, ~20 req/min, backed by the
+  same KV namespace) shared across both routes, a code is only guessable
+  during the narrow window someone happens to have an active transfer
+  running, not ever. This isn't a hard security boundary (KV reads/writes
+  aren't atomic, so a fast concurrent burst can slip a few requests past
+  the counter, and a many-IP distributed attacker isn't slowed at all) -
+  it's a deterrent sized to "keep a casual single-script sweep
+  impractical," matching how low-stakes this feature actually is.
+- Deliberately **no exclusion of visually-similar characters** (0/o, 1/l)
+  in the code alphabet - matches exactly what was asked for rather than
+  second-guessing it.
 
-**Auth options discussed** (Timothy specifically asked about "Sign in
-with Apple" so he can hide his email, and what else is comparable):
-- **"Sign in with Apple"** — free to use, and its private-relay email
-  (Apple can issue a per-app forwarding address instead of the user's
-  real one) is exactly the "hide my email" behavior Timothy asked about.
-  The catch: it requires an active **Apple Developer Program
-  membership, $99/year**, plus registering the game as an app-ish entity
-  in Apple's developer portal (a Services ID + a device-verified domain)
-  even though the game itself stays a plain website with no App Store
-  listing. That's a real recurring cost/setup burden for a solo personal
-  project, not a quick hookup - worth being explicit about before
-  picking it.
-- **Google Sign-In** — genuinely free, no paid developer account
-  required, similarly one-click. Google's own email-hiding equivalent
-  (Hide My Email-style relay) isn't offered the way Apple's is, though a
-  player could get similar privacy by just using a Google account they
-  don't mind exposing, or a throwaway one.
-- **No login at all - device-generated save code** — skip third-party
-  auth entirely: generate a random code (or let the player set one)
-  client-side, show it once, and that code alone is both the KV key and
-  the "auth." Weakest security (anyone with the code can read/overwrite
-  that save) but zero integration cost and matches "personal project,
-  not multiplayer" stakes - probably the right starting point before
-  investing in a real auth provider at all.
+**Google Sign-In was scaffolded then removed the same session** (verified
+server-side via Google's tokeninfo endpoint, `sub`-keyed KV storage,
+Google Identity Services button) - Timothy: "I think we can remove the
+google thing for now as well... don't want to load google stuff if we
+don't need to at this point." Fully deleted, not just disabled - no
+Google script/endpoint is reachable from anything currently shipped.
+Revisit if a real cross-browser-without-typing-anything option is wanted
+later; the removed design (client `saveByGoogle`/`loadByGoogle`/
+`renderGoogleSignInButton`, function `functions/api/save/google.js`) is
+recoverable from this session's history if needed, but nothing here
+depends on it existing.
 
-Not started - needs a design pass to actually pick between these before
-building anything.
+**Also cleaned up the same session, at Timothy's request:** `ads.txt`'s
+real AdSense publisher ID (`pub-1050250477422916`) was cleared to an
+empty placeholder file - no AdSense integration is actually wired into
+the game (see the AdSense backlog entry below, still not started), so
+there was no reason to keep a live publisher ID sitting in a deployed
+file. The real line is preserved in a comment in `ads.txt` itself to
+restore if/when AdSense actually ships.
+
+**Setup still required before this works live** (nothing below needs
+more code, just Cloudflare dashboard/CLI steps in Timothy's own account -
+not something this session could do without his credentials):
+1. `wrangler login`, then `wrangler kv namespace create SAVES` - paste
+   the returned id into `wrangler.toml` in place of
+   `REPLACE_WITH_REAL_KV_NAMESPACE_ID`.
+2. Push/deploy once that's filled in. Until then the wrangler.toml in the
+   repo has a placeholder KV id, which is why it wasn't pushed to `main`
+   as part of this session's work - an invalid KV id could plausibly fail
+   `wrangler pages deploy` outright and break the live deploy pipeline
+   for everything, not just this feature.

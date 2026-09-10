@@ -59,6 +59,7 @@ const DEFAULT_AUDIO_SETTINGS = {
 const DEFAULT_FEATURE_FLAGS = {
   audioBeta: false,
   mechanicExplainersBeta: false,
+  cloudSaveBeta: false,
 };
 
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {

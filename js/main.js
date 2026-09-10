@@ -70,7 +70,7 @@ import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
-import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave } from './systems/saveSlots.js';
+import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, importSlot } from './systems/saveSlots.js';
 import { applyDebugCharacterFromUrl } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
 import { pickVariantOverrides } from './systems/monsterVariants.js';
@@ -416,6 +416,13 @@ function openSettings() {
           unlockAudio(); // openSettings only ever runs from a real click, so this satisfies the browser's autoplay-gesture requirement too.
         }
         syncAudioSettings(state.settings);
+      },
+      // Adds the loaded save as a brand-new slot (js/systems/saveSlots.js)
+      // rather than touching the current slot or live in-memory `state` -
+      // purely additive, so it doesn't disturb whatever's being played
+      // right now and needs no reload.
+      onCloudSaveImported: (data, name) => {
+        importSlot(name, data);
       },
       onClose: () => unmountOverlay(),
     },

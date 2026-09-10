@@ -1,1 +1,9 @@
-google.com, pub-1050250477422916, DIRECT, f08c47fec0942fa0
+# Intentionally empty for now - no ad network is actually integrated into
+# the game yet (see "Google AdSense for in-game ad revenue" in
+# docs/superpowers/BACKLOG.md, still back-burner/not started). Cleared
+# 2026-09-09 at Timothy's request while removing the Google Sign-In cloud
+# save option, to avoid carrying a live AdSense publisher ID for an
+# integration that isn't wired up. Kept as an empty file, not deleted,
+# since .github/workflows/deploy.yml's "Stage deployable files" step
+# unconditionally copies it - add the real "google.com, pub-..., DIRECT,
+# f08c47fec0942fa0" line back here if/when AdSense actually ships.
