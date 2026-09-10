@@ -116,7 +116,7 @@ of the three-session balance queue above — separate initiative):**
 - **Discoverability / monetization** — AdSense (blocked on Google review; placement plan already decided); Cloudflare traffic analytics (waiting on a token from Timothy); opt-in gameplay analytics + local play-data export (not designed, tied to the same difficulty-by-tool-gate tuning question).
 - **Input / accessibility** — controller support, raw idea, not investigated.
 - **Quests / economy** — manual sell-materials path still deferred (no real pain yet); **excess-gold sink resolved** — buff potions (10-item roster + loadout + battle quick-select) shipped 2026-08-31 as 0.15.0 as the answer. NG+-scaled purchasable store gear considered for the same gap and explicitly deferred (needs a rule for staying below earned/reforged gear first). **New big thread, raised 2026-09-07 (hold for playthrough feedback):** loot/gold/gear economy rework - cap smith upgrade levels per NG+ cycle tighter than today, gate the quest board + blacksmith behind story progress (a rescue-the-blacksmith beat behind the axe/mountain, with a broken/lost sign as the map breadcrumb), merge the quest-giver and blacksmith into one NPC, tier loot drops by enemy strength with more drops overall, halve gold from weak enemies. Timothy's doing a full playthrough first before committing to the structural pieces - see the full Loot/gold/gear economy rework entry in the Quests / economy section below. The quest board's own "auto-grant + flying items + townsfolk NPC" visual polish (originally being brainstormed this same session) is paused, tangled up in whether the quest board survives this redesign in its current form.
-- **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**, but gated off by default behind a visible Settings "🚧 Feature Flags" → `audioBeta` checkbox since no real audio assets exist yet. Asset sourcing in progress on Timothy's home machine (ACE-Step for music, Stable Audio 3 Small SFX + CC0 libraries for SFX). Still open: wiring the rest of the sound catalog into gameplay (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. See the section below for full detail and doc pointers.
+- **Audio / sound** — full Web Audio engine (SFX + music crossfade + category volume/mute + theming) **shipped 2026-09-03 (0.20.0)**; **first real audio assets shipped 2026-09-10 (0.31.0)** — 21 clips covering the basic attack hit, all four ability swings, Faultline's own per-enemy impact, and a battle-start stinger, plus `SOUND_VARIANTS` rotation so a repeated sound doesn't replay one identical file. Still gated off by default behind the Settings "🚧 Feature Flags" → `audioBeta` checkbox. Still open: **only 7 of ~55 catalogued sounds have audio** (music generated but none picked; 4 sounds want CC0 curation not generation; `eliteEncounterSting`/`celebrationGeneric` have no candidates yet), **the shipped ability sounds are 1.0s and want re-rendering to 250-500ms** for combat that fast, Lacerate's 8 takes mix three styles and want narrowing to one, wiring the rest of the catalog into gameplay call sites (menu/dialog/potion/walking/parry/timing/discovery/elite/area-music — deliberately deferred past the first plan), additional themes (metal/symphony/chiptune — plumbing ready, no content), a `playMusic` re-entrancy fix needed before area-music transitions ship, and flipping the flag's default on only after Timothy's own playthrough with real sound. Generation/audition tooling lives in its own repo at `C:/Users/tim/git/emoji-rpg-audio` (see its `HANDOFF.md`). See the section below for full detail and doc pointers.
 - ~~**Ability global-cooldown rework**~~ — **shipped 2026-09-03/04 (0.23.0, graduated per-ability cooldowns in 0.23.1)**, stale "not yet executed" note found while doing an unrelated backlog pass 2026-09-04. Removed the player ATB "swing timer" gate on abilities 1-4 in favor of a shared, speed-scaled global cooldown (Attack's own decay system, monster ATB, Super Scream, Lacerate's retrigger, and parry all left untouched, as planned). See `docs/superpowers/plans/2026-09-03-ability-gcd-rework.md` (spec: `docs/superpowers/specs/2026-09-03-ability-gcd-rework-design.md`) for the original design; same underlying idea as the "Slower combat / reconsider the timing-minigame layer" bullet in Combat pass ideas above.
 - ~~**Bug raised 2026-09-03**~~ — **investigated 2026-09-07, confirmed not a bug.** An old save (level 11) shows far more smith-upgrade levels available than expected before max level. See "Bugs / open questions, raised 2026-09-03" below for the finding.
 - ~~**Smith screen doesn't show the player's current NG+ cycle**~~ — **shipped 2026-09-07 (0.26.7)**, surfaced by the investigation above. Reuses the Stats panel's own `.ngplus-badge`. See "Bugs / open questions, raised 2026-09-03" below.
@@ -2382,16 +2382,74 @@ hit sound, a non-idempotent theme switch wiping the buffer cache on
 every settings change, redundant concurrent fetches on AOE hits) —
 none of it ever shipped live, all fixed before the first push.
 
-**Sourcing real audio — in progress, happening on Timothy's home
-RTX 5090 machine, not this repo.** Plan: curate hits/footsteps/UI/
-potion sounds from CC0 libraries (Kenney.nl, Freesound, OpenGameArt) —
-diffusion models are weak at sharp percussive transients, a real
-recorded sample beats a generated one there. Generate the 4(+ area)
-music loops with ACE-Step 1.5, and experiment with bespoke one-off SFX
-using Stable Audio 3 Small SFX (the closest thing found to a real
-upgrade over general text-to-audio for impact sounds specifically).
-Full catalog with per-sound prompt ideas in the asset-catalog-handoff
-doc above.
+**Sourcing real audio — first assets shipped 2026-09-10 (0.31.0), the
+rest still in progress on Timothy's home RTX 5090 machine.** Plan:
+curate hits/footsteps/UI/potion sounds from CC0 libraries (Kenney.nl,
+Freesound, OpenGameArt) — diffusion models are weak at sharp percussive
+transients, a real recorded sample beats a generated one there.
+Generate the 4(+ area) music loops with ACE-Step 1.5, and experiment
+with bespoke one-off SFX using Stable Audio 3 Small SFX (the closest
+thing found to a real upgrade over general text-to-audio for impact
+sounds specifically). Full catalog with per-sound prompt ideas in the
+asset-catalog-handoff doc above.
+
+**Shipped 2026-09-10 (0.31.0)** — 21 clips for 7 of the ~55 catalogued
+sounds: the basic attack hit, all four ability swings, Faultline's own
+`abilitySweepImpact`, and a battle-start stinger. Plus `SOUND_VARIANTS`,
+which lets one sound id carry several takes that playback rotates
+between (never the same take twice in a row) — `hitNormal` fires
+constantly and one sample on a loop is the classic giveaway.
+
+Two findings from that session worth not rediscovering:
+- **Never ask the model for a sub-second clip directly.** Requesting
+  0.25s from Stable Audio 3 produces aliased garbage — described at the
+  time as "compressed", "old modems", "computery". Generate at ~3s and
+  hard-trim afterward; only the trim length should vary.
+- **EzAudio was evaluated and rejected for this use.** MIT-licensed and
+  it benchmarks well on general text-to-audio, but it's trained on
+  AudioCaps-style ambient content rather than foley, and its output for
+  punchy combat transients was bad even after the duration bug above was
+  fixed. Stable Audio 3 Small SFX's ~1.28M real recorded foley samples
+  are the reason it wins here. Don't re-run that experiment without a
+  new reason.
+
+Tooling for all of this lives outside this repo, in its own local git
+repo at `C:/Users/tim/git/emoji-rpg-audio`: catalog-driven generators
+keyed off this repo's own `soundManifest.js` sound ids, a browser
+audition tool (listen through candidates grouped by the sound the game
+needs, Yes/No/★ tracking that auto-saves to disk), and an installer that
+converts picks to mp3 and drops them into `assets/audio/` under the
+filenames the manifest expects. Its `HANDOFF.md` is the entry point.
+
+**Open audio follow-ups, raised 2026-09-10:**
+- **Re-render the shipped ability sounds shorter.** They went out at
+  1.0s, generated long deliberately so the different style directions
+  were distinguishable while picking. Combat is much faster than that —
+  Timothy's own steer was under a second, ideally 250-500ms — so they
+  likely read as sluggish in real fights. Faultline is the sharpest
+  case: it resolves as a staggered walk across every living enemy
+  (`SWEEP_STAGGER_MS`, 260ms apart), so its per-enemy impact has to be
+  shorter than that or consecutive hits smear together. The generator
+  takes `--duration`, so re-rendering the same picks shorter is one
+  command.
+- **Narrow Lacerate to one style.** `abilitySwingSlash` shipped with 8
+  takes mixing three different sonic directions (two older generic ones
+  plus "visceral" and "flesh" from the style matrix). Rotation across
+  inconsistent takes can read as incoherent rather than varied.
+- **Pick the remaining ~48 sounds.** Only 7 of the catalogue have any
+  chosen audio. Two ids have no generated candidates at all under the
+  current model — `eliteEncounterSting` and `celebrationGeneric`, both
+  added to the manifest after the original prompt catalog was written.
+- **Curate the four CC0 sounds** the asset-catalog doc deliberately
+  excludes from generation: `itemPickupCommon`, `questTurnIn`,
+  `shopTransaction`, `walking`.
+- **Music is generated but none is picked or installed.** 20 ACE-Step
+  candidates exist for each of the 9 themes. Open design question raised
+  while listening: regular battles are short and boss fights are long,
+  so a player may never hear a whole battle track. Suggested direction —
+  write `battleTheme` as a short seamless loop built to repeat and save
+  the long-form structure for `bossBattleTheme`, rather than lengthening
+  regular battles to fit the music.
 
 **Still open once assets exist:**
 - Flip Timothy's own `audioBeta` flag on, playthrough with real sound,
