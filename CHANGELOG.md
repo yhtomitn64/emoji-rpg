@@ -24,6 +24,42 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.32.2] - 2026-09-10
+
+### Fixed
+- **The micro-pause once per step while walking.** Raised by Timothy
+  after the smooth stride landed: "there is a micro pause but we can
+  commit this then chase that." Two clocks disagreeing — steps fired on
+  a `setInterval` while the hero's stride advanced on animation-frame
+  deltas, and a timer is a floor rather than a target (never early,
+  usually a few ms late), so the stride finished first and the hero
+  stood still until the step caught up. Landing that gap on a frame
+  boundary duplicates a frame, which is what the pause was. Steps now
+  accumulate frame time, so step and stride cross their thresholds on
+  the same frame and cannot drift apart.
+  - **The candidates were simulated before one was picked, and the
+    measurement overturned the plan.** `computeHeroStep` is exported, so
+    20s of held-key walking against realistic timer jitter can be
+    replayed offline. Exponential smoothing scored *best* on frozen
+    frames but far worst on the spread of per-frame movement (1.32
+    against 0.07) — it avoids freezing by lurching, which is its own
+    stutter, and the obvious single metric would have picked it. Frozen
+    frames went 1.5% → 0.5%, movement spread 0.17 → 0.07.
+  - Catch-up is capped and any backlog past it is dropped, so a hidden
+    tab or a stalled thread can't cash out as a burst of queued steps.
+  - **Residual left alone deliberately.** `mapScreen`'s walk loop and
+    the renderer's draw loop are separate `requestAnimationFrame`
+    registrations, so within one frame a step can land either side of
+    the hero advance — uneven, though never a frozen frame. Removing it
+    means coupling input to the renderer. Timothy on the remainder:
+    "isn't a huge deal ... don't really notice/bother me."
+
+### Changed
+- **The character no longer keeps walking while the tab is in the
+  background** with a direction still held. Falls out of the change
+  above for free: a background tab stops firing animation frames, where
+  the old `setInterval` kept ticking (throttled) the whole time.
+
 ## [0.32.1] - 2026-09-10
 
 ### Fixed

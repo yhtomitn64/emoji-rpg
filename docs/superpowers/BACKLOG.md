@@ -332,25 +332,32 @@ same-day items below; these are the ones left open):**
   in, so this should be designed *after* those two ship and reconcile
   against whatever rates they settle on, not compound blindly on top of
   today's numbers).
-- **Micro-pause once per step while walking, raised 2026-09-10 (0.30.0).**
-  Timothy, after the walk-cadence and hero-stride work landed: "there is
-  a micro pause but we can commit this then chase that." Diagnosed but
-  not yet fixed. The walk timer is a `setInterval` at
-  `WALK_REPEAT_INTERVAL_MS` (110ms) while the hero's stride crosses a
-  tile in *exactly* that same 110ms, so the two are tuned to arrive
-  together — but `setInterval` drifts by a few ms under load, and
-  whenever a step lands late the hero has already arrived and sits still
-  until it does. Early steps are fine (the stride just re-targets
-  mid-move); it's specifically lateness that shows. Candidate fixes, in
-  rough order of preference: drive the walk step from the render loop's
-  own clock with a time accumulator so steps and interpolation share one
-  timebase and can't drift apart (cleanest, but couples input to the
-  renderer, which the DOM renderer and the jsdom tests don't have); or
-  make the stride duration adaptive by measuring the actual gap between
-  steps rather than assuming the nominal one; or let the hero keep a
-  small deliberate lag so it never fully arrives and therefore never
-  pauses. Worth measuring which is actually visible before building the
-  most involved one.
+- ~~**Micro-pause once per step while walking, raised 2026-09-10.**~~ —
+  **mostly fixed 2026-09-10 (0.32.2), residual accepted.** The cause was
+  two clocks disagreeing: steps fired on a `setInterval` while the
+  hero's stride advanced on animation-frame deltas, and since a timer is
+  a floor rather than a target (never early, usually a few ms late) the
+  stride finished first and the hero stood still waiting. Steps now
+  accumulate frame time instead, so step and stride cross their
+  thresholds on the same frame and can't drift apart.
+  - **Candidates were simulated before picking one**
+    (`computeHeroStep` is exported, so 20s of held-key walking against
+    realistic timer jitter can be replayed offline) and the measurement
+    overturned the plan. Exponential smoothing scored *best* on frozen
+    frames but far worst on the spread of per-frame movement (1.32
+    against 0.07): it avoids freezing by lurching, which is its own
+    stutter. Frozen frames went 1.5% → 0.5% and movement spread 0.17 →
+    0.07. Worth repeating that trick before optimising anything in this
+    loop again — the obvious single metric picked the wrong design.
+  - **Residual, deliberately not chased:** `mapScreen`'s walk loop and
+    the renderer's draw loop are two separate `requestAnimationFrame`
+    registrations, so within one frame a step can land either side of
+    the hero advance. It doesn't freeze a frame, but it does make that
+    frame's movement slightly uneven. Removing it means merging the two
+    loops, i.e. real coupling between input and renderer. Timothy on the
+    remainder: "there is still some microstutter which isn't a huge deal
+    ... don't really notice/bother me." Left alone on purpose; revisit
+    only if it ever becomes noticeable.
 - ~~**Map render performance, raised 2026-09-09.**~~ — **canvas rewrite
   shipped 2026-09-10 (0.28.0)**. Two DOM-side passes (0.26.13's diffed
   `render()`, then a transform-based cluster-anchored camera) got real

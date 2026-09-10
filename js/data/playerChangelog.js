@@ -5,6 +5,14 @@
 // or care about while playing. Keep it in sync manually: add a new entry
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
+  {
+    version: '0.32.2',
+    date: '2026-09-10',
+    highlights: [
+      'Changed: walking is a little smoother again - there was a tiny hitch on every step, caused by the character finishing its step slightly before the game asked for the next one.',
+      'Fixed: your character no longer keeps walking while you\'re on another tab with a direction key held down.',
+    ],
+  },
   // Internal-only fix, which normally wouldn't appear here at all (see this
   // file's header). It gets an entry because tests/versionSync.test.js
   // requires the newest dated CHANGELOG.md version to have a matching one,

@@ -41,7 +41,13 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // genuinely asleep here are enough to starve other timing-sensitive suites
 // (caught making an unrelated battle test flake). mount() takes the cadence as
 // a prop for exactly this reason.
-const INTERVAL_MS = 25;
+//
+// Kept comfortably above one animation frame: steps are paced by accumulated
+// frame time now (see the walkFrame comment in mapScreen.js), and jsdom's own
+// frames land around 16ms, so a cadence near that would quantise unevenly and
+// make the step counts below jittery for reasons that have nothing to do with
+// the behavior under test.
+const INTERVAL_MS = 50;
 
 async function mountPlains() {
   const { mount } = await import('../js/screens/mapScreen.js');
@@ -248,6 +254,29 @@ test('mapWalk - a held key never outlives the screen', async (t) => {
     resume();
     await wait(INTERVAL_MS * 4);
     assert.equal(moves.length, 1, 'resuming must wait for a real keypress, not resume a stale held key');
+  });
+
+  // Steps are paced by accumulated animation-frame time, so a long gap with a
+  // key still held (a hidden tab, a stalled thread) builds up a backlog. It
+  // must not cash out as a burst of queued steps when frames resume - that
+  // would teleport the character several tiles the moment you came back.
+  await t.test('a long stall does not cash out as a burst of catch-up steps', async () => {
+    const { state, moves } = await mountPlains();
+    const startX = state.position.x;
+    keydown('ArrowRight');
+    const afterFirst = moves.length;
+
+    // Frames stop entirely for far longer than the cadence, then resume.
+    const raf = global.requestAnimationFrame;
+    global.requestAnimationFrame = () => 0;
+    await wait(INTERVAL_MS * 8);
+    global.requestAnimationFrame = raf;
+    await wait(INTERVAL_MS * 2);
+    keyup('ArrowRight');
+
+    const stepsTaken = moves.length - afterFirst;
+    assert.ok(stepsTaken <= 6, `expected the backlog to be dropped, not replayed - took ${stepsTaken} steps`);
+    assert.ok(state.position.x - startX <= 7, 'the character must not teleport on catching up');
   });
 
   await t.test('unmount() stops the walk, so a timer cannot outlive the screen', async () => {
