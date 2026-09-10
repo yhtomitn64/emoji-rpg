@@ -364,11 +364,15 @@ same-day items below; these are the ones left open):**
   described). `npm run test` is fully green (1031/1031). See the Bugs
   section below for the original diagnosis.
 - ~~**Cross-device save sync, raised and built 2026-09-09**~~ **Shipped
-  2026-09-09 (0.27.0)** — one-shot 60-second transfer codes (Cloudflare
-  Workers KV, rate-limited), loading a code adds a new character slot
-  rather than overwriting anything. Google Sign-In was scaffolded then
-  deliberately removed the same session. See the dedicated section near
-  the end of this file for the full history.
+  2026-09-09 (0.27.0, follow-up in 0.27.2)** — one-shot 60-second
+  transfer codes (Cloudflare Workers KV, rate-limited), loading a code
+  adds a new character slot rather than overwriting anything. Google
+  Sign-In was scaffolded then deliberately removed the same session.
+  0.27.2 added the same import flow to Character Select itself (no need
+  to start a throwaway character first) and same-character detection via
+  a new `characterId` (offers to overwrite in place instead of always
+  duplicating). See the dedicated section near the end of this file for
+  the full history.
 
 ## Story / narrative
 
@@ -2631,3 +2635,38 @@ obstacle overlap, portal shadow, and level-up/well-heal/portal-pull
 effect currently implemented as DOM/CSS would need reimplementing as
 draw calls). Worth treating as its own planned task rather than a
 continuation of this session's experiment-and-revert cycle.
+
+**Follow-up, same session, shipped 2026-09-09 (0.27.2):**
+- **Import from Code added to the Character Select screen itself**
+  (`js/screens/startScreen.js`), not gated behind `cloudSaveBeta` - that
+  flag lives on a character's own `state.settings`, which doesn't exist
+  yet at this screen. Raised: "we should probably wire up our save
+  loading to the landing page of the game so that someone doesn't have
+  to start a new character just to import their other one." Shares its
+  overwrite/new-slot decision logic with Settings' own import via one
+  `handleCloudSaveImport` function in `js/main.js`, rather than
+  duplicating it.
+- **Same-character detection**, raised the same session immediately
+  after: "what if you import characters with the same name? how do we
+  know it's the same character. I think we should offer to overwrite or
+  rename." Display names were never a reliable way to answer that (two
+  different characters can share one, and the same character's name can
+  change) - solved with a stable `characterId` (`js/state.js`,
+  `crypto.randomUUID()`, assigned once at `createNewGame()` and via a
+  `migrateCharacterId` migration for existing saves) that travels with
+  the save through export/import untouched. `findSlotByCharacterId`
+  (`js/systems/saveSlots.js`) checks incoming imports against it: a real
+  match offers (`window.confirm`) to overwrite that exact local slot in
+  place; declining, or no match at all, falls through to the existing
+  "name a new slot" prompt, where typing something other than the
+  suggested default name *is* the rename option.
+- `generateCharacterId` deliberately uses `crypto.randomUUID()`, not the
+  `Math.random()`-based pattern `generateSlotId`/`randomSessionId`
+  already use elsewhere in this codebase - `createNewGame()` runs inside
+  plenty of existing tests that mock `Math.random` with an exact
+  scripted sequence for deterministic RNG assertions, and the first
+  attempt (a `Math.random()`-based id) silently shifted every roll after
+  it by one, breaking several unrelated-looking `mapScreenDom.test.js`
+  tests. Caught by running the full suite before pushing, not by
+  inspection - worth remembering next time something gets added inside
+  `createNewGame()`.

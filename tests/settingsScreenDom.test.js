@@ -221,4 +221,94 @@ test('settingsScreen DOM', async (t) => {
     assert.equal(state.settings.featureFlags.mechanicExplainersBeta, true);
     assert.equal(changed, true);
   });
+
+  await t.test('the Cloud Save section is hidden until the cloudSaveBeta flag is enabled', async () => {
+    const state = createNewGame();
+    const root = await mountSettings(state);
+    assert.equal(root.querySelector('#btn-cloud-start-transfer'), null);
+  });
+
+  await t.test('checking the cloudSaveBeta flag reveals the Cloud Save section', async () => {
+    const state = createNewGame();
+    const root = await mountSettings(state, { onChange: () => {}, onClose: () => {} });
+    const checkbox = root.querySelector('#settings-flag-cloud-save-beta');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(state.settings.featureFlags.cloudSaveBeta, true);
+    assert.ok(root.querySelector('#btn-cloud-start-transfer'));
+  });
+
+  await t.test('Start Transfer shows the generated code and a countdown on success', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ ok: true, expiresInSeconds: 60 }) });
+    try {
+      const state = createNewGame();
+      state.settings.featureFlags.cloudSaveBeta = true;
+      const root = await mountSettings(state);
+      click(root.querySelector('#btn-cloud-start-transfer'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const codeEl = root.querySelector('#cloud-transfer-code');
+      assert.equal(codeEl.hidden, false);
+      assert.match(codeEl.textContent, /^[a-z0-9]{4}$/);
+      assert.equal(root.querySelector('#cloud-transfer-countdown').hidden, false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('Load with an invalid code shows a format error and never calls fetch', async () => {
+    const originalFetch = globalThis.fetch;
+    let fetchCalled = false;
+    globalThis.fetch = async () => { fetchCalled = true; return { ok: true, status: 200, json: async () => ({}) }; };
+    try {
+      const state = createNewGame();
+      state.settings.featureFlags.cloudSaveBeta = true;
+      const root = await mountSettings(state);
+      root.querySelector('#cloud-code-load-input').value = 'ab';
+      click(root.querySelector('#btn-cloud-code-load'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fetchCalled, false);
+      assert.match(root.querySelector('#cloud-code-status').textContent, /4-character code/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('Load with a valid, live code hands the loaded data to onCloudSaveImported', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ data: { player: { level: 5 } } }) });
+    try {
+      const state = createNewGame();
+      state.settings.featureFlags.cloudSaveBeta = true;
+      let importedData = null;
+      const root = await mountSettings(state, {
+        onChange: () => {},
+        onClose: () => {},
+        onCloudSaveImported: (data) => { importedData = data; return { imported: true, mode: 'new', name: 'Imported Hero' }; },
+      });
+      root.querySelector('#cloud-code-load-input').value = 'ab12';
+      click(root.querySelector('#btn-cloud-code-load'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.deepEqual(importedData, { player: { level: 5 } });
+      assert.match(root.querySelector('#cloud-code-status').textContent, /Imported as "Imported Hero"/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('Load with a code that has expired (404) shows an expired message', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({ error: 'not found' }) });
+    try {
+      const state = createNewGame();
+      state.settings.featureFlags.cloudSaveBeta = true;
+      const root = await mountSettings(state);
+      root.querySelector('#cloud-code-load-input').value = 'ab12';
+      click(root.querySelector('#btn-cloud-code-load'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.match(root.querySelector('#cloud-code-status').textContent, /expired/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

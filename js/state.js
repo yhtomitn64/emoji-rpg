@@ -62,8 +62,31 @@ const DEFAULT_FEATURE_FLAGS = {
   cloudSaveBeta: false,
 };
 
+// Deliberately crypto.randomUUID(), not the Math.random()-based pattern
+// generateSlotId (js/systems/saveSlots.js) and randomSessionId
+// (js/systems/telemetry.js) use - createNewGame() runs inside plenty of
+// existing tests that mock Math.random with an exact scripted sequence for
+// deterministic RNG assertions (discovery rolls, encounter rolls, etc.);
+// consuming one of those calls here shifted every roll after it by one and
+// broke several unrelated-looking tests the first time this was tried.
+// randomUUID() sidesteps that entirely by never touching Math.random.
+// Available in both this project's runtime targets: Node 19+ (CI runs 22)
+// and any real browser in a secure context, which https://rpg.burghertime.com
+// and a localhost dev server both are.
+function generateCharacterId() {
+  return crypto.randomUUID();
+}
+
 export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePosition = DEFAULT_DUNGEON_ENTRANCE_POSITION) {
   return {
+    // A stable identity that travels with the save through cloud-save
+    // export/import (js/systems/cloudSave.js) - never regenerated once set,
+    // unlike the slot id (js/systems/saveSlots.js), which is local to one
+    // browser's save list. Lets a re-import of the same character be
+    // recognized as an update to an existing local slot instead of always
+    // creating a duplicate - see migrateCharacterId below and
+    // findSlotByCharacterId in saveSlots.js.
+    characterId: generateCharacterId(),
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
     equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
     upgrades: {},
@@ -225,6 +248,19 @@ export function migrateFeatureFlags(state) {
       featureFlags: { ...DEFAULT_FEATURE_FLAGS, ...state.settings.featureFlags },
     },
   };
+}
+
+// One-time migration for saves from before characterId existed (raised
+// 2026-09-09 while building cloud-save import: "what if you import
+// characters with the same name? how do we know it's the same character" -
+// display names aren't reliable/unique, this id is). A save that predates
+// this field gets one assigned the first time it's loaded; an exported
+// save from before this migration ever ran simply has no characterId at
+// all, so findSlotByCharacterId (saveSlots.js) never matches it against
+// anything - it just imports as a new slot, same as it always did.
+export function migrateCharacterId(state) {
+  if (state.characterId) return state;
+  return { ...state, characterId: generateCharacterId() };
 }
 
 export function serializeState(state) {

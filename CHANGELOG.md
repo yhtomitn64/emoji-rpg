@@ -24,6 +24,27 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-09-09
+
+### Added
+- **Import from Code on the Character Select screen**, not gated behind
+  `cloudSaveBeta` (that flag lives on a character's own save data, which
+  doesn't exist yet at this screen) - raised same session: "someone
+  doesn't have to start a new character just to import their other one."
+  Reuses `loadByCode` (`js/systems/cloudSave.js`); wiring shared with
+  Settings' own cloud-save import via one `handleCloudSaveImport`
+  function in `js/main.js` rather than duplicated logic.
+- **Every character now carries a stable `characterId`** (`js/state.js`,
+  `crypto.randomUUID()`, migrated onto existing saves via
+  `migrateCharacterId`) that travels with it through cloud-save
+  export/import. Raised same session: "what if you import characters
+  with the same name? how do we know it's the same character." Importing
+  a code whose `characterId` matches a slot already on this browser now
+  offers to overwrite that exact slot in place instead of blindly
+  creating a duplicate; declining (or no match) falls through to naming
+  a new slot as before, where typing a different name than the suggested
+  default is the "rename" option.
+
 ## [0.27.1] - 2026-09-09
 
 ### Changed

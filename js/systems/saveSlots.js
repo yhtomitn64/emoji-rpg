@@ -1,4 +1,4 @@
-import { createNewGame, saveState, slotSaveKey, STORAGE_KEY, deserializeState, DEFAULT_HERO_EMOJI } from '../state.js';
+import { createNewGame, saveState, loadState, slotSaveKey, STORAGE_KEY, deserializeState, DEFAULT_HERO_EMOJI } from '../state.js';
 
 const SLOTS_KEY = 'emoji-rpg-slots';
 
@@ -45,6 +45,27 @@ export function importSlot(name, state, storage = globalThis.localStorage) {
   writeRegistry(entries, storage);
   saveState(state, id, storage);
   return { id, state };
+}
+
+// Finds an existing local slot whose save carries the same characterId
+// (js/state.js) as the one given, or null if none does - used by cloud-save
+// import (js/main.js) to recognize "this is an update to a character
+// already on this browser" instead of always creating a duplicate slot,
+// which is what a plain name comparison can't reliably tell you (raised
+// 2026-09-09: "what if you import characters with the same name? how do we
+// know it's the same character"). O(n) full-state reads across all slots -
+// fine at the scale this is ever called (Settings/Character-Select import,
+// not a hot path), and only ever matches saves that already went through
+// migrateCharacterId (js/state.js) - a characterId-less import (state
+// exported before that migration existed) never matches anything, so it
+// falls through to the normal new-slot flow untouched.
+export function findSlotByCharacterId(characterId, storage = globalThis.localStorage) {
+  if (!characterId) return null;
+  for (const entry of readRegistry(storage)) {
+    const saved = loadState(entry.id, storage);
+    if (saved?.characterId === characterId) return { id: entry.id, name: entry.name, state: saved };
+  }
+  return null;
 }
 
 // Overwrites (not appends) any existing entry with this exact id, unlike

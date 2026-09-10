@@ -20,6 +20,7 @@ import {
   migrateSettings,
   migrateAudioSettings,
   migrateFeatureFlags,
+  migrateCharacterId,
   DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
 } from '../js/state.js';
 
@@ -356,4 +357,29 @@ test('migrateFeatureFlags preserves an already-set flag value', () => {
   state.settings.featureFlags.audioBeta = true;
   const migrated = migrateFeatureFlags(state);
   assert.equal(migrated.settings.featureFlags.audioBeta, true);
+});
+
+test('createNewGame assigns a non-empty characterId', () => {
+  const state = createNewGame();
+  assert.equal(typeof state.characterId, 'string');
+  assert.ok(state.characterId.length > 0);
+});
+
+test('createNewGame assigns a distinct characterId per call', () => {
+  const a = createNewGame();
+  const b = createNewGame();
+  assert.notEqual(a.characterId, b.characterId);
+});
+
+test('migrateCharacterId assigns a characterId to a save that lacks one', () => {
+  const oldState = { player: { level: 1 } };
+  const migrated = migrateCharacterId(oldState);
+  assert.equal(typeof migrated.characterId, 'string');
+  assert.ok(migrated.characterId.length > 0);
+});
+
+test('migrateCharacterId preserves an already-set characterId rather than regenerating it', () => {
+  const state = createNewGame();
+  const migrated = migrateCharacterId(state);
+  assert.equal(migrated.characterId, state.characterId);
 });

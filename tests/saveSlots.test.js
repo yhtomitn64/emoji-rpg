@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, upsertSlot, importSlot } from '../js/systems/saveSlots.js';
+import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, upsertSlot, importSlot, findSlotByCharacterId } from '../js/systems/saveSlots.js';
 import { STORAGE_KEY, serializeState, createNewGame, loadState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION } from '../js/state.js';
 
 function createFakeStorage() {
@@ -171,6 +171,32 @@ test('importSlot leaves other slots untouched, unlike upsertSlot', () => {
   const slots = listSlots(storage);
   assert.equal(slots.length, 2);
   assert.ok(slots.some((s) => s.id === existingId));
+});
+
+test('findSlotByCharacterId finds the slot whose saved state carries the matching characterId', () => {
+  const storage = createFakeStorage();
+  const character = createNewGame();
+  const { id } = createSlot('Hero', DEFAULT_HERO_EMOJI, storage);
+  // createSlot always makes its own fresh createNewGame() internally, so
+  // overwrite its saved state directly to control characterId for the test.
+  upsertSlot(id, 'Hero', character, storage);
+  const found = findSlotByCharacterId(character.characterId, storage);
+  assert.equal(found.id, id);
+  assert.equal(found.name, 'Hero');
+  assert.equal(found.state.characterId, character.characterId);
+});
+
+test('findSlotByCharacterId returns null when no slot matches', () => {
+  const storage = createFakeStorage();
+  createSlot('Hero', DEFAULT_HERO_EMOJI, storage);
+  assert.equal(findSlotByCharacterId('nonexistent-id', storage), null);
+});
+
+test('findSlotByCharacterId returns null for a falsy characterId without scanning', () => {
+  const storage = createFakeStorage();
+  createSlot('Hero', DEFAULT_HERO_EMOJI, storage);
+  assert.equal(findSlotByCharacterId(undefined, storage), null);
+  assert.equal(findSlotByCharacterId('', storage), null);
 });
 
 test('upsertSlot leaves other slots untouched', () => {

@@ -114,17 +114,9 @@ async function handleStartTransfer() {
   }
 }
 
-// Imports the loaded save as a brand-new character slot alongside whatever
-// is already on this browser, rather than overwriting anything - lets one
-// browser accumulate characters transferred in from any number of others.
-function importCloudSave(data) {
-  const defaultName = `Imported ${data?.player?.emoji || ''} Lv${data?.player?.level ?? '?'}`.trim();
-  const name = window.prompt('Name this imported character:', defaultName);
-  if (name === null) return false; // cancelled
-  callbacks.onCloudSaveImported(data, name.trim() || defaultName);
-  return true;
-}
-
+// The overwrite-vs-new-slot decision (and any naming prompt) lives in
+// callbacks.onCloudSaveImported (js/main.js) - shared with the Character
+// Select entry point (js/screens/startScreen.js) so it isn't duplicated.
 async function handleLoadFromCode() {
   const input = document.getElementById('cloud-code-load-input');
   const code = input.value.trim().toLowerCase();
@@ -139,8 +131,10 @@ async function handleLoadFromCode() {
       flashStatus('cloud-code-status', 'No live transfer for that code - it may have expired.');
       return;
     }
-    const imported = importCloudSave(data);
-    flashStatus('cloud-code-status', imported ? 'Imported! Find it on the Character Select screen.' : 'Import cancelled.');
+    const result = callbacks.onCloudSaveImported(data);
+    flashStatus('cloud-code-status', result.imported
+      ? (result.mode === 'overwrite' ? `Updated "${result.name}"!` : `Imported as "${result.name}"! Find it on the Character Select screen.`)
+      : 'Import cancelled.');
     input.value = '';
   } catch {
     flashStatus('cloud-code-status', 'Load failed - check your connection.');

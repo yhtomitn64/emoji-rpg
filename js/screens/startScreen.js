@@ -1,6 +1,7 @@
 import { HERO_EMOJI_OPTIONS, SKIN_TONES, isToneCapableEmoji, applySkinTone } from '../state.js';
 import { MONSTERS } from '../data/monsters.js';
 import { generateRandomName } from '../data/randomNames.js';
+import { isValidSaveCode, loadByCode } from '../systems/cloudSave.js';
 
 const SCENE_MONSTERS = [
   { id: 'dragon', top: 4, left: 36, size: 2.6, opacity: 0.55, duration: 5.2, delay: 0 },
@@ -84,6 +85,39 @@ function renderSlotRow(slot) {
   `;
 }
 
+// Not gated behind cloudSaveBeta (js/screens/settingsScreen.js's own copy of
+// this feature is) - that flag lives on a character's own save data, which
+// doesn't exist yet at this screen. Raised 2026-09-09: "we should probably
+// wire up our save loading to the landing page of the game so that someone
+// doesn't have to start a new character just to import their other one."
+async function handleImportCode() {
+  const input = document.getElementById('import-code-input');
+  const statusEl = document.getElementById('import-code-status');
+  const code = input.value.trim().toLowerCase();
+  if (!isValidSaveCode(code)) {
+    statusEl.hidden = false;
+    statusEl.textContent = 'Enter the 4-character code shown on the other device.';
+    return;
+  }
+  statusEl.hidden = false;
+  statusEl.textContent = 'Loading...';
+  try {
+    const data = await loadByCode(code);
+    if (data === null) {
+      statusEl.textContent = 'No live transfer for that code - it may have expired.';
+      return;
+    }
+    // The overwrite-vs-new-slot decision (and any naming prompt) lives in
+    // callbacks.onCloudSaveImported (js/main.js) - shared with Settings'
+    // own cloud-save import so it isn't duplicated.
+    const result = callbacks.onCloudSaveImported(data);
+    if (result.imported) return; // main.js remounts this screen with the refreshed slot list
+    statusEl.textContent = 'Import cancelled.';
+  } catch {
+    statusEl.textContent = 'Load failed - check your connection.';
+  }
+}
+
 function randomTone() {
   return RANDOMIZABLE_TONES[Math.floor(Math.random() * RANDOMIZABLE_TONES.length)].modifier;
 }
@@ -143,7 +177,14 @@ function render() {
         <button id="btn-create-slot">Create</button>
       </div>`;
   } else if (newGameStep === 'closed') {
-    newGameSection = `<button id="btn-open-new-game">+ New Game</button>`;
+    newGameSection = `
+      <button id="btn-open-new-game">+ New Game</button>
+      <div class="new-game-row import-code-row">
+        <input type="text" id="import-code-input" maxlength="4" placeholder="code from another device" />
+        <button id="btn-import-code">Import</button>
+      </div>
+      <div class="import-code-status-row"><span id="import-code-status" hidden></span></div>
+    `;
   } else {
     newGameSection = '';
   }
@@ -200,6 +241,7 @@ function render() {
       newGameStep = 'name';
       render();
     };
+    document.getElementById('btn-import-code').onclick = () => handleImportCode();
   }
 }
 

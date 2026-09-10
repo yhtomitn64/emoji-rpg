@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags, migrateCharacterId } from './state.js';
 import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
@@ -70,7 +70,7 @@ import { buildWorldGrid } from './systems/worldGrid.js';
 import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDungeonTreasure } from './systems/miniDungeons.js';
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
-import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, importSlot } from './systems/saveSlots.js';
+import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, importSlot, upsertSlot, findSlotByCharacterId } from './systems/saveSlots.js';
 import { applyDebugCharacterFromUrl, isNoEncountersDebugFlagSet } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
 import { pickVariantOverrides } from './systems/monsterVariants.js';
@@ -159,6 +159,7 @@ function startGame(loadedState, slotId) {
   state = migrateSettings(state);
   state = migrateAudioSettings(state);
   state = migrateFeatureFlags(state);
+  state = migrateCharacterId(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
     state.map = 'center';
@@ -271,6 +272,11 @@ function mountStartScreen() {
       onDelete: (slotId) => {
         deleteSlot(slotId);
         mountStartScreen();
+      },
+      onCloudSaveImported: (data) => {
+        const result = handleCloudSaveImport(data);
+        if (result.imported) mountStartScreen(); // refresh the list to show the new/updated character
+        return result;
       },
     },
   });
@@ -436,6 +442,38 @@ function renderHud() {
   hud.appendChild(logoutButton);
 }
 
+// Shared by both cloud-save import entry points (Settings, mid-game, and
+// Character Select, before any game is even loaded - see mountStartScreen
+// below) so the same "is this actually the same character?" decision isn't
+// duplicated. Raised 2026-09-09: "what if you import characters with the
+// same name? how do we know it's the same character. I think we should
+// offer to overwrite or rename." Answered via characterId (js/state.js), a
+// stable id that travels with the save and isn't the (unreliable, possibly
+// duplicated) display name - a real match offers to overwrite that exact
+// slot in place; anything else falls through to naming a new one, where
+// typing a different name than the suggested default *is* the "rename"
+// option (nothing stops two different characters sharing a display name -
+// only characterId decides "is this the same one").
+function handleCloudSaveImport(data) {
+  const existing = findSlotByCharacterId(data?.characterId);
+  if (existing) {
+    const overwrite = window.confirm(
+      `This looks like your character "${existing.name}" (Level ${existing.state.player.level}), already on this browser.\n\n`
+      + 'OK to overwrite it with this import, or Cancel to add it as a separate new character instead.',
+    );
+    if (overwrite) {
+      upsertSlot(existing.id, existing.name, data);
+      return { imported: true, mode: 'overwrite', name: existing.name };
+    }
+  }
+  const defaultName = `Imported ${data?.player?.emoji || ''} Lv${data?.player?.level ?? '?'}`.trim();
+  const name = window.prompt('Name this imported character:', defaultName);
+  if (name === null) return { imported: false };
+  const finalName = name.trim() || defaultName;
+  importSlot(finalName, data);
+  return { imported: true, mode: 'new', name: finalName };
+}
+
 function openStats() {
   if (battleActive) return;
   mountOverlay(statsPanel, {
@@ -461,13 +499,11 @@ function openSettings() {
         }
         syncAudioSettings(state.settings);
       },
-      // Adds the loaded save as a brand-new slot (js/systems/saveSlots.js)
-      // rather than touching the current slot or live in-memory `state` -
-      // purely additive, so it doesn't disturb whatever's being played
-      // right now and needs no reload.
-      onCloudSaveImported: (data, name) => {
-        importSlot(name, data);
-      },
+      // Never touches the current slot or live in-memory `state` - either
+      // overwrites a *different* existing slot in place (see
+      // handleCloudSaveImport) or adds a brand-new one, so it doesn't
+      // disturb whatever's being played right now and needs no reload.
+      onCloudSaveImported: (data) => handleCloudSaveImport(data),
       onClose: () => unmountOverlay(),
     },
   });

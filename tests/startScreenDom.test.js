@@ -20,6 +20,7 @@ async function mountStart(props = {}) {
       onContinue: () => {},
       onDelete: () => {},
       onNewGame: () => {},
+      onCloudSaveImported: () => ({ imported: true, mode: 'new', name: 'Imported' }),
       ...(props.callbacks || {}),
     },
   });
@@ -56,6 +57,75 @@ test('startScreen DOM - new-game flow', async (t) => {
     assert.ok(root.querySelector('#btn-open-new-game'));
     assert.equal(root.querySelector('#new-game-name'), null);
     assert.equal(root.querySelector('.hero-grid'), null);
+  });
+
+  await t.test('shows Import from Code controls on the save-list step, not gated behind any flag', async () => {
+    const root = await mountStart();
+    assert.ok(root.querySelector('#import-code-input'));
+    assert.ok(root.querySelector('#btn-import-code'));
+  });
+
+  await t.test('Import with an invalid code shows a format error and never calls fetch', async () => {
+    const originalFetch = globalThis.fetch;
+    let fetchCalled = false;
+    globalThis.fetch = async () => { fetchCalled = true; return { ok: true, status: 200, json: async () => ({}) }; };
+    try {
+      const root = await mountStart();
+      root.querySelector('#import-code-input').value = 'ab';
+      click(root.querySelector('#btn-import-code'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fetchCalled, false);
+      assert.match(root.querySelector('#import-code-status').textContent, /4-character code/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('Import with a code that has expired (404) shows an expired message', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({ error: 'not found' }) });
+    try {
+      const root = await mountStart();
+      root.querySelector('#import-code-input').value = 'ab12';
+      click(root.querySelector('#btn-import-code'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.match(root.querySelector('#import-code-status').textContent, /expired/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('Import with a valid, live code hands the loaded data to onCloudSaveImported', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ data: { player: { level: 3 } } }) });
+    try {
+      let importedData = null;
+      const root = await mountStart({
+        callbacks: {
+          onCloudSaveImported: (data) => { importedData = data; return { imported: true, mode: 'new', name: 'Imported' }; },
+        },
+      });
+      root.querySelector('#import-code-input').value = 'ab12';
+      click(root.querySelector('#btn-import-code'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.deepEqual(importedData, { player: { level: 3 } });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('Import cancelled by the caller (imported: false) shows a cancelled message, not an error', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ data: { player: { level: 3 } } }) });
+    try {
+      const root = await mountStart({ callbacks: { onCloudSaveImported: () => ({ imported: false }) } });
+      root.querySelector('#import-code-input').value = 'ab12';
+      click(root.querySelector('#btn-import-code'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.match(root.querySelector('#import-code-status').textContent, /cancelled/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   await t.test('renders one row per slot, with Continue/Delete wired to the right id', async () => {

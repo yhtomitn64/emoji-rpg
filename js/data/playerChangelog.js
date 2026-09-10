@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.27.2',
+    date: '2026-09-09',
+    highlights: [
+      "Added: Import from Code is now also on the Character Select screen, so you can bring in a character from another browser before you've started/loaded any character on this one - no need to enable the Settings beta flag first.",
+      'Changed: importing a code for a character already on this browser now offers to update it in place instead of always creating a duplicate.',
+    ],
+  },
+  {
     version: '0.27.1',
     date: '2026-09-09',
     highlights: [
