@@ -122,7 +122,10 @@ test('rollMythicEssenceChance hits at the documented 2% floor and 6% ceiling', (
 });
 
 test('RING_TOUGHNESS_FLOOR and BOSS_MYTHIC_CHANCE match the documented starting values', () => {
-  assert.equal(RING_TOUGHNESS_FLOOR, 0.6);
+  // Lowered from 0.6 to 0.3 on 2026-09-09 to open a real ring (Ember Ring)
+  // up to the far-corner roster, not just dungeon-tier - see the constant's
+  // own comment in js/systems/itemQuality.js.
+  assert.equal(RING_TOUGHNESS_FLOOR, 0.3);
   assert.equal(BOSS_MYTHIC_CHANCE, 0.25);
 });
 

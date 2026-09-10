@@ -136,6 +136,19 @@ test('upgradeItem succeeds with a slot-matched material', () => {
   assert.equal(state.upgrades[upgradeKey('starterSword', undefined)], 1);
 });
 
+// Ring upgrade materials match by the equipped item's slot *type* ('ring'),
+// not the physical ring1/ring2 key a bare upgradeSlot === slot comparison
+// would require - see js/systems/inventory.js's upgradeItem. Moonstone
+// Shard (upgradeSlot: 'ring') should work on either physical ring slot.
+test('upgradeItem succeeds on either physical ring slot with the shared Moonstone Shard material', () => {
+  let state = createNewGame();
+  state = addItem(state, 'emberRing', 1);
+  state = equipItem(state, 'emberRing', 'ring2');
+  state = addItem(state, 'moonstoneShard', 1);
+  state = upgradeItem(state, 'ring2', 'moonstoneShard', 20);
+  assert.equal(state.upgrades[upgradeKey('emberRing', undefined)], 1);
+});
+
 test('getEquipmentBonuses sums stats from equipped, upgraded gear', () => {
   const state = createNewGame();
   const bonuses = getEquipmentBonuses(state);

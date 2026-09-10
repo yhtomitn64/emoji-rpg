@@ -604,7 +604,7 @@ test('battleScreen DOM', async (t) => {
 
   await t.test('a Retribution Charm reflects damage back at the attacking monster on its unparried attack', async () => {
     const { root } = await mountBattle(['boar'], {
-      state: baseState({ equipment: { ...createNewGame().equipment, accessory: 'retributionCharm' } }),
+      state: baseState({ equipment: { ...createNewGame().equipment, accessory1: 'retributionCharm' } }),
       monsterOverrides: [{ speed: 1000 }],
     });
     // Let the windup naturally complete unparried (no 's' press) - poll for

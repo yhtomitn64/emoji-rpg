@@ -24,6 +24,39 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-09-10
+
+### Added
+- **Ring smith-upgrades, and a second Charm (accessory) slot.** Raised live:
+  "what do I need to upgrade dragon scale mail?" led into "can we implement
+  ring upgrades and better ring drops right now" and "also we should have
+  two charm slots."
+  - **Ring upgrades**: rings had no smith-upgrade material at all before
+    this (`js/screens/smithScreen.js`'s old `hasUpgradePath` dead-branch,
+    flagged but deliberately left as a content decision in
+    `docs/superpowers/BACKLOG.md`). New material **Moonstone Shard** 🌙
+    (`upgradeSlot: 'ring'`, dropped by direWolf/Mega Muffin at 15%) covers
+    both physical ring slots - `js/systems/inventory.js`'s `upgradeItem` (and
+    the smith screen's material picker) now match a material against the
+    *equipped item's slot type*, not the raw physical slot key, the same
+    fix that made the eventual two-charm-slot split below drop straight in
+    with no extra plumbing.
+  - **Better ring drops**: `RING_TOUGHNESS_FLOOR` (`js/systems/itemQuality.js`)
+    lowered 0.6 → 0.3 - a real ring (Ember Ring) was previously unreachable
+    below dungeon-tier monsters; now the far-corner roster (direWolf/spider/
+    scorpion) can drop one too.
+  - **Two Charm slots**: the single `accessory` equipment slot is now
+    `accessory1`/`accessory2` ("Charm 1"/"Charm 2" in the Smith/Stats/
+    Inventory screens), mirroring the existing ring1/ring2 split.
+    `migrateAccessorySlots` (`js/state.js`) moves an existing save's charm
+    into `accessory1` and carries over its tier. Shop equip-prompt/"already
+    equipped" logic (`js/screens/shopScreen.js`) now resolves dual-slot
+    items (ring *and* charm) by physical slot instead of indexing
+    `state.equipment` by the item's slot *type* - a latent bug for charms
+    specifically once the single slot split in two, caught while making
+    this change (rings already had it, unaffected in practice since Power
+    Ring was the only ring ever sold).
+
 ## [0.27.4] - 2026-09-10
 
 ### Changed

@@ -4,8 +4,8 @@ import { getEquipmentBonuses } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 
-const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
-const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
+const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory1', 'accessory2', 'ring1', 'ring2'];
+const SLOT_LABELS = { accessory1: 'Charm 1', accessory2: 'Charm 2', ring1: 'Ring 1', ring2: 'Ring 2' };
 
 let rootEl = null;
 let state = null;

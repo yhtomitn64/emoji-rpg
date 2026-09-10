@@ -1,15 +1,16 @@
 import { ITEMS } from '../data/items.js';
 import {
   getItemStatDelta, equipItem, unequipItem, removeItem, applyHeal, getEquipmentBonuses,
-  describeItem, getUpgradeLevel, resolveRingEquipSlot, formatStatDelta,
+  describeItem, getUpgradeLevel, resolveDualEquipSlot, formatStatDelta,
 } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 import { LOADOUT_SIZE, setLoadoutSlot, clearLoadoutSlot } from '../systems/loadout.js';
 import { logEvent } from '../systems/telemetry.js';
 import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 
-const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
-const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
+const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory1', 'accessory2', 'ring1', 'ring2'];
+const SLOT_LABELS = { accessory1: 'Charm 1', accessory2: 'Charm 2', ring1: 'Ring 1', ring2: 'Ring 2' };
+const DUAL_SLOT_PHYSICAL_KEYS = { ring: ['ring1', 'ring2'], accessory: ['accessory1', 'accessory2'] };
 
 // Raised 2026-08-29: "our inventory screen should have tabs for the
 // different stuff instead of endless list and maybe some sorting" - split
@@ -67,15 +68,17 @@ function renderEquippedRows() {
 }
 
 function equipButtonsFor(entry, item) {
-  if (item.slot !== 'ring') {
+  const dualPair = DUAL_SLOT_PHYSICAL_KEYS[item.slot];
+  if (!dualPair) {
     return `<button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="${item.slot}">Equip</button>`;
   }
-  const resolvedSlot = resolveRingEquipSlot(state);
+  const resolvedSlot = resolveDualEquipSlot(state, item.slot);
   if (resolvedSlot) {
     return `<button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="${resolvedSlot}">Equip</button>`;
   }
-  return `<button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="ring1">→ Ring 1</button>
-    <button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="ring2">→ Ring 2</button>`;
+  return dualPair
+    .map((slot) => `<button data-equip="${entry.itemId}" data-tier="${entry.tier || ''}" data-slot="${slot}">→ ${SLOT_LABELS[slot]}</button>`)
+    .join('\n    ');
 }
 
 function renderGearRows(entries) {

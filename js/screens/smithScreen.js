@@ -6,17 +6,21 @@ import {
 import { tierLabel } from '../systems/itemQuality.js';
 import { logEvent } from '../systems/telemetry.js';
 
-const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory', 'ring1', 'ring2'];
-const SLOT_LABELS = { ring1: 'Ring 1', ring2: 'Ring 2' };
+const SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory1', 'accessory2', 'ring1', 'ring2'];
+const SLOT_LABELS = { accessory1: 'Charm 1', accessory2: 'Charm 2', ring1: 'Ring 1', ring2: 'Ring 2' };
 
 let rootEl = null;
 let state = null;
 let callbacks = null;
 
-function materialOptionsForSlot(slot) {
+// Matched against a material's upgradeSlot by *slot type* (e.g. 'ring',
+// 'accessory'), not the physical smith-row key - ring1/ring2/accessory1/
+// accessory2 all share one material type with their sibling slot. See
+// js/systems/inventory.js's upgradeItem for the same match.
+function materialOptionsForSlot(slotType) {
   return state.inventory.filter((entry) => {
     const item = ITEMS[entry.itemId];
-    return item.type === 'material' && item.upgradeSlot === slot && entry.quantity > 0;
+    return item.type === 'material' && item.upgradeSlot === slotType && entry.quantity > 0;
   });
 }
 
@@ -36,13 +40,14 @@ function render() {
       ? `<button data-reforge="${slot}" ${canAffordReforge ? '' : 'disabled'}>Reforge to Mythic (${REFORGE_GOLD_COST}g + ${REFORGE_ESSENCE_COST} Essence)</button>`
       : '';
 
-    const hasUpgradePath = Object.values(ITEMS).some((candidate) => candidate.type === 'material' && candidate.upgradeSlot === slot);
+    // Matched by slot *type* (item.slot), not the physical row key - see
+    // materialOptionsForSlot's own comment.
+    const slotType = item.slot;
+    const hasUpgradePath = Object.values(ITEMS).some((candidate) => candidate.type === 'material' && candidate.upgradeSlot === slotType);
     if (!hasUpgradePath) {
-      // Ring slots have no upgrade material defined anywhere in the game
-      // (unlike the five original slots, which always have one even when
-      // the player doesn't currently hold a copy) - there's no reachable
-      // upgrade path here, ever, so skip the select/button entirely rather
-      // than show a control that can never work.
+      // No item anywhere defines an upgradeSlot for this type - no
+      // reachable upgrade path here, ever, so skip the select/button
+      // entirely rather than show a control that can never work.
       return `<div class="smith-row">
       <span data-tooltip="${describeItem(state, itemId, tier)}">${item.emoji} ${tierLabel(tier)}${item.name} +${level}</span>
       ${reforgeButton}
@@ -52,7 +57,7 @@ function render() {
     const cost = upgradeCost(level);
     const maxLevel = getMaxUpgradeLevel(state.ngPlusCycle);
     const atCap = level >= maxLevel;
-    const materials = materialOptionsForSlot(slot);
+    const materials = materialOptionsForSlot(slotType);
     const canAfford = state.player.gold >= cost;
     const options = materials
       .map((m) => `<option value="${m.itemId}" title="${describeItem(state, m.itemId)}">${ITEMS[m.itemId].name} (x${m.quantity})</option>`)

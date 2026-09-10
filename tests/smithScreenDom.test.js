@@ -8,7 +8,7 @@ import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom
 function buildState(overrides = {}) {
   return {
     player: { gold: 500 },
-    equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
+    equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory1: null, accessory2: null, ring1: null, ring2: null },
     equipmentTiers: { weapon: 'superior' },
     upgrades: {},
     inventory: [{ itemId: 'mythicEssence', quantity: 5 }],
@@ -80,14 +80,29 @@ test('smithScreen reforge DOM', async (t) => {
     assert.equal(reforgeEvent.ngPlusCycle, 1);
   });
 
-  await t.test('a ring slot with an equipped item shows no upgrade select/button, only the reforge button', async () => {
+  await t.test('a ring slot with an equipped item but no owned Moonstone Shard shows a disabled upgrade button, not the reforge button', async () => {
     const state = buildState({
-      equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory: null, ring1: 'emberRing', ring2: null },
+      equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory1: null, accessory2: null, ring1: 'emberRing', ring2: null },
       equipmentTiers: { weapon: 'superior' }, // emberRing has no tier - never eligible for reforge either, confirms no reforge button shows for it
     });
     const root = await mountSmith(state);
-    assert.equal(root.querySelector('select[data-slot="ring1"]'), null);
-    assert.equal(root.querySelector('button[data-slot="ring1"]'), null); // the upgrade button (not data-reforge)
+    assert.ok(root.querySelector('select[data-slot="ring1"]')); // Moonstone Shard exists as a ring-upgrade material, so the control renders...
+    const button = root.querySelector('button[data-slot="ring1"]'); // ...but nothing owned yet, so the upgrade button stays disabled.
+    assert.ok(button);
+    assert.ok(button.disabled);
+    assert.equal(root.querySelector('button[data-reforge="ring1"]'), null);
+  });
+
+  await t.test('a ring slot upgrades with an owned Moonstone Shard, the same as any other slot', async () => {
+    const state = buildState({
+      equipment: { weapon: 'ironSword', head: null, body: null, legs: null, accessory1: null, accessory2: null, ring1: 'emberRing', ring2: null },
+      inventory: [{ itemId: 'moonstoneShard', quantity: 1 }],
+    });
+    const root = await mountSmith(state);
+    const select = root.querySelector('select[data-slot="ring1"]');
+    select.value = 'moonstoneShard';
+    click(root.querySelector('button[data-slot="ring1"]'));
+    assert.equal(state.upgrades['emberRing:plain'], 1);
   });
 
   await t.test('an empty ring slot shows the friendly label, not the raw key', async () => {

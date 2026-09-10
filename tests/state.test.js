@@ -15,6 +15,7 @@ import {
   applySkinTone,
   migrateRingSlots,
   migratePowerRingSlot,
+  migrateAccessorySlots,
   migrateBestDamage,
   migrateLoadout,
   migrateSettings,
@@ -255,6 +256,61 @@ test('migratePowerRingSlot is a no-op when Power Ring is not in the accessory sl
   const migrated = migratePowerRingSlot(state);
   assert.equal(migrated.equipment.accessory, 'luckyCharm');
   assert.equal(migrated, state);
+});
+
+test('createNewGame includes empty accessory1/accessory2 equipment slots', () => {
+  const state = createNewGame();
+  assert.equal(state.equipment.accessory1, null);
+  assert.equal(state.equipment.accessory2, null);
+});
+
+test('migrateAccessorySlots adds empty accessory1/accessory2 keys to a save that predates them', () => {
+  const legacy = createNewGame();
+  delete legacy.equipment.accessory1;
+  delete legacy.equipment.accessory2;
+  const migrated = migrateAccessorySlots(legacy);
+  assert.equal(migrated.equipment.accessory1, null);
+  assert.equal(migrated.equipment.accessory2, null);
+});
+
+test('migrateAccessorySlots is a no-op on a save that already has accessory1/accessory2', () => {
+  const state = createNewGame();
+  state.equipment.accessory1 = 'luckyCharm';
+  const migrated = migrateAccessorySlots(state);
+  assert.equal(migrated.equipment.accessory1, 'luckyCharm');
+  assert.equal(migrated, state);
+});
+
+test('migrateAccessorySlots relocates a legacy single-accessory item into accessory1', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'luckyCharm';
+  delete legacy.equipment.accessory1;
+  delete legacy.equipment.accessory2;
+  const migrated = migrateAccessorySlots(legacy);
+  assert.equal(migrated.equipment.accessory1, 'luckyCharm');
+  assert.equal(migrated.equipment.accessory2, null);
+  assert.equal('accessory' in migrated.equipment, false);
+});
+
+test('migrateAccessorySlots carries over a tiered accessory item\'s equipmentTiers entry into accessory1', () => {
+  const legacy = createNewGame();
+  legacy.equipment.accessory = 'luckyCharm';
+  delete legacy.equipment.accessory1;
+  delete legacy.equipment.accessory2;
+  legacy.equipmentTiers.accessory = 'superior';
+  const migrated = migrateAccessorySlots(legacy);
+  assert.equal(migrated.equipmentTiers.accessory1, 'superior');
+  assert.equal('accessory' in migrated.equipmentTiers, false);
+});
+
+test('migrateAccessorySlots leaves accessory2 empty and drops the legacy key when nothing was equipped there', () => {
+  const legacy = createNewGame();
+  delete legacy.equipment.accessory1;
+  delete legacy.equipment.accessory2;
+  legacy.equipment.accessory = null;
+  const migrated = migrateAccessorySlots(legacy);
+  assert.equal(migrated.equipment.accessory1, null);
+  assert.equal(migrated.equipment.accessory2, null);
 });
 
 test('createNewGame includes an empty bestDamage object', () => {

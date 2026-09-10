@@ -94,7 +94,18 @@ export function rollMythicEssenceChance(toughness, rng = Math.random) {
 // A hard floor, not a weighted chance like the rolls above - below this
 // toughness, no ring-slot item can drop at all, regardless of RNG. Applies
 // uniformly to every ring-slot item (loot.js's eligibleUniqueEffectPool).
-export const RING_TOUGHNESS_FLOOR = 0.6;
+//
+// Lowered 2026-09-09 from the original 0.6 launch value: at 0.6, only the
+// dungeon-tier roster (orc/wraith/skeleton, toughness 0.94-1.0) ever cleared
+// the floor, so a real ring (Ember Ring/Windfury Ring - Power Ring isn't
+// gated by this at all) was unreachable until deep into the game, and even
+// then only via the separate 1-5% rollUniqueEffectChance roll - "you can
+// only get really weak rings" was an accurate complaint. 0.3 opens the
+// floor up to the far-corner roster too (direWolf/spider/scorpion,
+// toughness ~0.35-0.40), so a real ring becomes farmable well before the
+// dungeon, while near-town monsters (boar/bat/snake/frog/goblin, toughness
+// <0.3) still can't drop one.
+export const RING_TOUGHNESS_FLOOR = 0.3;
 
 // Bosses are excluded from rollQualityTier entirely (isToughnessEligible
 // returns false for isBoss) - a dragon kill's chance to tag its named drop

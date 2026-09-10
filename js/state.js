@@ -88,7 +88,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     // findSlotByCharacterId in saveSlots.js.
     characterId: generateCharacterId(),
     player: { level: 1, xp: 0, hp: 20, maxHp: 20, attack: 5, defense: 3, speed: 5, gold: 20, emoji: heroEmoji },
-    equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
+    equipment: { weapon: 'starterSword', head: null, body: null, legs: null, accessory1: null, accessory2: null, ring1: null, ring2: null },
     upgrades: {},
     equipmentTiers: {},
     inventory: [{ itemId: 'potion', quantity: 2 }],
@@ -202,6 +202,25 @@ export function migratePowerRingSlot(state) {
     ? state.inventory.map((entry) => (entry === existing ? { ...entry, quantity: entry.quantity + 1 } : entry))
     : [...state.inventory, { itemId: 'powerRing', quantity: 1 }];
   return { ...state, equipment, inventory };
+}
+
+// One-time migration for saves from before the second charm/accessory slot
+// existed (2026-09-09, "we should have two charm slots") - same shape as
+// migrateRingSlots above. Relocates whatever was sitting in the old single
+// `accessory` physical key into `accessory1` (guaranteed empty, since it
+// never existed before this migration runs) and adds the new `accessory2`
+// key. Must run after migrateRingSlots/migratePowerRingSlot, which still
+// read/write the legacy `accessory` key themselves (moving emberRing/
+// powerRing out of it) - this is the one place that finally retires it.
+// Also carries over equipmentTiers.accessory the same way, so a Fine/
+// Superior charm doesn't silently revert to Plain mid-migration.
+export function migrateAccessorySlots(state) {
+  if ('accessory1' in state.equipment && 'accessory2' in state.equipment) return state;
+  const { accessory, ...restEquipment } = state.equipment;
+  const equipment = { ...restEquipment, accessory1: accessory ?? null, accessory2: null };
+  const { accessory: accessoryTier, ...restTiers } = state.equipmentTiers || {};
+  const equipmentTiers = accessoryTier !== undefined ? { ...restTiers, accessory1: accessoryTier } : { ...restTiers };
+  return { ...state, equipment, equipmentTiers };
 }
 
 // One-time migration for saves from before per-move best-damage tracking

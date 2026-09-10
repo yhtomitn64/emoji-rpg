@@ -1,5 +1,5 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
-import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear, hasDuplicateGearToSell, formatStatDelta, getUpgradeLevel } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear, hasDuplicateGearToSell, formatStatDelta, getUpgradeLevel, resolvePhysicalSlot, physicalSlotsFor } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 import { logEvent } from '../systems/telemetry.js';
 
@@ -103,7 +103,11 @@ function itemCardHtml(itemId) {
   const ownedQty = ownedEntry ? ownedEntry.quantity : 0;
   // Tier-aware: only the Plain copy is "this card, equipped" - a worn Fine/
   // Superior copy is a different (better) item than what the shop sells.
-  const isEquipped = item.slot && state.equipment[item.slot] === itemId && !state.equipmentTiers?.[item.slot];
+  // Checks every physical slot this item's type could occupy (ring/
+  // accessory items have two - see physicalSlotsFor), not just item.slot
+  // itself, which is never a real physical equipment key for those.
+  const isEquipped = item.slot
+    && physicalSlotsFor(item).some((slot) => state.equipment[slot] === itemId && !state.equipmentTiers?.[slot]);
   const isConsumable = item.type === 'consumable';
   const buyQty = isConsumable ? selectedQty : 1; // see CONSUMABLE_BUY_QUANTITIES's comment above
   const affordable = maxAffordableQuantity(state.player.gold, item.price, buyQty) === buyQty;
@@ -191,7 +195,7 @@ function render() {
   rootEl.querySelectorAll('button[data-equip-yes]').forEach((btn) => {
     btn.onclick = () => {
       const itemId = btn.dataset.equipYes;
-      const slot = ITEMS[itemId].slot;
+      const slot = resolvePhysicalSlot(state, ITEMS[itemId]);
       const replacedItemId = state.equipment[slot] || null;
       Object.assign(state, equipItem(state, itemId, slot));
       logEvent('gear_equipped', { itemId, slot, tier: null, upgradeLevel: getUpgradeLevel(state, itemId, undefined), replacedItemId, ngPlusCycle: state.ngPlusCycle });
@@ -225,7 +229,8 @@ function buyItem(itemId, quantity = 1) {
   let next = spendGold(state, item.price * quantity);
   next = addItem(next, itemId, quantity);
   Object.assign(state, next);
-  if (item.slot && state.equipment[item.slot] !== itemId && !pendingEquipQueue.includes(itemId)) {
+  const alreadyEquipped = item.slot && physicalSlotsFor(item).some((slot) => state.equipment[slot] === itemId);
+  if (item.slot && !alreadyEquipped && !pendingEquipQueue.includes(itemId)) {
     pendingEquipQueue.push(itemId);
   }
   sellDuplicatesMessage = null;

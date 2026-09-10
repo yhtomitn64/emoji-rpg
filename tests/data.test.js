@@ -176,6 +176,15 @@ test('the two NG+-exclusive unique items have the documented slots, prices, effe
   }
 });
 
+test('moonstoneShard is the ring upgrade material, dropped by direWolf, not sold in the shop', () => {
+  const shard = ITEMS.moonstoneShard;
+  assert.equal(shard.name, 'Moonstone Shard');
+  assert.equal(shard.type, 'material');
+  assert.equal(shard.upgradeSlot, 'ring');
+  assert.ok(!SHOP_CATALOG.includes('moonstoneShard'));
+  assert.ok(MONSTERS.direWolf.dropTable.some((entry) => entry.itemId === 'moonstoneShard'));
+});
+
 test('mythicEssence is a generic material (no upgradeSlot) not sold in the shop', () => {
   const essence = ITEMS.mythicEssence;
   assert.equal(essence.name, 'Mythic Essence');

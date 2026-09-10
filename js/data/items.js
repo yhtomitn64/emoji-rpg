@@ -105,6 +105,13 @@ export const ITEMS = {
   frogSkin: { id: 'frogSkin', name: 'Frog Skin', emoji: '🟢', type: 'material', upgradeSlot: 'body' },
   scorpionVenom: { id: 'scorpionVenom', name: 'Scorpion Venom', emoji: '💉', type: 'material', upgradeSlot: 'accessory' },
   boneFragment: { id: 'boneFragment', name: 'Bone Fragment', emoji: '🦴', type: 'material', upgradeSlot: 'head' },
+  // Ring upgrade material, added 2026-09-09 - ring1/ring2 previously had no
+  // upgrade material at all (see js/screens/smithScreen.js's old
+  // hasUpgradePath dead-branch, and the matching BACKLOG.md entry). One
+  // material covers both physical ring slots: js/systems/inventory.js's
+  // upgradeItem matches a material's upgradeSlot against the equipped
+  // item's *slot type* ('ring'), not the physical ring1/ring2 key.
+  moonstoneShard: { id: 'moonstoneShard', name: 'Moonstone Shard', emoji: '🌙', type: 'material', upgradeSlot: 'ring' },
   // Reforge material for the Mythic tier (js/systems/inventory.js's
   // reforgeToMythic) - no upgradeSlot, since it's collected generically
   // rather than per-slot like the other materials above.

@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags, migrateCharacterId } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateAccessorySlots, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags, migrateCharacterId } from './state.js';
 import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
@@ -154,6 +154,7 @@ function startGame(loadedState, slotId) {
   state = migrateNgPlusToolCarryover(state);
   state = migrateRingSlots(state);
   state = migratePowerRingSlot(state);
+  state = migrateAccessorySlots(state);
   state = migrateBestDamage(state);
   state = migrateLoadout(state);
   state = migrateSettings(state);
@@ -982,7 +983,7 @@ function handleBattleEnd(outcome, killedMonsterIds) {
     hpPercentRemaining: Math.max(0, state.player.hp) / (state.player.maxHp + bonuses.maxHp),
     durationMs: battleDurationMs,
   });
-  const gearSlots = ['weapon', 'head', 'body', 'legs', 'accessory'];
+  const gearSlots = ['weapon', 'head', 'body', 'legs', 'accessory1', 'accessory2'];
   const playerSnapshot = {
     level: state.player.level,
     attack: state.player.attack + bonuses.attack,

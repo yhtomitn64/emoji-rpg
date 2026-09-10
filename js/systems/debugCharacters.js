@@ -16,7 +16,7 @@ const DEBUG_CHARACTERS = {
   // against the claimPopupColumn collision fix.
   level10: () => ({
     player: { level: 10, xp: 0, hp: 54, maxHp: 54, attack: 18, defense: 12, speed: 14, gold: 500, emoji: '🧙' },
-    equipment: { weapon: 'ironSword', head: 'ironHelm', body: 'ironArmor', legs: 'ironGreaves', accessory: null, ring1: null, ring2: null },
+    equipment: { weapon: 'ironSword', head: 'ironHelm', body: 'ironArmor', legs: 'ironGreaves', accessory1: null, accessory2: null, ring1: null, ring2: null },
     // +3 on every piece - the NG+0 upgrade cap (getMaxUpgradeLevel in
     // js/systems/inventory.js) - for meaningful, but not absurd, damage.
     upgrades: { 'ironSword:plain': 3, 'ironHelm:plain': 3, 'ironArmor:plain': 3, 'ironGreaves:plain': 3 },

@@ -10,7 +10,7 @@ import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom
 function buildState() {
   return {
     player: { hp: 20, maxHp: 20, gold: 0 },
-    equipment: { weapon: null, head: null, body: null, legs: null, accessory: null, ring1: null, ring2: null },
+    equipment: { weapon: null, head: null, body: null, legs: null, accessory1: null, accessory2: null, ring1: null, ring2: null },
     equipmentTiers: {},
     upgrades: {},
     loadout: [null, null, null, null],
@@ -133,6 +133,31 @@ test('inventoryScreen DOM', async (t) => {
     assert.ok(ring2Btn);
     click(ring2Btn);
     assert.equal(state.equipment.ring2, 'emberRing');
+  });
+
+  await t.test('equipping a charm (accessory-slot) item with one empty charm slot targets that slot directly', async () => {
+    const state = buildState();
+    state.inventory.push({ itemId: 'luckyCharm', quantity: 1 });
+    const root = await mountInventory(state);
+    const equipBtn = root.querySelector('button[data-equip="luckyCharm"]');
+    assert.ok(equipBtn);
+    assert.equal(equipBtn.dataset.slot, 'accessory1');
+    click(equipBtn);
+    assert.equal(state.equipment.accessory1, 'luckyCharm');
+  });
+
+  await t.test('equipping a charm item with both charm slots full offers a choice of which to replace', async () => {
+    const state = buildState();
+    state.equipment.accessory1 = 'luckyCharm';
+    state.equipment.accessory2 = 'frostCharm';
+    state.inventory.push({ itemId: 'luckyCharm', quantity: 1 }); // a second copy, in the bag
+    const root = await mountInventory(state);
+    const charm1Btn = root.querySelector('button[data-equip="luckyCharm"][data-slot="accessory1"]');
+    const charm2Btn = root.querySelector('button[data-equip="luckyCharm"][data-slot="accessory2"]');
+    assert.ok(charm1Btn);
+    assert.ok(charm2Btn);
+    click(charm2Btn);
+    assert.equal(state.equipment.accessory2, 'luckyCharm');
   });
 
   await t.test('Potions tab rows show 4 loadout toggle buttons, and only the heal potion shows a Use button', async () => {

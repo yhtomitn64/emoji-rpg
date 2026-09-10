@@ -141,27 +141,52 @@ export function equipItem(state, itemId, slot, tier) {
   return next;
 }
 
-// Rings are a slot *type* ('ring' on the item), not a physical equipment
-// key - this resolves which of the two physical slots (ring1/ring2) an
-// equip action should target. Returns null when both are already occupied,
-// which callers (inventoryScreen.js) use to offer an explicit choice
-// instead of guessing which ring to replace.
-export function resolveRingEquipSlot(state) {
-  if (!state.equipment.ring1) return 'ring1';
-  if (!state.equipment.ring2) return 'ring2';
+// Ring and Accessory (Charm) are slot *types* ('ring'/'accessory' on the
+// item), not physical equipment keys - each is backed by two physical slots
+// (ring1/ring2, accessory1/accessory2) instead of one. Everything below
+// resolves between an item's slot type and those physical keys.
+const DUAL_SLOT_PHYSICAL_KEYS = { ring: ['ring1', 'ring2'], accessory: ['accessory1', 'accessory2'] };
+
+// Picks which of a dual-slot type's two physical keys an equip action
+// should target: the first empty one, or null when both are already
+// occupied - callers (inventoryScreen.js) use null to offer an explicit
+// choice instead of guessing which one to replace.
+export function resolveDualEquipSlot(state, slotType) {
+  const [first, second] = DUAL_SLOT_PHYSICAL_KEYS[slotType];
+  if (!state.equipment[first]) return first;
+  if (!state.equipment[second]) return second;
   return null;
 }
 
+export function resolveRingEquipSlot(state) {
+  return resolveDualEquipSlot(state, 'ring');
+}
+
+export function resolveAccessoryEquipSlot(state) {
+  return resolveDualEquipSlot(state, 'accessory');
+}
+
 // Resolves an item's slot *type* (item.slot) to the physical equipment key
-// to compare against. Non-ring items pass through unchanged (item.slot IS
-// already the physical key for those). Ring items resolve via
-// resolveRingEquipSlot - when both rings are already occupied (null
-// returned), falls back to comparing against ring1 specifically, so the
-// comparison is always well-defined rather than silently comparing against
-// nothing.
+// to compare against. Non-dual-slot items pass through unchanged (item.slot
+// IS already the physical key for those - weapon/head/body/legs). Ring/
+// Accessory items resolve via resolveDualEquipSlot - when both physical
+// slots are already occupied (null returned), falls back to the first of
+// the pair, so the comparison is always well-defined rather than silently
+// comparing against nothing.
 export function resolvePhysicalSlot(state, item) {
-  if (item.slot !== 'ring') return item.slot;
-  return resolveRingEquipSlot(state) ?? 'ring1';
+  const pair = DUAL_SLOT_PHYSICAL_KEYS[item.slot];
+  if (!pair) return item.slot;
+  return resolveDualEquipSlot(state, item.slot) ?? pair[0];
+}
+
+// Every physical equipment key a copy of this item could currently occupy -
+// a single-key array for ordinary slots, the two-key pair for ring/
+// accessory. Used wherever code needs to check every slot a given item
+// might already be sitting in (shop "already equipped" badge, loot
+// reference owned-count), not just where a NEW copy should go next
+// (that's resolvePhysicalSlot's job).
+export function physicalSlotsFor(item) {
+  return DUAL_SLOT_PHYSICAL_KEYS[item.slot] || [item.slot];
 }
 
 export function unequipItem(state, slot) {
@@ -294,7 +319,12 @@ export function upgradeItem(state, slot, materialId, cost) {
   if (!itemId) throw new Error(`No item equipped in slot ${slot}`);
   const tier = state.equipmentTiers?.[slot];
 
-  if (ITEMS[materialId].upgradeSlot !== slot) throw new Error(`${materialId} cannot upgrade the ${slot} slot`);
+  // Compared against the equipped item's slot *type* (ITEMS[itemId].slot),
+  // not the raw physical key - ring1/ring2/accessory1/accessory2 all have a
+  // physical key that differs from their type ('ring'/'accessory'), same as
+  // resolvePhysicalSlot above. Materials are only ever defined with a type
+  // upgradeSlot ('ring', 'accessory', 'weapon', ...), never a physical one.
+  if (ITEMS[materialId].upgradeSlot !== ITEMS[itemId].slot) throw new Error(`${materialId} cannot upgrade the ${slot} slot`);
 
   const hasMaterial = state.inventory.some((entry) => entry.itemId === materialId && entry.quantity > 0);
   if (!hasMaterial) throw new Error('Missing required material');

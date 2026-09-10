@@ -50,7 +50,7 @@ test('statsPanel DOM - close affordances', async (t) => {
   // showed no feedback anywhere in the stats panel.
   await t.test('parryWindowBonusPercent and debuffDurationPercent render their own effect rows when equipped', async () => {
     const state = createNewGame();
-    state.equipment = { ...state.equipment, ring1: 'parryMasterRing', accessory: 'unshakenCharm' };
+    state.equipment = { ...state.equipment, ring1: 'parryMasterRing', accessory1: 'unshakenCharm' };
     const root = await mountStats(state);
     assert.match(root.innerHTML, /Parry Window: \+15%/);
     assert.match(root.innerHTML, /Debuff Resist: 40%/);

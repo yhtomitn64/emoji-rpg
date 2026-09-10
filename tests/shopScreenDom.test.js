@@ -14,7 +14,7 @@ import { ITEMS } from '../js/data/items.js';
 function buildState(overrides = {}) {
   return {
     player: { gold: 100 },
-    equipment: { weapon: null, head: null, body: null, legs: null, accessory: null },
+    equipment: { weapon: null, head: null, body: null, legs: null, accessory1: null, accessory2: null },
     equipmentTiers: {},
     inventory: [],
     ...overrides,

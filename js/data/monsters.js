@@ -51,7 +51,14 @@ export const MONSTERS = {
     id: 'direWolf', name: 'Mega Muffin', emoji: '🐺',
     hp: 100, attack: 19, defense: 3, speed: 6,
     xp: 32, goldRange: [8, 15],
-    dropTable: [{ itemId: 'wolfPelt', chance: 0.3 }, { itemId: 'potion', chance: 0.1 }],
+    // moonstoneShard added 2026-09-09 as the ring upgrade material's source
+    // - a howling wolf and a moonstone felt like the natural pairing among
+    // the roster.
+    dropTable: [
+      { itemId: 'wolfPelt', chance: 0.3 },
+      { itemId: 'moonstoneShard', chance: 0.15 },
+      { itemId: 'potion', chance: 0.1 },
+    ],
     attackStyle: 'melee',
   },
   spider: {

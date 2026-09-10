@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.28.0',
+    date: '2026-09-10',
+    highlights: [
+      'Added: rings can now be upgraded at the Smith, using a new material - Moonstone Shard - dropped by Mega Muffin (the dire wolf).',
+      'Changed: a real ring (Ember Ring) can now drop from tougher wilderness monsters, not just dungeon-tier ones.',
+      'Added: a second Charm slot - you can now wear two charms (Lucky Charm, Frost Charm, etc.) at once instead of just one.',
+    ],
+  },
+  {
     version: '0.27.4',
     date: '2026-09-10',
     highlights: [

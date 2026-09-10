@@ -1,5 +1,6 @@
 import { ITEMS } from '../data/items.js';
 import { getItemSources } from '../systems/loot.js';
+import { physicalSlotsFor } from '../systems/inventory.js';
 import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 
 const SECTIONS = [
@@ -20,9 +21,9 @@ function ownedQuantity(itemId) {
   const inventoryQty = state.inventory
     .filter((entry) => entry.itemId === itemId)
     .reduce((sum, entry) => sum + entry.quantity, 0);
-  const equippedQty = item.slot === 'ring'
-    ? [state.equipment.ring1, state.equipment.ring2].filter((id) => id === itemId).length
-    : (item.slot && state.equipment[item.slot] === itemId ? 1 : 0);
+  const equippedQty = item.slot
+    ? physicalSlotsFor(item).filter((slot) => state.equipment[slot] === itemId).length
+    : 0;
   return inventoryQty + equippedQty;
 }
 
