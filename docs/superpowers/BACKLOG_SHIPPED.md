@@ -2101,3 +2101,264 @@ there. Verified via a live 20,000-trial random check (dragon at NG+1
 spans plain/fine/superior/mythic at the documented odds; a wraith-level
 monster's Unique-effect drops now do too), plus rewritten/added unit
 tests in `tests/loot.test.js`/`tests/itemQuality.test.js`. See CHANGELOG.
+
+## Map render performance / canvas map renderer
+
+Raised 2026-09-09, shipped 2026-09-10 across 0.29.0 (the canvas rewrite
+itself), 0.32.0 (held-key walk cadence, two-key staircase, smooth
+character stride) and 0.32.2 (frame-paced walk steps). The two sections
+below are the original investigation, kept because the elimination log is
+the reason the rewrite happened at all - six specific mechanisms were each
+tested live in Chrome DevTools and ruled out before concluding DOM/CSS
+Grid panning had hit a genuine ceiling rather than a fixable bug.
+
+## ~~Map render performance, raised 2026-09-09~~ — the DOM-side investigation. Superseded by the canvas rewrite, shipped 2026-09-10 (0.29.0)
+
+Timothy noticed frame drops/stutter walking around on large/maximized
+browser windows - worse in Safari, tolerable-but-not-great in Chrome.
+Investigated by code-tracing (this session deliberately avoided driving a
+real Chrome session for verification - see the "browser automation cost"
+note this project has been operating under; profiling was inferred from
+source, not measured).
+
+**Root cause found and partially fixed, shipped 2026-09-09 (0.26.13).**
+`render()` (`js/screens/mapScreen.js`) did a full `rootEl.innerHTML = ''`
+teardown-and-rebuild of every visible map tile on every single step
+(`tryMove()` called it on every move), and the number of visible tiles
+scales with window area (`computeViewportTileCount` = `floor(width/48) ×
+floor(height/48)`, uncapped) - a bigger window meant hundreds more tiles
+rebuilt per keypress, with no ceiling. Timothy explicitly did not want a
+viewport cap - the fix had to make a big viewport free, not shrink it.
+Two changes landed:
+- `render()` split into `renderFull()` (mount/resize only - unchanged
+  full rebuild, both already-infrequent one-shot events) and a new
+  `renderStep()` hot path (called from `tryMove()`) that keeps the grid's
+  DOM persistent across steps and diffs by **world coordinate**
+  (`` `${gx},${gy}` ``, not screen row/col - see the module-level
+  `cellCache` comment in `mapScreen.js`), only touching cells whose
+  logical content (`computeCellSignature`/`signaturesEqual`) or on-screen
+  position actually changed.
+- Dropped `container-type: size`/`cqb` sizing on `.map-tile`
+  (`css/styles.css`) in favor of plain px (`FULL_SQUARE_PX`/
+  `HERO_AND_LOOT_PX`/`GUARDIAN_PX` in `mapScreen.js`, derived from
+  `TILE_SIZE_PX`), since the tile's pixel size never actually varies at
+  runtime - that per-tile layout-containment context was pure overhead,
+  paid on every visible tile.
+
+Both covered by tests (`tests/mapScreenDom.test.js`, including a new
+element-identity-persists-across-steps test) - `npm run test` green,
+1020 tests.
+
+**Still open: panning itself is still expensive, independent of the fix
+above.** `computeViewportOrigin` only pans the camera when the current
+screen/cluster is bigger than the viewport - town's cluster fits
+entirely in view, so its origin never moves, and Timothy confirmed
+walking around town now feels "super smooth." In the wilderness the
+camera re-centers on the player every step, so on an ordinary step
+nearly every visible cell's `(row, col)` shifts by one. `renderStep()`
+still writes new `grid-column`/`grid-row` values to almost all of those
+cells even though their *content* didn't change - and a `display: grid`
+explicit-placement change forces a full layout pass across the grid,
+same order of cost as the old full rebuild for that part specifically
+(just without the DOM-churn/SVG-rebuild cost on top, which is why it's
+better but not fully smooth).
+
+**Next concrete step, not started:** a `transform`-based camera. Anchor
+each cell's `grid-column`/`grid-row` to a stable **world-relative**
+frame (e.g. relative to the current screen-cluster's own
+`clusterBounds` origin, not the viewport's `originGx/originGy`) so a
+cell's grid position never changes just because the camera panned -
+only cells actually entering/leaving the cluster's edge would ever need
+their assignment touched. Move the camera by applying a single
+`transform: translate(...)` to the `.map-grid` container instead
+(recomputed each step from `originGx/originGy` relative to the
+cluster's own anchor) - `transform` is a compositor-only property (no
+layout, no repaint of unrelated content), so this should make panning
+O(1) with respect to window size/tile count, matching town's already-
+buttery feel. Needs care around: sizing the grid's own
+`gridTemplateColumns`/`Rows` to cover the full cluster extent rather
+than just the viewport (CSS Grid tolerates a template much larger than
+the tiles actually populated - untested here whether that's free at the
+sizes a 5x5 wilderness cluster reaches); re-anchoring (falling back to
+`renderFull()`, which the diffing already does gracefully) on a
+screen-cluster-boundary crossing, since the anchor is only stable within
+one cluster.
+
+**Also raised, not yet built:** a jsdom-based (no browser needed) perf
+regression test - mount `mapScreen`, fire a few thousand rapid
+`ArrowRight`/`ArrowLeft` keydowns, time it with `performance.now()`
+(and/or run under `node --cpu-prof` for a real flame graph of which
+function dominates). This can catch JS-side regressions (e.g. an O(n)
+scan creeping into `isVisited`/`hasCache`/`getVisitDirs` as save data
+grows) cheaply and permanently, without any browser/Chrome-automation
+cost - but jsdom has no real layout engine, so it can't measure the
+actual layout/paint cost the "still open" panning issue above is about;
+that part still needs a real DevTools trace.
+
+**Plan for continuing:** Timothy is moving this to his home machine,
+where he's fine with a bigger one-off token spend (e.g. an actual
+Chrome DevTools Performance recording, before/after, to confirm the
+`transform`-based fix actually closes the gap) rather than inferring
+everything from source reading the way this session had to on the work
+machine.
+
+
+## ~~Map render performance - continued 2026-09-09, home machine~~ — the live-DevTools elimination log that concluded a canvas rewrite was the only remaining step. Shipped 2026-09-10 (0.29.0)
+
+Picked up on Timothy's home machine, this time with real Chrome DevTools
+(the previous session's own plan) rather than source-reading. Session
+also connected live to the previous session (cross-session message) to
+pull undocumented details before starting - see that exchange for the
+full handoff if it's ever needed again.
+
+**Shipped, confirmed with real measurements:**
+- The `transform`-based cluster-anchored camera itself (see
+  `applyGridTransform`/`computeStepGeometry` in `mapScreen.js`) - grid
+  placement (`grid-column`/`grid-row`) is now a pure function of world
+  coordinate via the current screen-cluster's own bounds, stable across
+  steps; panning is one `transform: translate()` on `.map-grid`, sized to
+  the whole cluster (`repeat(150, 48px)`-scale for a 5x5 wilderness
+  cluster) rather than just the viewport. Real before/after in Chrome
+  (Event Timing API, dispatching real steps): ~2.77ms/step -> ~1.05ms/step
+  at a normal window, ~4.69ms/step -> ~1.46ms/step maximized - the old
+  code got *worse* with a bigger window (matching Timothy's original
+  report), the new one barely moves. Confirmed twice (small and large
+  window) via `git stash`/pop A/B against the exact same code path.
+- **A real bug found and fixed along the way:** `renderStep()`'s call to
+  `computeViewportGeometry()` re-measured `viewportEl.clientWidth`/
+  `clientHeight` on every single step - a live DevTools recording's own
+  Insights panel flagged this exact read as "Forced reflow - a likely
+  performance bottleneck" (a synchronous layout, forced because the read
+  happens right after the previous step's DOM mutations). The viewport's
+  pixel size only actually changes on a real resize, already handled
+  separately by `handleResize()`'s own `resize` listener - so the fix
+  (`computeStepGeometry()`, reusing `lastTilesWide`/`lastTilesTall`
+  instead of re-measuring) removes a real forced layout from the hot path
+  with no loss of correctness. Worth keeping regardless of what happens
+  with canvas below.
+- Debounced `persist()` off the movement hot path (`onMove` now calls
+  `schedulePersist()`, batching rapid steps into one `localStorage` write
+  after 400ms idle instead of one write per step) - flushed immediately on
+  `visibilitychange`/`pagehide` so nothing is lost to a closed tab.
+  Measured cost was already small (a few ms even at a ~577KB fully-explored
+  save) but it was still unconditional per-step work for no benefit.
+- Dev tooling: `tools/dev-server.mjs` now sends `Cache-Control: no-cache`
+  for JS/CSS, mirroring production's own `_headers` rule (same 2026-08-29
+  incident that rule exists for) - local testing now has the same
+  explicit no-stale-code guarantee. A `?noEncounters=1` URL param
+  (`debugCharacters.js`) skips random encounter rolls for movement/perf
+  testing, combinable with `?debug=<key>`. A `DEV_BUILD_TAG` badge
+  (bottom-right, localhost-only) confirms which edit is actually loaded -
+  bumped by hand each edit, not a timestamp (a timestamp changes on every
+  reload regardless of whether the code did, which answers the wrong
+  question).
+
+**Ruled out, each via a live DevTools test (not inferred) - the
+"still open" panning cost is NOT caused by any of these:**
+1. **GPU layer promotion.** Tried `will-change: transform` on
+  `.map-grid` on the theory panning needed a standing compositor layer.
+  No measurable improvement (if anything slightly worse - ~208ms avg
+  Event-Timing presentationDelay vs. ~173ms before) and Layer Borders
+  showed the huge (multi-thousand-px, whole-cluster-sized) box getting
+  tiled into many raster tiles. Removed.
+2. **z-index paint-order restacking.** `applyCellPosition` sets
+  `cell.style.zIndex` for the row-based depth-sort - disabling it
+  (**both** write paths - the one inside `applyCellPosition` AND the
+  separate inline `cached.el.style.zIndex = ...` in `renderStep()`'s
+  common "unchanged row/col" branch, which the first attempt at this test
+  missed entirely) made no difference to the full-viewport paint flash or
+  Commit cost.
+3. **DOM child add/remove churn.** Pre-built a padded area around the
+  viewport so a small range of movement touched zero child
+  adds/removes (only existing cells' own content/attributes changed) -
+  Commit cost and the full-screen paint flash were unchanged (confirmed
+  via a real DevTools recording, 35.34ms self time on `Commit`).
+4. **Trail SVG rebuild cost.** The worn-path trail (`buildTrailFragment`
+  - gradients, paths, a hub circle) rebuilds on the just-stepped tile
+  nearly every step since visit count changes. Disabled it entirely
+  (no trail rendered at all) - still hitchy, no change.
+5. **The `#flavor-banner` toast's own opacity transition.** Showed up in
+  one trace's Animations track overlapping a busy window, but the very
+  first trace (no toast visible at all) already showed the same ~40-46ms
+  Commit cost - coincidental overlap, not causal.
+
+**What actually correlates, cleanly, confirmed by Timothy directly:**
+panning smoothness tracks whether the camera's `transform` is actually
+changing, not any of the content details above. Standing in a corner
+where `computeViewportOrigin` clamps (the cluster is centered/pinned and
+the origin stops moving even as the player keeps stepping) feels
+smooth - Paint Flashing shows green *only right around the character*.
+The moment normal panning resumes, the same full-viewport green flash and
+30-45ms+ `Commit` costs come back, visible directly in a wider flame-chart
+capture as a clean before/after (small, thin task marks while
+clamped/not-panning; sudden sustained 500ms+ frame stalls the moment
+panning resumes). A `Painting: 1,666ms` vs. `Scripting: 395ms` aggregate
+over one ~12.75s range makes the same point numerically - the game's own
+JS is cheap throughout; the browser's paint pipeline is where the time
+goes, and it's specifically tied to sliding the panned content.
+
+**Conclusion:** this looks like a genuine ceiling for "slide a
+CSS-Grid-of-~1200-populated-tiles via `transform`" in this browser, not
+an implementation bug still waiting to be found - six different specific
+mechanisms were each tested live and eliminated one at a time. A real
+game-engine tile renderer (Phaser, PixiJS, Godot's TileMap, etc.) would
+do this with GPU sprite batching, not DOM elements, for exactly this
+reason. The technically correct next step, if fully smooth panning is
+the bar, is very likely a canvas (or WebGL) rewrite of the map tile
+rendering specifically (HUD/battle/overlays can stay DOM/CSS as-is,
+scoping this to just `mapScreen.js`'s own tile grid) - not yet started or
+scoped, and a substantial rewrite (every emoji, hover/tooltip, trail,
+obstacle overlap, portal shadow, and level-up/well-heal/portal-pull
+effect currently implemented as DOM/CSS would need reimplementing as
+draw calls). Worth treating as its own planned task rather than a
+continuation of this session's experiment-and-revert cycle.
+
+**Done: shipped 2026-09-10 (0.29.0), in its own worktree as planned
+above.** Canvas2d, not WebGL - ~900 sprites/frame is well inside a 16ms
+budget, and WebGL has no path API, which would have made the trail
+(per-stroke gradients along variable-width quadratic curves) harder, not
+easier. Every item this section listed as needing reimplementation got
+one: a glyph atlas for emoji, hover via pointer hit-testing, the trail
+ported as a direct transcription of `trail.js`'s own numbers (not a
+reinterpretation - it was specifically flagged as the feature to get
+right), obstacle/guardian overlap and portal shadow bleed all matched to
+their old CSS pixel-for-pixel, and level-up/well-heal/portal-pull redone
+as canvas-native tweens. See the "Map render performance" entry in the
+main backlog list above for the shipped architecture and the one bug
+(camera-glide slider) caught before push.
+
+**Follow-up, same session, shipped 2026-09-09 (0.27.2):**
+- **Import from Code added to the Character Select screen itself**
+  (`js/screens/startScreen.js`), not gated behind `cloudSaveBeta` - that
+  flag lives on a character's own `state.settings`, which doesn't exist
+  yet at this screen. Raised: "we should probably wire up our save
+  loading to the landing page of the game so that someone doesn't have
+  to start a new character just to import their other one." Shares its
+  overwrite/new-slot decision logic with Settings' own import via one
+  `handleCloudSaveImport` function in `js/main.js`, rather than
+  duplicating it.
+- **Same-character detection**, raised the same session immediately
+  after: "what if you import characters with the same name? how do we
+  know it's the same character. I think we should offer to overwrite or
+  rename." Display names were never a reliable way to answer that (two
+  different characters can share one, and the same character's name can
+  change) - solved with a stable `characterId` (`js/state.js`,
+  `crypto.randomUUID()`, assigned once at `createNewGame()` and via a
+  `migrateCharacterId` migration for existing saves) that travels with
+  the save through export/import untouched. `findSlotByCharacterId`
+  (`js/systems/saveSlots.js`) checks incoming imports against it: a real
+  match offers (`window.confirm`) to overwrite that exact local slot in
+  place; declining, or no match at all, falls through to the existing
+  "name a new slot" prompt, where typing something other than the
+  suggested default name *is* the rename option.
+- `generateCharacterId` deliberately uses `crypto.randomUUID()`, not the
+  `Math.random()`-based pattern `generateSlotId`/`randomSessionId`
+  already use elsewhere in this codebase - `createNewGame()` runs inside
+  plenty of existing tests that mock `Math.random` with an exact
+  scripted sequence for deterministic RNG assertions, and the first
+  attempt (a `Math.random()`-based id) silently shifted every roll after
+  it by one, breaking several unrelated-looking `mapScreenDom.test.js`
+  tests. Caught by running the full suite before pushing, not by
+  inspection - worth remembering next time something gets added inside
+  `createNewGame()`.
+
