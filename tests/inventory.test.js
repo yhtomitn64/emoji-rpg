@@ -5,7 +5,7 @@ import {
   addGold, spendGold, addItem, removeItem, equipItem, unequipItem, upgradeItem, upgradeCost,
   getEquipmentBonuses, getItemEffectiveStats, getItemStatDelta, MAX_UPGRADE_LEVEL, applyHeal, sellPrice,
   maxAffordableQuantity, describeItem, upgradeKey, getUpgradeLevel, migrateUpgradesToPerTier, sellDuplicateGear,
-  formatStatDelta, getMaxUpgradeLevel,
+  hasDuplicateGearToSell, formatStatDelta, getMaxUpgradeLevel,
   canReforgeToMythic, reforgeToMythic, REFORGE_GOLD_COST, REFORGE_ESSENCE_COST,
   resolveRingEquipSlot,
 } from '../js/systems/inventory.js';
@@ -520,6 +520,74 @@ test('sellDuplicateGear leaves a currently-equipped item alone (equipping alread
   const result = sellDuplicateGear(state);
   assert.equal(result.soldCount, 0);
   assert.equal(result.state.equipment.weapon, 'ironSword');
+});
+
+// Raised 2026-09-09: "when you sell duplicate items also automatically
+// sell old stuff that is worthless because you have better versions" -
+// extends the dupe-sell button past same-tier excess to whole outclassed
+// lower-tier stacks of the same base item.
+test('sellDuplicateGear sells an entire outclassed lower-tier stack once a better tier of the same item is equipped', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironHelm', 1); // Plain, single copy - not a same-tier duplicate
+  state = addItem(state, 'ironHelm', 1, 'fine');
+  state = equipItem(state, 'ironHelm', 'head', 'fine'); // Fine now equipped - Plain is strictly worse
+
+  const result = sellDuplicateGear(state);
+
+  const plainEntry = result.state.inventory.find((e) => e.itemId === 'ironHelm' && e.tier === undefined);
+  assert.equal(plainEntry, undefined, 'the outclassed Plain copy should be sold entirely');
+  assert.equal(result.soldCount, 1);
+  assert.equal(result.goldEarned, sellPrice(ITEMS.ironHelm.price));
+});
+
+test('sellDuplicateGear never sells a maxed lower tier until the better tier it owns/equips is also maxed', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironHelm', 1); // Plain, maxed
+  state.upgrades[upgradeKey('ironHelm', undefined)] = MAX_UPGRADE_LEVEL;
+  state = addItem(state, 'ironHelm', 1, 'fine'); // Fine, unmaxed - better tier but not yet ahead in practice
+  state = equipItem(state, 'ironHelm', 'head', 'fine');
+
+  const result = sellDuplicateGear(state);
+
+  const plainEntry = result.state.inventory.find((e) => e.itemId === 'ironHelm' && e.tier === undefined);
+  assert.ok(plainEntry, 'the maxed Plain copy should be kept until Fine is also maxed');
+  assert.equal(plainEntry.quantity, 1);
+  assert.equal(result.soldCount, 0);
+});
+
+test('sellDuplicateGear sells a previously-protected maxed lower tier once the better tier catches up to maxed', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironHelm', 1);
+  state.upgrades[upgradeKey('ironHelm', undefined)] = MAX_UPGRADE_LEVEL;
+  state = addItem(state, 'ironHelm', 1, 'fine');
+  state = equipItem(state, 'ironHelm', 'head', 'fine');
+  state.upgrades[upgradeKey('ironHelm', 'fine')] = MAX_UPGRADE_LEVEL; // Fine caught up
+
+  const result = sellDuplicateGear(state);
+
+  const plainEntry = result.state.inventory.find((e) => e.itemId === 'ironHelm' && e.tier === undefined);
+  assert.equal(plainEntry, undefined, 'now that Fine matches, the maxed Plain copy is obsolete');
+  assert.equal(result.soldCount, 1);
+});
+
+test('sellDuplicateGear never compares different base items sharing a slot (e.g. Iron Greaves vs. Wind Greaves)', () => {
+  let state = createNewGame();
+  state = addItem(state, 'ironGreaves', 1);
+  state = addItem(state, 'windGreaves', 1);
+  state = equipItem(state, 'windGreaves', 'legs'); // a different item, same slot - not a tier of ironGreaves
+  const result = sellDuplicateGear(state);
+  assert.equal(result.soldCount, 0);
+  const greavesEntry = result.state.inventory.find((e) => e.itemId === 'ironGreaves');
+  assert.equal(greavesEntry.quantity, 1);
+});
+
+test('hasDuplicateGearToSell is true for a single outclassed lower-tier copy, not just same-tier excess', () => {
+  let state = createNewGame();
+  assert.equal(hasDuplicateGearToSell(state), false);
+  state = addItem(state, 'ironHelm', 1);
+  state = addItem(state, 'ironHelm', 1, 'fine');
+  state = equipItem(state, 'ironHelm', 'head', 'fine');
+  assert.equal(hasDuplicateGearToSell(state), true);
 });
 
 test('getEquipmentBonuses includes thornsPercent from an equipped Retribution Charm', () => {

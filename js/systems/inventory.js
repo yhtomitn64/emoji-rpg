@@ -185,26 +185,74 @@ export function sellPrice(price) {
   return Math.floor(price / 2);
 }
 
-// Raised 2026-08-29: "add a sell duplicates button... auto sells all your
-// dupes to clean up INV." Equipping an item already removes its one copy
-// from state.inventory (see equipItem above), so a gear entry's quantity
-// can only ever be >1 here from owning multiple *unequipped* copies of the
-// exact same itemId+tier - the first copy isn't a duplicate, so this keeps
-// one and sells the rest at half price, same as a normal shop sale.
-// Deliberately gear-only (`ITEMS[entry.itemId].slot` is only set on
-// equippable items) - materials/potions are meant to stack past 1, that's
-// not a "duplicate" in the same sense, and materials have no price/sell
-// path at all yet (see the still-open "sell unneeded crafting materials"
-// backlog item).
+// A single scalar capturing an item's full power for comparison purposes:
+// tier and upgrade level both scale every one of an item's stats by the
+// same factor (see getItemEffectiveStats), so this fully determines
+// relative ordering between two copies of the *same* itemId - it says
+// nothing about different base items (e.g. Iron Greaves vs. Wind Greaves),
+// which don't strictly dominate one another and are never compared.
+function itemPowerFactor(state, itemId, tier) {
+  const multiplier = tier ? QUALITY_TIER_MULTIPLIERS[tier] : 1;
+  return multiplier * (1 + 0.25 * getUpgradeLevel(state, itemId, tier));
+}
+
+function isTierMaxed(state, itemId, tier) {
+  return getUpgradeLevel(state, itemId, tier) >= getMaxUpgradeLevel(state.ngPlusCycle);
+}
+
+// Raised 2026-08-29 ("add a sell duplicates button... auto sells all your
+// dupes to clean up INV"), extended 2026-09-09 to also sweep whole
+// lower-tier stacks of the same base item once a strictly better tier is
+// owned - not just excess copies within one tier. Equipping an item
+// already removes its one copy from state.inventory (see equipItem above),
+// so nothing here ever touches something currently equipped.
+//
+// A lower tier is protected from the sweep if it's already maxed for this
+// NG+ cycle while the better tier isn't - a maxed weak copy can out-perform
+// an unmaxed strong one (tier and upgrade level compound multiplicatively,
+// see itemPowerFactor/getItemEffectiveStats), so it's still worth keeping
+// until the better tier catches up. Comparison is strictly within the same
+// itemId (Iron Helm tiers vs. each other) - never across different base
+// items sharing a slot.
+function computeDuplicateSaleExcess(state) {
+  const bestByItemId = new Map(); // itemId -> { power, tier }
+  const considerTier = (itemId, tier) => {
+    const power = itemPowerFactor(state, itemId, tier);
+    const current = bestByItemId.get(itemId);
+    if (!current || power > current.power) bestByItemId.set(itemId, { power, tier });
+  };
+  for (const slot of Object.keys(state.equipment)) {
+    const itemId = state.equipment[slot];
+    if (itemId) considerTier(itemId, state.equipmentTiers?.[slot]);
+  }
+  for (const entry of state.inventory) {
+    if (ITEMS[entry.itemId].slot) considerTier(entry.itemId, entry.tier);
+  }
+
+  const sales = [];
+  for (const entry of state.inventory) {
+    const item = ITEMS[entry.itemId];
+    if (!item.slot || entry.quantity <= 0) continue;
+    const best = bestByItemId.get(entry.itemId);
+    const ownPower = itemPowerFactor(state, entry.itemId, entry.tier);
+    const outclassed = ownPower < best.power
+      && !(isTierMaxed(state, entry.itemId, entry.tier) && !isTierMaxed(state, entry.itemId, best.tier));
+    const excess = outclassed ? entry.quantity : entry.quantity - 1;
+    if (excess > 0) sales.push({ entry, excess });
+  }
+  return sales;
+}
+
+export function hasDuplicateGearToSell(state) {
+  return computeDuplicateSaleExcess(state).length > 0;
+}
+
 export function sellDuplicateGear(state) {
   let next = state;
   let soldCount = 0;
   let goldEarned = 0;
-  for (const entry of state.inventory) {
-    const item = ITEMS[entry.itemId];
-    if (!item.slot || entry.quantity <= 1) continue;
-    const excess = entry.quantity - 1;
-    const earned = sellPrice(item.price) * excess;
+  for (const { entry, excess } of computeDuplicateSaleExcess(state)) {
+    const earned = sellPrice(ITEMS[entry.itemId].price) * excess;
     next = removeItem(next, entry.itemId, excess, entry.tier);
     next = addGold(next, earned);
     soldCount += excess;

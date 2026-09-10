@@ -1,5 +1,5 @@
 import { ITEMS, SHOP_CATALOG } from '../data/items.js';
-import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear, formatStatDelta, getUpgradeLevel } from '../systems/inventory.js';
+import { spendGold, addItem, removeItem, addGold, sellPrice, maxAffordableQuantity, describeItem, equipItem, getItemStatDelta, sellDuplicateGear, hasDuplicateGearToSell, formatStatDelta, getUpgradeLevel } from '../systems/inventory.js';
 import { tierLabel } from '../systems/itemQuality.js';
 import { logEvent } from '../systems/telemetry.js';
 
@@ -64,11 +64,13 @@ function renderEquipPrompt() {
 // moved here per Timothy's own correction ("that should be a shop feature
 // not something you can do all the time"). Scans the player's whole gear
 // inventory, not just SHOP_CATALOG - a duplicate boss/unique drop (price 0)
-// is just as much clutter as a duplicate shop item.
+// is just as much clutter as a duplicate shop item. Extended 2026-09-09 to
+// also flag whole lower-tier stacks outclassed by a better-owned/equipped
+// tier of the same item (see hasDuplicateGearToSell/sellDuplicateGear).
 function renderSellDuplicatesControl() {
-  const duplicateCount = state.inventory.filter((entry) => ITEMS[entry.itemId].slot && entry.quantity > 1).length;
+  const hasSellable = hasDuplicateGearToSell(state);
   return `<div class="shop-sell-duplicates">
-    <button id="btn-sell-duplicates" ${duplicateCount === 0 ? 'disabled' : ''}>🧹 Sell Duplicate Gear</button>
+    <button id="btn-sell-duplicates" ${hasSellable ? '' : 'disabled'}>🧹 Sell Duplicate Gear</button>
     ${sellDuplicatesMessage ? `<span class="shop-sell-duplicates-message">${sellDuplicatesMessage}</span>` : ''}
   </div>`;
 }
@@ -179,8 +181,8 @@ function render() {
       const result = sellDuplicateGear(state);
       Object.assign(state, result.state);
       sellDuplicatesMessage = result.soldCount === 0
-        ? 'No duplicates to sell.'
-        : `Sold ${result.soldCount} duplicate item${result.soldCount === 1 ? '' : 's'} for ${result.goldEarned}g.`;
+        ? 'No duplicate or outdated gear to sell.'
+        : `Sold ${result.soldCount} duplicate/outdated item${result.soldCount === 1 ? '' : 's'} for ${result.goldEarned}g.`;
       pendingEquipQueue = [];
       callbacks.onPurchase();
       render();

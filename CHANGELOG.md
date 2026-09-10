@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.27.3] - 2026-09-09
+
+### Changed
+- **"Sell Duplicate Gear" now also sells whole lower-tier stacks of the
+  same base item once you own or have equipped a strictly better tier of
+  it** - not just excess copies within one tier, which is all it did
+  before. Raised same session: "when you sell duplicate items also
+  automatically sell old stuff that is worthless because you have better
+  versions." A lower tier is protected from the sweep if it's already at
+  this NG+ cycle's smith-upgrade cap while the better tier isn't (a maxed
+  weak copy can out-perform an unmaxed strong one, per the tier/upgrade
+  multiplier stacking) - keeps it until the better tier catches up.
+  Comparison stays strictly within the same `itemId` (e.g. Iron Helm
+  tiers vs. each other) - never across different base items sharing a
+  slot (Iron Greaves vs. Wind Greaves), which don't strictly dominate one
+  another. New `hasDuplicateGearToSell`/`itemPowerFactor` helpers in
+  `js/systems/inventory.js`; the button's disabled state now reflects
+  single obsolete copies too, not just same-tier excess.
+
 ## [0.27.2] - 2026-09-09
 
 ### Added

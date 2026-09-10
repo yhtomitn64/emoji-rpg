@@ -53,7 +53,7 @@ test('shopScreen DOM - Sell Duplicate Gear', async (t) => {
     assert.equal(purchased, true, 'expected callbacks.onPurchase to fire so gold/HUD stay in sync');
     assert.equal(state.inventory.find((e) => e.itemId === 'ironSword').quantity, 1);
     assert.equal(state.player.gold, 100 + 2 * sellPrice(ITEMS.ironSword.price));
-    assert.ok(root.querySelector('.shop-sell-duplicates-message').textContent.includes('Sold 2 duplicate items'));
+    assert.ok(root.querySelector('.shop-sell-duplicates-message').textContent.includes('Sold 2 duplicate/outdated items'));
   });
 
   await t.test('a unique boss-drop item (price 0, not in SHOP_CATALOG) still counts as a sellable duplicate', async () => {

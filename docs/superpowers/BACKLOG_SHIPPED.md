@@ -906,6 +906,40 @@ Plain via the existing `sellPrice()` - no tier price premium, matching
 the Sell Duplicate Gear precedent above. `sellItem()` now takes a `tier`
 param threaded through to `removeItem`. See CHANGELOG.
 
+### ~~Sell Duplicate Gear should also sweep outclassed lower tiers, not just same-tier excess~~ Shipped 2026-09-09
+Raised 2026-09-09: "when you sell duplicate items also automatically
+sell old stuff that is worthless because you have better versions. Now
+don't sell something you have equipped obviously. Also if you have a
+maxed version of something and you also have a better version but not
+maxed then in this case I guess you don't want to sell it until the
+user maxes it out." Clarified same session that "better" means a
+different *tier* of the same base item (his example: "iron x vs fine
+iron x vs mythic iron x"), never a cross-item comparison like Iron
+Greaves vs. Wind Greaves.
+
+The two entries directly above already closed same-tier dupes and gave
+every tier a sell row, but a single Plain copy sitting alongside an
+equipped Fine/Superior/Mythic copy of the same item still had no
+auto-sell path at all - exactly what this note flagged. Fixed in
+`sellDuplicateGear` (`js/systems/inventory.js`): a new
+`computeDuplicateSaleExcess` ranks every owned/equipped tier of a given
+`itemId` by a single `itemPowerFactor` (tier multiplier x (1 + 0.25 x
+upgrade level) - the same factor `getItemEffectiveStats` scales every
+stat by, so it fully orders same-item tiers with no ambiguity), then
+sells an entire lower-tier stack unless it's already maxed for this NG+
+cycle while the best-owned tier isn't (the explicit maxed-vs-unmaxed
+exception from the ask - a maxed weak copy can still out-perform an
+unmaxed strong one). Equipped items were already excluded for free
+(equipping removes an item from `state.inventory`). New
+`hasDuplicateGearToSell` export drives the button's disabled state, so
+it now lights up for a single obsolete copy too, not just quantity > 1.
+Verified in-browser against a real save with a maxed Plain Iron Helm +
+unmaxed equipped Fine Iron Helm (kept, protected), an unmaxed Plain Iron
+Armor next to an equipped Fine Iron Armor (sold entirely), and an
+ordinary Cloth Cap x2 with no better tier (deduped to 1, old behavior
+unchanged) - plus 6 new unit tests and an updated DOM test. See
+CHANGELOG.
+
 ## Combat pass ideas
 
 ### ~~Bigger battle dialog~~ Shipped 2026-09-06

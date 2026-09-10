@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.27.3',
+    date: '2026-09-09',
+    highlights: [
+      "Changed: Sell Duplicate Gear now also clears out whole outdated copies of an item once you own a better tier of it (e.g. a Plain Iron Helm once you have a Fine one), not just extra copies of the exact same tier. It'll still keep a maxed-out weaker copy around until your better one catches up.",
+    ],
+  },
+  {
     version: '0.27.2',
     date: '2026-09-09',
     highlights: [
