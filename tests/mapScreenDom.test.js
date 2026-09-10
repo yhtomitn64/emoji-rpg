@@ -2,6 +2,15 @@
 // tests/helpers/dom.js). Scope: DOM structure driven by state, not pixel-
 // level rendering - see battleScreenDom.test.js's own header for why this
 // pattern exists.
+//
+// Every mount() here passes `renderer: 'dom'` explicitly. The map's default
+// renderer is canvas as of 2026-09-09 (see mapCanvasRenderer.js), and jsdom
+// has no canvas implementation at all - getContext('2d') returns null there -
+// so a canvas mount renders nothing this file could assert against. These
+// tests keep guarding the DOM renderer for as long as `?renderer=dom` exists
+// as a live A/B option; the canvas renderer's own equivalent coverage is in
+// tests/mapDrawList.test.js and tests/mapTrail.test.js, which assert the
+// draw list (pure data) rather than pixels.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setupDom, teardownDom, createRoot, keydown } from './helpers/dom.js';
@@ -19,7 +28,7 @@ async function mountTown(state) {
   const { mount } = await import('../js/screens/mapScreen.js');
   const root = createRoot();
   const maps = { town: townMap };
-  mount(root, { state, mapConfig: townMap, maps, worldGrid: buildWorldGrid(maps), callbacks: { onFirstVisit: () => {} } });
+  mount(root, { renderer: 'dom', state, mapConfig: townMap, maps, worldGrid: buildWorldGrid(maps), callbacks: { onFirstVisit: () => {} } });
   return root;
 }
 
@@ -121,6 +130,7 @@ test('mapScreen DOM - portal pull effect delays the action', async (t) => {
       portal: { originScreenId: 'north', originX: 3, originY: 3, returnPending: true },
     });
     mount(root, {
+      renderer: 'dom',
       state,
       mapConfig: townMap,
       maps,
@@ -147,6 +157,7 @@ test('mapScreen DOM - portal pull effect delays the action', async (t) => {
       portal: { originScreenId: 'north', originX: 3, originY: 3, returnPending: true },
     });
     mount(root, {
+      renderer: 'dom',
       state,
       mapConfig: townMap,
       maps,
@@ -177,6 +188,7 @@ test('mapScreen DOM - portal hotkey', async (t) => {
     const maps = { town: townMap };
     const seenActions = [];
     mount(root, {
+      renderer: 'dom',
       state: baseState(),
       mapConfig: townMap,
       maps,
@@ -193,6 +205,7 @@ test('mapScreen DOM - portal hotkey', async (t) => {
     const maps = { town: townMap };
     const seenActions = [];
     mount(root, {
+      renderer: 'dom',
       state: baseState(),
       mapConfig: townMap,
       maps,
@@ -276,6 +289,7 @@ test('mapScreen DOM - render diffing reuses DOM elements across steps', async (t
     const { mount } = await import('../js/screens/mapScreen.js');
     const root = createRoot();
     mount(root, {
+      renderer: 'dom',
       state, mapConfig: plains, maps, worldGrid,
       callbacks: {
         onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
@@ -345,6 +359,7 @@ test('mapScreen DOM - crossing a screen boundary onto a tool-gated tile', async 
     const { mount } = await import('../js/screens/mapScreen.js');
     const root = createRoot();
     mount(root, {
+      renderer: 'dom',
       state,
       mapConfig: westScreen,
       maps,
@@ -413,6 +428,7 @@ test('mapScreen DOM - encounter cooldown blocks the next few steps after a rando
     const { mount } = await import('../js/screens/mapScreen.js');
     const root = createRoot();
     mount(root, {
+      renderer: 'dom',
       state,
       mapConfig: plains,
       maps,
@@ -481,6 +497,7 @@ test('mapScreen DOM - zone-1 step tracking', async (t) => {
     const { mount } = await import('../js/screens/mapScreen.js');
     const root = createRoot();
     mount(root, {
+      renderer: 'dom',
       state, mapConfig: northScreen, maps, worldGrid,
       callbacks: {
         onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
@@ -516,6 +533,7 @@ test('mapScreen DOM - zone-1 step tracking', async (t) => {
     const { mount } = await import('../js/screens/mapScreen.js');
     const root = createRoot();
     mount(root, {
+      renderer: 'dom',
       state, mapConfig: centerScreen, maps, worldGrid,
       callbacks: {
         onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
@@ -585,6 +603,7 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
       const root = createRoot();
       let encounteredIds = null;
       mount(root, {
+      renderer: 'dom',
         state, mapConfig: northScreen, maps, worldGrid,
         callbacks: {
           onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
@@ -640,6 +659,7 @@ test('mapScreen DOM - group encounter roll passes monsterTable/ngPlusCycle/zone1
       const root = createRoot();
       let encounteredIds = null;
       mount(root, {
+      renderer: 'dom',
         state, mapConfig: northScreen, maps, worldGrid,
         callbacks: {
           onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
@@ -670,6 +690,7 @@ test('mapScreen DOM - town exits and signage', async (t) => {
     const maps = { town: townMap };
     let capturedAction = null;
     mount(root, {
+      renderer: 'dom',
       state: baseState({ position }),
       mapConfig: townMap,
       maps,
@@ -730,6 +751,7 @@ test('mapScreen DOM - tool dungeon guardian rendering', async (t) => {
     const root = createRoot();
     const maps = { axeDungeon: axeDungeonMap };
     mount(root, {
+      renderer: 'dom',
       state: baseState({ position: { ...axeDungeonMap.startPosition } }),
       mapConfig: axeDungeonMap,
       maps,

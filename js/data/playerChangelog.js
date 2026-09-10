@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.29.0',
+    date: '2026-09-10',
+    highlights: [
+      'Changed: the map now renders completely differently under the hood - panning around, especially in open wilderness, should feel noticeably smoother than before.',
+      'Added: a "Map camera glide" slider in Settings lets you choose how the camera follows you - anywhere from an instant snap (the old feel) to a smooth glide.',
+    ],
+  },
+  {
     version: '0.28.0',
     date: '2026-09-10',
     highlights: [

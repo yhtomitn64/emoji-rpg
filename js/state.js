@@ -44,6 +44,18 @@ export const DEFAULT_DUNGEON_ENTRANCE_POSITION = { screenId: 'farNorthwest', x: 
 
 export const DEFAULT_ITEM_MENU_AUTO_CLOSE_MS = 1000;
 
+// How long the map camera takes to slide to a new position, in ms. Only
+// meaningful under the canvas map renderer (js/screens/mapCanvasRenderer.js),
+// whose camera is a real pixel offset it can interpolate - the old DOM
+// renderer moved the camera a whole tile at a time by definition.
+//
+// 0 is a deliberately supported value, not a degenerate one: it reproduces
+// the instant tile-snap the game had before the canvas rewrite exactly, so
+// the slider spans "exactly how it used to feel" through to a visible glide
+// rather than only offering degrees of a new behavior.
+export const DEFAULT_CAMERA_SMOOTHING_MS = 80;
+export const MAX_CAMERA_SMOOTHING_MS = 250;
+
 const DEFAULT_AUDIO_SETTINGS = {
   soundTheme: 'realistic',
   audioCombatVolume: 0.8, audioCombatMuted: false,
@@ -138,6 +150,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     // this time for different users."
     settings: {
       itemMenuAutoCloseMs: DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
+      cameraSmoothingMs: DEFAULT_CAMERA_SMOOTHING_MS,
       ...DEFAULT_AUDIO_SETTINGS,
       featureFlags: { ...DEFAULT_FEATURE_FLAGS },
     },
@@ -254,6 +267,19 @@ export function migrateSettings(state) {
 // already adjusted a slider on a save made mid-rollout never gets it reset.
 export function migrateAudioSettings(state) {
   return { ...state, settings: { ...DEFAULT_AUDIO_SETTINGS, ...state.settings } };
+}
+
+// One-time migration for saves from before the map camera could be smoothed
+// (added 2026-09-09 with the canvas map renderer). Uses `in` rather than a
+// falsy check because 0 is a real, deliberately-chosen value here - "snap
+// instantly, exactly like the old renderer" - and `|| DEFAULT` would quietly
+// overwrite it every single load.
+export function migrateCameraSettings(state) {
+  if (state.settings && 'cameraSmoothingMs' in state.settings) return state;
+  return {
+    ...state,
+    settings: { ...state.settings, cameraSmoothingMs: DEFAULT_CAMERA_SMOOTHING_MS },
+  };
 }
 
 // One-time migration for saves from before feature flags existed - merges

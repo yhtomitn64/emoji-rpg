@@ -1,4 +1,4 @@
-import { DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } from '../state.js';
+import { DEFAULT_ITEM_MENU_AUTO_CLOSE_MS, DEFAULT_CAMERA_SMOOTHING_MS, MAX_CAMERA_SMOOTHING_MS } from '../state.js';
 import { getBufferAsJsonl } from '../systems/telemetry.js';
 import { bindEscapeClose, bindBackdropClose } from './dialogChrome.js';
 import { CATEGORIES } from '../systems/audio.js';
@@ -159,6 +159,20 @@ function render() {
           value="${state.settings.itemMenuAutoCloseMs}"
         />
       </div>
+      <div class="settings-row">
+        <label for="settings-camera-smoothing">
+          Map camera glide (ms) — 0 snaps instantly
+        </label>
+        <input
+          type="range"
+          id="settings-camera-smoothing"
+          min="0"
+          max="${MAX_CAMERA_SMOOTHING_MS}"
+          step="10"
+          value="${state.settings.cameraSmoothingMs ?? DEFAULT_CAMERA_SMOOTHING_MS}"
+        />
+        <span id="settings-camera-smoothing-value">${state.settings.cameraSmoothingMs ?? DEFAULT_CAMERA_SMOOTHING_MS}</span>
+      </div>
       <div class="settings-row settings-play-log">
         <span>Play Log</span>
         <button id="btn-copy-play-log">Copy Play Log</button>
@@ -265,6 +279,21 @@ function render() {
     const clamped = Math.min(ITEM_MENU_AUTO_CLOSE_MAX_MS, Math.max(ITEM_MENU_AUTO_CLOSE_MIN_MS, numeric));
     input.value = clamped;
     state.settings = { ...state.settings, itemMenuAutoCloseMs: clamped };
+    callbacks.onChange();
+  };
+  const cameraInput = document.getElementById('settings-camera-smoothing');
+  const cameraValue = document.getElementById('settings-camera-smoothing-value');
+  // `oninput`, not `onchange`, so dragging updates the live map as you go -
+  // the whole point of this slider is feeling the difference, which you
+  // can't do if it only applies after letting go. Same 0-is-a-real-value
+  // care as the auto-close field above: 0 means "snap instantly, exactly
+  // like the pre-canvas renderer", not "unset".
+  cameraInput.oninput = () => {
+    const raw = Number(cameraInput.value);
+    const numeric = Number.isNaN(raw) ? DEFAULT_CAMERA_SMOOTHING_MS : raw;
+    const clamped = Math.min(MAX_CAMERA_SMOOTHING_MS, Math.max(0, numeric));
+    cameraValue.textContent = String(clamped);
+    state.settings = { ...state.settings, cameraSmoothingMs: clamped };
     callbacks.onChange();
   };
   document.getElementById('btn-copy-play-log').onclick = () => copyPlayLog();

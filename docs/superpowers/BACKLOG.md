@@ -332,23 +332,28 @@ same-day items below; these are the ones left open):**
   in, so this should be designed *after* those two ship and reconcile
   against whatever rates they settle on, not compound blindly on top of
   today's numbers).
-- **Map render performance, raised 2026-09-09.** Two real passes shipped
-  (0.26.13's diffed `render()`/dropped `cqb`, then a same-day
-  transform-based cluster-anchored camera - both confirmed with real
-  Chrome DevTools measurements, not just source-reading). The
-  transform-camera fix is real (2.6-3.2x faster per step) but panning
-  still visibly hitches - six further hypotheses (GPU layer promotion,
-  z-index restacking, DOM child churn, trail SVG rebuild cost, a real
-  forced-synchronous-layout bug that WAS found and fixed, and the
-  content-diffing cost itself) were each tested live and ruled out one by
-  one. The cost cleanly correlates with the camera transform itself, not
-  any of the content around it (confirmed: smooth when clamped at a
-  cluster edge with no panning, hitchy exactly when panning resumes) -
-  see the full section near the end of this file for the complete
-  elimination log. Conclusion: this looks like a genuine ceiling for
-  DOM/CSS Grid panning at this tile count, not a fixable implementation
-  bug - a canvas (or WebGL) rewrite of just the map tile rendering is the
-  likely next real step, about to be scoped in its own worktree.
+- ~~**Map render performance, raised 2026-09-09.**~~ — **canvas rewrite
+  shipped 2026-09-10 (0.28.0)**. Two DOM-side passes (0.26.13's diffed
+  `render()`, then a transform-based cluster-anchored camera) got real
+  but incomplete wins - see the full elimination log near the end of
+  this file for how six further hypotheses were ruled out one by one
+  before concluding DOM/CSS Grid panning had hit a genuine ceiling at
+  this tile count. The map's tile rendering (only that - HUD/battle/
+  overlays stayed DOM/CSS) now draws to a single `<canvas>` from a pure
+  draw-list (`js/systems/mapDrawList.js`), painted by
+  `js/screens/mapCanvasRenderer.js`; a step now costs one bitmap paint of
+  viewport size regardless of how far the camera moved. The worn-path
+  trail was ported as a 1:1 transcription of `trail.js`'s own numbers
+  (see `tests/mapTrail.test.js`), not a reinterpretation, specifically
+  because it was flagged as the feature to get right. Also landed: a
+  camera-glide Settings slider (0 matches the old instant-snap exactly)
+  and `?renderer=dom` to A/B the old renderer live on one build until
+  it's deleted. One bug caught by Timothy before push: the glide slider
+  had no effect at any setting because a "no elapsed time measured yet"
+  frame was folded into the same branch as "snap instantly" - see
+  `tests/mapCamera.test.js`'s own header for the fix and why real
+  browser automation couldn't confirm it directly (Chrome suspends
+  `requestAnimationFrame` for an OS-unfocused tab).
 - ~~**Boat proximity-hint text said "clear" the water, which doesn't make
   sense for a boat**~~ — **shipped 2026-09-09 (0.26.14)**. See the fuller
   entry in the Bugs / open questions section below.
@@ -2635,6 +2640,20 @@ obstacle overlap, portal shadow, and level-up/well-heal/portal-pull
 effect currently implemented as DOM/CSS would need reimplementing as
 draw calls). Worth treating as its own planned task rather than a
 continuation of this session's experiment-and-revert cycle.
+
+**Done: shipped 2026-09-10 (0.28.0), in its own worktree as planned
+above.** Canvas2d, not WebGL - ~900 sprites/frame is well inside a 16ms
+budget, and WebGL has no path API, which would have made the trail
+(per-stroke gradients along variable-width quadratic curves) harder, not
+easier. Every item this section listed as needing reimplementation got
+one: a glyph atlas for emoji, hover via pointer hit-testing, the trail
+ported as a direct transcription of `trail.js`'s own numbers (not a
+reinterpretation - it was specifically flagged as the feature to get
+right), obstacle/guardian overlap and portal shadow bleed all matched to
+their old CSS pixel-for-pixel, and level-up/well-heal/portal-pull redone
+as canvas-native tweens. See the "Map render performance" entry in the
+main backlog list above for the shipped architecture and the one bug
+(camera-glide slider) caught before push.
 
 **Follow-up, same session, shipped 2026-09-09 (0.27.2):**
 - **Import from Code added to the Character Select screen itself**

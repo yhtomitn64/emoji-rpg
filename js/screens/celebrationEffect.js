@@ -1,5 +1,6 @@
 import { showFlavorBanner } from './flavorBanner.js';
 import { playSfx } from '../systems/audio.js';
+import { getPlayerScreenRect } from './mapScreen.js';
 
 const BURST_DURATION_MS = 1400;
 const BIG_TEXT_DURATION_MS = 1400;
@@ -75,13 +76,16 @@ export function playCelebration(emoji, message, options = {}) {
 // clearing any stale inline position - letting the CSS default center-screen
 // spot take over - if the player's tile isn't in the DOM for some reason.
 function anchorBurstToPlayer(burstEl) {
-  const playerCell = document.querySelector('.map-tile-player');
-  if (!playerCell) {
+  // Asks mapScreen for the hero's rect rather than reaching in with a
+  // '.map-tile-player' querySelector (which this used to do, and which only
+  // the DOM renderer ever produced - the canvas renderer has no per-tile
+  // elements at all). mapScreen answers from whichever renderer is active.
+  const rect = getPlayerScreenRect();
+  if (!rect) {
     burstEl.style.left = '';
     burstEl.style.top = '';
     return;
   }
-  const rect = playerCell.getBoundingClientRect();
   burstEl.style.left = `${rect.left + rect.width / 2}px`;
   burstEl.style.top = `${rect.top + rect.height / 2}px`;
 }

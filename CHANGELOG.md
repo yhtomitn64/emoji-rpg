@@ -24,6 +24,103 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-09-10
+
+### Changed
+- **The map now renders to a `<canvas>` instead of a CSS Grid of ~1200
+  `<div>` tiles.** Panning a large wilderness screen still visibly
+  hitched after two earlier perf passes, and six further hypotheses were
+  each tested live in Chrome DevTools and ruled out one at a time — the
+  cost tracked the camera transform itself, not any content around it
+  (`Painting: 1,666ms` vs `Scripting: 395ms` over one range). A step now
+  costs one bitmap paint of viewport size no matter how far the camera
+  moved. Scope is only the map's tile rendering; HUD, battle, overlays
+  and the start screen are untouched DOM/CSS.
+  - Architecture: `js/systems/mapDrawList.js` turns the visible world
+    into an ordered list of draw ops (pure data — no DOM, no canvas),
+    and `js/screens/mapCanvasRenderer.js` paints it. That split is why
+    the renderer is testable at all: jsdom has no canvas, but the draw
+    list is plain numbers.
+  - Emoji come from a glyph atlas, rasterised once per emoji at a high
+    base size and scaled per draw — keyed by emoji alone, never by size,
+    which is what makes the randomised obstacle sizes free rather than
+    an unbounded number of atlas entries.
+  - Paint order reproduces the old row-based `z-index` scheme exactly:
+    row-major, then a second pass for portals and guardians. Obstacle
+    canopies still bleed upward, guardians still bleed all four ways.
+  - Deliberately canvas2d, not WebGL or an engine — ~900 sprites/frame
+    is well inside budget, and WebGL has no path API, which would make
+    the trail harder rather than easier.
+- **The worn-path trail was ported as a transcription, not a rewrite.**
+  The draw list carries `trail.js`'s own numbers in its own 0..100
+  coordinate space, and the painter's single scale by
+  `TILE_SIZE_PX / TRAIL_VIEWBOX_SIZE` is the only unit conversion
+  anywhere, so nothing can drift. `createLinearGradient` maps onto the
+  old `<linearGradient>` and `quadraticCurveTo` onto the old `Q` command
+  one-for-one. New `tests/mapTrail.test.js` locks down the properties
+  every past trail bug violated — that two tiles sharing an edge agree
+  on its color, its width and its jitter — which the SVG version never
+  had coverage for. Confirmed live on a real save: a tile at full wear
+  and its barely-walked neighbor both land on `#575931` at their shared
+  border, at matching width.
+- **Map effects are now canvas-native tweens** (`js/systems/mapEffects.js`)
+  rather than CSS keyframes: level-up pulse and rays, well-heal ring and
+  glow, portal pull. One animation system instead of a CSS/JS split, and
+  effects can depth-sort against tiles (the rays really do sit behind
+  the hero). `playMonsterFleeEffect` deliberately stays a `document.body`
+  element — it's meant to fly outside the map viewport, which a canvas
+  draw would clip.
+- **Tile descriptions on hover** are drawn by hand now, since canvas has
+  no `title` attribute — the pointer is hit-tested back to a world
+  coordinate and only updates when the tile under it changes.
+- `js/screens/celebrationEffect.js` asks `mapScreen.getPlayerScreenRect()`
+  for the hero's position instead of reaching in with a
+  `.map-tile-player` querySelector, which only the DOM renderer ever
+  produced.
+- **The old DOM/CSS-Grid renderer's own code moved verbatim** into
+  `js/screens/mapDomRenderer.js` behind a small renderer interface,
+  rather than being deleted outright - still reachable via
+  `?renderer=dom` below for a live A/B on one save. Constants both
+  renderers need (tile/marker sizing, obstacle and landmark sets, ground
+  colors, trail direction bookkeeping) now live in one shared
+  `js/systems/mapRenderModel.js` rather than being duplicated per
+  renderer where they could drift. `connectorPathD` (`js/systems/trail.js`)
+  split into `connectorPathPoints` (the raw curve control points) plus a
+  formatter over it, so the canvas renderer feeds numbers straight into
+  `quadraticCurveTo` instead of building an SVG path string only to parse
+  it back apart - `trail.js`'s existing tests assert the exact output
+  string and pass unchanged, which is what proves that split faithful.
+
+### Added
+- **Smooth camera panning, with a "Map camera glide" slider in
+  Settings** (0–250ms, default 80). The canvas camera is a real pixel
+  offset, so it can interpolate between tiles instead of jumping a whole
+  tile per step. **0 reproduces the old instant tile-snap exactly**, so
+  the slider spans "how it used to feel" through to a visible glide. The
+  camera hard-snaps if it ever falls more than ~1.5 tiles behind, so
+  holding an arrow key can't let the hero outrun the view.
+  - Caught by Timothy before this shipped: the slider had no visible
+    effect at any setting, always snapping instantly. Cause: the render
+    loop resets its own elapsed-time tracking to 0 whenever it goes idle
+    between steps, so the very first frame of every step's camera move
+    measured a 0ms delta — and that 0ms case was folded into the same
+    branch as "too far behind, snap immediately." Since an ordinary step
+    only moves the camera ~1 tile, that frame-0 snap always finished the
+    whole move before any frame with a real delta ever ran, so the
+    exponential glide was live code that could never actually execute.
+    The camera's decision logic (`computeCameraStep` in
+    `mapCanvasRenderer.js`) is now a pure function with its own test
+    file (`tests/mapCamera.test.js`) that drives it through exactly this
+    idle→step→idle sequence with controlled timings, rather than relying
+    on watching a real browser animate — real animation frames turned
+    out to be unavailable in this project's own automated browser
+    session (Chrome suspends `requestAnimationFrame` entirely for a
+    tab whose OS window isn't focused), the same class of limitation
+    that already applies to DevTools performance profiling here.
+- `?renderer=dom` temporarily restores the old DOM renderer, so both can
+  be compared live on the same save in one build. Removed together with
+  `js/screens/mapDomRenderer.js` once canvas is confirmed better.
+
 ## [0.28.0] - 2026-09-10
 
 ### Added

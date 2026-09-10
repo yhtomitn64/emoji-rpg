@@ -1,0 +1,714 @@
+// The canvas map renderer - one <canvas> the size of the viewport, redrawn
+// whole from a draw list (js/systems/mapDrawList.js) inside a
+// requestAnimationFrame loop.
+//
+// Why this exists: sliding ~1200 populated CSS-Grid tiles via `transform`
+// hits a real ceiling in Chrome's paint pipeline. Six specific mechanisms
+// were each tested live in DevTools and ruled out one at a time before this
+// was written - see docs/superpowers/BACKLOG.md's two "Map render
+// performance" sections for the full elimination log. A step here costs one
+// bitmap paint of viewport size no matter how far the camera moved, which is
+// the property the DOM version couldn't have.
+//
+// Deliberately canvas2d rather than WebGL or an engine: ~900 sprites a frame
+// is 1-2ms of canvas2d against a 16ms budget, and WebGL has no path API at
+// all, which would make the trail (per-stroke gradients along variable-width
+// quadratic curves) harder rather than easier. The draw-list seam keeps a
+// WebGL painter a contained swap if that ever stops being true.
+import {
+  buildDrawList, describeSignature,
+  ANCHOR_CENTER, ANCHOR_BOTTOM, ANCHOR_TOP, ANCHOR_POINT, SIGNPOST_FONT_PX,
+} from '../systems/mapDrawList.js';
+import {
+  startLevelUp, startWellHeal, startPortalPull, reset as resetEffects,
+  hasActiveEffect, sampleEffects,
+  LEVEL_UP_RAY_COUNT, LEVEL_UP_RAY_ARC_DEG, LEVEL_UP_RAY_COLOR,
+} from '../systems/mapEffects.js';
+import { TILE_SIZE_PX, HERO_AND_LOOT_PX, TRAIL_VIEWBOX_SIZE } from '../systems/mapRenderModel.js';
+
+const TAU = Math.PI * 2;
+
+// How many extra tiles beyond the viewport get drawn on every side. Two
+// reasons it can't be zero: a smoothly-lerping camera sits at a fractional
+// tile offset, so a strip of the row/column just outside the nominal
+// viewport is genuinely on screen; and obstacles/guardians deliberately
+// render larger than their own tile, so one just off-screen still has to
+// paint its overhang inward.
+const MARGIN_TILES = 2;
+
+// Emoji are drawn from a glyph atlas rather than with fillText per tile -
+// see getGlyph. Rasterising color emoji is expensive enough that doing it
+// ~900 times a frame would put the paint cost right back where the DOM
+// renderer had it.
+const ATLAS_FONT_PX = 128;
+// The atlas cell is bigger than the font size so a glyph whose ink extends
+// past its em box isn't clipped. Both the atlas render and every draw scale
+// by this, so it cancels out and a glyph asked for at size S still reads as
+// S tall.
+const GLYPH_BOX_PAD = 1.4;
+const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif';
+const LABEL_FONT = '700 SIZEpx system-ui, -apple-system, "Segoe UI", sans-serif';
+
+// .map-tile-portal-crop's own 1.36x - enough to push the 🌌 emoji's baked-in
+// pale border past the tile's edge while it still reads as a starry picture.
+const PORTAL_CROP_SCALE = 1.36;
+// @keyframes map-tile-portal-shadow / map-tile-quest-glow both loop forever.
+// Each is pre-rendered once at its strongest state and pulsed by alpha,
+// rather than re-rasterising a multi-layer blur every frame.
+const PORTAL_SHADOW_PERIOD_MS = 2400;
+const PORTAL_SHADOW_MIN_ALPHA = 0.7;
+const QUEST_GLOW_PERIOD_MS = 1600;
+const QUEST_GLOW_MIN_ALPHA = 0.35;
+
+// The camera is considered arrived once it's within this fraction of a tile
+// of its target, so a lerp that would asymptote forever actually settles and
+// lets the render loop go idle.
+const CAMERA_SETTLE_TILES = 0.002;
+// A camera further behind than this snaps instead of lerping - holding an
+// arrow key produces steps faster than any smoothing can follow, and the
+// hero must never visibly outrun the view.
+const CAMERA_SNAP_TILES = 1.5;
+
+let canvasEl = null;
+let ctx2d = null;
+let tooltipEl = null;
+let renderContext = null;
+let rafId = null;
+let dpr = 1;
+let needsPaint = false;
+let lastFrameMs = 0;
+// Camera position in world tiles, fractional while smoothing. null until the
+// first render, which places it exactly (never lerping in from nowhere).
+let camGx = null;
+let camGy = null;
+let lastPlayerTile = null;
+let hoverTile = null;
+
+const glyphCache = new Map();
+const gradientCache = new Map();
+let portalShadowSprite = null;
+let questGlowSprite = null;
+
+// ---------------------------------------------------------------------------
+// Glyph atlas
+// ---------------------------------------------------------------------------
+
+// One offscreen canvas per emoji, rendered once at a high base size and then
+// drawImage-scaled to whatever a tile needs. Keyed by emoji alone, never by
+// size - which is what makes the continuously-randomised obstacle sizes
+// (FULL_SQUARE_PX * (1 + hash01(x,y) * 0.5)) and decoration scales free
+// instead of an unbounded number of atlas entries.
+function getGlyph(emoji) {
+  const cached = glyphCache.get(emoji);
+  if (cached) return cached;
+  const side = Math.ceil(ATLAS_FONT_PX * GLYPH_BOX_PAD * dpr);
+  const canvas = document.createElement('canvas');
+  canvas.width = side;
+  canvas.height = side;
+  const g = canvas.getContext('2d');
+  if (!g) return null;
+  g.font = `${ATLAS_FONT_PX * dpr}px ${EMOJI_FONT}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(emoji, side / 2, side / 2);
+  glyphCache.set(emoji, canvas);
+  return canvas;
+}
+
+// Dropped whenever the rasterisation basis changes: a devicePixelRatio change
+// (dragging the window to a different-DPI monitor) would otherwise leave
+// every glyph blurry, and a font that finishes loading after the first paint
+// would otherwise leave tofu boxes baked in permanently.
+function invalidateSprites() {
+  glyphCache.clear();
+  gradientCache.clear();
+  portalShadowSprite = null;
+  questGlowSprite = null;
+  needsPaint = true;
+}
+
+// ---------------------------------------------------------------------------
+// Pre-rendered effect sprites
+// ---------------------------------------------------------------------------
+
+function roundRectPath(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+// .map-tile-portal::before - stacked soft black shadows that bleed OUTSIDE
+// the tile into its neighbors, hugging the tile's own rectangle (box-shadow
+// naturally does; a radial gradient fought the squared-off frame). Rendered
+// at the animation's 50% (strongest) state and pulsed by alpha.
+//
+// Canvas has no box-shadow spread, so each layer's spread is applied by
+// inflating the rectangle instead, and the shape itself is drawn far off the
+// sprite and brought back by shadowOffsetX - the standard way to get a
+// shadow without the casting shape painting over it.
+const PORTAL_SHADOW_LAYERS = [
+  { blur: 12, spread: 4, color: 'rgba(0, 0, 0, 0.6)' },
+  { blur: 26, spread: 12, color: 'rgba(0, 0, 0, 0.4)' },
+  { blur: 46, spread: 22, color: 'rgba(0, 0, 0, 0.2)' },
+];
+const PORTAL_SHADOW_BLEED_PX = 72;
+
+function getPortalShadowSprite() {
+  if (portalShadowSprite) return portalShadowSprite;
+  const bleed = PORTAL_SHADOW_BLEED_PX;
+  const side = TILE_SIZE_PX + bleed * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(side * dpr);
+  canvas.height = Math.ceil(side * dpr);
+  const g = canvas.getContext('2d');
+  if (!g) return null;
+  g.scale(dpr, dpr);
+  const far = side * 4;
+  for (const layer of PORTAL_SHADOW_LAYERS) {
+    g.save();
+    g.shadowColor = layer.color;
+    g.shadowBlur = layer.blur;
+    g.shadowOffsetX = far;
+    g.fillStyle = '#000';
+    roundRectPath(
+      g,
+      bleed - layer.spread - far, bleed - layer.spread,
+      TILE_SIZE_PX + layer.spread * 2, TILE_SIZE_PX + layer.spread * 2,
+      TILE_SIZE_PX * 0.14,
+    );
+    g.fill();
+    g.restore();
+  }
+  portalShadowSprite = { canvas, bleed };
+  return portalShadowSprite;
+}
+
+// .map-tile-quest-ready's inset glow, at the animation's 50% state. Drawn by
+// clipping to the tile and stroking just outside it, so only the shadow
+// bleeding inward shows - canvas has no inset shadow of its own.
+function getQuestGlowSprite() {
+  if (questGlowSprite) return questGlowSprite;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(TILE_SIZE_PX * dpr);
+  canvas.height = Math.ceil(TILE_SIZE_PX * dpr);
+  const g = canvas.getContext('2d');
+  if (!g) return null;
+  g.scale(dpr, dpr);
+  g.save();
+  g.beginPath();
+  g.rect(0, 0, TILE_SIZE_PX, TILE_SIZE_PX);
+  g.clip();
+  g.shadowColor = 'rgba(255, 215, 0, 0.85)';
+  g.shadowBlur = 14;
+  g.strokeStyle = '#000';
+  g.lineWidth = 12; // 6px spread, doubled so the stroke straddles the edge
+  g.strokeRect(-6, -6, TILE_SIZE_PX + 12, TILE_SIZE_PX + 12);
+  g.restore();
+  questGlowSprite = canvas;
+  return questGlowSprite;
+}
+
+// ---------------------------------------------------------------------------
+// Painting
+// ---------------------------------------------------------------------------
+
+function drawGlyph(op, px, py) {
+  const glyph = getGlyph(op.emoji);
+  if (!glyph) return;
+  const size = op.sizePx;
+  const box = size * GLYPH_BOX_PAD;
+
+  // Where the glyph's own centre lands inside the tile, matching how each
+  // CSS class positioned its span - see the ANCHOR_* comments in
+  // mapDrawList.js.
+  let cx = TILE_SIZE_PX / 2;
+  let cy = TILE_SIZE_PX / 2;
+  if (op.anchor === ANCHOR_BOTTOM) cy = TILE_SIZE_PX - size / 2;
+  else if (op.anchor === ANCHOR_TOP) cy = size / 2 + (op.offsetYPx || 0);
+  else if (op.anchor === ANCHOR_POINT) {
+    cx = op.pointX;
+    cy = op.pointY;
+  }
+
+  ctx2d.save();
+  if (op.cropped) {
+    // The portal's emoji renders oversized and is clipped back to its own
+    // tile, cropping the pale border baked into the glyph's art.
+    ctx2d.beginPath();
+    ctx2d.rect(px, py, TILE_SIZE_PX, TILE_SIZE_PX);
+    ctx2d.clip();
+  }
+  ctx2d.translate(px + cx, py + cy);
+  if (op.rotateDeg) ctx2d.rotate((op.rotateDeg * Math.PI) / 180);
+  const scale = (op.scale || 1) * (op.cropped ? PORTAL_CROP_SCALE : 1);
+  if (scale !== 1) ctx2d.scale(scale, scale);
+  if (op.alpha !== undefined) ctx2d.globalAlpha = op.alpha;
+  // filter is well supported in canvas2d now; guarded because it silently
+  // does nothing (rather than throwing) where it isn't, which is fine.
+  if (op.brightness && op.brightness !== 1) ctx2d.filter = `brightness(${op.brightness})`;
+  ctx2d.drawImage(glyph, -box / 2, -box / 2, box, box);
+  ctx2d.restore();
+}
+
+// A tile's trail, drawn in trail.js's own 0..TRAIL_VIEWBOX_SIZE coordinate
+// space. The scale below is the ONLY unit conversion anywhere in the trail
+// path - every number the draw list carries is then used verbatim, exactly
+// as the SVG's own viewBox meant it, so canvas output can't drift from what
+// the DOM renderer produced.
+function drawTrail(op, px, py) {
+  const k = TILE_SIZE_PX / TRAIL_VIEWBOX_SIZE;
+  const mid = TRAIL_VIEWBOX_SIZE / 2;
+  ctx2d.save();
+  ctx2d.translate(px, py);
+  ctx2d.scale(k, k);
+
+  if (op.dot) {
+    ctx2d.beginPath();
+    ctx2d.arc(mid, mid, op.dot.r, 0, TAU);
+    ctx2d.fillStyle = op.dot.color;
+    ctx2d.fill();
+  }
+
+  ctx2d.lineCap = 'round';
+  for (const stroke of op.strokes) {
+    // Gradients are cached by (colors, direction) rather than rebuilt per
+    // tile: their coordinates live in this tile-local space, which is
+    // identical for every tile, and canvas resolves a gradient against the
+    // transform in effect when it's PAINTED - so one object is reusable
+    // across every tile that shares those two colors and that direction.
+    const key = `${stroke.dir}|${stroke.fromColor}|${stroke.toColor}`;
+    let gradient = gradientCache.get(key);
+    if (!gradient) {
+      gradient = ctx2d.createLinearGradient(mid, mid, stroke.tx, stroke.ty);
+      gradient.addColorStop(0, stroke.fromColor);
+      gradient.addColorStop(1, stroke.toColor);
+      gradientCache.set(key, gradient);
+    }
+    ctx2d.beginPath();
+    ctx2d.moveTo(stroke.cx, stroke.cy);
+    ctx2d.quadraticCurveTo(stroke.qx, stroke.qy, stroke.tx, stroke.ty);
+    ctx2d.strokeStyle = gradient;
+    ctx2d.lineWidth = stroke.width;
+    ctx2d.stroke();
+  }
+
+  // Painted last, over every stroke's own end - covers the hard notch a
+  // narrower stroke leaves where it meets a wider one at the shared centre.
+  if (op.hub) {
+    ctx2d.beginPath();
+    ctx2d.arc(mid, mid, op.hub.r, 0, TAU);
+    ctx2d.fillStyle = op.hub.color;
+    ctx2d.fill();
+  }
+  ctx2d.restore();
+}
+
+// Town's wooden signpost plank, anchored to the top of its tile and
+// overflowing upward into the row above - .map-tile-signpost.
+function drawLabel(op, px, py) {
+  ctx2d.save();
+  ctx2d.font = LABEL_FONT.replace('SIZE', String(SIGNPOST_FONT_PX));
+  ctx2d.textAlign = 'center';
+  ctx2d.textBaseline = 'middle';
+  const paddingX = 6;
+  const width = ctx2d.measureText(op.text).width + paddingX * 2;
+  const height = SIGNPOST_FONT_PX * 1.4 + 2;
+  const x = px + TILE_SIZE_PX / 2 - width / 2;
+  const y = py - height;
+  ctx2d.shadowColor = 'rgba(0, 0, 0, 0.3)';
+  ctx2d.shadowBlur = 2;
+  ctx2d.shadowOffsetY = 1;
+  roundRectPath(ctx2d, x, y, width, height, 2);
+  ctx2d.fillStyle = '#8a5a2b';
+  ctx2d.fill();
+  ctx2d.shadowColor = 'transparent';
+  ctx2d.strokeStyle = '#5c3a19';
+  ctx2d.lineWidth = 1;
+  ctx2d.stroke();
+  ctx2d.fillStyle = '#fff5e0';
+  ctx2d.fillText(op.text, x + width / 2, y + height / 2);
+  ctx2d.restore();
+}
+
+function drawRays(op, px, py) {
+  const cx = px + TILE_SIZE_PX / 2;
+  const cy = py + TILE_SIZE_PX / 2;
+  const radius = op.radiusTiles * TILE_SIZE_PX;
+  ctx2d.save();
+  ctx2d.globalAlpha = op.alpha;
+  ctx2d.fillStyle = LEVEL_UP_RAY_COLOR;
+  ctx2d.translate(cx, cy);
+  ctx2d.rotate((op.rotateDeg * Math.PI) / 180);
+  const step = TAU / LEVEL_UP_RAY_COUNT;
+  const arc = (LEVEL_UP_RAY_ARC_DEG * Math.PI) / 180;
+  for (let i = 0; i < LEVEL_UP_RAY_COUNT; i++) {
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, 0);
+    ctx2d.arc(0, 0, radius, i * step, i * step + arc);
+    ctx2d.closePath();
+    ctx2d.fill();
+  }
+  ctx2d.restore();
+}
+
+function drawRing(op, px, py) {
+  ctx2d.save();
+  ctx2d.globalAlpha = op.alpha;
+  ctx2d.beginPath();
+  ctx2d.arc(px + TILE_SIZE_PX / 2, py + TILE_SIZE_PX / 2, Math.max(0.5, op.radiusPx), 0, TAU);
+  ctx2d.strokeStyle = 'rgba(90, 170, 255, 0.9)';
+  ctx2d.lineWidth = op.lineWidthPx;
+  ctx2d.stroke();
+  ctx2d.restore();
+}
+
+function drawGlow(op, px, py) {
+  const cx = px + TILE_SIZE_PX / 2;
+  const cy = py + TILE_SIZE_PX / 2;
+  const radius = Math.max(0.5, op.radiusTiles * TILE_SIZE_PX);
+  const gradient = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  gradient.addColorStop(0, 'rgba(120, 190, 255, 0.55)');
+  gradient.addColorStop(0.7, 'rgba(120, 190, 255, 0)');
+  gradient.addColorStop(1, 'rgba(120, 190, 255, 0)');
+  ctx2d.save();
+  ctx2d.globalAlpha = op.alpha;
+  ctx2d.fillStyle = gradient;
+  ctx2d.beginPath();
+  ctx2d.arc(cx, cy, radius, 0, TAU);
+  ctx2d.fill();
+  ctx2d.restore();
+}
+
+function paint(drawList, effectOps, suppressHeroGlyph, nowMs) {
+  const widthCss = canvasEl.width / dpr;
+  const heightCss = canvasEl.height / dpr;
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx2d.clearRect(0, 0, widthCss, heightCss);
+
+  const pulse = (periodMs, minAlpha) => {
+    const phase = (Math.sin((nowMs / periodMs) * TAU) + 1) / 2;
+    return minAlpha + (1 - minAlpha) * phase;
+  };
+
+  for (const op of drawList.ops) {
+    const px = (op.gx - camGx) * TILE_SIZE_PX;
+    const py = (op.gy - camGy) * TILE_SIZE_PX;
+    switch (op.op) {
+      case 'ground':
+        ctx2d.fillStyle = op.color;
+        // Rounded outward by a hair so neighbouring tiles never leave a
+        // seam of background showing through at fractional camera offsets.
+        ctx2d.fillRect(Math.floor(px), Math.floor(py), Math.ceil(TILE_SIZE_PX) + 1, Math.ceil(TILE_SIZE_PX) + 1);
+        break;
+      case 'questGlow': {
+        const sprite = getQuestGlowSprite();
+        if (!sprite) break;
+        ctx2d.save();
+        ctx2d.globalAlpha = pulse(QUEST_GLOW_PERIOD_MS, QUEST_GLOW_MIN_ALPHA);
+        ctx2d.drawImage(sprite, px, py, TILE_SIZE_PX, TILE_SIZE_PX);
+        ctx2d.restore();
+        break;
+      }
+      case 'portalShadow': {
+        const sprite = getPortalShadowSprite();
+        if (!sprite) break;
+        const side = TILE_SIZE_PX + sprite.bleed * 2;
+        ctx2d.save();
+        ctx2d.globalAlpha = pulse(PORTAL_SHADOW_PERIOD_MS, PORTAL_SHADOW_MIN_ALPHA);
+        ctx2d.drawImage(sprite.canvas, px - sprite.bleed, py - sprite.bleed, side, side);
+        ctx2d.restore();
+        break;
+      }
+      case 'trail':
+        drawTrail(op, px, py);
+        break;
+      case 'glyph':
+        if (suppressHeroGlyph && op.isPlayer) break;
+        drawGlyph(op, px, py);
+        break;
+      case 'label':
+        drawLabel(op, px, py);
+        break;
+      default:
+        break;
+    }
+  }
+
+  for (const op of effectOps) {
+    const px = (op.gx - camGx) * TILE_SIZE_PX;
+    const py = (op.gy - camGy) * TILE_SIZE_PX;
+    if (op.op === 'rays') drawRays(op, px, py);
+    else if (op.op === 'ring') drawRing(op, px, py);
+    else if (op.op === 'glow') drawGlow(op, px, py);
+    else if (op.op === 'glyph') drawGlyph(op, px, py);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Camera + frame loop
+// ---------------------------------------------------------------------------
+
+// The camera's decision logic, as a pure function of its current state - no
+// module globals, so it can be driven directly by a test with a controlled
+// sequence of dt values instead of needing real requestAnimationFrame calls
+// (which this module only gets in a real, OS-focused browser tab - Chrome
+// fully suspends rAF for a hidden/unfocused tab, which is what made this bug
+// hard to catch live via browser automation - see tests/mapCamera.test.js's
+// own header). `cam` is null exactly once, right after a fresh mount.
+//
+// Returns { camGx, camGy, settled }. `settled` means "already exactly at the
+// target, no further frames needed" - the render loop stops scheduling once
+// everything active (camera included) reports settled.
+export function computeCameraStep(cam, target, smoothingMs, dtMs) {
+  if (cam === null) return { camGx: target.gx, camGy: target.gy, settled: true };
+  const dx = target.gx - cam.gx;
+  const dy = target.gy - cam.gy;
+  const distance = Math.hypot(dx, dy);
+  if (distance < CAMERA_SETTLE_TILES) {
+    return { camGx: target.gx, camGy: target.gy, settled: true };
+  }
+  if (smoothingMs <= 0 || distance > CAMERA_SNAP_TILES) {
+    return { camGx: target.gx, camGy: target.gy, settled: true };
+  }
+  // The first frame after the render loop wakes from idle has no measured
+  // delta yet (frame() below resets lastFrameMs to 0 when it goes idle,
+  // precisely so THIS frame can't mistake a long real gap for a normal one).
+  //
+  // BUG THIS GUARDS, found live 2026-09-10: dtMs<=0 used to be folded into
+  // the snap branch above, which meant EVERY step snapped on this very first
+  // frame regardless of the smoothing setting - an ordinary step only moves
+  // the camera ~1 tile, well under CAMERA_SNAP_TILES, so that frame-0 snap
+  // always finished the whole move before any frame with a real delta ever
+  // ran. The lerp below was live but structurally unreachable; the slider
+  // visibly did nothing at any setting. Returning unsettled with no movement
+  // here instead lets the render loop schedule one more real frame, whose
+  // measured delta then drives the actual lerp.
+  if (dtMs <= 0) return { camGx: cam.gx, camGy: cam.gy, settled: false };
+  // Exponential approach: `smoothingMs` is the time to close ~95% of the
+  // gap, which makes the Settings slider read as "how long the camera takes
+  // to catch up" rather than as an opaque coefficient.
+  const k = 1 - Math.pow(0.05, dtMs / smoothingMs);
+  return { camGx: cam.gx + dx * k, camGy: cam.gy + dy * k, settled: false };
+}
+
+function advanceCamera(dtMs) {
+  const cam = camGx === null ? null : { gx: camGx, gy: camGy };
+  const target = { gx: renderContext.originGx, gy: renderContext.originGy };
+  const result = computeCameraStep(cam, target, renderContext.cameraSmoothingMs, dtMs);
+  camGx = result.camGx;
+  camGy = result.camGy;
+  return result.settled;
+}
+
+// Exported for tests only - see computeCameraStep's own header for why the
+// camera's state machine needs a seam like this rather than being driven
+// through real requestAnimationFrame calls.
+export const __testables = { computeCameraStep, CAMERA_SETTLE_TILES, CAMERA_SNAP_TILES };
+
+function frame(nowMs) {
+  rafId = null;
+  if (!ctx2d || !renderContext) return;
+  const dtMs = lastFrameMs ? nowMs - lastFrameMs : 0;
+  lastFrameMs = nowMs;
+
+  const cameraSettled = advanceCamera(dtMs);
+  const drawList = buildDrawList(expandForMargin(renderContext));
+  lastPlayerTile = drawList.playerTile;
+  const { ops: effectOps, suppressHeroGlyph } = sampleEffects(
+    nowMs, drawList.playerTile, renderContext.playerEmoji, HERO_AND_LOOT_PX,
+  );
+
+  paint(drawList, effectOps, suppressHeroGlyph, nowMs);
+  needsPaint = false;
+
+  // Keep the loop alive only while something is actually changing. Standing
+  // still with nothing animating on screen schedules no frames at all.
+  if (!cameraSettled || hasActiveEffect(nowMs) || drawList.hasContinuousAnimation || needsPaint) {
+    schedule();
+  } else {
+    lastFrameMs = 0;
+  }
+}
+
+function schedule() {
+  if (rafId !== null || typeof requestAnimationFrame !== 'function') return;
+  rafId = requestAnimationFrame(frame);
+}
+
+// The draw list covers the viewport plus MARGIN_TILES on every side - see
+// that constant's comment. Done here rather than in mapScreen's own geometry
+// so the DOM renderer, which needs no margin, isn't made to carry one.
+function expandForMargin(context) {
+  return {
+    ...context,
+    originGx: context.originGx - MARGIN_TILES,
+    originGy: context.originGy - MARGIN_TILES,
+    tilesWide: context.tilesWide + MARGIN_TILES * 2,
+    tilesTall: context.tilesTall + MARGIN_TILES * 2,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Hover tooltip
+// ---------------------------------------------------------------------------
+
+// Canvas has no `title` attribute to hang a tile's description on, so the
+// pointer is hit-tested back to a world coordinate and a tooltip element is
+// positioned by hand. Only touched when the tile under the cursor actually
+// changes, so moving across one tile costs nothing.
+function handlePointerMove(event) {
+  if (!renderContext || camGx === null) return;
+  const rect = canvasEl.getBoundingClientRect();
+  const gx = Math.floor(camGx + (event.clientX - rect.left) / TILE_SIZE_PX);
+  const gy = Math.floor(camGy + (event.clientY - rect.top) / TILE_SIZE_PX);
+  if (hoverTile && hoverTile.gx === gx && hoverTile.gy === gy) {
+    positionTooltip(event);
+    return;
+  }
+  hoverTile = { gx, gy };
+  const text = describeSignature(renderContext.signatureAt(gx, gy));
+  if (!text) {
+    tooltipEl.hidden = true;
+    return;
+  }
+  tooltipEl.textContent = text;
+  tooltipEl.hidden = false;
+  positionTooltip(event);
+}
+
+function positionTooltip(event) {
+  if (tooltipEl.hidden) return;
+  const rect = canvasEl.getBoundingClientRect();
+  tooltipEl.style.left = `${event.clientX - rect.left + 14}px`;
+  tooltipEl.style.top = `${event.clientY - rect.top + 18}px`;
+}
+
+function handlePointerLeave() {
+  hoverTile = null;
+  if (tooltipEl) tooltipEl.hidden = true;
+}
+
+// ---------------------------------------------------------------------------
+// Renderer interface (mirrors js/screens/mapDomRenderer.js)
+// ---------------------------------------------------------------------------
+
+export function renderFull(viewport, context) {
+  renderContext = context;
+  camGx = null;
+  camGy = null;
+  hoverTile = null;
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'map-canvas';
+  const tooltip = document.createElement('div');
+  tooltip.className = 'map-tooltip';
+  tooltip.hidden = true;
+  viewport.append(canvas, tooltip);
+
+  canvasEl = canvas;
+  tooltipEl = tooltip;
+  // jsdom has no canvas implementation - getContext('2d') returns null there
+  // (tests/helpers/dom.js). Everything below is a no-op in that case rather
+  // than a crash, so mapScreen.js's non-rendering behavior (movement,
+  // encounters, callbacks) stays testable without a browser.
+  ctx2d = canvas.getContext ? canvas.getContext('2d') : null;
+  if (!ctx2d) return;
+
+  dpr = window.devicePixelRatio || 1;
+  invalidateSprites();
+  resizeCanvasToViewport(viewport);
+
+  canvas.addEventListener('pointermove', handlePointerMove);
+  canvas.addEventListener('pointerleave', handlePointerLeave);
+  // A font that finishes loading after the first paint would otherwise leave
+  // tofu boxes baked into the atlas for the life of the session.
+  document.fonts?.ready?.then(invalidateSprites).catch(() => {});
+
+  needsPaint = true;
+  lastFrameMs = 0;
+  schedule();
+}
+
+function resizeCanvasToViewport(viewport) {
+  const width = viewport.clientWidth || 0;
+  const height = viewport.clientHeight || 0;
+  canvasEl.width = Math.max(1, Math.round(width * dpr));
+  canvasEl.height = Math.max(1, Math.round(height * dpr));
+  canvasEl.style.width = `${width}px`;
+  canvasEl.style.height = `${height}px`;
+}
+
+export function renderStep(context) {
+  if (!canvasEl) return false;
+  renderContext = context;
+  needsPaint = true;
+  // A devicePixelRatio change (dragging between monitors) fires no resize
+  // event of its own, so it's checked on the hot path - a cheap property
+  // read, unlike the clientWidth/clientHeight measurement that was removed
+  // from here for forcing a synchronous layout every step.
+  const currentDpr = window.devicePixelRatio || 1;
+  if (currentDpr !== dpr) {
+    dpr = currentDpr;
+    invalidateSprites();
+    if (canvasEl.parentElement) resizeCanvasToViewport(canvasEl.parentElement);
+  }
+  schedule();
+  return true;
+}
+
+export function destroy() {
+  if (rafId !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
+  rafId = null;
+  canvasEl?.removeEventListener('pointermove', handlePointerMove);
+  canvasEl?.removeEventListener('pointerleave', handlePointerLeave);
+  canvasEl = null;
+  ctx2d = null;
+  tooltipEl = null;
+  renderContext = null;
+  camGx = null;
+  camGy = null;
+  lastPlayerTile = null;
+  hoverTile = null;
+  lastFrameMs = 0;
+  resetEffects();
+  glyphCache.clear();
+  gradientCache.clear();
+  portalShadowSprite = null;
+  questGlowSprite = null;
+}
+
+// The hero's on-screen rectangle, computed from the camera rather than read
+// off an element - see mapScreen.js's getPlayerScreenRect for why both
+// renderers answer this.
+export function getPlayerScreenRect() {
+  if (!canvasEl || !lastPlayerTile || camGx === null) return null;
+  const rect = canvasEl.getBoundingClientRect();
+  return {
+    left: rect.left + (lastPlayerTile.gx - camGx) * TILE_SIZE_PX,
+    top: rect.top + (lastPlayerTile.gy - camGy) * TILE_SIZE_PX,
+    width: TILE_SIZE_PX,
+    height: TILE_SIZE_PX,
+  };
+}
+
+export function playLevelUpEffect(durationMs) {
+  startLevelUp(performance.now(), durationMs);
+  needsPaint = true;
+  schedule();
+}
+
+export function playWellHealEffect(durationMs) {
+  startWellHeal(performance.now(), durationMs);
+  needsPaint = true;
+  schedule();
+}
+
+export function playPortalPullEffect(durationMs) {
+  startPortalPull(performance.now(), durationMs);
+  needsPaint = true;
+  schedule();
+}

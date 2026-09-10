@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateAccessorySlots, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags, migrateCharacterId } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateAccessorySlots, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateFeatureFlags, migrateCameraSettings, migrateCharacterId } from './state.js';
 import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
@@ -160,6 +160,7 @@ function startGame(loadedState, slotId) {
   state = migrateSettings(state);
   state = migrateAudioSettings(state);
   state = migrateFeatureFlags(state);
+  state = migrateCameraSettings(state);
   state = migrateCharacterId(state);
   activeSlotId = slotId;
   if (state.map === 'overworld') {
@@ -1187,7 +1188,7 @@ initItemTooltip();
 // automated, not tied to the real CHANGELOG.md version. Gated on hostname
 // (never shows on the deployed site) rather than a URL param, so it works
 // on a plain reload with no param to remember.
-const DEV_BUILD_TAG = 'v0.26.13-dev3';
+const DEV_BUILD_TAG = 'canvas-dev2-camera-fix';
 if (typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   const badge = document.createElement('div');
   badge.textContent = `dev build loaded: ${DEV_BUILD_TAG}`;

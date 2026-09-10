@@ -80,14 +80,22 @@ export function edgeTargetPoint(direction, size = 100) {
   return target;
 }
 
-// SVG path 'd' for a quadratic curve from a tile's center to the midpoint
-// of one edge, bowed perpendicular to that direction by `jitterFraction`
-// (-0.5..0.5, from edgeJitter) so it reads as a soft wavy stroke instead of
-// a straight line. `size` is the tile's own coordinate-space size (a 0..size
-// square) - render() uses a 0..100 SVG viewBox per tile, so callers there
-// pass size=100 (the default) and the wear-amount functions above already
-// return numbers in that same 0..100-ish scale.
-export function connectorPathD(direction, jitterFraction, size = 100) {
+// The control points of a quadratic curve from a tile's center to the
+// midpoint of one edge, bowed perpendicular to that direction by
+// `jitterFraction` (-0.5..0.5, from edgeJitter) so it reads as a soft wavy
+// stroke instead of a straight line. `size` is the tile's own
+// coordinate-space size (a 0..size square) - both renderers use a 0..100
+// space per tile, so callers pass size=100 (the default) and the
+// wear-amount functions above already return numbers in that same
+// 0..100-ish scale.
+//
+// Split out from connectorPathD below (which is now just a formatter over
+// this) so the canvas renderer can feed the numbers straight into
+// ctx.moveTo/quadraticCurveTo instead of re-parsing an SVG path string it
+// would have to build only to take apart again. The raw, un-rounded qx/qy
+// are deliberate: connectorPathD applies its own .toFixed(2) for the SVG
+// string, while canvas has no reason to throw that precision away.
+export function connectorPathPoints(direction, jitterFraction, size = 100) {
   const cx = size / 2, cy = size / 2;
   const [tx, ty] = edgeTargetPoint(direction, size);
   const mx = (cx + tx) / 2, my = (cy + ty) / 2;
@@ -95,7 +103,15 @@ export function connectorPathD(direction, jitterFraction, size = 100) {
   const len = Math.hypot(dx, dy) || 1;
   const px = -dy / len, py = dx / len;
   const amp = jitterFraction * size * 0.35;
-  const qx = mx + px * amp, qy = my + py * amp;
+  return { cx, cy, qx: mx + px * amp, qy: my + py * amp, tx, ty };
+}
+
+// SVG path 'd' for the curve connectorPathPoints above describes - used by
+// the DOM renderer's own <path> elements. Kept byte-for-byte identical to
+// what it produced before that split (see tests/trail.test.js, which
+// asserts these exact strings).
+export function connectorPathD(direction, jitterFraction, size = 100) {
+  const { cx, cy, qx, qy, tx, ty } = connectorPathPoints(direction, jitterFraction, size);
   return `M ${cx} ${cy} Q ${qx.toFixed(2)} ${qy.toFixed(2)} ${tx} ${ty}`;
 }
 
