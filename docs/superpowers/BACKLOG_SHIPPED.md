@@ -2070,3 +2070,34 @@ day they were raised:
   `js/main.js` read `encounterMonsterIds[0]` alone, which would have
   quietly paid out one monster's loot for a fleeing pack of three - it
   loops the roster now.
+
+### ~~Dragon gear and Unique-effect items could never be reforged to Mythic~~ Shipped 2026-09-10 (0.32.3)
+Raised live: "why can't I reforge dragon stuff and some other things to
+mythic?" Two older, separate design decisions had collided with the
+newer Superior→Mythic reforge system without anyone revisiting them:
+bosses were entirely excluded from the normal Plain/Fine/Superior/Mythic
+roll (their named drop instead had its own flat 25%-Mythic-or-nothing
+NG+-only mechanism, `BOSS_MYTHIC_CHANCE`), and Unique-effect items
+(Vampiric Fang, Swift Strike Charm, Ember Ring, Keen Eye, Retribution
+Charm, Windfury Ring) never rolled a tier at all by original design
+("uniques aren't tiered - they ARE the rare tier," `docs/superpowers/
+specs/2026-08-26-item-quality-and-effects-design.md`). Since reforge
+strictly requires a Superior-tier item, neither category could ever
+reach it.
+
+Investigated with Timothy directly - three options were laid out (fold
+into the normal roll; add a separate tier-less reforge path; leave the
+mechanics and just fix the confusing UI) and he picked the first as the
+most consistent fix. `js/systems/loot.js`'s `rollDrop` now runs both
+categories through the same toughness-weighted roll as everything else:
+`monsterToughness` is computed unconditionally (previously skipped for
+boss/elite/`forceFullBattle` monsters), so a boss's way-above-range xp
+(dragon: 200 vs. a top eligible xp of 63) just clamps to the hardest
+tier odds instead of needing any special-casing. `BOSS_MYTHIC_CHANCE`
+removed entirely. Once one of these items lands Superior, the existing
+Smith reforge option (`canReforgeToMythic`/`reforgeToMythic`,
+`js/systems/inventory.js`) already worked unmodified - no changes needed
+there. Verified via a live 20,000-trial random check (dragon at NG+1
+spans plain/fine/superior/mythic at the documented odds; a wraith-level
+monster's Unique-effect drops now do too), plus rewritten/added unit
+tests in `tests/loot.test.js`/`tests/itemQuality.test.js`. See CHANGELOG.
