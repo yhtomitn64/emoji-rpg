@@ -2362,3 +2362,52 @@ main backlog list above for the shipped architecture and the one bug
   inspection - worth remembering next time something gets added inside
   `createNewGame()`.
 
+## ~~Ring smith-upgrades, better ring drops, and a second Charm slot~~ Raised and shipped 2026-09-10 (0.28.0)
+
+Started from a factual question ("what do I need to upgrade dragon
+scale mail?"), which surfaced that ring1/ring2 had no smith-upgrade
+material at all - a gap this file already had open (see the old "Ring
+slots (ring1/ring2) have no upgrade path at all" entry, which explicitly
+punted the content decision rather than picking unilaterally). Once
+answered, the ask widened live to "can we implement ring upgrades and
+better ring drops right now" and then "also we should have two charm
+slots."
+
+Three pieces, all shipped together:
+- **Ring upgrades.** New material **Moonstone Shard** 🌙
+  (`upgradeSlot: 'ring'`, `js/data/items.js`) dropped by direWolf/Mega
+  Muffin at 15% (`js/data/monsters.js`). One material covers both
+  physical ring slots because the real fix was making the match generic:
+  `js/systems/inventory.js`'s `upgradeItem` (and the smith screen's
+  material picker, `js/screens/smithScreen.js`) now compare a material's
+  `upgradeSlot` against the *equipped item's slot type* (`ITEMS[itemId]
+  .slot`), not the raw physical slot key - the same fix the two-charm-
+  slot split below needed too, for free.
+- **Better ring drops.** `RING_TOUGHNESS_FLOOR`
+  (`js/systems/itemQuality.js`) lowered 0.6 → 0.3. At 0.6 only the
+  dungeon-tier roster (orc/wraith/skeleton) ever cleared the floor, so a
+  real ring (Ember Ring) was unreachable outside the dungeon even before
+  the separate 1-5% roll that actually grants it. 0.3 opens the floor to
+  the far-corner roster (direWolf/spider/scorpion) too.
+- **A second Charm slot.** The single `accessory` equipment key is now
+  `accessory1`/`accessory2` ("Charm 1"/"Charm 2" in the Smith/Stats/
+  Inventory screens), mirroring the existing ring1/ring2 split exactly,
+  including a `migrateAccessorySlots` save migration (`js/state.js`) that
+  carries an existing charm and its tier into `accessory1`.
+
+Caught while making the charm split: `js/screens/shopScreen.js`'s "is
+this already equipped" / equip-prompt logic indexed `state.equipment` by
+an item's slot *type* (`item.slot`) directly rather than its resolved
+physical slot - harmless for the single old `accessory` key (type and
+physical key happened to match) and for rings before now (Power Ring was
+the only ring ever sold, so the always-shows-prompt quirk went
+unnoticed), but would have made a shop-bought charm equip into a bogus,
+UI-invisible `accessory` key the moment the slot split in two. Fixed via
+new `resolvePhysicalSlot`/`physicalSlotsFor` helpers
+(`js/systems/inventory.js`), reused by `lootReferenceScreen.js`'s
+owned-count check too. Re-audited afterward for any other place indexing
+`state.equipment` by an item's slot type instead of a physical key or
+`Object.keys(state.equipment)` - found none remaining.
+
+See `CHANGELOG.md`'s 0.28.0 entry and commit `d0bcb2a` for the full
+file-by-file detail.

@@ -145,15 +145,10 @@ same-day items below; these are the ones left open):**
   timing window, not a bug - closed, no code change. If the "sometimes I
   don't get it" feel keeps coming up, widening the window or the
   sweet-spot percentage is the lever, not a fix.
-- **Ring slots (ring1/ring2) have no upgrade path at all** — raised as a
-  bug ("power rings can't be upgraded at the smith"), turned out to be
-  intentional/documented (`js/screens/smithScreen.js`'s `hasUpgradePath`
-  check, "Ring slots have no upgrade material defined anywhere in the
-  game... skip the select/button entirely rather than show a control
-  that can never work"). Fixing it for real means adding a new material
-  item with `upgradeSlot: 'ring'` and picking which monster drops it - a
-  content decision, not a code fix, so left to Timothy rather than
-  picked unilaterally.
+- ~~**Ring slots (ring1/ring2) have no upgrade path at all**~~ —
+  **shipped 2026-09-10 (0.28.0)**, alongside a lowered ring drop floor
+  and a second Charm slot. See BACKLOG_SHIPPED.md's "Ring smith-
+  upgrades, better ring drops, and a second Charm slot" entry.
 - ~~**Make Lacerate's retrigger buff visually distinct from Super Scream's
   buff**~~ — **shipped 2026-09-07 (0.26.7)**. `activateBuff()`
   (`js/systems/abilities.js`) now tags the shared `buffState` with a
@@ -332,6 +327,18 @@ same-day items below; these are the ones left open):**
   in, so this should be designed *after* those two ship and reconcile
   against whatever rates they settle on, not compound blindly on top of
   today's numbers).
+- **A second shop-purchasable ring, beyond Power Ring, raised 2026-09-10
+  in passing while shipping ring upgrades/better ring drops (0.28.0).**
+  Power Ring (`js/data/items.js`) is still the only ring in
+  `SHOP_CATALOG`, and every other equipment slot has a Cloth→Iron shop
+  progression (e.g. `clothTunic`→`ironArmor`) that rings never got - just
+  the one 40g/+2 attack item. Deliberately left out of the 0.28.0 pass to
+  keep it scoped to the upgrade-path/drop-floor/charm-slot asks actually
+  made; also worth noting while designing one: Power Ring's own
+  price-to-stat ratio (40g for +2 attack) is already worse than
+  `ironSword`'s launch pricing (30g for +6 attack), so a new "iron-tier"
+  ring should probably not just extrapolate from Power Ring's numbers
+  without a second look at those too.
 - ~~**Micro-pause once per step while walking, raised 2026-09-10.**~~ —
   **mostly fixed 2026-09-10 (0.32.2).** Two clocks disagreeing: steps
   fired on a `setInterval` while the hero's stride advanced on
