@@ -343,6 +343,11 @@ same-day items below; these are the ones left open):**
 - ~~**Boat proximity-hint text said "clear" the water, which doesn't make
   sense for a boat**~~ — **shipped 2026-09-09 (0.26.14)**. See the fuller
   entry in the Bugs / open questions section below.
+- **Player's own marker renders at guardian-boss size (2.2x) when
+  standing on a guardian tile, raised 2026-09-09** — one-line fix
+  identified (`js/screens/mapScreen.js:681` needs an `&& !isPlayer`
+  guard) but not applied, same reason as the dev-server bug below
+  (file has active uncommitted changes elsewhere). See the Bugs section.
 - **`resolveStaticFilePath` (tools/dev-server.mjs) fails its own
   path-traversal check on Windows, raised 2026-09-09** — a real,
   pre-existing test failure (`npm run test` shows 1 failing), unrelated
@@ -1939,6 +1944,25 @@ columns; a hit's own New Max! badge doesn't share a column with its
 number). Confirmed live 2026-09-04 via a `?debug=level10` test character
 (`js/systems/debugCharacters.js`, added the same session) - Timothy
 played real battles against it and confirmed the fix looks right.
+
+### Player's own marker inherits the guardian's giant size when standing on a guardian tile, raised 2026-09-09
+Timothy: "when I go over a double size emoji my characters gets that big
+too which looks kind of silly." Root cause found by reading
+`js/screens/mapScreen.js`'s fullsize-marker branch (not reproduced live -
+see the "browser automation cost" note this project operates under):
+lines 677-681 set `marker.style.fontSize` in sequence - `FULL_SQUARE_PX`
+default, then `HERO_AND_LOOT_PX` when `isHeroOrLoot` (true for the
+player), then **unconditionally** `GUARDIAN_PX` (2.2× tile size,
+"big and scary" per the 0.26.12 comment) whenever `tile === TILES.guardian`
+- with no `&& !isPlayer` guard on that last line. `marker.textContent` is
+already correctly `state.player.emoji` when `isPlayer` (line 671), so this
+only affects size, not which emoji shows - the player's own hero emoji
+renders at guardian scale whenever they're standing on a guardian tile
+(walking up to fight it, or afterward if the tile stays type `guardian`
+once cleared). One-line fix once picked up: guard line 681 with
+`&& !isPlayer`. Not fixed here - `js/screens/mapScreen.js` is one of the
+files with active uncommitted changes in another session's performance
+work; touching it here risked a conflict.
 
 ### `resolveStaticFilePath` (tools/dev-server.mjs) fails its own path-traversal check on Windows, raised 2026-09-09
 Noticed while running `npm run test` in an unrelated worktree (boat-text
