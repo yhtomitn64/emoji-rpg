@@ -1,4 +1,4 @@
-# Emoji RPG
+# RPG
 
 A browser-based RPG using emoji for all art. Explore a 5x5 grid of connected
 wilderness screens centered on Town — monsters get tougher the further you

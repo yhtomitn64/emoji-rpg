@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.32.5',
+    date: '2026-09-10',
+    highlights: [
+      "Changed: the game's name is now just \"RPG\" instead of \"Emoji RPG\" - no gameplay change, your save is untouched.",
+    ],
+  },
+  {
     version: '0.32.4',
     date: '2026-09-10',
     highlights: [

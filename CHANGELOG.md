@@ -24,6 +24,19 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.32.5] - 2026-09-10
+
+### Changed
+- **The project's name was "Emoji RPG" everywhere, locking in an art style that might not
+  stay emoji-only forever.** Renamed to "RPG" in the GitHub repo (`emoji-rpg` → `rpg`),
+  `package.json`, `README.md`, `CLAUDE.md`, and the in-game title (`index.html`,
+  `js/screens/startScreen.js`). Left unchanged on purpose: the live domain (already
+  `rpg.burghertime.com`), the Cloudflare Pages deploy target
+  (`--project-name=emoji-rpg` in `.github/workflows/deploy.yml` — a separate internal
+  identifier; renaming it risks having to redo the custom domain binding for no benefit),
+  and the `emoji-rpg-*` localStorage keys (save/slots/telemetry — renaming those would
+  silently orphan existing players' save data under the old key).
+
 ## [0.32.4] - 2026-09-10
 
 ### Fixed
@@ -668,7 +681,6 @@ public API, no formal release process — commits land straight on
   through the thicket", miningPick: "clear the mountain", boat: "paddle
   across the water") so the hint and the after-the-fact success message
   agree.
-
 ## [0.26.13] - 2026-09-09
 
 ### Changed

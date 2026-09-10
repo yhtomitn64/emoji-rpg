@@ -191,7 +191,7 @@ function render() {
 
   const bodyHtml = newGameStep === 'hero'
     ? renderHeroPickStep()
-    : `<h1 class="start-title">Emoji RPG</h1>
+    : `<h1 class="start-title">RPG</h1>
        ${slotRows || '<div class="no-slots">No saves yet.</div>'}
        ${newGameSection}`;
 

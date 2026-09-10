@@ -1,4 +1,4 @@
-# emoji-rpg — project instructions
+# rpg — project instructions
 
 Solo personal project. A push to `main` **is** the release — CI
 (`.github/workflows/deploy.yml`) deploys straight to
