@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.27.0',
+    date: '2026-09-09',
+    highlights: [
+      'Added: Cloud Save (beta, off by default - flip it on in Settings). Click Start Transfer to get a short code good for 60 seconds, then type it into another browser to bring that character over - it adds it as a new character rather than replacing anything.',
+    ],
+  },
+  {
     version: '0.26.14',
     date: '2026-09-09',
     highlights: [

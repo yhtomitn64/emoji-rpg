@@ -355,13 +355,12 @@ same-day items below; these are the ones left open):**
   (normalize `rootDir` before the `startsWith` check) but not applied,
   since `tools/dev-server.mjs` is actively being edited in another
   session's performance work. See the Bugs section below.
-- **Cross-device save sync, raised and built 2026-09-09** — one-shot
-  60-second transfer codes (Cloudflare Workers KV, rate-limited), loading
-  a code adds a new character slot rather than overwriting anything.
-  Code written but **not yet deployed** - needs a real KV namespace id in
-  `wrangler.toml` (Timothy's own Cloudflare account/CLI) before it works
-  live. Google Sign-In was scaffolded then deliberately removed the same
-  session. See the dedicated section near the end of this file.
+- ~~**Cross-device save sync, raised and built 2026-09-09**~~ **Shipped
+  2026-09-09 (0.27.0)** — one-shot 60-second transfer codes (Cloudflare
+  Workers KV, rate-limited), loading a code adds a new character slot
+  rather than overwriting anything. Google Sign-In was scaffolded then
+  deliberately removed the same session. See the dedicated section near
+  the end of this file for the full history.
 
 ## Story / narrative
 
@@ -2436,9 +2435,8 @@ Timothy wanted to load his character on a different computer without
 manually copy/pasting the save JSON between them. Discussed several
 storage/auth options (Cloudflare Workers KV vs. GitHub Gist; Sign in with
 Apple - $99/year Apple Developer membership required, ruled out - vs.
-Google Sign-In vs. no login), then **built and scoped down the same
-session**, ending on a code-transfer-only design. Code below is written
-but **not yet deployed live** - see the setup checklist at the bottom.
+Google Sign-In vs. no login), then **built, scoped down, and shipped
+live the same session (0.27.0)**, ending on a code-transfer-only design.
 
 **Shipped design:** a one-shot "Start Transfer" flow, not a standing
 save-slot address:
@@ -2495,14 +2493,17 @@ there was no reason to keep a live publisher ID sitting in a deployed
 file. The real line is preserved in a comment in `ads.txt` itself to
 restore if/when AdSense actually ships.
 
-**Setup still required before this works live** (nothing below needs
-more code, just Cloudflare dashboard/CLI steps in Timothy's own account -
-not something this session could do without his credentials):
-1. `wrangler login`, then `wrangler kv namespace create SAVES` - paste
-   the returned id into `wrangler.toml` in place of
-   `REPLACE_WITH_REAL_KV_NAMESPACE_ID`.
-2. Push/deploy once that's filled in. Until then the wrangler.toml in the
-   repo has a placeholder KV id, which is why it wasn't pushed to `main`
-   as part of this session's work - an invalid KV id could plausibly fail
-   `wrangler pages deploy` outright and break the live deploy pipeline
-   for everything, not just this feature.
+**Setup completed and shipped 2026-09-09 (0.27.0).** Timothy ran
+`wrangler login` himself (this session had no Cloudflare credentials of
+its own and couldn't complete that interactive OAuth step); once
+authenticated, this session drove the rest via CLI: confirmed the
+authenticated account actually owned the `emoji-rpg` Pages project
+(`wrangler pages project list`) before creating anything, ran
+`wrangler kv namespace create SAVES`, filled the returned id into
+`wrangler.toml`, and - rather than trusting it blind - deployed a
+*preview* build first (`wrangler pages deploy dist --branch=preview-
+cloud-save`, a non-production branch so it never touched the live site)
+to verify the real thing end-to-end: PUT/GET round-tripped correctly,
+an invalid code format 400'd, an unused code 404'd, and the 60-second
+KV expiry was confirmed by actually waiting past it and re-checking.
+Pushed to `main` only after all of that passed.

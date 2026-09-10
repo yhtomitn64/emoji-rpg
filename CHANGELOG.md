@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-09-09
+
 ### Added
 - **Cross-device save sync (Cloud Save), behind a new `cloudSaveBeta`
   settings flag, off by default.** Settings gets a "Start Transfer"
@@ -38,11 +40,11 @@ public API, no formal release process — commits land straight on
   another browser's "Load" field imports it as a brand-new character
   slot (`importSlot`, `js/systems/saveSlots.js`) alongside whatever's
   already there, rather than overwriting anything, so any number of
-  browsers' characters can be pulled into one. **Not yet live** - needs
-  a real Cloudflare KV namespace id in `wrangler.toml` (manual setup in
-  the Cloudflare dashboard/CLI, tracked in `docs/superpowers/BACKLOG.md`)
-  before Start Transfer/Load do anything; the flag stays off by default
-  until then.
+  browsers' characters can be pulled into one. Backed by a real
+  `SAVES` KV namespace (`wrangler.toml`), created and verified live via
+  a preview deploy (PUT/GET round-trip and the 60s expiry both confirmed
+  against `https://preview-cloud-save.emoji-rpg.pages.dev` before this
+  shipped to production).
 - Removed the real AdSense publisher id from `ads.txt` (kept as an empty
   placeholder file, restorable from a comment inside it) - no AdSense
   integration is actually wired into the game yet, so there was no

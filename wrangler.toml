@@ -5,14 +5,14 @@
 # runs `wrangler pages deploy dist ...`); wrangler reads this automatically
 # from the repo root.
 #
-# Setup required before Cloud Save works (see docs/superpowers/BACKLOG.md's
-# Cross-device save sync section for the full checklist):
-#   `wrangler login`, then `wrangler kv namespace create SAVES` - paste
-#   the returned id below in place of the placeholder.
+# The SAVES namespace below was created 2026-09-09 via
+# `wrangler kv namespace create SAVES` against the same Cloudflare account
+# that owns the emoji-rpg Pages project (confirmed via `wrangler pages
+# project list` before creating it).
 name = "emoji-rpg"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-09-09"
 
 [[kv_namespaces]]
 binding = "SAVES"
-id = "REPLACE_WITH_REAL_KV_NAMESPACE_ID"
+id = "b8b1cdef39364bd09c03ff64ace10198"
