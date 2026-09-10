@@ -359,7 +359,7 @@ same-day items below; these are the ones left open):**
     ... don't really notice/bother me." Left alone on purpose; revisit
     only if it ever becomes noticeable.
 - ~~**Map render performance, raised 2026-09-09.**~~ — **canvas rewrite
-  shipped 2026-09-10 (0.28.0)**. Two DOM-side passes (0.26.13's diffed
+  shipped 2026-09-10 (0.29.0)**. Two DOM-side passes (0.26.13's diffed
   `render()`, then a transform-based cluster-anchored camera) got real
   but incomplete wins - see the full elimination log near the end of
   this file for how six further hypotheses were ruled out one by one
@@ -407,16 +407,40 @@ same-day items below; these are the ones left open):**
 
 **New threads raised 2026-09-10:**
 - ~~**Battle screen overflows on big group encounters**~~ — **shipped
-  2026-09-10 (0.28.0)**. The card's vmin scale ramp is now capped by a
+  2026-09-10 (0.30.0)**. The card's vmin scale ramp is now capped by a
   measured fit-to-viewport factor, so a wrapped monster grid scales down
   instead of pushing the action bar off screen. See BACKLOG_SHIPPED.md.
 - ~~**Instant-resolve (no fight dialog) only fires on very weak solo
-  mobs**~~ — **shipped 2026-09-10 (0.28.0)**. Groups now qualify too,
+  mobs**~~ — **shipped 2026-09-10 (0.30.0)**. Groups now qualify too,
   when every monster in them is outclassed. See BACKLOG_SHIPPED.md.
 - **Faultline's chain blocks every other input while it resolves** —
   you can't act until the sweep has finished walking the whole enemy
   row. See the "Faultline's sweep locks out other abilities" section
   below. Not started.
+- **Watch whether 20s buff potions stack too hard** — duration went
+  12s → 20s in 0.27.4. Since different potions stack, a two- or
+  three-potion opening now comfortably spans a whole fight rather than
+  only overlapping part of it. Flagged at the time as the thing to watch
+  after playing it. If it reads as too strong the knob is the bonus
+  magnitudes in `js/data/items.js`, **not** the duration — walking the
+  duration back re-creates the original complaint (a paid, consumed
+  potion buying no more uptime than the free, cooldown-gated Super
+  Scream buff). Not investigated; needs play time, not analysis.
+- **Internal-only changes are forced to invent a player-facing
+  changelog line** — `tests/versionSync.test.js` requires the newest
+  dated `CHANGELOG.md` version to have a matching
+  `PLAYER_CHANGELOG[0]` entry, and the deploy workflow requires any
+  non-doc change to be bumped out of `## [Unreleased]`. "Non-doc" is
+  `grep -v '\.md$'`, so a test-only or tooling change trips both — but
+  `CLAUDE.md`'s own step 3 says to skip internal-only changes in the
+  player changelog. The rules collide, and 0.32.1 (a test-hardening
+  fix) had to ship a player-facing line describing an internal
+  problem. Note `js/data/playerChangelog.js` is itself non-doc, so
+  even *correcting* such a line needs its own version bump and deploy.
+  Options if it becomes annoying: let the version-sync check accept an
+  explicitly-marked internal entry, or treat `tests/**` as doc-like in
+  the workflow's non-doc filter. Not urgent — it has cost one awkward
+  entry, not a broken deploy.
 
 ## Story / narrative
 
@@ -2680,7 +2704,7 @@ effect currently implemented as DOM/CSS would need reimplementing as
 draw calls). Worth treating as its own planned task rather than a
 continuation of this session's experiment-and-revert cycle.
 
-**Done: shipped 2026-09-10 (0.28.0), in its own worktree as planned
+**Done: shipped 2026-09-10 (0.29.0), in its own worktree as planned
 above.** Canvas2d, not WebGL - ~900 sprites/frame is well inside a 16ms
 budget, and WebGL has no path API, which would have made the trail
 (per-stroke gradients along variable-width quadratic curves) harder, not

@@ -1976,7 +1976,7 @@ would need real SSR/prerendering, a much bigger project, not attempted
 here. (The privacy-friendly-analytics suggestion raised alongside this
 is still open — see BACKLOG.md.)
 
-## ~~Battle screen doesn't fit big group encounters~~ Raised and shipped 2026-09-10 (0.28.0)
+## ~~Battle screen doesn't fit big group encounters~~ Raised and shipped 2026-09-10 (0.30.0)
 
 Raised with a screenshot: "when there are lots of enemies the whole
 battle screen too big. maybe make it wider or just make sure it scales
@@ -2002,7 +2002,7 @@ overlay's own sizing is what actually overflows before picking one -
 so something inside the battle overlay is likely establishing its own
 height instead of shrinking.
 
-## ~~Instant-resolve encounter scope~~ Raised and shipped 2026-09-10 (0.28.0)
+## ~~Instant-resolve encounter scope~~ Raised and shipped 2026-09-10 (0.30.0)
 
 Asked: "can all enemies get insta defeated w/o bringing up fight dialog.
 feel like it only happens on super super easy stuff so not sure the
@@ -2043,7 +2043,7 @@ away something:
 
 Nothing decided yet.
 
-**Shipped 2026-09-10 (0.28.0).** Both halves of this were built the same
+**Shipped 2026-09-10 (0.30.0).** Both halves of this were built the same
 day they were raised:
 
 - **Overflow:** cause was `--battle-scale` (`css/styles.css`), which
