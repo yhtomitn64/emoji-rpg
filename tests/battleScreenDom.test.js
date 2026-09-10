@@ -283,7 +283,7 @@ test('battleScreen DOM', async (t) => {
     click(root.querySelector('#btn-item'));
     click(root.querySelector('button[data-slot="0"]'));
     assert.match(root.querySelector('#battle-log').textContent, /Strength Draught/);
-    assert.match(root.querySelector('#battle-potion-buff-indicator').textContent, /12s/);
+    assert.match(root.querySelector('#battle-potion-buff-indicator').textContent, /20s/);
   });
 
   await t.test('drinking a one-shot potion logs a confirmation', async () => {

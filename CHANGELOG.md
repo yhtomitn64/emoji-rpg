@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.27.4] - 2026-09-10
+
+### Changed
+- **Timed buff potions now last 20s instead of 12s** (all 8 of them -
+  `buffDurationMs` in `js/data/items.js`, the single source of truth
+  `js/systems/buffPotions.js` reads). Raised this session: 12s felt too
+  short. Two things made it short in practice: Super Scream's free,
+  cooldown-gated ability buff runs the same 12s
+  (`js/systems/abilities.js`), so a consumed 30-40g potion bought no
+  more uptime than a reusable ability; and the quick-select overlay runs
+  at 25% time scale rather than a full pause, so a slice of the duration
+  burns down during the selection itself. 20s clearly outlasts the
+  ability buff and covers most of a fight while still expiring inside
+  one battle, so it can't outclass earned gear (the concern recorded in
+  `docs/superpowers/specs/2026-08-31-buff-potions-design.md`). One-shots
+  (Berserker Tonic, Second Wind) are unaffected - they have no duration.
+  Spec's roster table and the duration assertions in
+  `tests/buffPotions.test.js`/`tests/battleScreenDom.test.js` updated to
+  match.
 ## [0.27.3] - 2026-09-09
 
 ### Changed

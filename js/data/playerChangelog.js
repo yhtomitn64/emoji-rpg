@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.27.4',
+    date: '2026-09-10',
+    highlights: [
+      'Changed: buff potions now last 20 seconds instead of 12, so a potion covers most of a fight rather than fading halfway through it.',
+    ],
+  },
+  {
     version: '0.27.3',
     date: '2026-09-09',
     highlights: [

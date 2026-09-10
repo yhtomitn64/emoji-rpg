@@ -82,14 +82,14 @@ export const ITEMS = {
   // which consumables are timed buffs vs. the 2 one-shots below, which have
   // no stats/duration at all - their effect is a flag battleScreen.js sets
   // directly (see drinkPotion()/consumeGuaranteedCritBonus()/monsterAttack()).
-  strengthDraught: { id: 'strengthDraught', name: 'Strength Draught', emoji: '💥', type: 'consumable', price: 35, stats: { attack: 6 }, buffDurationMs: 12000 },
-  ironSkinTonic: { id: 'ironSkinTonic', name: 'Iron Skin Tonic', emoji: '🛡️', type: 'consumable', price: 35, stats: { defense: 4 }, buffDurationMs: 12000 },
-  swiftElixir: { id: 'swiftElixir', name: 'Swift Elixir', emoji: '💨', type: 'consumable', price: 30, stats: { speed: 4 }, buffDurationMs: 12000 },
-  vampiricTonic: { id: 'vampiricTonic', name: 'Vampiric Tonic', emoji: '🩸', type: 'consumable', price: 35, stats: { lifestealPercent: 15 }, buffDurationMs: 12000 },
-  momentumElixir: { id: 'momentumElixir', name: 'Momentum Elixir', emoji: '🌀', type: 'consumable', price: 40, stats: { extraSwingChance: 12 }, buffDurationMs: 12000 },
-  emberVial: { id: 'emberVial', name: 'Ember Vial', emoji: '🔥', type: 'consumable', price: 40, stats: { elementalProcChance: 20, elementalProcDamage: 5 }, buffDurationMs: 12000 },
-  thornbarkDraught: { id: 'thornbarkDraught', name: 'Thornbark Draught', emoji: '🪵', type: 'consumable', price: 30, stats: { thornsPercent: 20 }, buffDurationMs: 12000 },
-  focusTonic: { id: 'focusTonic', name: 'Focus Tonic', emoji: '🎯', type: 'consumable', price: 35, stats: { critChancePercent: 10 }, buffDurationMs: 12000 },
+  strengthDraught: { id: 'strengthDraught', name: 'Strength Draught', emoji: '💥', type: 'consumable', price: 35, stats: { attack: 6 }, buffDurationMs: 20000 },
+  ironSkinTonic: { id: 'ironSkinTonic', name: 'Iron Skin Tonic', emoji: '🛡️', type: 'consumable', price: 35, stats: { defense: 4 }, buffDurationMs: 20000 },
+  swiftElixir: { id: 'swiftElixir', name: 'Swift Elixir', emoji: '💨', type: 'consumable', price: 30, stats: { speed: 4 }, buffDurationMs: 20000 },
+  vampiricTonic: { id: 'vampiricTonic', name: 'Vampiric Tonic', emoji: '🩸', type: 'consumable', price: 35, stats: { lifestealPercent: 15 }, buffDurationMs: 20000 },
+  momentumElixir: { id: 'momentumElixir', name: 'Momentum Elixir', emoji: '🌀', type: 'consumable', price: 40, stats: { extraSwingChance: 12 }, buffDurationMs: 20000 },
+  emberVial: { id: 'emberVial', name: 'Ember Vial', emoji: '🔥', type: 'consumable', price: 40, stats: { elementalProcChance: 20, elementalProcDamage: 5 }, buffDurationMs: 20000 },
+  thornbarkDraught: { id: 'thornbarkDraught', name: 'Thornbark Draught', emoji: '🪵', type: 'consumable', price: 30, stats: { thornsPercent: 20 }, buffDurationMs: 20000 },
+  focusTonic: { id: 'focusTonic', name: 'Focus Tonic', emoji: '🎯', type: 'consumable', price: 35, stats: { critChancePercent: 10 }, buffDurationMs: 20000 },
   berserkerTonic: { id: 'berserkerTonic', name: 'Berserker Tonic', emoji: '💢', type: 'consumable', price: 60, description: 'Your next hit is a guaranteed critical' },
   secondWind: { id: 'secondWind', name: 'Second Wind', emoji: '🕊️', type: 'consumable', price: 120, description: 'Survive one lethal hit at 1 HP this battle' },
 

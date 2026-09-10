@@ -23,22 +23,22 @@ test('createActiveBuffs starts empty', () => {
 
 test('activateTimedBuff adds a new entry with the item\'s own buffDurationMs', () => {
   const active = activateTimedBuff(createActiveBuffs(), 'strengthDraught');
-  assert.deepEqual(active, [{ itemId: 'strengthDraught', remainingMs: 12000 }]);
+  assert.deepEqual(active, [{ itemId: 'strengthDraught', remainingMs: 20000 }]);
 });
 
 test('activateTimedBuff on an already-active potion refreshes duration instead of stacking a duplicate', () => {
   let active = activateTimedBuff(createActiveBuffs(), 'strengthDraught');
-  active = tickActiveBuffs(active, 5000); // remainingMs now 7000
+  active = tickActiveBuffs(active, 5000); // remainingMs now 15000
   active = activateTimedBuff(active, 'strengthDraught');
-  assert.deepEqual(active, [{ itemId: 'strengthDraught', remainingMs: 12000 }]);
+  assert.deepEqual(active, [{ itemId: 'strengthDraught', remainingMs: 20000 }]);
 });
 
 test('activateTimedBuff stacks different potion types together', () => {
   let active = activateTimedBuff(createActiveBuffs(), 'strengthDraught');
   active = activateTimedBuff(active, 'swiftElixir');
   assert.deepEqual(active, [
-    { itemId: 'strengthDraught', remainingMs: 12000 },
-    { itemId: 'swiftElixir', remainingMs: 12000 },
+    { itemId: 'strengthDraught', remainingMs: 20000 },
+    { itemId: 'swiftElixir', remainingMs: 20000 },
   ]);
 });
 

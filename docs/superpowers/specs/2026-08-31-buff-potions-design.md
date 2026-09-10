@@ -30,14 +30,14 @@ kind of bonus object equipment already contributes — just temporary.
 
 | id | Name | Effect | Kind | Duration | Price |
 |---|---|---|---|---|---|
-| `strengthDraught` | Strength Draught | +attack | timed | 12s | 35g |
-| `ironSkinTonic` | Iron Skin Tonic | +defense | timed | 12s | 35g |
-| `swiftElixir` | Swift Elixir | +speed | timed | 12s | 30g |
-| `vampiricTonic` | Vampiric Tonic | +lifestealPercent | timed | 12s | 35g |
-| `momentumElixir` | Momentum Elixir | +extraSwingChance | timed | 12s | 40g |
-| `emberVial` | Ember Vial | +elementalProcChance/Damage | timed | 12s | 40g |
-| `thornbarkDraught` | Thornbark Draught | +thornsPercent | timed | 12s | 30g |
-| `focusTonic` | Focus Tonic | +critChancePercent | timed | 12s | 35g |
+| `strengthDraught` | Strength Draught | +attack | timed | 20s | 35g |
+| `ironSkinTonic` | Iron Skin Tonic | +defense | timed | 20s | 35g |
+| `swiftElixir` | Swift Elixir | +speed | timed | 20s | 30g |
+| `vampiricTonic` | Vampiric Tonic | +lifestealPercent | timed | 20s | 35g |
+| `momentumElixir` | Momentum Elixir | +extraSwingChance | timed | 20s | 40g |
+| `emberVial` | Ember Vial | +elementalProcChance/Damage | timed | 20s | 40g |
+| `thornbarkDraught` | Thornbark Draught | +thornsPercent | timed | 20s | 30g |
+| `focusTonic` | Focus Tonic | +critChancePercent | timed | 20s | 35g |
 | `berserkerTonic` | Berserker Tonic | guaranteed crit on next hit | one-shot | instant | 60g |
 | `secondWind` | Second Wind | survive lethal damage at 1 HP (once) | one-shot | instant, consumed on trigger | 120g |
 
