@@ -71,7 +71,7 @@ import { getMiniDungeonEntrance, isTreasureTaken, markTreasureTaken, rollMiniDun
 import { getBossTierStats, pickBossReturnFlavor, shouldPromptForRematch, resolveBattleXp, resolveBossTierAfterWin, getClearedTierList } from './systems/bossTiers.js';
 import * as bossPromptScreen from './screens/bossPromptScreen.js';
 import { listSlots, createSlot, deleteSlot, touchSlot, migrateLegacySave, importSlot } from './systems/saveSlots.js';
-import { applyDebugCharacterFromUrl } from './systems/debugCharacters.js';
+import { applyDebugCharacterFromUrl, isNoEncountersDebugFlagSet } from './systems/debugCharacters.js';
 import { canStartNgPlus, getNgPlusCombatOverrides, getNgPlusRewardMultiplier, scaleDropTable, resetWorldForNgPlus, migrateNgPlusToolCarryover } from './systems/ngPlus.js';
 import { pickVariantOverrides } from './systems/monsterVariants.js';
 import { resolveWeakMobEncounter } from './systems/combat.js';
@@ -276,10 +276,54 @@ function mountStartScreen() {
   });
 }
 
+// Raised 2026-09-09 alongside the map render perf follow-up (see
+// BACKLOG.md): mapScreen's onMove fired persist() synchronously on every
+// single step, which measured as small in isolation (a few ms even for a
+// heavily-explored save) but still put a synchronous localStorage write on
+// the hot path of every keypress for no real benefit - nothing reads a save
+// mid-session, so there's no reason a rapid run of steps needs a write per
+// step rather than one write covering all of them. schedulePersist below
+// coalesces bursts of movement into a single write once movement pauses;
+// every other call site (item pickup, purchase, map transition, etc.) is
+// infrequent enough to keep calling persist() directly, unaffected.
+let persistDebounceTimer = null;
+let persistPending = false;
+const MOVE_PERSIST_DEBOUNCE_MS = 400;
+
 function persist() {
+  if (persistDebounceTimer) {
+    clearTimeout(persistDebounceTimer);
+    persistDebounceTimer = null;
+  }
+  persistPending = false;
   saveState(state, activeSlotId);
   touchSlot(activeSlotId, { level: state.player.level, ngPlusCycle: state.ngPlusCycle });
 }
+
+// For the high-frequency movement path only (see comment above) - batches
+// rapid steps into one write after MOVE_PERSIST_DEBOUNCE_MS of no further
+// movement, instead of one write per step.
+function schedulePersist() {
+  persistPending = true;
+  if (persistDebounceTimer) return;
+  persistDebounceTimer = setTimeout(() => {
+    persistDebounceTimer = null;
+    if (persistPending) persist();
+  }, MOVE_PERSIST_DEBOUNCE_MS);
+}
+
+// Guarantees a debounced-but-not-yet-written move is never lost to a closed
+// tab, browser crash, or backgrounded app - flushed on every path that could
+// end the session without another persist() call already covering it (see
+// the listeners registered below).
+function flushPendingPersist() {
+  if (persistPending) persist();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) flushPendingPersist();
+});
+window.addEventListener('pagehide', flushPendingPersist);
 
 // True while a battle overlay is mounted. The Stats button sits behind the
 // full-viewport #overlay, so it is pointer-blocked but still keyboard-reachable;
@@ -502,8 +546,9 @@ function goToMap(mapId) {
     mapConfig: MAPS[mapId],
     maps: MAPS,
     worldGrid: WORLD_GRID,
+    debugNoEncounters: isNoEncountersDebugFlagSet(),
     callbacks: {
-      onMove: () => persist(),
+      onMove: () => schedulePersist(),
       onAction: handleTileAction,
       onEncounter: handleEncounter,
       onFirstVisit: handleFirstVisit,
@@ -1095,3 +1140,21 @@ applyDebugCharacterFromUrl();
 mountStartScreen();
 renderVersionFooter();
 initItemTooltip();
+
+// Local-dev-only build confirmation, raised 2026-09-09 during the map render
+// perf follow-up (see BACKLOG.md) - Timothy wanted a visible way to confirm
+// a reload actually picked up a NEW edit, not just that it reloaded (a
+// timestamp answers the wrong question - it changes on every reload
+// regardless of whether the code did). DEV_BUILD_TAG is a plain literal
+// bumped by hand on every edit made during a live debugging session - not
+// automated, not tied to the real CHANGELOG.md version. Gated on hostname
+// (never shows on the deployed site) rather than a URL param, so it works
+// on a plain reload with no param to remember.
+const DEV_BUILD_TAG = 'v0.26.13-dev3';
+if (typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  const badge = document.createElement('div');
+  badge.textContent = `dev build loaded: ${DEV_BUILD_TAG}`;
+  badge.style.cssText = 'position:fixed;bottom:4px;right:4px;background:#000;color:#0f0;'
+    + 'font:11px monospace;padding:2px 6px;z-index:99999;opacity:0.85;pointer-events:none;';
+  document.body.appendChild(badge);
+}

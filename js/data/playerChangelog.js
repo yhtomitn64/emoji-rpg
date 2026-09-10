@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.27.1',
+    date: '2026-09-09',
+    highlights: [
+      'Changed: another pass at map panning speed, continuing the 0.26.13 fix. Real improvement, but still not fully smooth across big open wilderness areas - actively working on it.',
+    ],
+  },
+  {
     version: '0.27.0',
     date: '2026-09-09',
     highlights: [

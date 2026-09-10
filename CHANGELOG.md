@@ -24,6 +24,62 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-09-09
+
+### Changed
+- **Map panning is meaningfully faster, continuing the 0.26.13 follow-up.**
+  `mapScreen.js`'s grid placement (`grid-column`/`grid-row`) is now a pure
+  function of world coordinate, anchored to the current screen-cluster's
+  own bounds rather than the panning viewport - a cell's position never
+  changes just because the camera moved, only the actual content around
+  it does. Panning is now a single `transform: translate()` on the whole
+  grid. Measured live in Chrome (Event Timing API, real steps
+  dispatched): ~2.77ms/step -> ~1.05ms/step at a normal window size,
+  ~4.69ms/step -> ~1.46ms/step maximized - the old code scaled worse with
+  window size, the new one barely moves. See
+  `docs/superpowers/BACKLOG.md`'s "Map render performance" sections for
+  the full diagnosis, six further hypotheses that were tested live and
+  ruled out, and why a canvas-based rewrite is likely the next real step
+  if fully smooth panning across large open wilderness screens is the
+  bar (this fix alone doesn't fully get there).
+- **Fixed a real forced-synchronous-layout bug found via a live DevTools
+  recording** (its own Insights panel flagged it directly): `renderStep()`
+  re-measured `viewportEl.clientWidth`/`clientHeight` on every single
+  step, which forces the browser to synchronously flush layout right
+  after the previous step's DOM mutations. The viewport's pixel size only
+  actually changes on a real window resize, already handled separately by
+  `handleResize()`'s own `resize` listener, so `renderStep()` now reuses
+  the last-measured tile count (`computeStepGeometry()`) instead of
+  re-measuring every step.
+- `onMove` no longer calls `persist()` (a synchronous `localStorage`
+  write) on every single step - `schedulePersist()` batches rapid
+  movement into one write after 400ms of no further movement, flushed
+  immediately on `visibilitychange`/`pagehide` so nothing is lost to a
+  closed tab. Every other save trigger (purchases, quest turn-ins, map
+  transitions, switching characters, etc.) still writes immediately,
+  unaffected.
+
+### Fixed
+- `resolveStaticFilePath` (`tools/dev-server.mjs`) failed its own
+  path-traversal check on Windows whenever `rootDir` used forward
+  slashes (including its own test fixture) - `path.normalize` always
+  backslash-normalizes on Windows, but `rootDir` was compared
+  un-normalized, so every request looked like a traversal attempt and
+  404'd. `rootDir` is now normalized once at the top of the function.
+
+### Dev tooling (local-only, no player-facing change)
+- `tools/dev-server.mjs` now sends `Cache-Control: no-cache` for JS/CSS,
+  mirroring the production `_headers` rule (same 2026-08-29 incident that
+  rule exists for), so local testing has the same explicit
+  no-stale-code guarantee.
+- A `?noEncounters=1` URL param (`debugCharacters.js`) skips random
+  encounter rolls, for movement/perf testing without a battle
+  interrupting every few steps - combinable with `?debug=<key>`.
+- A small `localhost`-only badge (bottom-right) shows a hand-bumped
+  `DEV_BUILD_TAG` so a local session can confirm which edit is actually
+  loaded after a reload, rather than trusting a timestamp (which changes
+  on every reload regardless of whether the code did).
+
 ## [0.27.0] - 2026-09-09
 
 ### Added

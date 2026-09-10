@@ -80,3 +80,15 @@ export function applyDebugCharacterFromUrl(search = globalThis.location?.search,
   upsertSlot(id, `[Debug] ${key}`, state, storage);
   return id;
 }
+
+// Raised 2026-09-09 for local perf/manual testing (see BACKLOG.md's map
+// render perf follow-up) - "?noEncounters=1" skips every random encounter
+// roll (mapScreen.js's tryMove) so movement/panning can be exercised at
+// speed without a fight interrupting every few steps. Deterministic
+// tile-triggered fights (guardians, bosses) are untouched - those sit on a
+// specific tile the player can just route around, not something in the way
+// of testing movement itself. Combinable with ?debug=<key> above, e.g.
+// "?debug=level10&noEncounters=1".
+export function isNoEncountersDebugFlagSet(search = globalThis.location?.search) {
+  return new URLSearchParams(search || '').get('noEncounters') === '1';
+}

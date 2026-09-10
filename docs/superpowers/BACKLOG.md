@@ -332,14 +332,23 @@ same-day items below; these are the ones left open):**
   in, so this should be designed *after* those two ship and reconcile
   against whatever rates they settle on, not compound blindly on top of
   today's numbers).
-- **Map render performance, raised 2026-09-09.** First pass shipped
-  (0.26.13, this session) - diffed `render()` and dropped `cqb`/
-  `container-type`. Real improvement, but panning across a large open
-  wilderness screen still isn't fully smooth (a non-panning screen like
-  town already is) - see the full section near the end of this file for
-  the diagnosis and the next concrete step (a `transform`-based camera).
-  Continuing on Timothy's home machine, likely with real browser
-  profiling this time.
+- **Map render performance, raised 2026-09-09.** Two real passes shipped
+  (0.26.13's diffed `render()`/dropped `cqb`, then a same-day
+  transform-based cluster-anchored camera - both confirmed with real
+  Chrome DevTools measurements, not just source-reading). The
+  transform-camera fix is real (2.6-3.2x faster per step) but panning
+  still visibly hitches - six further hypotheses (GPU layer promotion,
+  z-index restacking, DOM child churn, trail SVG rebuild cost, a real
+  forced-synchronous-layout bug that WAS found and fixed, and the
+  content-diffing cost itself) were each tested live and ruled out one by
+  one. The cost cleanly correlates with the camera transform itself, not
+  any of the content around it (confirmed: smooth when clamped at a
+  cluster edge with no panning, hitchy exactly when panning resumes) -
+  see the full section near the end of this file for the complete
+  elimination log. Conclusion: this looks like a genuine ceiling for
+  DOM/CSS Grid panning at this tile count, not a fixable implementation
+  bug - a canvas (or WebGL) rewrite of just the map tile rendering is the
+  likely next real step, about to be scoped in its own worktree.
 - ~~**Boat proximity-hint text said "clear" the water, which doesn't make
   sense for a boat**~~ — **shipped 2026-09-09 (0.26.14)**. See the fuller
   entry in the Bugs / open questions section below.
@@ -348,13 +357,12 @@ same-day items below; these are the ones left open):**
   identified (`js/screens/mapScreen.js:681` needs an `&& !isPlayer`
   guard) but not applied, same reason as the dev-server bug below
   (file has active uncommitted changes elsewhere). See the Bugs section.
-- **`resolveStaticFilePath` (tools/dev-server.mjs) fails its own
-  path-traversal check on Windows, raised 2026-09-09** — a real,
-  pre-existing test failure (`npm run test` shows 1 failing), unrelated
-  to the boat-text fix that surfaced it. One-line fix identified
-  (normalize `rootDir` before the `startsWith` check) but not applied,
-  since `tools/dev-server.mjs` is actively being edited in another
-  session's performance work. See the Bugs section below.
+- ~~**`resolveStaticFilePath` (tools/dev-server.mjs) fails its own
+  path-traversal check on Windows, raised 2026-09-09**~~ — **fixed
+  2026-09-09** (`rootDir` is now normalized before the `startsWith`
+  check, exactly as this entry's own earlier fix-identified note
+  described). `npm run test` is fully green (1031/1031). See the Bugs
+  section below for the original diagnosis.
 - ~~**Cross-device save sync, raised and built 2026-09-09**~~ **Shipped
   2026-09-09 (0.27.0)** — one-shot 60-second transfer codes (Cloudflare
   Workers KV, rate-limited), loading a code adds a new character slot
@@ -1964,7 +1972,13 @@ once cleared). One-line fix once picked up: guard line 681 with
 files with active uncommitted changes in another session's performance
 work; touching it here risked a conflict.
 
-### `resolveStaticFilePath` (tools/dev-server.mjs) fails its own path-traversal check on Windows, raised 2026-09-09
+### ~~`resolveStaticFilePath` (tools/dev-server.mjs) fails its own path-traversal check on Windows, raised 2026-09-09~~ - fixed 2026-09-09
+**Fixed** the same day, once `tools/dev-server.mjs` wasn't actively being
+edited by another session anymore - `rootDir` is now normalized at the top
+of `resolveStaticFilePath` before the `startsWith` check, exactly the
+one-line fix this entry's own diagnosis called for. `npm run test` is
+fully green (1031/1031). Original diagnosis preserved below.
+
 Noticed while running `npm run test` in an unrelated worktree (boat-text
 proximity-message fix session): `resolveStaticFilePath maps / to
 /index.html under the given root` fails on Windows - 1019/1020 tests
@@ -2507,3 +2521,113 @@ to verify the real thing end-to-end: PUT/GET round-tripped correctly,
 an invalid code format 400'd, an unused code 404'd, and the 60-second
 KV expiry was confirmed by actually waiting past it and re-checking.
 Pushed to `main` only after all of that passed.
+
+## Map render performance - continued 2026-09-09, home machine
+
+Picked up on Timothy's home machine, this time with real Chrome DevTools
+(the previous session's own plan) rather than source-reading. Session
+also connected live to the previous session (cross-session message) to
+pull undocumented details before starting - see that exchange for the
+full handoff if it's ever needed again.
+
+**Shipped, confirmed with real measurements:**
+- The `transform`-based cluster-anchored camera itself (see
+  `applyGridTransform`/`computeStepGeometry` in `mapScreen.js`) - grid
+  placement (`grid-column`/`grid-row`) is now a pure function of world
+  coordinate via the current screen-cluster's own bounds, stable across
+  steps; panning is one `transform: translate()` on `.map-grid`, sized to
+  the whole cluster (`repeat(150, 48px)`-scale for a 5x5 wilderness
+  cluster) rather than just the viewport. Real before/after in Chrome
+  (Event Timing API, dispatching real steps): ~2.77ms/step -> ~1.05ms/step
+  at a normal window, ~4.69ms/step -> ~1.46ms/step maximized - the old
+  code got *worse* with a bigger window (matching Timothy's original
+  report), the new one barely moves. Confirmed twice (small and large
+  window) via `git stash`/pop A/B against the exact same code path.
+- **A real bug found and fixed along the way:** `renderStep()`'s call to
+  `computeViewportGeometry()` re-measured `viewportEl.clientWidth`/
+  `clientHeight` on every single step - a live DevTools recording's own
+  Insights panel flagged this exact read as "Forced reflow - a likely
+  performance bottleneck" (a synchronous layout, forced because the read
+  happens right after the previous step's DOM mutations). The viewport's
+  pixel size only actually changes on a real resize, already handled
+  separately by `handleResize()`'s own `resize` listener - so the fix
+  (`computeStepGeometry()`, reusing `lastTilesWide`/`lastTilesTall`
+  instead of re-measuring) removes a real forced layout from the hot path
+  with no loss of correctness. Worth keeping regardless of what happens
+  with canvas below.
+- Debounced `persist()` off the movement hot path (`onMove` now calls
+  `schedulePersist()`, batching rapid steps into one `localStorage` write
+  after 400ms idle instead of one write per step) - flushed immediately on
+  `visibilitychange`/`pagehide` so nothing is lost to a closed tab.
+  Measured cost was already small (a few ms even at a ~577KB fully-explored
+  save) but it was still unconditional per-step work for no benefit.
+- Dev tooling: `tools/dev-server.mjs` now sends `Cache-Control: no-cache`
+  for JS/CSS, mirroring production's own `_headers` rule (same 2026-08-29
+  incident that rule exists for) - local testing now has the same
+  explicit no-stale-code guarantee. A `?noEncounters=1` URL param
+  (`debugCharacters.js`) skips random encounter rolls for movement/perf
+  testing, combinable with `?debug=<key>`. A `DEV_BUILD_TAG` badge
+  (bottom-right, localhost-only) confirms which edit is actually loaded -
+  bumped by hand each edit, not a timestamp (a timestamp changes on every
+  reload regardless of whether the code did, which answers the wrong
+  question).
+
+**Ruled out, each via a live DevTools test (not inferred) - the
+"still open" panning cost is NOT caused by any of these:**
+1. **GPU layer promotion.** Tried `will-change: transform` on
+  `.map-grid` on the theory panning needed a standing compositor layer.
+  No measurable improvement (if anything slightly worse - ~208ms avg
+  Event-Timing presentationDelay vs. ~173ms before) and Layer Borders
+  showed the huge (multi-thousand-px, whole-cluster-sized) box getting
+  tiled into many raster tiles. Removed.
+2. **z-index paint-order restacking.** `applyCellPosition` sets
+  `cell.style.zIndex` for the row-based depth-sort - disabling it
+  (**both** write paths - the one inside `applyCellPosition` AND the
+  separate inline `cached.el.style.zIndex = ...` in `renderStep()`'s
+  common "unchanged row/col" branch, which the first attempt at this test
+  missed entirely) made no difference to the full-viewport paint flash or
+  Commit cost.
+3. **DOM child add/remove churn.** Pre-built a padded area around the
+  viewport so a small range of movement touched zero child
+  adds/removes (only existing cells' own content/attributes changed) -
+  Commit cost and the full-screen paint flash were unchanged (confirmed
+  via a real DevTools recording, 35.34ms self time on `Commit`).
+4. **Trail SVG rebuild cost.** The worn-path trail (`buildTrailFragment`
+  - gradients, paths, a hub circle) rebuilds on the just-stepped tile
+  nearly every step since visit count changes. Disabled it entirely
+  (no trail rendered at all) - still hitchy, no change.
+5. **The `#flavor-banner` toast's own opacity transition.** Showed up in
+  one trace's Animations track overlapping a busy window, but the very
+  first trace (no toast visible at all) already showed the same ~40-46ms
+  Commit cost - coincidental overlap, not causal.
+
+**What actually correlates, cleanly, confirmed by Timothy directly:**
+panning smoothness tracks whether the camera's `transform` is actually
+changing, not any of the content details above. Standing in a corner
+where `computeViewportOrigin` clamps (the cluster is centered/pinned and
+the origin stops moving even as the player keeps stepping) feels
+smooth - Paint Flashing shows green *only right around the character*.
+The moment normal panning resumes, the same full-viewport green flash and
+30-45ms+ `Commit` costs come back, visible directly in a wider flame-chart
+capture as a clean before/after (small, thin task marks while
+clamped/not-panning; sudden sustained 500ms+ frame stalls the moment
+panning resumes). A `Painting: 1,666ms` vs. `Scripting: 395ms` aggregate
+over one ~12.75s range makes the same point numerically - the game's own
+JS is cheap throughout; the browser's paint pipeline is where the time
+goes, and it's specifically tied to sliding the panned content.
+
+**Conclusion:** this looks like a genuine ceiling for "slide a
+CSS-Grid-of-~1200-populated-tiles via `transform`" in this browser, not
+an implementation bug still waiting to be found - six different specific
+mechanisms were each tested live and eliminated one at a time. A real
+game-engine tile renderer (Phaser, PixiJS, Godot's TileMap, etc.) would
+do this with GPU sprite batching, not DOM elements, for exactly this
+reason. The technically correct next step, if fully smooth panning is
+the bar, is very likely a canvas (or WebGL) rewrite of the map tile
+rendering specifically (HUD/battle/overlays can stay DOM/CSS as-is,
+scoping this to just `mapScreen.js`'s own tile grid) - not yet started or
+scoped, and a substantial rewrite (every emoji, hover/tooltip, trail,
+obstacle overlap, portal shadow, and level-up/well-heal/portal-pull
+effect currently implemented as DOM/CSS would need reimplementing as
+draw calls). Worth treating as its own planned task rather than a
+continuation of this session's experiment-and-revert cycle.

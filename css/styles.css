@@ -49,6 +49,24 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 .map-grid {
   display: grid;
   gap: 0;
+  /* Raised, then reverted, 2026-09-09 while chasing the map render perf
+     follow-up (see BACKLOG.md): tried `will-change: transform` here on the
+     theory that panning needed a standing compositor layer to be cheap.
+     Measured live via the Event Timing API: no improvement (if anything,
+     slightly worse - ~208ms avg presentationDelay vs ~173ms before). A real
+     DevTools Performance recording with Paint Flashing on then showed why -
+     a single step flashes the ENTIRE visible viewport green, not just the
+     newly-revealed edge cells, and Layer Borders showed this element's
+     giant (multi-thousand-px, whole-cluster-sized - see renderFull's own
+     comment) box tiled into many raster tiles. Promoting that whole box to
+     one standing layer likely made the browser manage/re-tile more surface
+     than it would otherwise, for no compositor-only-slide benefit - new
+     edge content still has to be painted for the first time every step
+     regardless of layer promotion, since only the visible window's cells
+     ever get real DOM nodes (see cellCache's own comment). Left removed;
+     the real fix (if one exists) is shrinking what actually gets dirtied
+     per step, not forcing this element into a layer.
+  */
 }
 .map-tile {
   display: flex;

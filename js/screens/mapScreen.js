@@ -243,6 +243,10 @@ let mapConfig = null;
 let maps = null;
 let worldGrid = null;
 let callbacks = null;
+// Set from props.debugNoEncounters ("?noEncounters=1" - see
+// debugCharacters.js) - skips only the random encounter roll below, not
+// deterministic tile-triggered fights (guardians, bosses).
+let debugNoEncounters = false;
 // Persistent grid state for renderStep()'s diffing - see renderFull()/
 // renderStep() below. gridEl/viewportEl are the current .map-grid/
 // .map-viewport elements, kept alive across steps instead of torn down and
@@ -257,12 +261,32 @@ let gridEl = null;
 let viewportEl = null;
 let cellCache = new Map();
 // The (tilesWide, tilesTall) gridEl's own gridTemplateColumns/Rows was built
-// for - renderStep() only diffs safely when this still matches; if it
-// doesn't (the viewport's pixel size changed without a 'resize' event
-// reaching handleResize, which shouldn't normally happen but would silently
-// mis-lay-out the grid if it did), it falls back to a full rebuild instead.
+// for. Set by renderFull() (the only place that actually measures the
+// viewport's real pixel size) and reused as-is by renderStep() via
+// computeStepGeometry() below, rather than re-measuring every step - see
+// that function's own comment for why a fresh measurement here would
+// reintroduce a forced synchronous layout on every single step. Relies on
+// handleResize()'s 'resize' listener to catch every real size change and
+// trigger a fresh renderFull(); a resize that somehow doesn't fire that
+// event would silently mis-lay-out the grid until the next one that does.
 let lastTilesWide = 0;
 let lastTilesTall = 0;
+// Raised 2026-09-09 (see BACKLOG.md's "Map render performance" section):
+// gridEl's grid-column/grid-row are now anchored to the current screen-
+// cluster's own bounds (clusterBounds' minGx/minGy), not to the panning
+// viewport origin - so a cell's placement is a pure function of its world
+// coordinate and never changes just because the camera moved. Panning is a
+// single `transform: translate()` on gridEl itself instead (applyGridTransform
+// below), which is compositor-only (no layout, no repaint of unrelated
+// cells) - previously every visible cell's grid-column/grid-row got
+// rewritten on every step since placement was viewport-relative, which
+// forced a full grid layout pass each step, same order of cost as the old
+// full-rebuild this diffing was meant to replace. lastClusterId tracks which
+// cluster gridEl's placement is anchored to, since that anchor is only valid
+// within one cluster - renderStep() falls back to renderFull() on any
+// cluster change instead of trying to reconcile cellCache against a moved
+// anchor.
+let lastClusterId = null;
 
 const KEY_TO_DELTA = {
   ArrowUp: [0, -1], w: [0, -1],
@@ -743,7 +767,40 @@ function computeViewportGeometry(viewport) {
   const centerGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
   const bounds = clusterBounds(worldGrid, mapConfig.id);
   const { originGx, originGy } = computeViewportOrigin(centerGlobal.gx, centerGlobal.gy, tilesWide, tilesTall, bounds);
-  return { tilesWide, tilesTall, originGx, originGy };
+  return { tilesWide, tilesTall, originGx, originGy, bounds };
+}
+
+// Raised 2026-09-09 during the map render perf follow-up (see BACKLOG.md):
+// renderStep()'s own call to computeViewportGeometry used to re-measure
+// viewportEl.clientWidth/clientHeight on every single step via
+// computeViewportTileCount - a real DevTools Performance recording flagged
+// this exact read as a "Forced reflow" (a synchronous layout, forced
+// because it reads a layout-dependent property right after the previous
+// step's DOM mutations, every single step). The viewport's pixel size only
+// actually changes on a real window resize, which handleResize() already
+// catches via its own 'resize' listener and reacts to with a full
+// renderFull() rebuild - so the hot path has no need to re-measure at all;
+// reusing lastTilesWide/lastTilesTall (set by whichever renderFull() call
+// last ran) is exactly as correct and skips the forced layout entirely.
+function computeStepGeometry() {
+  const tilesWide = lastTilesWide;
+  const tilesTall = lastTilesTall;
+  const centerGlobal = screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y);
+  const bounds = clusterBounds(worldGrid, mapConfig.id);
+  const { originGx, originGy } = computeViewportOrigin(centerGlobal.gx, centerGlobal.gy, tilesWide, tilesTall, bounds);
+  return { tilesWide, tilesTall, originGx, originGy, bounds };
+}
+
+// Pans the camera by shifting gridEl itself rather than any individual
+// cell - see the lastClusterId comment above. originGx/originGy is the
+// world coordinate the viewport's own top-left corner should show;
+// bounds.minGx/minGy is gridEl's own placement anchor (cluster-relative
+// row/col 0 corresponds to this), so the offset between them is exactly how
+// far the grid needs to slide to bring the right cells into view.
+function applyGridTransform(grid, originGx, originGy, bounds) {
+  const offsetX = (originGx - bounds.minGx) * TILE_SIZE_PX;
+  const offsetY = (originGy - bounds.minGy) * TILE_SIZE_PX;
+  grid.style.transform = `translate(${-offsetX}px, ${-offsetY}px)`;
 }
 
 function signatureAt(gx, gy) {
@@ -763,19 +820,26 @@ function renderFull() {
   rootEl.appendChild(viewport);
   viewportEl = viewport;
 
-  const { tilesWide, tilesTall, originGx, originGy } = computeViewportGeometry(viewport);
+  const { tilesWide, tilesTall, originGx, originGy, bounds } = computeViewportGeometry(viewport);
+  // Sized to the whole cluster, not just the viewport window - a track with
+  // no populated cell costs nothing (see applyGridTransform's comment above
+  // for why this is what makes a cell's placement stable across steps).
+  const clusterWidth = bounds.maxGx - bounds.minGx + 1;
+  const clusterHeight = bounds.maxGy - bounds.minGy + 1;
 
   const grid = document.createElement('div');
   grid.className = 'map-grid';
-  grid.style.gridTemplateColumns = `repeat(${tilesWide}, ${TILE_SIZE_PX}px)`;
-  grid.style.gridTemplateRows = `repeat(${tilesTall}, ${TILE_SIZE_PX}px)`;
+  grid.style.gridTemplateColumns = `repeat(${clusterWidth}, ${TILE_SIZE_PX}px)`;
+  grid.style.gridTemplateRows = `repeat(${clusterHeight}, ${TILE_SIZE_PX}px)`;
 
   cellCache = new Map();
-  for (let row = 0; row < tilesTall; row++) {
-    for (let col = 0; col < tilesWide; col++) {
-      const gx = originGx + col;
-      const gy = originGy + row;
+  for (let vr = 0; vr < tilesTall; vr++) {
+    for (let vc = 0; vc < tilesWide; vc++) {
+      const gx = originGx + vc;
+      const gy = originGy + vr;
       const signature = signatureAt(gx, gy);
+      const row = gy - bounds.minGy;
+      const col = gx - bounds.minGx;
       const cell = document.createElement('div');
       applyCellContent(cell, gx, gy, signature);
       applyCellPosition(cell, row, col, signature.zBoosted);
@@ -783,11 +847,13 @@ function renderFull() {
       cellCache.set(`${gx},${gy}`, { el: cell, row, col, signature });
     }
   }
+  applyGridTransform(grid, originGx, originGy, bounds);
 
   viewport.appendChild(grid);
   gridEl = grid;
   lastTilesWide = tilesWide;
   lastTilesTall = tilesTall;
+  lastClusterId = worldGrid.clusterIdOfScreen[mapConfig.id];
 }
 
 // The hot path - called from tryMove() on every step instead of a full
@@ -800,20 +866,31 @@ function renderStep() {
     renderFull();
     return;
   }
-  const { tilesWide, tilesTall, originGx, originGy } = computeViewportGeometry(viewportEl);
-  if (tilesWide !== lastTilesWide || tilesTall !== lastTilesTall) {
+  // The cluster-anchored placement below is only valid within the cluster
+  // gridEl was built for - a cluster change (crossing into a screen that
+  // isn't part of the current cluster) needs a fresh anchor, not a
+  // reconciliation of the old one, so fall back to a full rebuild rather
+  // than trying to reason about cellCache against a moved anchor.
+  if (worldGrid.clusterIdOfScreen[mapConfig.id] !== lastClusterId) {
     renderFull();
     return;
   }
+  const { tilesWide, tilesTall, originGx, originGy, bounds } = computeStepGeometry();
 
   const nextKeys = new Set();
-  for (let row = 0; row < tilesTall; row++) {
-    for (let col = 0; col < tilesWide; col++) {
-      const gx = originGx + col;
-      const gy = originGy + row;
+  for (let vr = 0; vr < tilesTall; vr++) {
+    for (let vc = 0; vc < tilesWide; vc++) {
+      const gx = originGx + vc;
+      const gy = originGy + vr;
       const key = `${gx},${gy}`;
       nextKeys.add(key);
       const signature = signatureAt(gx, gy);
+      // Cluster-relative, not viewport-relative - a pure function of (gx,
+      // gy) while this cluster stays current, so an already-cached cell's
+      // row/col never actually changes here (the branch below is defensive,
+      // not expected to fire during normal panning).
+      const row = gy - bounds.minGy;
+      const col = gx - bounds.minGx;
       const cached = cellCache.get(key);
       if (cached) {
         if (!signaturesEqual(cached.signature, signature)) {
@@ -848,6 +925,8 @@ function renderStep() {
       cellCache.delete(key);
     }
   }
+
+  applyGridTransform(gridEl, originGx, originGy, bounds);
 }
 
 function tryMove(dx, dy) {
@@ -972,7 +1051,7 @@ function tryMove(dx, dy) {
     return;
   }
 
-  if (!onEncounterCooldown && tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
+  if (!debugNoEncounters && !onEncounterCooldown && tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
     // A flat 5% chance for any encounter (wilderness or dungeon) to be the
     // rare elite instead of the normal roll - always solo, bypassing the
     // multi-mob grouping below entirely. The empty-override array (matching
@@ -1035,6 +1114,7 @@ export function mount(root, props) {
   maps = props.maps;
   worldGrid = props.worldGrid;
   callbacks = props.callbacks;
+  debugNoEncounters = Boolean(props.debugNoEncounters);
   portalTransitionPending = false;
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
   renderFull();
