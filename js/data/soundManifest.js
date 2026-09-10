@@ -45,7 +45,11 @@ export const SOUND_CATEGORY = {
 // are `<soundId>.mp3`, `<soundId>-2.mp3`, `<soundId>-3.mp3`, ... so adding a
 // take is this number plus dropping the file in.
 export const SOUND_VARIANTS = {
-  // hitNormal: 3,
+  hitNormal: 2,
+  abilitySwingStab: 4,
+  abilitySwingChop: 3,
+  abilitySwingSlash: 8,
+  abilitySwingSweep: 2,
 };
 
 function variantFilenames(soundId) {

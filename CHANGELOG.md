@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-09-10
+
 ### Added
 - **Sound variants.** A sound id can now have several recorded takes and
   playback rotates between them, instead of firing the same file every
@@ -37,8 +39,15 @@ public API, no formal release process — commits land straight on
   existing single-path `resolvePath()`. `playSfx` picks per play and
   never repeats the same take twice in a row: with only 2-3 takes, an
   unguarded random pick collides often enough to undo the point. Buffer
-  cache is keyed per variant. Nothing declares variants yet — the
-  mechanism is in place ahead of the audio files themselves.
+  cache is keyed per variant.
+- **First real audio in the game.** 21 generated clips wired up as
+  `assets/audio/realistic/sfx/`: the basic attack hit (2 takes), Impale
+  (4), Sever (3), Lacerate (8), Faultline's cast (2) and its per-enemy
+  impact, plus a battle-start stinger. Generated locally with Stable
+  Audio 3 Small SFX and chosen by ear in the audition tool; a new test
+  fails the build if `SOUND_VARIANTS` ever promises a take with no file
+  behind it, since that failure mode is otherwise silent (one warn, then
+  the sound just doesn't play).
 - **`abilitySweepImpact`**, Faultline's own per-enemy impact sound.
   Faultline resolves as a staggered walk across every living enemy
   (`SWEEP_STAGGER_MS`, 260ms apart), so its impacts need to be shorter

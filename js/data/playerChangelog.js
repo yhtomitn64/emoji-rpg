@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.31.0',
+    date: '2026-09-10',
+    highlights: [
+      'Added: the first real sound effects - your basic attack and all four abilities (Impale, Sever, Lacerate, Faultline) now make a noise when they land, and Faultline gets its own crack as it rips through each enemy in turn.',
+      "Added: most of those sounds have several different takes, and the game picks a different one each time, so hitting the same button over and over doesn't play the identical clip on a loop.",
+      'Note: sound is still a work in progress - turn on "Audio (beta)" in Settings to hear it, and use the volume sliders there to set how loud combat, menus, world and music each are.',
+    ],
+  },
+  {
     version: '0.30.0',
     date: '2026-09-10',
     highlights: [

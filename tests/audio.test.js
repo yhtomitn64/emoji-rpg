@@ -71,7 +71,10 @@ test('playSfx fetches the resolved path for the current theme and plays it', asy
   initAudio({ AudioContextClass: FakeAudioContext, fetchImpl: fetchSpy });
   await playSfx('hitNormal');
   assert.equal(fetchSpy.calls.length, 1);
-  assert.match(fetchSpy.calls[0], /realistic\/sfx\/hitNormal\.mp3$/);
+  // hitNormal has multiple takes (SOUND_VARIANTS), so any of its variant
+  // filenames is correct here - the point is that it resolved under the
+  // current theme, not which take the rotation happened to pick.
+  assert.match(fetchSpy.calls[0], /realistic\/sfx\/hitNormal(-\d+)?\.mp3$/);
 });
 
 test('playSfx caches the decoded buffer - a second play does not refetch', async () => {
@@ -153,7 +156,7 @@ test('setTheme switches the theme used for subsequent playSfx path resolution', 
   setTheme('metal');
   await playSfx('hitNormal');
   // 'metal' has no entries yet, so this must still resolve to the realistic fallback path.
-  assert.match(fetchSpy.calls[0], /realistic\/sfx\/hitNormal\.mp3$/);
+  assert.match(fetchSpy.calls[0], /realistic\/sfx\/hitNormal(-\d+)?\.mp3$/);
 });
 
 test('setTheme clears cached buffers for the previous non-default theme', async () => {
