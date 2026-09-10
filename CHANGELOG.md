@@ -84,10 +84,22 @@ public API, no formal release process — commits land straight on
 
 ### Fixed
 - **`tests/battleSpecialAttacks.test.js` no longer fails under a loaded
-  test runner**, which had blocked deploys: 0.30.0 and 0.31.0 were both
-  committed to `main` but never went live, so the site kept serving the
-  0.29.0 canvas-renderer build. Not a product bug - the test was timing-
-  fragile and CI is slower than a dev machine.
+  test runner.** Not a product bug - the test was timing-fragile and CI
+  is slower than a dev machine.
+
+  **Correction to this entry as originally written** (2026-09-10, same
+  day): it claimed 0.30.0 and 0.31.0 "were both committed to `main` but
+  never went live, so the site kept serving the 0.29.0 canvas-renderer
+  build", and that this release unblocked them. That overstated it. Both
+  of those deploys *did* fail - 0.30.0 on the `Unreleased` gate, 0.31.0
+  on this test - but 0.32.0's run then went green and carried all three
+  live, minutes before this fix was pushed. The status report this entry
+  was written from was accurate when sent and stale by the time it was
+  acted on. So the flake was intermittent (it failed CI twice in a row,
+  then passed), not a hard block, and this release hardened a test that
+  was going to keep costing random deploys rather than rescuing a stuck
+  pipeline. Caught by a concurrent session that had watched the 0.32.0
+  run itself.
   - The stun test waits on a *log line* and then asserts *live* button
     state four statements later, so under contention the 300ms `tick()`
     could expire the fixture's 3000ms stun in between; `updateMenu()`
