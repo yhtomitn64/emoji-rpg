@@ -627,6 +627,95 @@ function invalidateStaticCache() {
   staticCacheDirty = true;
 }
 
+// How far a cell's own paint can reach outside its tile, and so how far
+// either side of a patched region the cache has to be re-examined.
+//
+// Measured from the draw list's own numbers rather than guessed: the tallest
+// obstacle is FULL_SQUARE_PX * (1 + OBSTACLE_MAX_EXTRA) = 61.2px, bottom
+// anchored in a 48px tile, so it reaches 0.275 of a tile into the row above;
+// a signpost label is ~15.4px tall and draws entirely above its own tile
+// (0.32 of a tile); a trail stroke's round cap overhangs by half its width.
+// Guardians reach much further (2.2x) but are zBoosted, which means they live
+// in the per-frame layer and never sit in the cache at all. One whole tile is
+// therefore a comfortable margin, not a hopeful one.
+const PATCH_BLEED_TILES = 1;
+
+// Repaints just the cells a step actually changed, instead of the whole
+// cached layer.
+//
+// Why this exists: rebuilding the cache once per step looked fine on an
+// average-per-frame measurement and was terrible to actually play. It turned
+// evenly-spread work into one enormous paint every 110ms - a ~9Hz spike.
+// Timothy, on the build that did that: "it's really really choppy in the
+// outside world ... in town is smooth but outside world with all those paths
+// is pretty bad."
+//
+// The correctness trick is the clip. Redrawing a cell repaints its ground,
+// which would erase anything overhanging into it from a neighbour drawn later
+// in row-major order - that is exactly the bug the 3x3 live block had. So:
+// clip to the rectangle whose pixels may legitimately change, then redraw a
+// LARGER region around it in proper row-major order. The larger region
+// supplies every neighbour that paints into the clipped area, and the clip
+// guarantees nothing outside it is touched. Both bounds come from
+// PATCH_BLEED_TILES above.
+function patchStaticCache(changedTiles) {
+  if (!staticCtx || cacheOriginGx === null) return false;
+
+  let minGx = Infinity; let minGy = Infinity;
+  let maxGx = -Infinity; let maxGy = -Infinity;
+  for (const { gx, gy } of changedTiles) {
+    minGx = Math.min(minGx, gx); maxGx = Math.max(maxGx, gx);
+    minGy = Math.min(minGy, gy); maxGy = Math.max(maxGy, gy);
+  }
+
+  // Pixels that may change: the changed tiles, plus their own overhang.
+  const dirtyGx = minGx - PATCH_BLEED_TILES;
+  const dirtyGy = minGy - PATCH_BLEED_TILES;
+  const dirtyWide = (maxGx - minGx + 1) + PATCH_BLEED_TILES * 2;
+  const dirtyTall = (maxGy - minGy + 1) + PATCH_BLEED_TILES * 2;
+
+  // Cells consulted: the dirty area, plus every neighbour that can paint into
+  // it. Anything outside this cannot reach the clipped region.
+  const drawGx = dirtyGx - PATCH_BLEED_TILES;
+  const drawGy = dirtyGy - PATCH_BLEED_TILES;
+  const drawWide = dirtyWide + PATCH_BLEED_TILES * 2;
+  const drawTall = dirtyTall + PATCH_BLEED_TILES * 2;
+
+  // A patch that reaches outside what the cache covers can't be applied -
+  // the caller falls back to a full rebuild, which repositions it anyway.
+  if (drawGx < cacheOriginGx || drawGy < cacheOriginGy
+    || drawGx + drawWide > cacheOriginGx + cacheTilesWide
+    || drawGy + drawTall > cacheOriginGy + cacheTilesTall) return false;
+
+  const { staticOps } = buildLayeredDrawList({
+    ...renderContext, originGx: drawGx, originGy: drawGy, tilesWide: drawWide, tilesTall: drawTall,
+  });
+
+  const realCtx = ctx2d;
+  const realCamGx = camGx;
+  const realCamGy = camGy;
+  ctx2d = staticCtx;
+  camGx = cacheOriginGx;
+  camGy = cacheOriginGy;
+  try {
+    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx2d.save();
+    const clipX = (dirtyGx - cacheOriginGx) * TILE_SIZE_PX;
+    const clipY = (dirtyGy - cacheOriginGy) * TILE_SIZE_PX;
+    ctx2d.beginPath();
+    ctx2d.rect(clipX, clipY, dirtyWide * TILE_SIZE_PX, dirtyTall * TILE_SIZE_PX);
+    ctx2d.clip();
+    ctx2d.clearRect(clipX, clipY, dirtyWide * TILE_SIZE_PX, dirtyTall * TILE_SIZE_PX);
+    paint(staticOps, [], false, 0);
+    ctx2d.restore();
+  } finally {
+    ctx2d = realCtx;
+    camGx = realCamGx;
+    camGy = realCamGy;
+  }
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Camera + frame loop
 // ---------------------------------------------------------------------------
@@ -967,12 +1056,17 @@ export function renderStep(context) {
   renderContext = context;
   needsPaint = true;
   // A step re-marks the trail on the tile walked onto and the tile walked
-  // off. Both sit inside the live block around the player, so this frame
-  // draws them correctly regardless - but they will leave that block as the
-  // player walks on, and the cached pixels for them are stale from that
-  // moment. Repainting the cache is the simple, obviously-correct answer;
-  // it costs one full static repaint per step instead of per frame.
-  invalidateStaticCache();
+  // off, so the cached pixels for those two tiles are now stale. mapScreen
+  // says which they are, and patching just those is what keeps a step from
+  // costing a full repaint - see patchStaticCache. Anything that does NOT
+  // name its changed tiles (a discovery, a cleared gate, any future caller)
+  // falls back to repainting everything, because a missed patch would leave
+  // stale pixels on screen until the camera happened to move far enough.
+  const patched = Array.isArray(context.changedTiles)
+    && context.changedTiles.length > 0
+    && !staticCacheDirty
+    && patchStaticCache(context.changedTiles);
+  if (!patched) invalidateStaticCache();
   // A devicePixelRatio change (dragging between monitors) fires no resize
   // event of its own, so it's checked on the hot path - a cheap property
   // read, unlike the clientWidth/clientHeight measurement that was removed

@@ -30,8 +30,27 @@ public API, no formal release process — commits land straight on
   only changes when the player steps on a tile. Ground, trail and static
   sprites now paint once into an offscreen canvas blitted with a single
   `drawImage`; the live layer is the hero, the effects, and the cells
-  whose own content animates. Maximised/fully-walked: **7.70ms ->
-  4.21ms** and **46,668 -> 19,992 ops**.
+  whose own content animates.
+  - **The cache is patched, not rebuilt.** Rebuilding it once per step
+    measured well on a per-frame average and was horrible to play:
+    it turned evenly-spread work into one enormous paint every 110ms,
+    a ~9Hz spike. Timothy, on that build: "it's really really choppy in
+    the outside world ... in town is smooth but outside world with all
+    those paths is pretty bad." A step changes exactly two tiles, so
+    `patchStaticCache` repaints only those. The correctness trick is a
+    clip: redraw a region LARGER than the dirty area (so every
+    neighbour that paints into it is present, in row-major order) while
+    clipping to the dirty area itself (so nothing outside is touched).
+    Margins come from the draw list's own numbers, not a guess - the
+    tallest obstacle reaches 0.275 of a tile up, a signpost label 0.32,
+    and guardians are zBoosted so they never sit in the cache at all.
+  - **Measured, maximised window over fully-walked ground: 7.70ms ->
+    0.68ms of JS and 46,668 -> 1,552 canvas ops per frame** (11x and 30x).
+    The headline result is that window size stops mattering: maximised
+    now costs the same as a normal window (0.68ms vs 0.67ms), where
+    before it cost 4x more. Anything that does not name its changed
+    tiles still falls back to a full repaint, so a missed patch can
+    never leave stale pixels on screen.
 
 ### Fixed
 - **Obstacle canopies and signpost labels were being erased near the

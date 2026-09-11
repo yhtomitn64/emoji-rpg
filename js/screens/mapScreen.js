@@ -225,6 +225,11 @@ let lastWalkAxis = null;
 let walkRafId = null;
 let walkLastFrameMs = 0;
 let walkAccumMs = 0;
+// Set by tryMove for the single renderStep that follows it, then cleared.
+// Null means "something other than a plain step changed the world, or nothing
+// said what changed" - which the renderer must treat as repaint-everything,
+// since a wrong patch leaves stale pixels on screen indefinitely.
+let pendingChangedTiles = null;
 // A long gap - the tab was hidden, or a battle overlay held the thread - must
 // not cash out as a burst of queued steps the moment focus returns.
 const WALK_MAX_FRAME_MS = 250;
@@ -520,7 +525,10 @@ function renderStep() {
     renderFull();
     return;
   }
-  if (!renderer.renderStep(buildRenderContext(computeStepGeometry()))) {
+  const context = buildRenderContext(computeStepGeometry());
+  context.changedTiles = pendingChangedTiles;
+  pendingChangedTiles = null;
+  if (!renderer.renderStep(context)) {
     renderFull();
   }
 }
@@ -569,6 +577,15 @@ function tryMove(dx, dy) {
   if (exitDir) {
     Object.assign(state, { visited: markDirection(state.visited, mapConfig.id, state.position.x, state.position.y, exitDir) });
   }
+  // The only two tiles a step can change: the one being left (its crossed-edge
+  // list gains a direction, and it stops being the player's cell) and the one
+  // being entered (visit count, edge list, and it becomes the player's cell).
+  // Handing these to the renderer is what lets the cached map layer be patched
+  // in place instead of repainted whole - see patchStaticCache.
+  pendingChangedTiles = [
+    screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y),
+    screenToGlobal(worldGrid, screenConfig.id, nx, ny),
+  ];
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, screenConfig.id, nx, ny, exitDir ? TRAIL_OPPOSITE_DIR[exitDir] : undefined) });
 
