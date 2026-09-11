@@ -6,6 +6,14 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.33.0',
+    date: '2026-09-10',
+    highlights: [
+      'Changed: the map is far faster to draw, especially once you have worn paths across a lot of ground. It used to redraw every path on screen every single frame; now it only redraws the couple of squares that actually changed as you walk. Big windows and heavily-travelled areas should stay smooth where they used to drop frames.',
+      'Fixed: tall trees no longer had their tops cut off, and shop and quest-board signs no longer disappeared, when you stood near them.',
+    ],
+  },
+  {
     version: '0.32.5',
     date: '2026-09-10',
     highlights: [

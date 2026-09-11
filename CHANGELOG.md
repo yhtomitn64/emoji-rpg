@@ -18,10 +18,16 @@ public API, no formal release process — commits land straight on
   coherent experience — explicitly including the story (see
   `docs/superpowers/BACKLOG.md`, author-written, not AI-generated), not
   just an accumulation of systems.
-- Entries land under `## [Unreleased]
+- Entries land under `## [Unreleased]` while in progress and move into
+  a dated version section once the work is done and committed — there's
+  no separate release step to wait for.
+
+## [Unreleased]
+
+## [0.33.0] - 2026-09-10
 
 ### Changed
-- **WIP, not shippable yet: static-layer cache for the map renderer.**
+- **Static-layer cache for the map renderer.**
   Timothy reported frame drops walking on heavily-walked ground at a
   large window, recovering on untrodden ground. Measured first: at a
   maximised window over fully-walked ground the map cost 7.70ms of JS
