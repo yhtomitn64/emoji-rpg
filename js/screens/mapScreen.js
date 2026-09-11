@@ -929,6 +929,14 @@ export function __getDrawListForTest() {
   return buildDrawList(buildRenderContext(computeViewportGeometry(viewportEl)));
 }
 
+// The render context itself, for tests that need to drive the draw-list
+// builders directly rather than take whatever one shape of list comes back -
+// see tests/mapStaticLayer.test.js, which asserts how the static/dynamic
+// split partitions it.
+export function __getRenderContextForTest() {
+  return buildRenderContext(computeViewportGeometry(viewportEl));
+}
+
 // The hero's on-screen rectangle, for effects that anchor to the player's
 // tile from outside this module (js/screens/celebrationEffect.js). Both
 // renderers answer this - the DOM one from a real element, the canvas one

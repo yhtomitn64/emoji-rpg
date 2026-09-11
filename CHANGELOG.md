@@ -18,11 +18,7 @@ public API, no formal release process — commits land straight on
   coherent experience — explicitly including the story (see
   `docs/superpowers/BACKLOG.md`, author-written, not AI-generated), not
   just an accumulation of systems.
-- Entries land under `## [Unreleased]` while in progress and move into
-  a dated version section once the work is done and committed — there's
-  no separate release step to wait for.
-
-## [Unreleased]
+- Entries land under `## [Unreleased]
 
 ### Changed
 - **WIP, not shippable yet: static-layer cache for the map renderer.**
@@ -32,24 +28,44 @@ public API, no formal release process — commits land straight on
   and 46,668 canvas ops per frame; the worn trail was ~92% of every draw
   call, all of it rebuilt and repainted every frame for content that
   only changes when the player steps on a tile. Ground, trail and static
-  sprites now paint once into an offscreen canvas that is blitted with a
-  single `drawImage`; only the 3x3 block around the player, the pulsing
-  portal/quest cells, the hero and effects are drawn live. The split is
-  static-vs-**animated**, not floor-vs-sprite, because paint order is
-  per-cell interleaved - see `isDynamicCell`'s header.
-  - Measured after: maximised/fully-walked **7.70ms -> 3.71ms** and
-    **46,668 -> 20,182 ops**; unwalked ground at the same size 3,537 ->
-    1,498 ops.
-  - **Why it is only half the available win, and why this is WIP:** the
-    cache is currently invalidated on every step, so it fully repaints
-    roughly every 6.6 frames. The remaining work is the hot-zone scheme
-    in `docs/superpowers/plans/2026-09-10-static-layer-cache-plan.md`
-    (patch the cells leaving the live block instead of invalidating the
-    whole layer), which should take the steady-state cost close to the
-    unwalked-ground numbers. **Needs a version bump, a
-    `playerChangelog.js` entry and a real-browser visual check (obstacle
-    overlap, trail ends at unvisited tiles, town quest-board glow,
-    portal shadow bleed) before it goes anywhere near a push.**
+  sprites now paint once into an offscreen canvas blitted with a single
+  `drawImage`; the live layer is the hero, the effects, and the cells
+  whose own content animates. Maximised/fully-walked: **7.70ms ->
+  4.21ms** and **46,668 -> 19,992 ops**.
+
+### Fixed
+- **Obstacle canopies and signpost labels were being erased near the
+  player** — a bug in the first cut of the cache above, found by
+  Timothy on the live build, not by the suite. That version also kept a
+  3x3 block around the player out of the cached layer and repainted it
+  every frame; repainting a cell repaints its ground, and that ground
+  erased anything overhanging *into* the block from outside it. Two
+  symptoms, one cause: "when I'm above a tree then a tall tree below
+  that one gets cut off" (obstacles are bottom-anchored and bleed
+  upward), and "the shop sign goes away when I'm in its 3x3 square",
+  with the quest board's plank vanishing from exactly three tiles north
+  of it (a sign label draws *entirely* in the row above its own tile).
+  - Enlarging the block would only have moved the seam outward: a
+    sub-rectangle of an interleaved-paint-order scene cannot be redrawn
+    over a cached whole without losing the overhang from outside it.
+    The player's cell never needed to be live at all — the hero is a
+    `followsHero` op, which `paint()` already holds back and draws after
+    every tile. The cache now keeps every ordinary cell.
+  - `tests/mapStaticLayer.test.js` asserts the invariant that was
+    missing: an ordinary cell may never appear in the live layer.
+    Verified to fail with the bug reintroduced.
+
+### Added
+- **`?debug=stress` test character**, at Timothy's request while
+  checking the above: level 20, fully equipped and strong enough to
+  ignore anything in the way, every quest at a turn-in-ready count, a
+  placed portal, and the whole 5x5 wilderness cluster covered in worn
+  path at all ten wear levels with a mix of dead ends, corners and
+  four-way junctions. Banded rather than uniform on purpose — stroke
+  width scales with visit count and adjacent tiles average their widths,
+  so a uniform fill would exercise exactly one width and none of the
+  blending. Really a rendering stress fixture that happens to be a
+  character.
 
 ## [0.32.5] - 2026-09-10
 

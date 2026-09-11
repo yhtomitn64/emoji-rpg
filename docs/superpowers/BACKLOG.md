@@ -405,6 +405,18 @@ same-day items below; these are the ones left open):**
   the full history.
 
 **New threads raised 2026-09-10:**
+- **`battleSpecialAttacks.test.js` flakes under parallel load, raised
+  2026-09-10.** `an unparried cooldownOverload special disables an
+  off-cooldown ability button` times out after 20s in roughly one full
+  `npm run test` in three, and passes 3/3 when its file is run alone -
+  so it is wall-clock starvation, not a real failure. Same mechanism
+  `mapScreen.js`'s `walkRepeatMs` comment already documents: node runs
+  test files in parallel, and a suite that sleeps on real time gets
+  starved by the others. Pre-existing - confirmed unrelated to the
+  static-layer cache work going on when it surfaced. Fix is to drive
+  that test's cooldown on an injected clock rather than real time, the
+  way `walkRepeatMs` is overridable for exactly this reason. Not
+  started.
 - **Worn-path trail costs a full repaint every frame, raised 2026-09-10
   (after 0.32.4).** Timothy: "when I make the window really really big
   and walk around I get frame drops ... when I walk away from an area

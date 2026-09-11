@@ -256,17 +256,6 @@ export function buildDrawList(ctx) {
   };
 }
 
-// How far around the player a cell counts as "live" - see isDynamicCell.
-// 1 (a 3x3 block) is the smallest correct value, for two separate reasons
-// that happen to want the same number:
-//   - a step changes the trail on exactly the tile stepped onto and the tile
-//     stepped off, which are never more than one tile apart;
-//   - obstacles are bottom-anchored and bleed UPWARD into the row above (see
-//     OBSTACLE_MAX_EXTRA), so the row below the player has to be repainted
-//     after the player's own cell, or the player's ground would clip the
-//     tree they are standing in front of - which is not how it paints today.
-export const DYNAMIC_RADIUS_TILES = 1;
-
 // Whether a cell has to be redrawn every frame rather than living in the
 // cached static layer.
 //
@@ -275,13 +264,29 @@ export const DYNAMIC_RADIUS_TILES = 1;
 // previous cell's overhanging tree - see buildDrawList's own header), so
 // hoisting every floor into one layer and every sprite into another would
 // visibly change obstacle overlap and how trail strokes end at unvisited
-// tiles. Caching whole cells keeps that interleaving exactly; only cells
-// that genuinely differ from one frame to the next are excluded.
-export function isDynamicCell(signature, gx, gy, playerGx, playerGy) {
+// tiles. Caching whole cells keeps that interleaving exactly.
+//
+// A NOTE ON WHAT IS *NOT* HERE, because the first attempt got it wrong and
+// Timothy caught it: the live set used to also include a 3x3 block around
+// the player. That block punched a hole in the cached layer and refilled it
+// each frame - and refilling it repainted the block's own ground, which
+// erased anything overhanging INTO the block from outside it. Two bugs, one
+// cause: tall trees one row below the block lost their canopies, and a
+// signpost's plank vanished whenever the player stood in the row above it
+// (sign labels draw entirely in the row above their own tile - see
+// drawLabel). Enlarging the block would only have moved the seam further
+// out; you cannot overdraw a sub-rectangle of an interleaved scene without
+// losing the overhang from outside it.
+//
+// The player's cell never needed to be live anyway: the hero and anything
+// riding with them are `followsHero` ops, which paint() already holds back
+// and draws after every tile. So the cache keeps every cell, and the live
+// layer is only the things that genuinely differ frame to frame.
+export function isDynamicCell(signature) {
   // Portal shadows and the quest-board glow pulse on a clock of their own.
-  if (signature.resolved && (signature.questReady || signature.zBoosted)) return true;
-  return Math.abs(gx - playerGx) <= DYNAMIC_RADIUS_TILES
-    && Math.abs(gy - playerGy) <= DYNAMIC_RADIUS_TILES;
+  // Portals and guardians (zBoosted) are drawn last in the scene by design
+  // already, so keeping them live costs no ordering fidelity at all.
+  return Boolean(signature.resolved && (signature.questReady || signature.zBoosted));
 }
 
 // One row-major pass, sorting each cell into the cached layer or the live
@@ -289,19 +294,31 @@ export function isDynamicCell(signature, gx, gy, playerGx, playerGy) {
 // buildDrawList above (and so the DOM-parity tests) still wants.
 //
 // `animatedCells` comes back so the painter can rebuild the live layer each
-// frame without re-scanning the viewport for portals and quest boards: those
-// never move, so the list stays valid as long as the cached layer does.
+// frame without re-scanning the viewport: portals and quest boards never
+// move, so the list stays valid as long as the cached layer does.
 export function buildLayeredDrawList(ctx, { splitDynamic = true } = {}) {
-  const { tilesWide, tilesTall, originGx, originGy, playerGx, playerGy } = ctx;
+  const { tilesWide, tilesTall, originGx, originGy } = ctx;
   const staticOps = [];
   const dynamicOps = [];
   const boosted = [];
   const animatedCells = [];
+  const cellOps = [];
   let playerTile = null;
   // Whether anything visible animates on its own (independent of the player
   // moving), so the painter knows to keep a requestAnimationFrame loop alive
   // instead of drawing once and going idle.
   let hasContinuousAnimation = false;
+
+  // A followsHero op is drawn at the hero's interpolated position, which
+  // moves every frame - baking one into the cache would leave a second,
+  // frozen hero behind. They always belong to the live layer.
+  const sortCell = (live) => {
+    for (const op of cellOps) {
+      if (splitDynamic && (live || op.followsHero)) dynamicOps.push(op);
+      else staticOps.push(op);
+    }
+    cellOps.length = 0;
+  };
 
   for (let vr = 0; vr < tilesTall; vr++) {
     for (let vc = 0; vc < tilesWide; vc++) {
@@ -309,76 +326,71 @@ export function buildLayeredDrawList(ctx, { splitDynamic = true } = {}) {
       const gy = originGy + vr;
       const signature = ctx.signatureAt(gx, gy);
       if (signature.resolved && signature.isPlayer) playerTile = { gx, gy };
-      const animated = signature.resolved
-        && (signature.questReady || PORTAL_ACTION_TILES.has(signature.tile));
-      if (animated) {
-        hasContinuousAnimation = true;
+      const live = isDynamicCell(signature);
+      if (live) {
+        hasContinuousAnimation = hasContinuousAnimation
+          || signature.questReady || PORTAL_ACTION_TILES.has(signature.tile);
         animatedCells.push({ gx, gy });
       }
-      const live = splitDynamic && isDynamicCell(signature, gx, gy, playerGx, playerGy);
       if (signature.zBoosted) {
         boosted.push({ gx, gy, signature, live });
         // A z-boosted tile still needs its ground painted in the normal pass,
         // or the row-major fill would leave a hole where it sits - only its
         // content is deferred. The boosted pass re-emits ground harmlessly
         // over the same rect, so this keeps the two passes independent. The
-        // ground is never animated, so it stays cached even when the tile's
-        // own content is live.
+        // ground is never animated, so it stays cached either way.
         staticOps.push({ op: 'ground', gx, gy, color: groundColorFor(signature.tile) });
         continue;
       }
-      buildCellOps(ctx, gx, gy, signature, live ? dynamicOps : staticOps);
+      buildCellOps(ctx, gx, gy, signature, cellOps);
+      sortCell(live);
     }
   }
 
   for (const { gx, gy, signature, live } of boosted) {
-    buildCellOps(ctx, gx, gy, signature, live ? dynamicOps : staticOps);
+    buildCellOps(ctx, gx, gy, signature, cellOps);
+    sortCell(live);
   }
 
   return { staticOps, dynamicOps, animatedCells, playerTile, hasContinuousAnimation };
 }
 
 // The live layer alone, for a frame reusing an already-painted static layer.
-// Visits only the cells that can have changed - the block around the player,
-// plus the known animated cells - rather than the whole viewport. That is the
-// difference between ~9 signature builds a frame and ~1500 of them, and it is
-// where most of the JS cost went.
+// Visits the player's cell (for the hero and anything riding with them) plus
+// the handful of known animated cells - never the whole viewport, which is
+// where most of the per-frame JS cost used to go.
 export function buildDynamicOps(ctx, animatedCells) {
   const { playerGx, playerGy } = ctx;
   const ops = [];
   const boosted = [];
+  const cellOps = [];
   let playerTile = null;
 
-  const emit = (gx, gy) => {
+  // The player's cell contributes ONLY its followsHero ops. Its ground,
+  // trail and any decoration are in the cached layer and must not be
+  // repainted here - doing so is exactly the bug described on isDynamicCell.
+  const playerSignature = ctx.signatureAt(playerGx, playerGy);
+  if (playerSignature.resolved && playerSignature.isPlayer) {
+    playerTile = { gx: playerGx, gy: playerGy };
+  }
+  buildCellOps(ctx, playerGx, playerGy, playerSignature, cellOps);
+  for (const op of cellOps) if (op.followsHero) ops.push(op);
+  cellOps.length = 0;
+
+  for (const { gx, gy } of animatedCells) {
     const signature = ctx.signatureAt(gx, gy);
-    if (signature.resolved && signature.isPlayer) playerTile = { gx, gy };
     if (signature.zBoosted) {
       boosted.push({ gx, gy, signature });
-      return;
+      continue;
     }
     buildCellOps(ctx, gx, gy, signature, ops);
-  };
-
-  // Row-major over the player's block, matching the order the full pass uses,
-  // so the row below the player still paints over the player's own ground.
-  for (let gy = playerGy - DYNAMIC_RADIUS_TILES; gy <= playerGy + DYNAMIC_RADIUS_TILES; gy++) {
-    for (let gx = playerGx - DYNAMIC_RADIUS_TILES; gx <= playerGx + DYNAMIC_RADIUS_TILES; gx++) {
-      emit(gx, gy);
-    }
   }
 
-  // Animated cells outside that block. Ones inside it were emitted above and
-  // must not be drawn twice - a pulsing alpha painted over itself reads as
-  // visibly stronger than one painted once.
-  for (const { gx, gy } of animatedCells) {
-    if (Math.abs(gx - playerGx) <= DYNAMIC_RADIUS_TILES
-      && Math.abs(gy - playerGy) <= DYNAMIC_RADIUS_TILES) continue;
-    emit(gx, gy);
-  }
-
+  // Boosted last, matching the full pass's own two-pass order.
   for (const { gx, gy, signature } of boosted) {
     buildCellOps(ctx, gx, gy, signature, ops);
   }
 
   return { ops, playerTile };
 }
+

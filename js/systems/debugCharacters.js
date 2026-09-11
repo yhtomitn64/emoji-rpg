@@ -1,5 +1,6 @@
 import { DEFAULT_DUNGEON_ENTRANCE_POSITION, DEFAULT_ITEM_MENU_AUTO_CLOSE_MS } from '../state.js';
 import { upsertSlot } from './saveSlots.js';
+import { QUEST_REQUIREMENTS, getQuestRequirement } from './quests.js';
 
 // Hardcoded characters for local testing only, raised 2026-09-04 while
 // verifying the battle-popup collision fix needed a level with every
@@ -63,7 +64,94 @@ const DEBUG_CHARACTERS = {
       featureFlags: { audioBeta: false, mechanicExplainersBeta: false },
     },
   }),
+  // Built 2026-09-10 at Timothy's request while visually checking the map's
+  // static-layer cache: "make our super test character have walking lines
+  // all over and different thickness to really stress the system", plus a
+  // portal, full quests to turn in, and enough power to ignore anything that
+  // wanders into the way. Every one of those is a thing the renderer has to
+  // draw, so this is really a rendering stress fixture that happens to be a
+  // character.
+  stress: () => {
+    const base = DEBUG_CHARACTERS.level10();
+    return {
+      ...base,
+      player: { level: 20, xp: 0, hp: 400, maxHp: 400, attack: 120, defense: 90, speed: 40, gold: 99999, emoji: '🧙' },
+      equipment: {
+        weapon: 'ironSword', head: 'ironHelm', body: 'ironArmor', legs: 'ironGreaves',
+        accessory1: null, accessory2: null, ring1: null, ring2: null,
+      },
+      inventory: [
+        { itemId: 'potion', quantity: 99 },
+        { itemId: 'axe', quantity: 1 },
+        { itemId: 'miningPick', quantity: 1 },
+        { itemId: 'boat', quantity: 1 },
+        { itemId: 'ironScrap', quantity: 99 },
+      ],
+      // Every quest sitting at a turn-in-ready count, so the quest board
+      // glows the moment the character loads rather than needing a grind
+      // first - the glow is one of the things whose paint order moved.
+      questProgress: Object.fromEntries(
+        Object.keys(QUEST_REQUIREMENTS).map((id) => [id, getQuestRequirement(id, 1)]),
+      ),
+      // A placed return portal, so the portal marker, its outward-bleeding
+      // shadow and its pull animation can all be looked at without first
+      // finding and using a portal scroll.
+      portal: { map: 'center', x: 10, y: 10 },
+      visited: buildStressTrails(),
+    };
+  },
 };
+
+// Wall-to-wall worn path across the whole 5x5 wilderness cluster, at every
+// wear level the trail supports.
+//
+// Deliberately not a uniform flood-fill: trail stroke width scales with visit
+// count up to TRAIL_WEAR_CAP (js/systems/trail.js), and the widths of two
+// adjacent tiles are averaged for the stroke between them, so a map where
+// every tile has the same count exercises exactly one width and none of the
+// blending. Banding the counts instead puts every width, every taper and
+// every join on screen at once - which is the point of a stress fixture.
+//
+// `dirs` is what decides how many strokes a tile draws, so giving most tiles
+// all four is the worst case on purpose: four gradient-stroked curves plus a
+// hub per tile, which is what made the trail ~92% of all draw calls in the
+// measurements behind docs/superpowers/plans/2026-09-10-static-layer-cache-plan.md.
+function buildStressTrails() {
+  const WILDERNESS = [
+    'center', 'north', 'south', 'east', 'west',
+    'northeast', 'northwest', 'southeast', 'southwest',
+    'farNorthwest', 'northNorthwest', 'farNorth', 'northNortheast', 'farNortheast',
+    'westNorthwest', 'farWest', 'westSouthwest',
+    'eastNortheast', 'farEast', 'eastSoutheast',
+    'southSouthwest', 'farSouth', 'southSoutheast',
+    'farSouthwest', 'farSoutheast',
+  ];
+  const ALL_DIRS = ['n', 's', 'e', 'w'];
+  const visited = {};
+  for (const screenId of WILDERNESS) {
+    const tiles = {};
+    // 30x22 covers every wilderness screen's own extent with room to spare;
+    // a coordinate that isn't actually walkable is simply never looked up.
+    for (let y = 0; y < 22; y++) {
+      for (let x = 0; x < 30; x++) {
+        // Diagonal banding, so width changes along both axes and no two
+        // neighbours are guaranteed to match.
+        const count = 1 + ((x + y * 3) % 10);
+        // A scattering of dead ends and corners among the crossroads, so the
+        // taper into an unvisited neighbour is on screen too, not only
+        // four-way junctions.
+        const dirs = (x * 7 + y * 5) % 11 === 0
+          ? ['n']
+          : (x * 3 + y) % 7 === 0
+            ? ['n', 'e']
+            : ALL_DIRS;
+        tiles[`${x},${y}`] = { count, dirs };
+      }
+    }
+    visited[screenId] = tiles;
+  }
+  return visited;
+}
 
 // Reads ?debug=<key> from the given query string (defaults to the real
 // page's) and, if it names a known debug character, upserts a save slot
