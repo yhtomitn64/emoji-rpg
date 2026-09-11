@@ -51,6 +51,32 @@ public API, no formal release process — commits land straight on
     before it cost 4x more. Anything that does not name its changed
     tiles still falls back to a full repaint, so a missed patch can
     never leave stale pixels on screen.
+  - **The cache scrolls rather than rebuilding when the camera leaves
+    it.** Walking off its edge used to cost a full repaint; the average
+    absorbed that but it was plainly felt - "it does do the 12 step
+    hitch though and it's very noticable". `scrollStaticCache` now
+    copies the still-valid pixels to their new offset (double-buffered,
+    the two canvases swapping roles) and repaints only the one or two
+    thin strips that just came into range, through the same clipped path
+    an ordinary patch uses. A scroll now costs about what a step costs.
+  - **`?staticCache=off`** paints every cell live again, exactly as the
+    renderer did before the cache. Kept deliberately: the cache's whole
+    risk is drawing something subtly *differently*, and a switch that
+    toggles it on one running page is the only honest way to settle
+    "is this artifact the cache, or was it always like that".
+
+### Fixed
+- **`?debug=stress` generated a world the game cannot produce**, which
+  briefly looked like a renderer bug. Each tile picked its crossed edges
+  from a hash independently, so a tile could draw a trail stroke toward
+  a neighbour that drew nothing back and the stroke stopped dead at the
+  tile boundary - reported, reasonably, as "path having square edge when
+  dark/thick meets either thin/light or non-existing path". Real play
+  cannot do this: a step records both halves of the crossing it makes
+  (`markDirection` on the tile left, `markVisited` with the opposite
+  direction on the tile entered). Edges are now decided per edge rather
+  than per tile, so both sides always agree, and
+  `tests/debugCharacters.test.js` asserts it across all 25 screens.
 
 ### Fixed
 - **Obstacle canopies and signpost labels were being erased near the

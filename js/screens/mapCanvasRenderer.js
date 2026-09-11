@@ -139,6 +139,10 @@ let hoverTile = null;
 // the pulsing portal/quest cells, the hero, the effects - are drawn live.
 let staticCanvas = null;
 let staticCtx = null;
+// The other half of the double buffer used when the cache scrolls - see
+// scrollStaticCache. The two swap roles rather than one being copied to.
+let staticBackCanvas = null;
+let staticBackCtx = null;
 // World tile coordinate of the cached canvas's top-left, and the size it
 // covers. null means "nothing cached yet".
 let cacheOriginGx = null;
@@ -157,6 +161,21 @@ let staticCacheDirty = true;
 // larger than MARGIN_TILES, which exists for a different reason (drawing the
 // overhang of just-offscreen tiles).
 const CACHE_PAD_TILES = 12;
+
+// "?staticCache=off" paints every cell live again, exactly as the renderer did
+// before the cache existed. Deliberately kept after the cache shipped: the
+// cache's whole risk is that it draws something subtly DIFFERENTLY, and a
+// switch that toggles it on one running page is the only honest way to settle
+// "is this artifact the cache, or was it always like that" - without it the
+// answer is whoever argues more confidently. Costs one property read.
+function staticCacheEnabled() {
+  if (typeof location === 'undefined' || !location.search) return true;
+  try {
+    return new URLSearchParams(location.search).get('staticCache') !== 'off';
+  } catch {
+    return true;
+  }
+}
 
 const glyphCache = new Map();
 const gradientCache = new Map();
@@ -658,34 +677,28 @@ const PATCH_BLEED_TILES = 1;
 // supplies every neighbour that paints into the clipped area, and the clip
 // guarantees nothing outside it is touched. Both bounds come from
 // PATCH_BLEED_TILES above.
-function patchStaticCache(changedTiles) {
-  if (!staticCtx || cacheOriginGx === null) return false;
+// Repaints one rectangle of world tiles inside the cached layer, leaving
+// every pixel outside it untouched. The shared workhorse for both a step's
+// two-tile patch and the freshly-exposed strips after the camera scrolls.
+//
+// `changedGx/Gy/Wide/Tall` is the region whose CONTENT changed. Two margins
+// come off it, and they are different things:
+//   - dirty: the pixels that may legitimately change, = changed + bleed,
+//     because a changed cell's own paint can reach outside its tile;
+//   - draw:  the cells that must be consulted, = dirty + bleed, because a
+//     neighbour outside the dirty area can paint into it.
+// The clip is set to `dirty`, so redrawing the larger `draw` region cannot
+// disturb anything beyond it.
+function repaintCacheRegion(changedGx, changedGy, changedWide, changedTall) {
+  const dirtyGx = changedGx - PATCH_BLEED_TILES;
+  const dirtyGy = changedGy - PATCH_BLEED_TILES;
+  const dirtyWide = changedWide + PATCH_BLEED_TILES * 2;
+  const dirtyTall = changedTall + PATCH_BLEED_TILES * 2;
 
-  let minGx = Infinity; let minGy = Infinity;
-  let maxGx = -Infinity; let maxGy = -Infinity;
-  for (const { gx, gy } of changedTiles) {
-    minGx = Math.min(minGx, gx); maxGx = Math.max(maxGx, gx);
-    minGy = Math.min(minGy, gy); maxGy = Math.max(maxGy, gy);
-  }
-
-  // Pixels that may change: the changed tiles, plus their own overhang.
-  const dirtyGx = minGx - PATCH_BLEED_TILES;
-  const dirtyGy = minGy - PATCH_BLEED_TILES;
-  const dirtyWide = (maxGx - minGx + 1) + PATCH_BLEED_TILES * 2;
-  const dirtyTall = (maxGy - minGy + 1) + PATCH_BLEED_TILES * 2;
-
-  // Cells consulted: the dirty area, plus every neighbour that can paint into
-  // it. Anything outside this cannot reach the clipped region.
   const drawGx = dirtyGx - PATCH_BLEED_TILES;
   const drawGy = dirtyGy - PATCH_BLEED_TILES;
   const drawWide = dirtyWide + PATCH_BLEED_TILES * 2;
   const drawTall = dirtyTall + PATCH_BLEED_TILES * 2;
-
-  // A patch that reaches outside what the cache covers can't be applied -
-  // the caller falls back to a full rebuild, which repositions it anyway.
-  if (drawGx < cacheOriginGx || drawGy < cacheOriginGy
-    || drawGx + drawWide > cacheOriginGx + cacheTilesWide
-    || drawGy + drawTall > cacheOriginGy + cacheTilesTall) return false;
 
   const { staticOps } = buildLayeredDrawList({
     ...renderContext, originGx: drawGx, originGy: drawGy, tilesWide: drawWide, tilesTall: drawTall,
@@ -713,6 +726,86 @@ function patchStaticCache(changedTiles) {
     camGx = realCamGx;
     camGy = realCamGy;
   }
+}
+
+function patchStaticCache(changedTiles) {
+  if (!staticCtx || cacheOriginGx === null) return false;
+
+  let minGx = Infinity; let minGy = Infinity;
+  let maxGx = -Infinity; let maxGy = -Infinity;
+  for (const { gx, gy } of changedTiles) {
+    minGx = Math.min(minGx, gx); maxGx = Math.max(maxGx, gx);
+    minGy = Math.min(minGy, gy); maxGy = Math.max(maxGy, gy);
+  }
+
+  // A patch reaching outside what the cache covers can't be applied - the
+  // caller falls back to a full rebuild, which repositions it anyway.
+  const pad = PATCH_BLEED_TILES * 2;
+  if (minGx - pad < cacheOriginGx || minGy - pad < cacheOriginGy
+    || maxGx + pad >= cacheOriginGx + cacheTilesWide
+    || maxGy + pad >= cacheOriginGy + cacheTilesTall) return false;
+
+  repaintCacheRegion(minGx, minGy, maxGx - minGx + 1, maxGy - minGy + 1);
+  return true;
+}
+
+// Moves the cached layer to a new origin by copying the part that is still
+// valid and repainting only the strips that just came into range.
+//
+// Why this exists: without it, walking off the edge of the cache costs a full
+// repaint of the whole thing. The per-frame average absorbed that, but
+// Timothy felt it as a regular thump every ~12 steps - "it does do the 12
+// step hitch though and it's very noticable". A scroll is one bitmap copy
+// plus at most two thin strips, so it costs about the same as an ordinary
+// step's patch rather than a whole rebuild.
+//
+// Double-buffered rather than copying the canvas onto itself: self-copy with
+// overlapping regions is defined in the spec, but a second buffer removes any
+// question of it, and the two canvases just swap roles each scroll.
+function scrollStaticCache(newOriginGx, newOriginGy) {
+  if (!staticCtx || cacheOriginGx === null) return false;
+  const dx = newOriginGx - cacheOriginGx;
+  const dy = newOriginGy - cacheOriginGy;
+  if (dx === 0 && dy === 0) return true;
+  // Nothing worth keeping: a full repaint is cheaper than a copy plus two
+  // strips that between them cover the whole canvas.
+  if (Math.abs(dx) >= cacheTilesWide || Math.abs(dy) >= cacheTilesTall) return false;
+
+  if (!staticBackCanvas
+    || staticBackCanvas.width !== staticCanvas.width
+    || staticBackCanvas.height !== staticCanvas.height) {
+    staticBackCanvas = document.createElement('canvas');
+    staticBackCanvas.width = staticCanvas.width;
+    staticBackCanvas.height = staticCanvas.height;
+    staticBackCtx = staticBackCanvas.getContext ? staticBackCanvas.getContext('2d') : null;
+  }
+  if (!staticBackCtx) return false;
+
+  staticBackCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  staticBackCtx.clearRect(0, 0, cacheTilesWide * TILE_SIZE_PX, cacheTilesTall * TILE_SIZE_PX);
+  staticBackCtx.drawImage(
+    staticCanvas,
+    -dx * TILE_SIZE_PX, -dy * TILE_SIZE_PX,
+    cacheTilesWide * TILE_SIZE_PX, cacheTilesTall * TILE_SIZE_PX,
+  );
+
+  const frontCanvas = staticCanvas;
+  const frontCtx = staticCtx;
+  staticCanvas = staticBackCanvas;
+  staticCtx = staticBackCtx;
+  staticBackCanvas = frontCanvas;
+  staticBackCtx = frontCtx;
+
+  cacheOriginGx = newOriginGx;
+  cacheOriginGy = newOriginGy;
+
+  // The strips the copy left empty, in the cache's new coordinates. Each is
+  // repainted through the same clipped path an ordinary patch uses, so the
+  // seam against the copied pixels gets its neighbours' overhang correctly.
+  if (dx > 0) repaintCacheRegion(newOriginGx + cacheTilesWide - dx, newOriginGy, dx, cacheTilesTall);
+  else if (dx < 0) repaintCacheRegion(newOriginGx, newOriginGy, -dx, cacheTilesTall);
+  if (dy > 0) repaintCacheRegion(newOriginGx, newOriginGy + cacheTilesTall - dy, cacheTilesWide, dy);
+  else if (dy < 0) repaintCacheRegion(newOriginGx, newOriginGy, cacheTilesWide, -dy);
   return true;
 }
 
@@ -873,9 +966,30 @@ function frame(nowMs) {
   // camera can see, or when a step has changed a tile's trail. Every other
   // frame reuses its pixels for the price of one drawImage.
   let hasContinuousAnimation;
+  if (!staticCacheEnabled()) {
+    // The pre-cache path: one full draw list, every cell painted live.
+    const layered = buildLayeredDrawList(marginContext, { splitDynamic: false });
+    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx2d.clearRect(0, 0, canvasEl.width / dpr, canvasEl.height / dpr);
+    paint(layered.staticOps, effectOps, suppressHeroGlyph, nowMs);
+    needsPaint = false;
+    if (!cameraSettled || !heroSettled || hasActiveEffect(nowMs)
+      || layered.hasContinuousAnimation || needsPaint) schedule();
+    else lastFrameMs = 0;
+    return;
+  }
   if (!staticCacheCovers(marginContext)) {
-    const layered = rebuildStaticCache(marginContext);
-    hasContinuousAnimation = layered ? layered.hasContinuousAnimation : false;
+    // Walking off the edge of the cache is the common case by far, and it
+    // only needs the layer moved, not rebuilt.
+    const scrolled = !staticCacheDirty && scrollStaticCache(
+      Math.floor(camGx) - MARGIN_TILES - CACHE_PAD_TILES,
+      Math.floor(camGy) - MARGIN_TILES - CACHE_PAD_TILES,
+    );
+    if (!scrolled) {
+      const layered = rebuildStaticCache(marginContext);
+      cachedAnimatedCells = layered ? layered.animatedCells : [];
+    }
+    hasContinuousAnimation = cachedAnimatedCells.length > 0;
   } else {
     hasContinuousAnimation = cachedAnimatedCells.length > 0;
   }
@@ -1006,6 +1120,8 @@ export function renderFull(viewport, context) {
   // the canvas below is about to be replaced outright.
   staticCanvas = null;
   staticCtx = null;
+  staticBackCanvas = null;
+  staticBackCtx = null;
   cacheOriginGx = null;
   cacheOriginGy = null;
   cachedAnimatedCells = [];
@@ -1080,6 +1196,8 @@ export function renderStep(context) {
     // repainting, which dropping it outright takes care of.
     staticCanvas = null;
     staticCtx = null;
+    staticBackCanvas = null;
+    staticBackCtx = null;
     if (canvasEl.parentElement) resizeCanvasToViewport(canvasEl.parentElement);
   }
   schedule();

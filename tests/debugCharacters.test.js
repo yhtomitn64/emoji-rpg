@@ -67,3 +67,60 @@ test('a debug character never collides with a real player\'s save slots', () => 
   assert.equal(slots.length, 2);
   assert.ok(slots.some((s) => s.id === 'slot-real' && s.name === 'My Hero'));
 });
+
+// The ?debug=stress fixture exists to push the map renderer, so it has to
+// generate a world the game could actually produce. It did not at first: each
+// tile picked its crossed edges from a hash independently, which let a tile
+// draw a trail stroke toward a neighbour that drew nothing back, so the stroke
+// stopped dead at the tile boundary. Timothy saw that on screen and read it as
+// a rendering bug, reasonably - "path having square edge when dark/thick meets
+// either thin/light or non-existing path" - and it cost a round of looking at
+// the renderer for a fault that was in the test data.
+//
+// Real play cannot produce an asymmetric edge: one step calls markDirection on
+// the tile being left and markVisited with the opposite direction on the tile
+// being entered, both halves of the same crossing (js/systems/exploration.js).
+test('the stress fixture generates a world the game could actually produce', async (t) => {
+  const OPPOSITE = { n: 's', s: 'n', e: 'w', w: 'e' };
+  const DELTA = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
+
+  const loadStress = async () => {
+    const { applyDebugCharacterFromUrl } = await import('../js/systems/debugCharacters.js');
+    const store = new Map();
+    applyDebugCharacterFromUrl('?debug=stress', {
+      getItem: (k) => store.get(k) ?? null,
+      setItem: (k, v) => store.set(k, v),
+      removeItem: (k) => store.delete(k),
+    });
+    return JSON.parse(store.get('emoji-rpg-save-debug-stress'));
+  };
+
+  await t.test('every crossed edge is recorded from both sides', async () => {
+    const state = await loadStress();
+    const asymmetric = [];
+    let checked = 0;
+    for (const [screenId, tiles] of Object.entries(state.visited)) {
+      for (const [key, entry] of Object.entries(tiles)) {
+        const [x, y] = key.split(',').map(Number);
+        for (const dir of entry.dirs) {
+          const [dx, dy] = DELTA[dir];
+          const neighbour = tiles[`${x + dx},${y + dy}`];
+          if (!neighbour) continue;   // screen edge - the other side is another screen
+          checked += 1;
+          if (!neighbour.dirs.includes(OPPOSITE[dir])) {
+            asymmetric.push(`${screenId} ${key} has '${dir}' but ${x + dx},${y + dy} has no '${OPPOSITE[dir]}'`);
+          }
+        }
+      }
+    }
+    assert.ok(checked > 1000, `sanity: expected a densely walked world, only checked ${checked} edges`);
+    assert.deepEqual(asymmetric.slice(0, 5), [], `${asymmetric.length} edges disagree between their two tiles`);
+  });
+
+  await t.test('it still spans every wear level, which is the point of it', async () => {
+    const state = await loadStress();
+    const { TRAIL_WEAR_CAP } = await import('../js/systems/trail.js');
+    const counts = new Set(Object.values(state.visited.center).map((e) => e.count));
+    assert.equal(counts.size, TRAIL_WEAR_CAP, 'every wear level should be represented somewhere');
+  });
+});

@@ -126,32 +126,53 @@ function buildStressTrails() {
     'southSouthwest', 'farSouth', 'southSoutheast',
     'farSouthwest', 'farSoutheast',
   ];
-  const ALL_DIRS = ['n', 's', 'e', 'w'];
+  const W = 30;
+  const H = 22;
+
+  // Wear count per tile. Banded rather than uniform: stroke width scales with
+  // visit count up to TRAIL_WEAR_CAP, and two neighbours average their widths
+  // for the stroke between them, so a flat fill would exercise exactly one
+  // width and none of the blending.
+  const countAt = (x, y) => 1 + ((x + y * 3) % 10);
+
+  // Which edges are crossed, decided PER EDGE rather than per tile, so both
+  // tiles sharing an edge always agree about it.
+  //
+  // This matters more than it looks. Real play can only ever produce symmetric
+  // edges - a step calls markDirection on the tile being left and markVisited
+  // with the opposite direction on the tile being entered, both halves of one
+  // crossing (js/systems/exploration.js). The first version of this fixture
+  // picked each tile's dirs from a hash independently, which let a tile reach
+  // a stroke toward a neighbour that drew nothing back, so the stroke stopped
+  // dead at the tile boundary. Timothy saw exactly that and reasonably read it
+  // as a rendering bug: "path having square edge when dark/thick meets either
+  // thin/light or non-existing path". A fixture that generates states the game
+  // cannot produce costs more than it is worth.
+  const hasEdge = (x, y, horizontal) => {
+    const h = (x * 7919 + y * 104729 + (horizontal ? 1 : 0) * 15485863) % 97;
+    return h > 12;   // ~87% of edges crossed: dense, with real dead ends in it
+  };
+
   const visited = {};
   for (const screenId of WILDERNESS) {
     const tiles = {};
-    // 30x22 covers every wilderness screen's own extent with room to spare;
-    // a coordinate that isn't actually walkable is simply never looked up.
-    for (let y = 0; y < 22; y++) {
-      for (let x = 0; x < 30; x++) {
-        // Diagonal banding, so width changes along both axes and no two
-        // neighbours are guaranteed to match.
-        const count = 1 + ((x + y * 3) % 10);
-        // A scattering of dead ends and corners among the crossroads, so the
-        // taper into an unvisited neighbour is on screen too, not only
-        // four-way junctions.
-        const dirs = (x * 7 + y * 5) % 11 === 0
-          ? ['n']
-          : (x * 3 + y) % 7 === 0
-            ? ['n', 'e']
-            : ALL_DIRS;
-        tiles[`${x},${y}`] = { count, dirs };
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dirs = [];
+        // Each edge is asked about once, from whichever side; both tiles read
+        // the same answer for it.
+        if (y > 0 && hasEdge(x, y - 1, false)) dirs.push('n');
+        if (y < H - 1 && hasEdge(x, y, false)) dirs.push('s');
+        if (x > 0 && hasEdge(x - 1, y, true)) dirs.push('w');
+        if (x < W - 1 && hasEdge(x, y, true)) dirs.push('e');
+        tiles[`${x},${y}`] = { count: countAt(x, y), dirs };
       }
     }
     visited[screenId] = tiles;
   }
   return visited;
 }
+
 
 // Reads ?debug=<key> from the given query string (defaults to the real
 // page's) and, if it names a known debug character, upserts a save slot
