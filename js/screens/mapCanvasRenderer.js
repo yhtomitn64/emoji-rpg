@@ -167,15 +167,18 @@ const CACHE_PAD_TILES = 12;
 // cache's whole risk is that it draws something subtly DIFFERENTLY, and a
 // switch that toggles it on one running page is the only honest way to settle
 // "is this artifact the cache, or was it always like that" - without it the
-// answer is whoever argues more confidently. Costs one property read.
+// answer is whoever argues more confidently.
+//
+// Read off the render context rather than straight off `location`, matching
+// how mapScreen already resolves its `renderer` param. That is not tidiness:
+// reading a global here left this branch untestable, and the first version of
+// it referenced two variables in their temporal dead zone, so it threw on
+// every frame and painted the map solid black. Timothy found that by trying
+// to use the switch. On the context, a test can drive it.
 function staticCacheEnabled() {
-  if (typeof location === 'undefined' || !location.search) return true;
-  try {
-    return new URLSearchParams(location.search).get('staticCache') !== 'off';
-  } catch {
-    return true;
-  }
+  return renderContext ? renderContext.staticCacheEnabled !== false : true;
 }
+
 
 const glyphCache = new Map();
 const gradientCache = new Map();
@@ -575,21 +578,6 @@ function paint(ops, effectOps, suppressHeroGlyph, nowMs) {
 // Static layer cache
 // ---------------------------------------------------------------------------
 
-// Does the cached layer still cover everything the camera can currently see?
-// The cache is a fixed rectangle of world tiles; once the camera has panned
-// far enough that the viewport (plus its own overhang margin) reaches past an
-// edge of it, it has to be repainted somewhere new.
-function staticCacheCovers(context) {
-  if (cacheOriginGx === null || staticCacheDirty) return false;
-  const needGx = Math.floor(camGx) - MARGIN_TILES;
-  const needGy = Math.floor(camGy) - MARGIN_TILES;
-  const needWide = context.tilesWide + MARGIN_TILES * 2;
-  const needTall = context.tilesTall + MARGIN_TILES * 2;
-  return needGx >= cacheOriginGx
-    && needGy >= cacheOriginGy
-    && needGx + needWide <= cacheOriginGx + cacheTilesWide
-    && needGy + needTall <= cacheOriginGy + cacheTilesTall;
-}
 
 // Repaints the whole cached layer, centred on where the camera is now.
 //
@@ -599,8 +587,12 @@ function staticCacheCovers(context) {
 // back. Contained and explicit beats rewriting nine drawing functions to
 // carry a context they only ever need for this one caller.
 function rebuildStaticCache(context) {
-  const tilesWide = context.tilesWide + (MARGIN_TILES + CACHE_PAD_TILES) * 2;
-  const tilesTall = context.tilesTall + (MARGIN_TILES + CACHE_PAD_TILES) * 2;
+  // `context` here is already margin-expanded, so only the cache's own pad is
+  // added on top of it. The size check in frame() computes the same thing and
+  // the two must not drift apart, or every frame would think the cache is the
+  // wrong size and rebuild it.
+  const tilesWide = context.tilesWide + CACHE_PAD_TILES * 2;
+  const tilesTall = context.tilesTall + CACHE_PAD_TILES * 2;
   const originGx = Math.floor(camGx) - MARGIN_TILES - CACHE_PAD_TILES;
   const originGy = Math.floor(camGy) - MARGIN_TILES - CACHE_PAD_TILES;
 
@@ -962,43 +954,14 @@ function frame(nowMs) {
   const heroSettled = advanceHero(dtMs, playerTile);
   const cameraSettled = advanceCamera(dtMs);
 
-  // The cached layer is repainted only when it no longer covers what the
-  // camera can see, or when a step has changed a tile's trail. Every other
-  // frame reuses its pixels for the price of one drawImage.
-  let hasContinuousAnimation;
-  if (!staticCacheEnabled()) {
-    // The pre-cache path: one full draw list, every cell painted live.
-    const layered = buildLayeredDrawList(marginContext, { splitDynamic: false });
-    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx2d.clearRect(0, 0, canvasEl.width / dpr, canvasEl.height / dpr);
-    paint(layered.staticOps, effectOps, suppressHeroGlyph, nowMs);
-    needsPaint = false;
-    if (!cameraSettled || !heroSettled || hasActiveEffect(nowMs)
-      || layered.hasContinuousAnimation || needsPaint) schedule();
-    else lastFrameMs = 0;
-    return;
-  }
-  if (!staticCacheCovers(marginContext)) {
-    // Walking off the edge of the cache is the common case by far, and it
-    // only needs the layer moved, not rebuilt.
-    const scrolled = !staticCacheDirty && scrollStaticCache(
-      Math.floor(camGx) - MARGIN_TILES - CACHE_PAD_TILES,
-      Math.floor(camGy) - MARGIN_TILES - CACHE_PAD_TILES,
-    );
-    if (!scrolled) {
-      const layered = rebuildStaticCache(marginContext);
-      cachedAnimatedCells = layered ? layered.animatedCells : [];
-    }
-    hasContinuousAnimation = cachedAnimatedCells.length > 0;
-  } else {
-    hasContinuousAnimation = cachedAnimatedCells.length > 0;
-  }
-
-  const dynamic = buildDynamicOps(marginContext, cachedAnimatedCells);
-
   // Effects anchor to where the hero is actually drawn, not to the tile they
   // logically occupy - otherwise a level-up burst would fire from the tile
   // ahead of them while they're still mid-stride toward it.
+  //
+  // Sampled BEFORE the cache work below, not after: both painting paths need
+  // it, and having it below meant the ?staticCache=off branch referenced it
+  // in its temporal dead zone - which threw on every frame and rendered a
+  // completely black map. Caught by Timothy trying to use that very switch.
   const effectAnchor = heroGx === null ? playerTile : { gx: heroGx, gy: heroGy };
   const { ops: effectOps, suppressHeroGlyph } = sampleEffects(
     nowMs, effectAnchor, renderContext.playerEmoji, HERO_AND_LOOT_PX,
@@ -1006,6 +969,46 @@ function frame(nowMs) {
 
   const widthCss = canvasEl.width / dpr;
   const heightCss = canvasEl.height / dpr;
+
+  if (!staticCacheEnabled()) {
+    // The pre-cache path: one full draw list, every cell painted live.
+    const layered = buildLayeredDrawList(marginContext, { splitDynamic: false });
+    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx2d.clearRect(0, 0, widthCss, heightCss);
+    paint(layered.staticOps, effectOps, suppressHeroGlyph, nowMs);
+    needsPaint = false;
+    if (!cameraSettled || !heroSettled || hasActiveEffect(nowMs)
+      || layered.hasContinuousAnimation || needsPaint) schedule();
+    else lastFrameMs = 0;
+    return;
+  }
+
+  // The cached layer follows the camera a tile at a time rather than being
+  // left alone until the camera falls off its edge.
+  //
+  // Waiting for the edge meant one scroll every CACHE_PAD_TILES steps, and
+  // that scroll had to repaint a strip that many tiles wide - hundreds of
+  // cells in one frame, which Timothy still felt: "very minor hitch with
+  // cache now ... be cool if it still was not there." Re-centring on every
+  // whole tile of camera movement does the same total work, in strips one
+  // tile wide, spread evenly over the steps that caused it.
+  const desiredGx = Math.floor(camGx) - MARGIN_TILES - CACHE_PAD_TILES;
+  const desiredGy = Math.floor(camGy) - MARGIN_TILES - CACHE_PAD_TILES;
+  const cacheSizeMatches = cacheTilesWide === marginContext.tilesWide + CACHE_PAD_TILES * 2
+    && cacheTilesTall === marginContext.tilesTall + CACHE_PAD_TILES * 2;
+  if (staticCacheDirty || cacheOriginGx === null || !cacheSizeMatches) {
+    const layered = rebuildStaticCache(marginContext);
+    cachedAnimatedCells = layered ? layered.animatedCells : [];
+  } else if (desiredGx !== cacheOriginGx || desiredGy !== cacheOriginGy) {
+    if (!scrollStaticCache(desiredGx, desiredGy)) {
+      const layered = rebuildStaticCache(marginContext);
+      cachedAnimatedCells = layered ? layered.animatedCells : [];
+    }
+  }
+  const hasContinuousAnimation = cachedAnimatedCells.length > 0;
+
+  const dynamic = buildDynamicOps(marginContext, cachedAnimatedCells);
+
   ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx2d.clearRect(0, 0, widthCss, heightCss);
   blitStaticCache();

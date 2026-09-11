@@ -63,7 +63,14 @@ public API, no formal release process — commits land straight on
     renderer did before the cache. Kept deliberately: the cache's whole
     risk is drawing something subtly *differently*, and a switch that
     toggles it on one running page is the only honest way to settle
-    "is this artifact the cache, or was it always like that".
+    "is this artifact the cache, or was it always like that". The flag
+    resolves onto the render context (props beat the URL, matching how
+    `renderer` already works) rather than being read off `location` -
+    the first version read the global, which left the branch impossible
+    to test, and it shipped referencing two variables in their temporal
+    dead zone: it threw every frame and painted the map solid black.
+    `tests/mapStaticLayer.test.js` now drives both paths through the
+    real frame loop.
 
 ### Fixed
 - **`?debug=stress` generated a world the game cannot produce**, which

@@ -128,6 +128,19 @@ function resolveRenderer(preferred) {
   return choice === 'dom' ? domRenderer : canvasRenderer;
 }
 
+// Whether the canvas renderer may use its cached static layer. Props win over
+// the URL so a test can pick one without touching a global, exactly as
+// `renderer` does above.
+function resolveStaticCacheEnabled(preferred) {
+  if (typeof preferred === 'boolean') return preferred;
+  if (typeof location === 'undefined' || !location.search) return true;
+  try {
+    return new URLSearchParams(location.search).get('staticCache') !== 'off';
+  } catch {
+    return true;
+  }
+}
+
 function readRendererParam() {
   if (typeof location === 'undefined' || !location.search) return null;
   try {
@@ -188,6 +201,9 @@ const WALK_REPEAT_INTERVAL_MS = 110;
 // caught making an unrelated battle test flake. Same reasoning as the
 // `renderer` prop.
 let walkRepeatMs = WALK_REPEAT_INTERVAL_MS;
+// Whether the canvas renderer may use its cached static layer - see
+// resolveStaticCacheEnabled.
+let staticCacheEnabled = true;
 // Movement keys currently held, most recently pressed last. An ordered list
 // rather than a single key so that pressing a second direction without
 // releasing the first turns immediately, and releasing that second one falls
@@ -482,6 +498,7 @@ function buildRenderContext(geometry) {
     playerEmoji: state.player.emoji,
     hasToolFor: (tile) => hasRequiredTool(tile, state.inventory),
     cameraSmoothingMs: resolveCameraSmoothingMs(),
+    staticCacheEnabled: staticCacheEnabled,
     // How long the hero takes to walk one tile, which is the walk cadence
     // itself - they should arrive exactly as the next held-key step fires.
     walkStepMs: walkRepeatMs,
@@ -884,6 +901,7 @@ export function mount(root, props) {
   portalTransitionPending = false;
   renderer = resolveRenderer(props.renderer);
   walkRepeatMs = Number.isFinite(props.walkRepeatMs) ? props.walkRepeatMs : WALK_REPEAT_INTERVAL_MS;
+  staticCacheEnabled = resolveStaticCacheEnabled(props.staticCache);
   releaseAllMoveKeys();
   Object.assign(state, { visited: markVisited(state.visited, mapConfig.id, state.position.x, state.position.y) });
   renderFull();
