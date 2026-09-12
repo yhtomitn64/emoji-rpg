@@ -427,9 +427,24 @@ same-day items below; these are the ones left open):**
   the player's starting 20 HP could end the battle mid-assertion -
   fixed by giving the player effectively unkillable HP in this file's
   fixtures, since these tests are about whether a special-attack effect
-  lands, not survival odds. `tests/battleScreenDom.test.js` has its own,
-  separate real-wall-clock timing tests and was deliberately left
-  untouched - a bigger, separate conversion, not asked for this round.
+  lands, not survival odds. `tests/battleScreenDom.test.js` had its own,
+  separate real-wall-clock timing tests (89 subtests, 42+ of the suite's
+  ~43 real seconds) - converted the same day in a follow-up pass (see the
+  next entry below) once this file's own conversion proved the approach
+  out.
+- **`tests/battleScreenDom.test.js` converted to `t.mock.timers` too,
+  same day.** 42+s -> ~9s. Six Lacerate-retrigger-window subtests
+  deliberately left on real timers - that mechanism reads
+  `performance.now()`, not `Date.now()`, and `mock.timers` has no
+  `performance` entry in its supported apis on this Node version
+  (confirmed by direct experiment: `enable({apis:['performance']})`
+  throws `ERR_INVALID_ARG_VALUE`). Landed via a PR
+  (`test/battle-screen-dom-fake-timers`) rather than straight to `main`,
+  specifically so the suite could be re-run repeatedly against GitHub's
+  own runner - the actual environment this class of flake shows up in,
+  not a local machine - before merging; see the new
+  `.github/workflows/test.yml` (tests-only, no deploy, `pull_request`-
+  triggered) added alongside it for exactly that.
 - **Worn-path trail costs a full repaint every frame, raised 2026-09-10
   (after 0.32.4).** Timothy: "when I make the window really really big
   and walk around I get frame drops ... when I walk away from an area

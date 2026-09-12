@@ -13,6 +13,15 @@ export const PLAYER_CHANGELOG = [
   // entry below, worded for the risk this closes rather than an update it
   // unblocked (this one didn't block a deploy, it fixed a test that had
   // already blocked two earlier ones and could have blocked a future one).
+  // Same shape as 0.34.1 just below - the other half of that same test
+  // suite's own real-timer conversion.
+  {
+    version: '0.34.2',
+    date: '2026-09-12',
+    highlights: [
+      "Fixed: more of the same internal test cleanup as the update just before this one - nothing to notice in-game, just keeps updates flowing reliably.",
+    ],
+  },
   {
     version: '0.34.1',
     date: '2026-09-12',
