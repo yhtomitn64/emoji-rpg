@@ -1109,6 +1109,28 @@ function resizeCanvasToViewport(viewport) {
   canvasEl.style.height = `${height}px`;
 }
 
+// A devicePixelRatio change (dragging between monitors, or the browser's own
+// zoom - raised 2026-09-12, Timothy: "wonder if it's because I was playing
+// with browser built-in zoom", after a blurry-map-after-a-dialog report that
+// this renderer had no way to self-heal from) fires no resize event of its
+// own, so nothing else would ever notice one. Cheap property read, unlike
+// the clientWidth/clientHeight measurement that was removed from renderStep
+// for forcing a synchronous layout every step.
+function syncDprIfChanged() {
+  const currentDpr = window.devicePixelRatio || 1;
+  if (currentDpr === dpr) return;
+  dpr = currentDpr;
+  invalidateSprites();
+  // The cached layer was rasterised at the old ratio, so it is as stale as
+  // the glyph atlas is - and its backing canvas needs resizing, not just
+  // repainting, which dropping it outright takes care of.
+  staticCanvas = null;
+  staticCtx = null;
+  staticBackCanvas = null;
+  staticBackCtx = null;
+  if (canvasEl.parentElement) resizeCanvasToViewport(canvasEl.parentElement);
+}
+
 export function renderStep(context) {
   if (!canvasEl) return false;
   renderContext = context;
@@ -1125,25 +1147,21 @@ export function renderStep(context) {
     && !staticCacheDirty
     && patchStaticCache(context.changedTiles);
   if (!patched) invalidateStaticCache();
-  // A devicePixelRatio change (dragging between monitors) fires no resize
-  // event of its own, so it's checked on the hot path - a cheap property
-  // read, unlike the clientWidth/clientHeight measurement that was removed
-  // from here for forcing a synchronous layout every step.
-  const currentDpr = window.devicePixelRatio || 1;
-  if (currentDpr !== dpr) {
-    dpr = currentDpr;
-    invalidateSprites();
-    // The cached layer was rasterised at the old ratio, so it is as stale as
-    // the glyph atlas is - and its backing canvas needs resizing, not just
-    // repainting, which dropping it outright takes care of.
-    staticCanvas = null;
-    staticCtx = null;
-    staticBackCanvas = null;
-    staticBackCtx = null;
-    if (canvasEl.parentElement) resizeCanvasToViewport(canvasEl.parentElement);
-  }
+  syncDprIfChanged();
   schedule();
   return true;
+}
+
+// Called when mapScreen resumes from behind a dialog (battle, inventory,
+// settings, anything mounted via screenManager's mountOverlay) - the one
+// other moment a stale dpr needs to be caught, since resuming otherwise only
+// re-attaches keyboard listeners and would leave a zoom change made while
+// the dialog was open undetected until the player's next literal step.
+export function refreshViewport() {
+  if (!canvasEl) return;
+  syncDprIfChanged();
+  needsPaint = true;
+  schedule();
 }
 
 export function destroy() {
