@@ -1,0 +1,42 @@
+name: Test
+
+# Tests-only, no deploy - separate from deploy.yml on purpose. deploy.yml's
+# CHANGELOG-bump checks and its own npm run test are followed immediately by
+# a real Cloudflare Pages production deploy, triggered on every push to
+# main; there was no way to re-run just the test suite against GitHub's own
+# runner (the actual environment CI-load flakiness shows up in, not a local
+# machine) without also re-deploying to production each time. Raised
+# 2026-09-12 while hardening two real-wall-clock-timer test files
+# (tests/battleSpecialAttacks.test.js, tests/battleScreenDom.test.js -
+# see docs/superpowers/BACKLOG.md) against exactly that kind of flake:
+# wanted a way to re-run the suite against a PR branch repeatedly to build
+# confidence before merging, with zero risk of a stray production deploy.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      # Mirrors deploy.yml's own guard - see that file's comment for why.
+      - name: Check package-lock.json wasn't resolved through a private registry
+        run: |
+          if grep -q "artifactory" package-lock.json; then
+            echo "::error::package-lock.json contains a private-registry URL - it was generated against a local/internal mirror instead of the public npm registry. Run 'npm run relock' locally and commit the result."
+            exit 1
+          fi
+
+      # Same Node version as deploy.yml - keep these in sync.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run test

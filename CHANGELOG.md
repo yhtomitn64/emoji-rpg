@@ -24,6 +24,23 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+### Fixed
+- **`tests/battleScreenDom.test.js` converted from real wall-clock waits to
+  `node:test`'s `t.mock.timers`**, the same fix 0.34.1 already applied to
+  `tests/battleSpecialAttacks.test.js` (`docs/superpowers/BACKLOG.md`) - this
+  file was 42+ of the suite's ~43 real seconds (89 subtests, most polling
+  real time for `js/screens/battleScreen.js`'s real `setInterval(tick,
+  300)`), the same CI-parallel-load starvation risk. Runtime: ~42s -> ~9s.
+  Six Lacerate-retrigger-window subtests are deliberately left on real
+  timers - that mechanism is timed off `performance.now()`, which
+  `mock.timers` doesn't support mocking on this Node version (confirmed by
+  direct experiment). `battleScreen.js` itself is unchanged. Also added
+  `.github/workflows/test.yml`, a tests-only PR workflow with no deploy
+  step, so the suite can be re-run against GitHub's own runner (where this
+  class of flake actually shows up, not a local machine) as many times as
+  needed to build confidence before merging, without repeatedly deploying
+  to production the way re-running `deploy.yml` would.
+
 ## [0.34.1] - 2026-09-12
 
 ### Fixed
