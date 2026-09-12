@@ -470,6 +470,51 @@ same-day items below; these are the ones left open):**
   the workflow's non-doc filter. Not urgent — it has cost one awkward
   entry, not a broken deploy.
 
+**New threads raised 2026-09-12:**
+- **Canvas map rendering is soft at non-100% browser zoom, raised
+  2026-09-12** while chasing the dpr-resync bug below. Timothy, after
+  confirming that fix worked: "it all gets better again if I go back to
+  default 100% browser zoom size" - the softness reappears at any other
+  zoom level and clears instantly on its own once back at 100%, with no
+  refresh needed, which rules out a caching bug (that variant is the one
+  just fixed - see 0.33.2 in CHANGELOG.md). This looks like the ordinary,
+  near-universal canvas-rendering characteristic: at a fractional device
+  pixel ratio, tile edges and glyphs land on fractional device pixels and
+  the browser blends rather than draws them crisply; 100% zoom (or any
+  other zoom landing back on a whole-pixel ratio) has nothing to blend.
+  Properly addressing it would mean snapping every draw position to a
+  whole device pixel at arbitrary zoom levels - a materially bigger,
+  more invasive change than the resync fix, and arguably chasing a
+  limitation most canvas-based tile renderers just have. Not started;
+  not diagnosed further than the theory above.
+- **Boss/guardian-marker tile shows a black square background, sized
+  like an ordinary tile instead of the 4x guardian size, raised
+  2026-09-12** with a screenshot (a snake-emoji marker on a plain dark
+  square). Not yet investigated - unclear if this is `TILES.guardian`
+  itself misbehaving for a specific monster, a different marker tile
+  entirely, or something save/debug-character-specific. Timothy: "this
+  dragon should not have a background and be 4x the size like the tool
+  bosses."
+- **Horizontal line artifact two tiles below the player, raised
+  2026-09-12** with a screenshot (a thin seam across the worn-path
+  trail). Timothy's own hunch: "I think the horizontal line is related
+  to the cache issue" (the static-layer cache from 0.33.0) - plausible
+  given the cache's patch/scroll code works in tile-row strips, but not
+  yet investigated.
+- **Worn paths could reduce encounter chance over time, raised
+  2026-09-12** - a feature idea, not a bug: the more a tile's been
+  walked, the safer it reads as (a "road you've built"), so encounter
+  chance on it could taper down, up to some cap (Timothy floated 50%
+  less). Open question is the shape of the curve once a whole screen is
+  fully worn - Timothy flagged that a real player would have to walk a
+  lot to pave an entire screen, and wondered whether NG+ should reduce
+  the discount somewhat so it doesn't trivialise encounters long-term.
+  Relatedly, `js/systems/loot.js`'s ring/charm idea backlog (Multi-zone
+  progression section below) already lists "a ring that suppresses
+  random encounters entirely" as an unbuilt idea from 2026-09-05 - the
+  two should probably be designed together rather than separately.
+  Not designed, not started.
+
 ## Story / narrative
 
 ### The game needs an actual story
