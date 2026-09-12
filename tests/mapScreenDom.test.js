@@ -120,7 +120,8 @@ test('mapScreen DOM - portal pull effect delays the action', async (t) => {
     teardownDom();
   });
 
-  await t.test('stepping onto the return portal plays the pull animation and delays enterPortalToOrigin, instead of firing it in the same tick', async () => {
+  await t.test('stepping onto the return portal plays the pull animation and delays enterPortalToOrigin, instead of firing it in the same tick', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     const { mount } = await import('../js/screens/mapScreen.js');
     const root = createRoot();
     const maps = { town: townMap };
@@ -147,11 +148,12 @@ test('mapScreen DOM - portal pull effect delays the action', async (t) => {
     const marker = root.querySelector('.map-tile-player .map-tile-fullsize');
     assert.ok(marker?.classList.contains('map-tile-player-portal-pull'), 'expected the pull animation class on the player marker');
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    t.mock.timers.tick(500);
     assert.deepEqual(seenActions, ['enterPortalToOrigin']);
   });
 
-  await t.test('a keypress during the pull window is ignored (guards against a stale delayed action firing after the player moved again)', async () => {
+  await t.test('a keypress during the pull window is ignored (guards against a stale delayed action firing after the player moved again)', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     const { mount } = await import('../js/screens/mapScreen.js');
     const root = createRoot();
     const maps = { town: townMap };
@@ -176,7 +178,7 @@ test('mapScreen DOM - portal pull effect delays the action', async (t) => {
     // Both released before the wait - see the note on the previous test.
     keyup('ArrowUp');
     keyup('ArrowDown');
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    t.mock.timers.tick(500);
     assert.deepEqual(seenActions, ['enterPortalToOrigin'], 'expected exactly one delayed action, not a stale/duplicate fire');
   });
 });

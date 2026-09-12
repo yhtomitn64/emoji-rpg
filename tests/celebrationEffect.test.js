@@ -87,7 +87,12 @@ test('celebrationEffect', async (t) => {
     assert.equal(burstEl.style.top, '');
   });
 
-  await t.test('the tool celebration orbit lasts roughly twice as long as before (past 1400ms, done by ~2900ms)', async () => {
+  await t.test('the tool celebration orbit lasts roughly twice as long as before (past 1400ms, done by ~2900ms)', async (t) => {
+    // playToolCelebration's own hide-burst timer is a single setTimeout
+    // registered up front (js/screens/celebrationEffect.js) - no Date.now()
+    // reads and no chaining, so a plain t.mock.timers.tick() replaces the
+    // real wait directly.
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     buildCelebrationDom();
 
     const { playToolCelebration } = await import('../js/screens/celebrationEffect.js');
@@ -95,10 +100,10 @@ test('celebrationEffect', async (t) => {
     const burstEl = document.getElementById('celebration-burst');
     assert.ok(burstEl.classList.contains('celebration-burst-tool-play'));
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    t.mock.timers.tick(1500);
     assert.ok(burstEl.classList.contains('celebration-burst-tool-play'), 'still playing past the old 1400ms duration');
 
-    await new Promise((resolve) => setTimeout(resolve, 1400));
+    t.mock.timers.tick(1400);
     assert.equal(burstEl.classList.contains('celebration-burst-tool-play'), false, 'finished by ~2900ms total');
   });
 });
