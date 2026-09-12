@@ -756,6 +756,44 @@ test('mapScreen DOM - worn-path discount reduces the wild-encounter roll', async
     }
   });
 
+  await t.test('a partially-worn tile applies a proportional discount, not just the full-wear case', async () => {
+    const originalRandom = Math.random;
+    // count: 5 is half of TRAIL_WEAR_CAP (10), so the multiplier is
+    // 1 - 0.5*0.5 = 0.75 - effective chance 0.5*0.75 = 0.375. 0.4 sits
+    // between that and the undiscounted 0.5, so this only misses if the
+    // real call site actually applies a *proportional* (not all-or-nothing)
+    // discount for a mid-range visit count.
+    const sequence = [0.5, 0.5, 0.4];
+    let i = 0;
+    Math.random = () => sequence[Math.min(i++, sequence.length - 1)];
+    try {
+      const plains = wornPlains();
+      const maps = { plains };
+      const worldGrid = buildWorldGrid(maps);
+      const state = baseState({
+        map: 'plains',
+        position: { x: 1, y: 1 },
+        visited: { plains: { '2,1': { count: 5, dirs: [] } } },
+      });
+      let encountered = false;
+      const { mount } = await import('../js/screens/mapScreen.js');
+      const root = createRoot();
+      mount(root, {
+        renderer: 'dom',
+        state, mapConfig: plains, maps, worldGrid,
+        callbacks: {
+          onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
+          onToolGateNearby: () => {}, onAction: () => {}, onEnterMiniDungeon: () => {}, onCacheFound: () => {},
+          onGateReward: () => {}, onEncounter: () => { encountered = true; }, onWornPathHint: () => {},
+        },
+      });
+      keydown('ArrowRight');
+      assert.equal(encountered, false, 'expected the half-worn tile\'s proportional discount to turn this roll into a miss');
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
   await t.test('disabling the setting restores the undiscounted chance on the same tile/roll', async () => {
     const originalRandom = Math.random;
     const sequence = [0.5, 0.5, 0.3, 0.99, 0.01];
@@ -814,6 +852,32 @@ test('mapScreen DOM - worn-path discount reduces the wild-encounter roll', async
     keydown('ArrowRight');
     assert.equal(hintCount, 1, 'expected the hint to fire once, stepping onto an already-worn tile');
     assert.equal(state.flags.wornPathHintShown, true);
+  });
+
+  await t.test('never fires the hint while debugNoEncounters is set (encounters are off entirely in that mode)', async () => {
+    const plains = wornPlains();
+    const maps = { plains };
+    const worldGrid = buildWorldGrid(maps);
+    const state = baseState({
+      map: 'plains',
+      position: { x: 1, y: 1 },
+      visited: { plains: { '2,1': { count: 10, dirs: [] } } },
+    });
+    let hintCount = 0;
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    mount(root, {
+      renderer: 'dom',
+      debugNoEncounters: true,
+      state, mapConfig: plains, maps, worldGrid,
+      callbacks: {
+        onFirstVisit: () => {}, onMove: () => {}, onToolGateCleared: () => {}, onLockedGate: () => {},
+        onToolGateNearby: () => {}, onAction: () => {}, onEnterMiniDungeon: () => {}, onCacheFound: () => {},
+        onGateReward: () => {}, onEncounter: () => {}, onWornPathHint: () => { hintCount += 1; },
+      },
+    });
+    keydown('ArrowRight');
+    assert.equal(hintCount, 0, 'expected no hint while debugNoEncounters is set - announcing a discount when encounters are off entirely would be misleading');
   });
 
   await t.test('never fires the hint when the discount setting is off', async () => {

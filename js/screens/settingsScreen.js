@@ -193,8 +193,8 @@ function render() {
       </div>
       <div class="settings-row settings-display-toggle">
         <label for="settings-worn-path-discount">
-          Worn-path safety — well-trodden ground gets a lower wild-encounter
-          chance (up to 50% less), same tiles the trail effect shows
+          Worn-path safety — tiles you've walked many times get a lower
+          wild-encounter chance (up to 50% less)
         </label>
         <input
           type="checkbox"

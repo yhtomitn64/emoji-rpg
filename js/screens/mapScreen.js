@@ -704,9 +704,12 @@ function tryMove(dx, dy) {
   // One-time flavor banner the first time a step actually benefits from the
   // discount (not merely the first visit to any tile) - see
   // docs/superpowers/specs/2026-09-12-worn-path-encounter-discount-design.md.
-  // Suppressed when the setting is off: telling a player who disabled the
-  // discount to "stay on the trail" would be actively wrong.
-  if (wornPathDiscountEnabled && tile.encounter && priorVisitCount >= 1 && !state.flags.wornPathHintShown) {
+  // Suppressed when the setting is off (telling a player who disabled the
+  // discount to "stay on the trail" would be actively wrong) and while
+  // debugNoEncounters is set (the ?noEncounters dev flag) - that mode never
+  // rolls an encounter at all, so announcing a discount there would burn the
+  // one-time flag outside of real play.
+  if (wornPathDiscountEnabled && !debugNoEncounters && tile.encounter && priorVisitCount >= 1 && !state.flags.wornPathHintShown) {
     Object.assign(state, { flags: { ...state.flags, wornPathHintShown: true } });
     callbacks.onWornPathHint();
   }
