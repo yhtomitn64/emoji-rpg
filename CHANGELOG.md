@@ -24,6 +24,32 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-09-12
+
+### Changed
+- **Named the four superboss-drop items** that shipped as placeholders in
+  the 0.28.0-era superboss pass (`docs/superpowers/specs/2026-09-05-
+  superboss-pass-design.md` explicitly left this to Timothy). `Ferocity
+  Fang` is now `Tooth Flooth` - his 4-year-old's name for it, kept because
+  it fits: the weapon has no attack stat at all (pure `lifestealPercent`/
+  `critChancePercent`), so even at apex tier + max upgrade the biggest
+  number on it is still small. `Parry Master Ring`, `Unshaken Charm`, and
+  `Stormring of Haste` already read as real names, so they just lost the
+  `[PLACEHOLDER NAME]` tag. `superBossOne`'s own name is still a
+  placeholder - not touched this pass.
+- **Removed the portal tile's drop-shadow effect** (`.map-tile-portal`
+  in `css/styles.css`, the `portalShadow` draw-list op in
+  `js/systems/mapDrawList.js`/`js/screens/mapCanvasRenderer.js`). It was a
+  deliberate design (iterated live with Timothy back when it shipped, see
+  the CSS comment above `.map-tile-portal-crop`), but read as a plain
+  black square in practice rather than a soft bleed - raised 2026-09-12:
+  "the portal background being a black square ... just use the emoji, no
+  background under it." The 🌌 emoji's own oversized-and-cropped rendering
+  (unrelated, hides its baked-in pale border) is unchanged.
+- **Removed the border around the battle screen's pause button**
+  (`.battle-pause-btn` in `css/styles.css`), raised 2026-09-12 - just the
+  emoji on its dark background now.
+
 ## [0.33.0] - 2026-09-10
 
 ### Changed

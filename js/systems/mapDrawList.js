@@ -158,11 +158,6 @@ function buildCellOps(ctx, gx, gy, signature, out) {
   // .map-tile-quest-ready's own glow lands.
   if (questReady) out.push({ op: 'questGlow', gx, gy });
 
-  // .map-tile-portal::before - a soft shadow that deliberately bleeds
-  // OUTSIDE the tile into its neighbors. First positioned child, so it
-  // paints under the portal's own emoji.
-  if (PORTAL_ACTION_TILES.has(tile)) out.push({ op: 'portalShadow', gx, gy });
-
   if (visited) out.push(buildTrailOp(ctx, gx, gy, signature));
 
   const emoji = hasMiniDungeon ? MINI_DUNGEON_MARKER_EMOJI : hasTileCache ? CACHE_MARKER_EMOJI : pickTileVariant(tile, x, y);
@@ -241,9 +236,10 @@ function buildCellOps(ctx, gx, gy, signature, out) {
 // upward while a player standing below it still renders in front), and
 // within a row later columns paint over earlier ones. Portals and guardians
 // got a flat +1000 on top of that, so they always paint last regardless of
-// row - a portal's shadow bleeds into every neighbor including ones later in
-// the same row, and a guardian at 220% bleeds downward into the row below,
-// which would otherwise clip it.
+// row - a guardian at 220% bleeds downward into the row below, which would
+// otherwise clip it. Portals no longer bleed anything (the shadow that used
+// to justify their own boost was removed 2026-09-12), but stay grouped with
+// guardians here rather than carved into a special case for one less reason.
 //
 // So: one row-major pass over ordinary cells, then a second row-major pass
 // over the z-boosted ones.
@@ -283,9 +279,11 @@ export function buildDrawList(ctx) {
 // and draws after every tile. So the cache keeps every cell, and the live
 // layer is only the things that genuinely differ frame to frame.
 export function isDynamicCell(signature) {
-  // Portal shadows and the quest-board glow pulse on a clock of their own.
-  // Portals and guardians (zBoosted) are drawn last in the scene by design
-  // already, so keeping them live costs no ordering fidelity at all.
+  // The quest-board glow pulses on a clock of its own. zBoosted cells
+  // (portals, guardians) are drawn last in the scene by design already, so
+  // keeping them live costs no ordering fidelity at all - portals don't
+  // actually animate on their own anymore, but stay grouped with guardians
+  // here rather than carved into a special case for one less reason.
   return Boolean(signature.resolved && (signature.questReady || signature.zBoosted));
 }
 

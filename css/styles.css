@@ -190,41 +190,17 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
 /* Raised 2026-09-07, replacing the 2026-09-06 version above: the 🌌
    emoji's own art is a framed picture with a pale border baked into the
    glyph itself, not CSS - the old inset glow read as a "white border"
-   fighting that art instead of complementing it. Two changes, worked out
-   together in an interactive mockup published as an Artifact
+   fighting that art instead of complementing it. Worked out in an
+   interactive mockup published as an Artifact
    (docs/superpowers/scratch/portal-edge-lab.html, "Portal Edge Lab"),
-   iterated live with Timothy over a couple of rounds (first a bled
-   circular halo, then cropping the border out entirely, then swapping
-   the circular bleed for a shadow shaped like the tile):
-   1. .map-tile-portal-crop below renders the marker oversized and clips
-      it back to the tile's own edge, so the pale border scales past the
-      visible area instead of sitting on top of it.
-   2. The ::before pseudo-element below replaces the old inset glow with
-      a soft black shadow that bleeds OUTSIDE the tile into its grass
-      neighbors - stacked box-shadow layers instead of a radial-gradient
-      circle, since box-shadow naturally hugs the tile's own rectangle
-      instead of fighting its squared-off frame with a circle. */
-.map-tile-portal::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 14%;
-  animation: map-tile-portal-shadow 2.4s ease-in-out infinite;
-}
-@keyframes map-tile-portal-shadow {
-  0%, 100% {
-    box-shadow:
-      0 0 8px 2px rgba(0, 0, 0, 0.5),
-      0 0 20px 8px rgba(0, 0, 0, 0.32),
-      0 0 38px 16px rgba(0, 0, 0, 0.16);
-  }
-  50% {
-    box-shadow:
-      0 0 12px 4px rgba(0, 0, 0, 0.6),
-      0 0 26px 12px rgba(0, 0, 0, 0.4),
-      0 0 46px 22px rgba(0, 0, 0, 0.2);
-  }
-}
+   iterated live with Timothy over a couple of rounds (a bled circular
+   halo, then a shadow shaped like the tile) before landing on just
+   cropping the border out entirely:
+   .map-tile-portal-crop below renders the marker oversized and clips
+   it back to the tile's own edge, so the pale border scales past the
+   visible area instead of sitting on top of it. Raised again 2026-09-12:
+   the shadow-shaped-like-the-tile version above read as a plain black
+   square in practice, not a soft bleed - removed, emoji only. */
 /* Clips the 🌌 emoji's own baked-in border - see the comment above. The
    marker (.map-tile-fullsize) renders at its usual FULL_SQUARE_PX size
    inside here, then gets scaled up past this wrapper's own edge by the sibling rule
@@ -475,14 +451,13 @@ body { margin: 0; background: #222; color: #eee; display: flex; flex-direction: 
   font-size: 1.1rem;
   line-height: 1;
   background: rgba(17, 17, 17, 0.85);
-  border: 1px solid #555;
+  border: none;
   border-radius: 6px;
   color: #eee;
   cursor: pointer;
 }
 .battle-pause-btn:hover {
   background: rgba(40, 40, 40, 0.92);
-  border-color: #888;
 }
 /* Spans .battle-screen-stack (dialog + action bar together, raised
    2026-08-31 - see that rule's own comment), not just the dialog, so the

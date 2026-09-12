@@ -196,14 +196,14 @@ test('mapDrawList - portals and the quest board glow', async (t) => {
     assert.equal(drawList.hasContinuousAnimation, true, 'a glowing board has to keep the render loop alive');
   });
 
-  await t.test('an origin portal emits a shadow op and a cropped glyph', async () => {
+  await t.test('an origin portal emits a cropped glyph and no background op', async () => {
     // (2,2) deliberately differs from the hero's own position - a tile the
     // player stands on draws the hero instead of the tile's own emoji.
     const drawList = await mountTown(baseState({
       portal: { originScreenId: 'town', originX: 2, originY: 2, returnPending: false },
     }));
     const ops = opsAt(drawList, 2, 2);
-    assert.ok(ops.some((op) => op.op === 'portalShadow'), 'expected the portal shadow op');
+    assert.equal(ops.some((op) => op.op === 'portalShadow'), false, 'the portal shadow was removed 2026-09-12 - emoji only, no background');
     const glyph = ops.find((op) => op.op === 'glyph');
     assert.equal(glyph.emoji, '🌌');
     assert.equal(glyph.cropped, true, 'the portal emoji is drawn oversized and clipped to crop its baked-in border');
@@ -211,7 +211,7 @@ test('mapDrawList - portals and the quest board glow', async (t) => {
 
   await t.test('no portal ops anywhere when state.portal is null', async () => {
     const drawList = await mountTown(baseState({ portal: null }));
-    assert.equal(drawList.ops.filter((op) => op.op === 'portalShadow').length, 0);
+    assert.equal(drawList.ops.some((op) => op.gx === 2 && op.gy === 2 && op.cropped), false);
   });
 
   // The DOM renderer expressed this as z-index row + 1000. The canvas
@@ -221,12 +221,12 @@ test('mapDrawList - portals and the quest board glow', async (t) => {
     const drawList = await mountTown(baseState({
       portal: { originScreenId: 'town', originX: 2, originY: 2, returnPending: false },
     }));
-    const shadowIndex = drawList.ops.findIndex((op) => op.op === 'portalShadow');
+    const glyphIndex = drawList.ops.findIndex((op) => op.op === 'glyph' && op.cropped);
     // The last op belonging to any non-boosted cell must come before it.
     const lastOrdinary = drawList.ops.reduce((acc, op, i) => (
       op.op !== 'ground' && !(op.gx === 2 && op.gy === 2) ? i : acc
     ), -1);
-    assert.ok(shadowIndex > lastOrdinary, 'portal ops must be emitted after all ordinary cell content');
+    assert.ok(glyphIndex > lastOrdinary, 'portal ops must be emitted after all ordinary cell content');
   });
 });
 

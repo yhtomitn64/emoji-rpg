@@ -6,6 +6,15 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.33.1',
+    date: '2026-09-12',
+    highlights: [
+      'Changed: the four superboss reward items have real names now instead of "[PLACEHOLDER NAME]" - including Tooth Flooth, formerly Ferocity Fang.',
+      "Fixed: the swirling portal no longer has a black square behind it - just the emoji.",
+      'Fixed: the battle screen\'s pause button no longer has a border around it.',
+    ],
+  },
+  {
     version: '0.33.0',
     date: '2026-09-10',
     highlights: [
