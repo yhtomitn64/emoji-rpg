@@ -445,6 +445,21 @@ same-day items below; these are the ones left open):**
   not a local machine - before merging; see the new
   `.github/workflows/test.yml` (tests-only, no deploy, `pull_request`-
   triggered) added alongside it for exactly that.
+- **The suite's last two real-wall-clock waits converted too, same
+  day** (`tests/celebrationEffect.test.js`, `tests/mapScreenDom.test.js`
+  - simple single `setTimeout` calls, no `Date.now()`/chaining
+  complexity). Doesn't move the full suite's wall-clock time - both
+  waits were already shorter than `battleScreenDom.test.js`'s own
+  runtime under `node --test`'s file-level concurrency, so they were
+  already hidden behind it - but removes their own residual flake risk.
+  The suite's real remaining bottleneck is unchanged: the six Lacerate
+  `performance.now()`-based tests, ~7.6s of the ~9-10s total. Fixing
+  that for real means either changing `lacerateRetriggerStartedAt`
+  (`js/screens/battleScreen.js`) from `performance.now()` to
+  `Date.now()` (a real, if probably safe, production-code clock-source
+  change - not done without discussing it first) or hand-rolling a
+  second fake clock just for `performance.now()` in tests only. Neither
+  attempted yet - raised, not started.
 - **Worn-path trail costs a full repaint every frame, raised 2026-09-10
   (after 0.32.4).** Timothy: "when I make the window really really big
   and walk around I get frame drops ... when I walk away from an area

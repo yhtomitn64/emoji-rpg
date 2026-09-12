@@ -24,6 +24,23 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.34.3] - 2026-09-12
+
+### Fixed
+- **Two more real-wall-clock waits converted to `t.mock.timers`**, the
+  small remainder found while auditing the suite after 0.34.1/0.34.2:
+  `tests/celebrationEffect.test.js`'s tool-celebration-duration test
+  (1500ms + 1400ms real wait) and `tests/mapScreenDom.test.js`'s two
+  portal-pull-delay tests (500ms each). Both were simple, single
+  `setTimeout` calls in application code (no `Date.now()` reads, no
+  chaining), so this was a direct swap. Doesn't change the full suite's
+  wall-clock time - `node --test` runs files concurrently, and these
+  waits were already shorter than `battleScreenDom.test.js`'s own
+  runtime (the actual bottleneck, ~7.6s of it the six Lacerate-
+  retrigger-window tests still deliberately on real timers - see
+  0.34.2's own entry) - but removes their own residual CI-load-flake
+  risk regardless.
+
 ## [0.34.2] - 2026-09-12
 
 ### Fixed

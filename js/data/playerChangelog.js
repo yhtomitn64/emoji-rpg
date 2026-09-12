@@ -5,6 +5,15 @@
 // or care about while playing. Keep it in sync manually: add a new entry
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
+  // Same shape as 0.34.1/0.34.2 just below - the small remainder of that
+  // same test suite cleanup.
+  {
+    version: '0.34.3',
+    date: '2026-09-12',
+    highlights: [
+      "Fixed: a couple more internal test cleanups, same as the last two updates - nothing to notice in-game.",
+    ],
+  },
   // Internal-only fix, which normally wouldn't appear here at all (see this
   // file's header). It gets an entry because tests/versionSync.test.js
   // requires the newest dated CHANGELOG.md version to have a matching one,
