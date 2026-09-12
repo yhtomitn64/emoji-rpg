@@ -411,18 +411,25 @@ same-day items below; these are the ones left open):**
   the full history.
 
 **New threads raised 2026-09-10:**
-- **`battleSpecialAttacks.test.js` flakes under parallel load, raised
-  2026-09-10.** `an unparried cooldownOverload special disables an
-  off-cooldown ability button` times out after 20s in roughly one full
-  `npm run test` in three, and passes 3/3 when its file is run alone -
-  so it is wall-clock starvation, not a real failure. Same mechanism
-  `mapScreen.js`'s `walkRepeatMs` comment already documents: node runs
-  test files in parallel, and a suite that sleeps on real time gets
-  starved by the others. Pre-existing - confirmed unrelated to the
-  static-layer cache work going on when it surfaced. Fix is to drive
-  that test's cooldown on an injected clock rather than real time, the
-  way `walkRepeatMs` is overridable for exactly this reason. Not
-  started.
+- ~~**`battleSpecialAttacks.test.js` flakes under parallel load.**~~
+  **Shipped 2026-09-12.** Raised 2026-09-10; flaked again the same way on
+  2026-09-12 (timed out at 20.3s, just past the 20000ms deadline a prior
+  fix, 8e74e53, had raised it to) - confirming the earlier fix only
+  bought margin rather than removing the race. Rewrote the whole file
+  onto `node:test`'s built-in `t.mock.timers` (`setInterval`/`setTimeout`/
+  `Date`), so `battleScreen.js`'s real `setInterval(tick, 300)` only ever
+  fires when the test explicitly advances a fake clock - no real
+  waiting, no CI-load dependency. `battleScreen.js` itself is unchanged.
+  Runtime dropped from 20-40+ real seconds to well under 1 second.
+  Surfaced one genuine, unrelated hazard along the way (not a mock-timer
+  bug): with the fake clock reliably driving the monster through
+  multiple attack turns per test, an occasional critical hit for exactly
+  the player's starting 20 HP could end the battle mid-assertion -
+  fixed by giving the player effectively unkillable HP in this file's
+  fixtures, since these tests are about whether a special-attack effect
+  lands, not survival odds. `tests/battleScreenDom.test.js` has its own,
+  separate real-wall-clock timing tests and was deliberately left
+  untouched - a bigger, separate conversion, not asked for this round.
 - **Worn-path trail costs a full repaint every frame, raised 2026-09-10
   (after 0.32.4).** Timothy: "when I make the window really really big
   and walk around I get frame drops ... when I walk away from an area

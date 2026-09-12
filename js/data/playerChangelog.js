@@ -5,6 +5,21 @@
 // or care about while playing. Keep it in sync manually: add a new entry
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
+  // Internal-only fix, which normally wouldn't appear here at all (see this
+  // file's header). It gets an entry because tests/versionSync.test.js
+  // requires the newest dated CHANGELOG.md version to have a matching one,
+  // and CI separately requires any non-doc change to be bumped out of
+  // Unreleased - a test file counts as non-doc. Same shape as 0.32.1's own
+  // entry below, worded for the risk this closes rather than an update it
+  // unblocked (this one didn't block a deploy, it fixed a test that had
+  // already blocked two earlier ones and could have blocked a future one).
+  {
+    version: '0.34.1',
+    date: '2026-09-12',
+    highlights: [
+      "Fixed: an internal test that occasionally slowed down or risked blocking new updates from reaching you. Nothing to notice in-game - just keeps updates flowing reliably.",
+    ],
+  },
   {
     version: '0.34.0',
     date: '2026-09-12',

@@ -24,6 +24,30 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-09-12
+
+### Fixed
+- **`tests/battleSpecialAttacks.test.js` flaked under CI's parallel test
+  load, blocking this deploy** (`docs/superpowers/BACKLOG.md`, raised
+  2026-09-10, flaked again today past a prior fix's 20000ms deadline).
+  The test's own `an unparried cooldownOverload special disables an
+  off-cooldown ability button` polled real wall-clock time waiting for
+  `js/screens/battleScreen.js`'s real `setInterval(tick, 300)` to fire -
+  under CI's CPU contention from ~74 test files running concurrently,
+  that timer itself gets scheduled late, and raising the poll's deadline
+  (twice now) only bought margin, not a fix. Rewrote the file onto
+  `node:test`'s built-in `t.mock.timers`, so `tick()` only ever fires
+  when the test explicitly advances a fake clock - no real waiting, no
+  CI-load dependency, and the file now runs in well under 1 second
+  instead of 20-40+ real seconds. `battleScreen.js` itself is
+  unchanged. Also fixed a genuine, unrelated hazard the deterministic
+  ticks exposed: an occasional monster critical hit for exactly the
+  player's starting 20 HP could end the battle mid-test, since these
+  tests now reliably drive the monster through multiple attack turns
+  instead of racing a poll that used to often return early - the
+  player's HP in this file's fixtures is now effectively unkillable,
+  since survival odds were never what these tests are checking.
+
 ## [0.34.0] - 2026-09-12
 
 ### Added
