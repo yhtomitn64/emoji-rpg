@@ -24,6 +24,7 @@ import {
   migrateSettings,
   migrateAudioSettings,
   migrateHudSettings,
+  migrateWornPathSettings,
   migrateFeatureFlags,
   migrateCharacterId,
   DEFAULT_ITEM_MENU_AUTO_CLOSE_MS,
@@ -417,6 +418,25 @@ test('migrateHudSettings leaves an already-turned-off showXpInHud off', () => {
   state.settings.showXpInHud = false;
   const migrated = migrateHudSettings(state);
   assert.equal(migrated.settings.showXpInHud, false);
+});
+
+test('createNewGame defaults wornPathDiscountEnabled to true', () => {
+  const state = createNewGame();
+  assert.equal(state.settings.wornPathDiscountEnabled, true);
+});
+
+test('migrateWornPathSettings fills in wornPathDiscountEnabled on an old save without touching existing settings', () => {
+  const oldState = { settings: { itemMenuAutoCloseMs: 900 } };
+  const migrated = migrateWornPathSettings(oldState);
+  assert.equal(migrated.settings.wornPathDiscountEnabled, true);
+  assert.equal(migrated.settings.itemMenuAutoCloseMs, 900);
+});
+
+test('migrateWornPathSettings leaves an already-turned-off toggle off', () => {
+  const state = createNewGame();
+  state.settings.wornPathDiscountEnabled = false;
+  const migrated = migrateWornPathSettings(state);
+  assert.equal(migrated.settings.wornPathDiscountEnabled, false);
 });
 
 test('createNewGame defaults featureFlags.audioBeta to false', () => {

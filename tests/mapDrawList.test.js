@@ -38,7 +38,7 @@ async function mountMap(mapConfig, maps, state) {
     mapConfig,
     maps,
     worldGrid: buildWorldGrid(maps),
-    callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: () => {} },
+    callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: () => {}, onWornPathHint: () => {} },
   });
   return __getDrawListForTest();
 }

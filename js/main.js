@@ -1,4 +1,4 @@
-import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateAccessorySlots, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateHudSettings, migrateFeatureFlags, migrateCameraSettings, migrateCharacterId } from './state.js';
+import { loadState, saveState, DEFAULT_HERO_EMOJI, DEFAULT_DUNGEON_ENTRANCE_POSITION, migrateRingSlots, migratePowerRingSlot, migrateAccessorySlots, migrateBestDamage, migrateLoadout, migrateSettings, migrateAudioSettings, migrateHudSettings, migrateFeatureFlags, migrateCameraSettings, migrateCharacterId, migrateWornPathSettings } from './state.js';
 import { initAudio, unlockAudio, syncAudioSettings } from './systems/audio.js';
 import { mountScreen, mountOverlay, unmountOverlay } from './screens/screenManager.js';
 import * as mapScreen from './screens/mapScreen.js';
@@ -160,6 +160,7 @@ function startGame(loadedState, slotId) {
   state = migrateSettings(state);
   state = migrateAudioSettings(state);
   state = migrateHudSettings(state);
+  state = migrateWornPathSettings(state);
   state = migrateFeatureFlags(state);
   state = migrateCameraSettings(state);
   state = migrateCharacterId(state);
@@ -624,6 +625,7 @@ function goToMap(mapId) {
       onToolGateCleared: handleToolGateCleared,
       onToolGateNearby: handleToolGateNearby,
       onGateReward: handleGateReward,
+      onWornPathHint: handleWornPathHint,
     },
   });
 }
@@ -769,6 +771,19 @@ function handleToolGateCleared(message) {
 
 function handleToolGateNearby(message) {
   showFlavorBanner(message);
+  persist();
+}
+
+// Timothy's own wording, used verbatim (lightly punctuated) - this project's
+// narrative content is author-written only (see docs/superpowers/
+// BACKLOG.md's "Story / narrative" entry), so this plain mechanic-explainer
+// banner reuses his exact line rather than drafting new copy. Fired once per
+// save the first time a step actually gets the worn-path encounter discount
+// - see mapScreen.js's onWornPathHint callback and flags.wornPathHintShown.
+const WORN_PATH_HINT_TEXT = "Did you notice you're making a trail? Stay on the trail to reduce monster encounters!";
+
+function handleWornPathHint() {
+  showFlavorBanner(WORN_PATH_HINT_TEXT);
   persist();
 }
 

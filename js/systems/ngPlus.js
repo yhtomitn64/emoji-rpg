@@ -67,10 +67,14 @@ export function resetWorldForNgPlus(state) {
     clearedGates: {},
     // Deliberately NOT reset, unlike every other world-progress field
     // below - Timothy wants the worn-path trails kept across NG+ cycles
-    // rather than every screen starting blank again. Purely cosmetic
-    // (per-tile walk history for trail rendering, js/systems/exploration.js),
-    // nothing else reads it as a per-cycle completion signal, so carrying
-    // it forward has no other gameplay effect.
+    // rather than every screen starting blank again. No longer purely
+    // cosmetic as of the worn-path encounter discount (js/screens/
+    // mapScreen.js, see docs/superpowers/specs/2026-09-12-worn-path-
+    // encounter-discount-design.md): a well-trodden zone-1 screen keeps its
+    // discount into NG+2+ too, deliberately - Timothy's own call was "no
+    // special NG+ handling" for that discount, on the reasoning that
+    // reaching a fully-paved screen already took real, sustained play
+    // regardless of cycle.
     seenScreens: {},
     caches: {},
     gateRewards: {},

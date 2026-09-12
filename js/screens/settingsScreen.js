@@ -191,6 +191,17 @@ function render() {
           ${state.settings.showXpInHud ? 'checked' : ''}
         />
       </div>
+      <div class="settings-row settings-display-toggle">
+        <label for="settings-worn-path-discount">
+          Worn-path safety — well-trodden ground gets a lower wild-encounter
+          chance (up to 50% less), same tiles the trail effect shows
+        </label>
+        <input
+          type="checkbox"
+          id="settings-worn-path-discount"
+          ${state.settings.wornPathDiscountEnabled !== false ? 'checked' : ''}
+        />
+      </div>
       <h3>🚧 Feature Flags</h3>
       <div class="settings-row settings-feature-flag">
         <label for="settings-flag-audio-beta">
@@ -312,6 +323,10 @@ function render() {
   document.getElementById('settings-show-xp-in-hud').onchange = (e) => {
     state.settings = { ...state.settings, showXpInHud: e.target.checked };
     callbacks.onChange(); // main.js's onChange re-renders the HUD, so this shows/hides behind the open overlay
+  };
+  document.getElementById('settings-worn-path-discount').onchange = (e) => {
+    state.settings = { ...state.settings, wornPathDiscountEnabled: e.target.checked };
+    callbacks.onChange();
   };
   document.getElementById('settings-flag-audio-beta').onchange = (e) => {
     state.settings = {

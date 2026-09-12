@@ -9,6 +9,20 @@ export function trailWearFraction(visitCount) {
   return Math.min(visitCount, TRAIL_WEAR_CAP) / TRAIL_WEAR_CAP;
 }
 
+// How much a fully-worn tile (TRAIL_WEAR_CAP visits) discounts the wild-
+// encounter roll, at most - see docs/superpowers/specs/2026-09-12-worn-
+// path-encounter-discount-design.md. Deliberately reuses trailWearFraction's
+// own curve rather than a separate one, per Timothy's own call: the safety
+// benefit should track the visual trail exactly, not lag behind it.
+export const WORN_PATH_MAX_DISCOUNT = 0.5;
+
+// The multiplier js/screens/mapScreen.js's encounter roll applies to a
+// map's base encounterChance for the tile just entered. 1 (no discount) at
+// visitCount 0, down to 1 - WORN_PATH_MAX_DISCOUNT once a tile is fully worn.
+export function wornPathEncounterMultiplier(visitCount) {
+  return 1 - WORN_PATH_MAX_DISCOUNT * trailWearFraction(visitCount);
+}
+
 export function trailStrokeWidth(fraction) {
   return 10 + 8 * fraction;
 }

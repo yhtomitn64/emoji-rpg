@@ -38,7 +38,7 @@ async function mountAndContext(mapConfig, maps, state) {
     mapConfig,
     maps,
     worldGrid: buildWorldGrid(maps),
-    callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: () => {} },
+    callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: () => {}, onWornPathHint: () => {} },
   });
   return __getRenderContextForTest();
 }
@@ -204,7 +204,7 @@ test('both painting paths run without throwing and paint something', async (t) =
         renderer: 'canvas', staticCache, state, mapConfig: fieldMap, maps,
         worldGrid: buildWorldGrid(maps),
         debugNoEncounters: true,
-        callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: () => {} },
+        callbacks: { onFirstVisit: () => {}, onMove: () => {}, onAction: () => {}, onWornPathHint: () => {} },
       });
 
       let now = 0;

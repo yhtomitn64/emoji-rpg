@@ -92,6 +92,15 @@ const DEFAULT_FEATURE_FLAGS = {
   cloudSaveBeta: false,
 };
 
+// On-by-default toggle for the worn-path wild-encounter discount (see
+// docs/superpowers/specs/2026-09-12-worn-path-encounter-discount-design.md)
+// - a finished mechanic, not a beta, so it lives alongside DEFAULT_HUD_SETTINGS
+// rather than DEFAULT_FEATURE_FLAGS. Timothy's own call: on by default, with
+// an opt-out for players who'd rather every tile stay at full danger.
+const DEFAULT_WORN_PATH_SETTINGS = {
+  wornPathDiscountEnabled: true,
+};
+
 // Deliberately crypto.randomUUID(), not the Math.random()-based pattern
 // generateSlotId (js/systems/saveSlots.js) and randomSessionId
 // (js/systems/telemetry.js) use - createNewGame() runs inside plenty of
@@ -130,7 +139,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
     loadout: ['potion', null, null, null],
     map: 'center',
     position: null,
-    flags: { dungeonBossDefeated: false, firstKillCelebrated: false },
+    flags: { dungeonBossDefeated: false, firstKillCelebrated: false, wornPathHintShown: false },
     visited: {},
     seenScreens: {},
     caches: {},
@@ -171,6 +180,7 @@ export function createNewGame(heroEmoji = DEFAULT_HERO_EMOJI, dungeonEntrancePos
       cameraSmoothingMs: DEFAULT_CAMERA_SMOOTHING_MS,
       ...DEFAULT_AUDIO_SETTINGS,
       ...DEFAULT_HUD_SETTINGS,
+      ...DEFAULT_WORN_PATH_SETTINGS,
       featureFlags: { ...DEFAULT_FEATURE_FLAGS },
     },
   };
@@ -315,6 +325,13 @@ export function migrateCameraSettings(state) {
 // back on the next time they load.
 export function migrateHudSettings(state) {
   return { ...state, settings: { ...DEFAULT_HUD_SETTINGS, ...state.settings } };
+}
+
+// One-time migration for saves from before the worn-path settings toggle
+// existed - same shape as migrateHudSettings, so a save where the player has
+// already turned it off doesn't get switched back on the next load.
+export function migrateWornPathSettings(state) {
+  return { ...state, settings: { ...DEFAULT_WORN_PATH_SETTINGS, ...state.settings } };
 }
 
 // One-time migration for saves from before feature flags existed - merges

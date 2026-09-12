@@ -317,7 +317,13 @@ same-day items below; these are the ones left open):**
   the super-boss pass spec above** - three risk/reward accessory ideas,
   none designed yet, explicitly not part of the super-boss pass itself:
   (1) a ring that suppresses random wilderness/dungeon encounters entirely
-  (pure convenience/QoL, no combat-balance angle to it); (2) a ring that
+  (pure convenience/QoL, no combat-balance angle to it) - **its
+  composition with the worn-path encounter discount was designed
+  2026-09-12** alongside that discount (see
+  `docs/superpowers/specs/2026-09-12-worn-path-encounter-discount-
+  design.md`'s "ring/charm question" section: they stack multiplicatively
+  and don't replace the case for each other), but the ring itself
+  (strength, drop source, NG+ gating) is still not scoped or built; (2) a ring that
   deliberately makes monsters harder (an opt-in difficulty-up accessory -
   presumably paired with better rewards for wearing it, which needs its
   own design rather than just a flat downside); (3) a ring/charm that
@@ -501,19 +507,27 @@ same-day items below; these are the ones left open):**
   to the cache issue" (the static-layer cache from 0.33.0) - plausible
   given the cache's patch/scroll code works in tile-row strips, but not
   yet investigated.
-- **Worn paths could reduce encounter chance over time, raised
-  2026-09-12** - a feature idea, not a bug: the more a tile's been
-  walked, the safer it reads as (a "road you've built"), so encounter
-  chance on it could taper down, up to some cap (Timothy floated 50%
-  less). Open question is the shape of the curve once a whole screen is
-  fully worn - Timothy flagged that a real player would have to walk a
-  lot to pave an entire screen, and wondered whether NG+ should reduce
-  the discount somewhat so it doesn't trivialise encounters long-term.
-  Relatedly, `js/systems/loot.js`'s ring/charm idea backlog (Multi-zone
-  progression section below) already lists "a ring that suppresses
-  random encounters entirely" as an unbuilt idea from 2026-09-05 - the
-  two should probably be designed together rather than separately.
-  Not designed, not started.
+- ~~**Worn paths could reduce encounter chance over time.**~~ **Shipped
+  2026-09-12.** Raised same-day; designed as a live collaboration (see
+  `docs/superpowers/specs/2026-09-12-worn-path-encounter-discount-
+  design.md`) rather than handed down as a spec. Discount matches the
+  visual trail-wear curve exactly (Timothy: "matches the visual
+  indicator exactly"), capped at 50% off per tile, no per-screen
+  aggregate cap, no NG+ tempering - all explicit calls, not oversights.
+  On by default with a Settings opt-out, plus a one-time hint banner
+  using Timothy's own wording. See CHANGELOG.
+  - **Parked, not built: limiting the discount to one "core route" per
+    screen** instead of a flat per-tile cap - Timothy floated this live
+    then deferred it ("I can always change/tweak/tune later"). Revisit
+    only if the flat per-tile cap turns out to feel too generous once a
+    screen gets fully paved.
+  - **Parked, not built: a ring/charm that suppresses random
+    encounters** - designed alongside the worn-path discount in the
+    same spec doc (composes multiplicatively, doesn't replace the case
+    for the per-tile discount) but not scoped or implemented this
+    round. See the Multi-zone progression section's own bullet for
+    this, and the spec doc's "ring/charm question" section for the
+    reasoning.
 
 ## Story / narrative
 

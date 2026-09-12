@@ -5,6 +5,7 @@ import {
   TRAIL_WEAR_CAP, trailWearFraction, trailStrokeWidth, trailStrokeWidthBetween, trailDotRadius,
   edgeOwner, edgeJitter, edgeTargetPoint, connectorPathD, getTrailColor, getGroundColor,
   blendColors, trailColorForFraction, trailHubRadius, trailBorderFraction,
+  WORN_PATH_MAX_DISCOUNT, wornPathEncounterMultiplier,
 } from '../js/systems/trail.js';
 
 test('trailWearFraction scales linearly from 0 to 1 and clamps at the cap', () => {
@@ -12,6 +13,13 @@ test('trailWearFraction scales linearly from 0 to 1 and clamps at the cap', () =
   assert.equal(trailWearFraction(5), 0.5);
   assert.equal(trailWearFraction(TRAIL_WEAR_CAP), 1);
   assert.equal(trailWearFraction(TRAIL_WEAR_CAP + 5), 1);
+});
+
+test('wornPathEncounterMultiplier matches trailWearFraction 1:1, capped at WORN_PATH_MAX_DISCOUNT off', () => {
+  assert.equal(wornPathEncounterMultiplier(0), 1);
+  assert.equal(wornPathEncounterMultiplier(5), 1 - WORN_PATH_MAX_DISCOUNT * 0.5);
+  assert.equal(wornPathEncounterMultiplier(TRAIL_WEAR_CAP), 1 - WORN_PATH_MAX_DISCOUNT);
+  assert.equal(wornPathEncounterMultiplier(TRAIL_WEAR_CAP + 20), 1 - WORN_PATH_MAX_DISCOUNT, 'expected no further discount past the wear cap');
 });
 
 test('trailStrokeWidth scales with wear fraction', () => {

@@ -63,7 +63,7 @@ async function drawListFor(state) {
     mapConfig: PLAINS,
     maps,
     worldGrid: buildWorldGrid(maps),
-    callbacks: { onFirstVisit: () => {}, onMove: () => {} },
+    callbacks: { onFirstVisit: () => {}, onMove: () => {}, onWornPathHint: () => {} },
   });
   return __getDrawListForTest();
 }

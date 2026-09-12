@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.34.0',
+    date: '2026-09-12',
+    highlights: [
+      "Added: well-worn paths are now safer - the more you've walked a tile, the lower the chance of a wild encounter there, up to 50% less on a fully worn path. There's a new Settings toggle if you'd rather every tile stay at full danger.",
+    ],
+  },
+  {
     version: '0.33.3',
     date: '2026-09-12',
     highlights: [

@@ -67,6 +67,7 @@ async function mountPlains() {
       onMove: (position) => moves.push({ ...position }),
       onAction: () => {},
       onEncounter: () => {},
+      onWornPathHint: () => {},
       onCacheFound: () => {},
       onEnterMiniDungeon: () => {},
       onLockedGate: () => {},

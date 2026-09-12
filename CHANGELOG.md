@@ -24,6 +24,33 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-09-12
+
+### Added
+- **Worn paths now reduce the wild-encounter chance on that tile, up to
+  50% less at full wear** - raised and designed live the same day (see
+  `docs/superpowers/specs/2026-09-12-worn-path-encounter-discount-
+  design.md`). The discount multiplier tracks the existing visual
+  trail-wear curve exactly (`trailWearFraction`/`TRAIL_WEAR_CAP = 10` in
+  `js/systems/trail.js`, new `wornPathEncounterMultiplier`) - Timothy's
+  own call, so a heavily-trafficked tile can reach the full 50% off
+  within its first 10 crossings. `js/screens/mapScreen.js`'s encounter
+  roll now folds this multiplier into the existing
+  `Math.random() < encounterChance` comparison, reading the tile's visit
+  count from *before* the current step (a never-before-walked tile gets
+  zero discount on the step that first walks it). Deliberately no
+  per-screen aggregate cap and no NG+ tempering - both explicit calls,
+  not gaps; trail/visit data already carries across NG+ resets
+  (`js/systems/ngPlus.js`), so this is now a real, deliberate gameplay
+  effect there too, not merely cosmetic as the old comment claimed.
+  On by default with a new Settings toggle
+  (`state.settings.wornPathDiscountEnabled`), plus a one-time in-game
+  hint banner the first time the discount actually applies to a step,
+  using Timothy's own wording. A ring/charm idea that would suppress
+  encounters entirely was designed alongside this (composes
+  multiplicatively, doesn't replace the case for the per-tile discount)
+  but is not built - see `docs/superpowers/BACKLOG.md`.
+
 ## [0.33.3] - 2026-09-12
 
 ### Fixed

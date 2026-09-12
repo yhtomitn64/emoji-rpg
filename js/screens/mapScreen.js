@@ -2,7 +2,7 @@ import { TILES } from '../tiles.js';
 import { isChokepointTile, computeViewportOrigin } from '../systems/world.js';
 import { screenToGlobal, globalToScreen, clusterBounds } from '../systems/worldGrid.js';
 import { markVisited, markDirection, isVisited, getVisitCount, getVisitDirs } from '../systems/exploration.js';
-import { trailWearFraction } from '../systems/trail.js';
+import { trailWearFraction, wornPathEncounterMultiplier } from '../systems/trail.js';
 import { markScreenSeen, hasSeenScreen } from '../systems/screenSeen.js';
 import { hasCache } from '../systems/caches.js';
 import { hasMiniDungeonEntrance } from '../systems/miniDungeons.js';
@@ -605,6 +605,18 @@ function tryMove(dx, dy) {
     screenToGlobal(worldGrid, mapConfig.id, state.position.x, state.position.y),
     screenToGlobal(worldGrid, screenConfig.id, nx, ny),
   ];
+  // Read BEFORE markVisited below records this very step - the worn-path
+  // encounter discount (see wornPathEncounterMultiplier below) reflects
+  // wear that already existed before this step, not the step in progress.
+  // A never-before-walked tile must get zero discount on the first visit
+  // that walks it; using the post-increment count would give every tile at
+  // least 1/TRAIL_WEAR_CAP off from the moment it's first entered, which is
+  // both wrong per the design ("the more a tile's been walked") and would
+  // make the encounterChance:1 tests in mapScreenDom.test.js flaky (they
+  // rely on real, unmocked Math.random() always being < 1 - a discount on
+  // the very first step onto those tiles would drop the effective chance
+  // below 1 and start missing some fraction of the time).
+  const priorVisitCount = getVisitCount(state.visited, screenConfig.id, nx, ny);
   state.position = { x: nx, y: ny };
   Object.assign(state, { visited: markVisited(state.visited, screenConfig.id, nx, ny, exitDir ? TRAIL_OPPOSITE_DIR[exitDir] : undefined) });
 
@@ -683,7 +695,23 @@ function tryMove(dx, dy) {
     return;
   }
 
-  if (!debugNoEncounters && !onEncounterCooldown && tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance) {
+  // Settings default to enabled (see DEFAULT_WORN_PATH_SETTINGS in state.js)
+  // - `!== false` rather than a truthy check so a hand-built state object
+  // missing the key entirely (some tests) still gets the discount, matching
+  // the existing featureFlags?.audioBeta style elsewhere in this file's
+  // settings reads.
+  const wornPathDiscountEnabled = state.settings?.wornPathDiscountEnabled !== false;
+  // One-time flavor banner the first time a step actually benefits from the
+  // discount (not merely the first visit to any tile) - see
+  // docs/superpowers/specs/2026-09-12-worn-path-encounter-discount-design.md.
+  // Suppressed when the setting is off: telling a player who disabled the
+  // discount to "stay on the trail" would be actively wrong.
+  if (wornPathDiscountEnabled && tile.encounter && priorVisitCount >= 1 && !state.flags.wornPathHintShown) {
+    Object.assign(state, { flags: { ...state.flags, wornPathHintShown: true } });
+    callbacks.onWornPathHint();
+  }
+  const wornPathMultiplier = wornPathDiscountEnabled ? wornPathEncounterMultiplier(priorVisitCount) : 1;
+  if (!debugNoEncounters && !onEncounterCooldown && tile.encounter && mapConfig.monsterTable.length > 0 && Math.random() < mapConfig.encounterChance * wornPathMultiplier) {
     // A flat 5% chance for any encounter (wilderness or dungeon) to be the
     // rare elite instead of the normal roll - always solo, bypassing the
     // multi-mob grouping below entirely. The empty-override array (matching

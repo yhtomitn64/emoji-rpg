@@ -318,7 +318,7 @@ test('the real render loop keeps the hero steady on screen while walking', async
     mount(createRoot(), {
       state, mapConfig: fieldMap, maps, worldGrid: buildWorldGrid(maps),
       debugNoEncounters: true,
-      callbacks: { onFirstVisit: () => {}, onMove: () => {} },
+      callbacks: { onFirstVisit: () => {}, onMove: () => {}, onWornPathHint: () => {} },
     });
 
     const { readCameraState } = __testables;
