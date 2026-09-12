@@ -24,6 +24,35 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.33.2] - 2026-09-12
+
+### Fixed
+- **Map stayed blurry after closing a dialog (battle, inventory, settings -
+  anything mounted through `screenManager.js`'s `mountOverlay`), raised
+  2026-09-12.** Timothy: "the backgrouns stayed blurry after a battle," then
+  independently guessed the real cause while I was still chasing it live:
+  "wonder if it's because I was playing with browser built-in zoom." He was
+  right. `js/screens/mapCanvasRenderer.js` only ever re-checked
+  `devicePixelRatio` in `renderStep()` (needs a real step) - `mapScreen.js`'s
+  `pause()`/`resume()`, which fire around *every* dialog, only ever
+  toggled keyboard listeners and never touched the renderer. A zoom change
+  made while any dialog sat on top left the static-layer cache (and the
+  canvas's own backing store) rasterised at the old ratio until the
+  player's next literal footstep - which for a screen you'd just resumed
+  into could be a while. The devicePixelRatio check is now its own function
+  (`syncDprIfChanged`), called from both `renderStep()` and a new
+  `refreshViewport()` that `resume()` calls unconditionally. Couldn't get
+  a visual repro in an automated browser session - genuine browser zoom
+  isn't reachable from page JS, and the closest analogs (overriding
+  `window.devicePixelRatio`, the non-standard CSS `zoom` property) either
+  don't affect real rendering or don't move the property at all - but the
+  gap itself was confirmed directly by reading the code, independent of
+  reproducing it.
+- **Minor wording fix**: the 0.33.1 player-changelog entry called the
+  portal emoji (🌌) "swirling" - it's a starry sky, not a swirl (🌀 is
+  already Momentum Elixir's icon). Corrected the text only, no version
+  bump of its own.
+
 ## [0.33.1] - 2026-09-12
 
 ### Changed

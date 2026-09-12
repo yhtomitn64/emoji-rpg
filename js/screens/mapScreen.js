@@ -945,6 +945,12 @@ export function pause() {
 export function resume() {
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('keyup', handleKeyup);
+  // A devicePixelRatio change (the browser's own zoom - raised 2026-09-12,
+  // a blurry map after closing a dialog) fires no resize event, so nothing
+  // else notices one made while a dialog sat on top of this screen. Every
+  // other lifecycle path (mount, a step) already re-checks it; resuming from
+  // pause was the one gap, since it otherwise only restores input.
+  renderer.refreshViewport();
 }
 
 // Test-only seam. jsdom has no canvas implementation at all

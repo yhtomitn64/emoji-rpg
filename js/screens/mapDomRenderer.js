@@ -450,6 +450,11 @@ export function destroy() {
   cellCache = new Map();
 }
 
+// The canvas renderer's own dpr-staleness self-heal has no DOM-renderer
+// equivalent to worry about - there's no offscreen cache rasterised at a
+// device-pixel-ratio here, everything is real elements sized in CSS px.
+export function refreshViewport() {}
+
 // The hero's on-screen rectangle, for effects anchored to the player's tile
 // (js/screens/celebrationEffect.js, playMonsterFleeEffect). The DOM renderer
 // has a real element for this; the canvas renderer computes it - see
