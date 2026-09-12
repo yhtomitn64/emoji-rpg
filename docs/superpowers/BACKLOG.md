@@ -452,14 +452,22 @@ same-day items below; these are the ones left open):**
   waits were already shorter than `battleScreenDom.test.js`'s own
   runtime under `node --test`'s file-level concurrency, so they were
   already hidden behind it - but removes their own residual flake risk.
-  The suite's real remaining bottleneck is unchanged: the six Lacerate
-  `performance.now()`-based tests, ~7.6s of the ~9-10s total. Fixing
-  that for real means either changing `lacerateRetriggerStartedAt`
-  (`js/screens/battleScreen.js`) from `performance.now()` to
-  `Date.now()` (a real, if probably safe, production-code clock-source
-  change - not done without discussing it first) or hand-rolling a
-  second fake clock just for `performance.now()` in tests only. Neither
-  attempted yet - raised, not started.
+  The suite's real remaining bottleneck at the time was the six
+  Lacerate `performance.now()`-based tests (~7.6s of ~9-10s total) -
+  see the next entry for the resolution.
+- ~~**The six Lacerate-retrigger `performance.now()` tests, resolved.**~~
+  **Shipped 2026-09-12.** Checked whether a newer Node version adds
+  `performance` support to `mock.timers` first (it doesn't, per the
+  current docs, and there's no open feature request for it either) -
+  discussed with Timothy, who picked switching `lacerateRetriggerStartedAt`
+  (`js/screens/battleScreen.js`) from `performance.now()` to `Date.now()`
+  over hand-rolling a second fake clock: it matches every other elapsed-
+  time read in the same file, no comment ever explained the different
+  clock, and a ~1.2s UI window has no real use for `performance.now()`'s
+  extra precision. All 89 subtests in `tests/battleScreenDom.test.js` now
+  run on `t.mock.timers`. That file: ~9s -> ~2s. Stress-tested 125
+  consecutive clean local runs plus repeated real-CI-runner checks (same
+  PR-workflow process as the other conversions) before merging.
 - **Worn-path trail costs a full repaint every frame, raised 2026-09-10
   (after 0.32.4).** Timothy: "when I make the window really really big
   and walk around I get frame drops ... when I walk away from an area

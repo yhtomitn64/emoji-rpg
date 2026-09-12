@@ -24,6 +24,21 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.34.4] - 2026-09-12
+
+### Fixed
+- **`js/screens/battleScreen.js`'s Lacerate retrigger window now reads
+  `Date.now()` instead of `performance.now()`**, matching every other
+  elapsed-time read in the same file (windup start/complete, parry
+  cooldown, buff durations) - no comment anywhere explained why this one
+  mechanism used a different clock, and a ~1.2s UI timing window has no
+  real use for `performance.now()`'s extra precision or clock-adjustment
+  immunity. This was the one thing blocking the last 6 subtests in
+  `tests/battleScreenDom.test.js` from converting to `t.mock.timers`
+  (confirmed no newer Node version adds `performance` support to
+  `mock.timers` either - checked the current docs) - all 89 subtests in
+  that file now run on the fake clock. That file: ~9s -> ~2s.
+
 ## [0.34.3] - 2026-09-12
 
 ### Fixed
