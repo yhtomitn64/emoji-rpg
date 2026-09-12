@@ -61,16 +61,18 @@ export const ITEMS = {
   // Super-boss guaranteed drops - referenced directly by a superboss's own
   // dropTable, never added to js/systems/loot.js's UNIQUE_EFFECT_ITEM_IDS
   // (that pool feeds the regular random per-kill roll; these stay
-  // exclusive to super-boss encounters). All names/emoji/flavor are
-  // placeholders - see docs/superpowers/specs/2026-09-05-superboss-pass-
-  // design.md's Itemization section.
-  parryMasterRing: { id: 'parryMasterRing', name: 'Parry Master Ring [PLACEHOLDER NAME]', emoji: '💍', slot: 'ring', price: 0,
+  // exclusive to super-boss encounters). Named 2026-09-12 - see
+  // docs/superpowers/specs/2026-09-05-superboss-pass-design.md's
+  // Itemization section for the stats these were designed around.
+  parryMasterRing: { id: 'parryMasterRing', name: 'Parry Master Ring', emoji: '💍', slot: 'ring', price: 0,
     stats: { parryWindowBonusPercent: 15 } },
-  unshakenCharm: { id: 'unshakenCharm', name: 'Unshaken Charm [PLACEHOLDER NAME]', emoji: '🧿', slot: 'accessory', price: 0,
+  unshakenCharm: { id: 'unshakenCharm', name: 'Unshaken Charm', emoji: '🧿', slot: 'accessory', price: 0,
     stats: { debuffDurationPercent: 40 } },
-  ferocityFang: { id: 'ferocityFang', name: 'Ferocity Fang [PLACEHOLDER NAME]', emoji: '🦷', slot: 'weapon', price: 0,
+  // Timothy's 4-year-old's name, kept as-is - fits a pure lifesteal/crit
+  // weapon with zero attack stat: the biggest number on it is still small.
+  ferocityFang: { id: 'ferocityFang', name: 'Tooth Flooth', emoji: '🦷', slot: 'weapon', price: 0,
     stats: { lifestealPercent: 25, critChancePercent: 12 } },
-  stormringOfHaste: { id: 'stormringOfHaste', name: 'Stormring of Haste [PLACEHOLDER NAME]', emoji: '💍', slot: 'ring', price: 0,
+  stormringOfHaste: { id: 'stormringOfHaste', name: 'Stormring of Haste', emoji: '💍', slot: 'ring', price: 0,
     stats: { extraSwingChance: 18, elementalProcChance: 25, elementalProcDamage: 8 } },
 
   // Consumables

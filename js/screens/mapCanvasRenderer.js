@@ -53,11 +53,8 @@ const LABEL_FONT = '700 SIZEpx system-ui, -apple-system, "Segoe UI", sans-serif'
 // .map-tile-portal-crop's own 1.36x - enough to push the 🌌 emoji's baked-in
 // pale border past the tile's edge while it still reads as a starry picture.
 const PORTAL_CROP_SCALE = 1.36;
-// @keyframes map-tile-portal-shadow / map-tile-quest-glow both loop forever.
-// Each is pre-rendered once at its strongest state and pulsed by alpha,
-// rather than re-rasterising a multi-layer blur every frame.
-const PORTAL_SHADOW_PERIOD_MS = 2400;
-const PORTAL_SHADOW_MIN_ALPHA = 0.7;
+// @keyframes map-tile-quest-glow loops forever, pre-rendered once at its
+// strongest state and pulsed by alpha rather than re-rasterising every frame.
 const QUEST_GLOW_PERIOD_MS = 1600;
 const QUEST_GLOW_MIN_ALPHA = 0.35;
 
@@ -182,7 +179,6 @@ function staticCacheEnabled() {
 
 const glyphCache = new Map();
 const gradientCache = new Map();
-let portalShadowSprite = null;
 let questGlowSprite = null;
 
 // ---------------------------------------------------------------------------
@@ -222,7 +218,6 @@ function invalidateSprites() {
   // (a late-loading emoji font is the common case), so it has to be repainted
   // too or the old tofu boxes stay on screen for the life of the session.
   staticCacheDirty = true;
-  portalShadowSprite = null;
   questGlowSprite = null;
   needsPaint = true;
 }
@@ -239,52 +234,6 @@ function roundRectPath(g, x, y, w, h, r) {
   g.arcTo(x, y + h, x, y, r);
   g.arcTo(x, y, x + w, y, r);
   g.closePath();
-}
-
-// .map-tile-portal::before - stacked soft black shadows that bleed OUTSIDE
-// the tile into its neighbors, hugging the tile's own rectangle (box-shadow
-// naturally does; a radial gradient fought the squared-off frame). Rendered
-// at the animation's 50% (strongest) state and pulsed by alpha.
-//
-// Canvas has no box-shadow spread, so each layer's spread is applied by
-// inflating the rectangle instead, and the shape itself is drawn far off the
-// sprite and brought back by shadowOffsetX - the standard way to get a
-// shadow without the casting shape painting over it.
-const PORTAL_SHADOW_LAYERS = [
-  { blur: 12, spread: 4, color: 'rgba(0, 0, 0, 0.6)' },
-  { blur: 26, spread: 12, color: 'rgba(0, 0, 0, 0.4)' },
-  { blur: 46, spread: 22, color: 'rgba(0, 0, 0, 0.2)' },
-];
-const PORTAL_SHADOW_BLEED_PX = 72;
-
-function getPortalShadowSprite() {
-  if (portalShadowSprite) return portalShadowSprite;
-  const bleed = PORTAL_SHADOW_BLEED_PX;
-  const side = TILE_SIZE_PX + bleed * 2;
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.ceil(side * dpr);
-  canvas.height = Math.ceil(side * dpr);
-  const g = canvas.getContext('2d');
-  if (!g) return null;
-  g.scale(dpr, dpr);
-  const far = side * 4;
-  for (const layer of PORTAL_SHADOW_LAYERS) {
-    g.save();
-    g.shadowColor = layer.color;
-    g.shadowBlur = layer.blur;
-    g.shadowOffsetX = far;
-    g.fillStyle = '#000';
-    roundRectPath(
-      g,
-      bleed - layer.spread - far, bleed - layer.spread,
-      TILE_SIZE_PX + layer.spread * 2, TILE_SIZE_PX + layer.spread * 2,
-      TILE_SIZE_PX * 0.14,
-    );
-    g.fill();
-    g.restore();
-  }
-  portalShadowSprite = { canvas, bleed };
-  return portalShadowSprite;
 }
 
 // .map-tile-quest-ready's inset glow, at the animation's 50% state. Drawn by
@@ -530,16 +479,6 @@ function paint(ops, effectOps, suppressHeroGlyph, nowMs) {
         ctx2d.save();
         ctx2d.globalAlpha = pulse(QUEST_GLOW_PERIOD_MS, QUEST_GLOW_MIN_ALPHA);
         ctx2d.drawImage(sprite, px, py, TILE_SIZE_PX, TILE_SIZE_PX);
-        ctx2d.restore();
-        break;
-      }
-      case 'portalShadow': {
-        const sprite = getPortalShadowSprite();
-        if (!sprite) break;
-        const side = TILE_SIZE_PX + sprite.bleed * 2;
-        ctx2d.save();
-        ctx2d.globalAlpha = pulse(PORTAL_SHADOW_PERIOD_MS, PORTAL_SHADOW_MIN_ALPHA);
-        ctx2d.drawImage(sprite.canvas, px - sprite.bleed, py - sprite.bleed, side, side);
         ctx2d.restore();
         break;
       }
@@ -1226,7 +1165,6 @@ export function destroy() {
   resetEffects();
   glyphCache.clear();
   gradientCache.clear();
-  portalShadowSprite = null;
   questGlowSprite = null;
 }
 
