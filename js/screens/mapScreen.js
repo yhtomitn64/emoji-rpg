@@ -422,7 +422,9 @@ function computeCellSignature(screenId, x, y) {
   // Portal tiles get a flat +1000 z-index boost on top of the row-based
   // depth sort (see applyCellPosition below) - guardians get the same
   // treatment. See the original comment preserved on applyCellPosition.
-  const zBoosted = PORTAL_ACTION_TILES.has(tile) || tile === TILES.guardian;
+  // The dragon boss entrance joined them 2026-09-12 once it started
+  // rendering at GUARDIAN_PX too - same downward bleed, same fix.
+  const zBoosted = PORTAL_ACTION_TILES.has(tile) || tile === TILES.guardian || tile === TILES.boss;
   return { resolved: true, screenId, x, y, tile, isPlayer, hasMiniDungeon, hasTileCache, visited, fraction, dirs, questReady, zBoosted };
 }
 
