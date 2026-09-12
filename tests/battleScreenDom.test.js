@@ -34,16 +34,20 @@
 //   to progress past one link - calling tick() repeatedly with no await
 //   between only ever fires the first link. See advanceStagger below.
 //
-// EXCEPTION: the six Lacerate-retrigger-window tests near the end of this
-// file are deliberately left on real wall-clock waits. That mechanism is
-// timed off `performance.now()` (js/screens/battleScreen.js), not
-// `Date.now()` - node:test's mock.timers has no 'performance' entry in its
-// supported apis list (confirmed by direct experiment: `enable({apis:
-// ['performance']})` throws ERR_INVALID_ARG_VALUE on this Node version), so
-// those six can't be converted the same way without either changing
-// production code's clock source (out of scope, not asked for) or hand-
-// rolling a second, separately-tracked fake clock just for `performance.now`
-// (real complexity/risk for six tests, not worth it this round).
+// The six Lacerate-retrigger-window tests near the end of this file used to
+// be left on real wall-clock waits: that mechanism was timed off
+// `performance.now()` (js/screens/battleScreen.js), which node:test's
+// mock.timers has no 'performance' entry for in its supported apis list on
+// this Node version (confirmed by direct experiment: `enable({apis:
+// ['performance']})` throws ERR_INVALID_ARG_VALUE) or, as of a check against
+// the current docs, any later one either. Rather than hand-roll a second,
+// separately-tracked fake clock just for `performance.now` (real ongoing
+// complexity for six tests), `lacerateRetriggerStartedAt` was switched to
+// `Date.now()` - it matches every other elapsed-time read in the same file
+// (windup start/complete, parry cooldown, buff durations) and a ~1.2s UI
+// timing window has no real use for `performance.now()`'s extra precision
+// or clock-adjustment immunity. All six now use the same fake clock as
+// everything else here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setupDom, teardownDom, createRoot, click, keydown } from './helpers/dom.js';
@@ -1288,11 +1292,8 @@ test('battleScreen DOM', async (t) => {
     assert.equal(lacerateBtn.disabled, false, 'Lacerate should stay clickable during its own retrigger window, despite being on cooldown');
   });
 
-  // NOT converted to a fake clock - see this file's header. Lacerate's
-  // retrigger window is timed off performance.now() (js/screens/
-  // battleScreen.js), which node:test's mock.timers doesn't support
-  // mocking on this Node version.
-  await t.test('the retrigger glow gets a distinct flash class once the window reaches its sweet-spot sub-range', async () => {
+  await t.test('the retrigger glow gets a distinct flash class once the window reaches its sweet-spot sub-range', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     // High HP override: Lacerate's own delayed bleed tick (900ms after use,
     // ~75% into this 1200ms retrigger window) would otherwise finish off a
     // regular boar and end the battle before the window's own 80-100%
@@ -1303,32 +1304,35 @@ test('battleScreen DOM', async (t) => {
       monsterOverrides: [{ hp: 100000 }],
     });
     click(root.querySelector('#btn-ability-slash'));
-    // Poll rather than wait for a fixed delay - the flash only appears on
-    // whichever 300ms tick's render happens to land inside the sweet spot's
-    // sub-range (see abilityButtonEntries()'s own comment on why this can't
-    // be a precisely-timed one-shot like the parry zone's pulse), so the
-    // exact real-time offset isn't fixed the way the retrigger press itself
-    // is. Bounded past the window's own 1200ms so a genuine regression
-    // still fails instead of hanging.
-    const pollStart = Date.now();
+    // The flash only appears on whichever 300ms tick's render happens to
+    // land inside the sweet spot's sub-range (see abilityButtonEntries()'s
+    // own comment on why this can't be a precisely-timed one-shot like the
+    // parry zone's pulse) - step tick-by-tick rather than jumping straight
+    // to a computed offset, checking after each one. 6 ticks (1800ms)
+    // covers the whole 1200ms window with margin, so a genuine regression
+    // still fails instead of the loop silently exhausting into a false pass.
     let sawFlash = false;
-    while (Date.now() - pollStart < 1500) {
-      const btn = root.querySelector('#btn-ability-slash');
-      if (btn?.classList.contains('battle-ability-button-retrigger-sweetspot')) {
+    for (let i = 0; i < 6; i++) {
+      t.mock.timers.tick(TICK_MS);
+      if (root.querySelector('#btn-ability-slash')?.classList.contains('battle-ability-button-retrigger-sweetspot')) {
         sawFlash = true;
         break;
       }
-      await new Promise((resolve) => setTimeout(resolve, 20));
     }
     assert.ok(sawFlash, 'expected the sweet-spot flash class to appear at some point during the retrigger window');
   });
 
-  // NOT converted - see this file's header.
-  await t.test('landing the re-press inside the sweet spot buffs the other abilities', async () => {
+  await t.test('landing the re-press inside the sweet spot buffs the other abilities', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     click(root.querySelector('#btn-ability-slash'));
-    // The retrigger window is 1200ms with an 80-100% sweet spot - wait to 1100ms in.
-    await new Promise((resolve) => setTimeout(resolve, 1100));
+    // The retrigger window is 1200ms with an 80-100% sweet spot - advance to
+    // 1100ms in. openLacerateRetriggerWindow() (js/screens/battleScreen.js)
+    // stamps lacerateRetriggerStartedAt synchronously inside the click above,
+    // before this tick() call - not inside it - so this is a plain "measure
+    // forward from an already-correct stamp" advance, not at risk of the
+    // stamp-and-measure-in-one-batch hazard this file's header describes.
+    t.mock.timers.tick(1100);
     // Same live-button caveat as above: this re-press still lands correctly
     // even on a stale reference (the click handler's closure over the
     // ability id doesn't depend on DOM attachment), but re-query for the
@@ -1346,21 +1350,21 @@ test('battleScreen DOM', async (t) => {
     );
   });
 
-  // NOT converted - see this file's header.
-  await t.test('the "3" key also lands the re-press during Lacerate\'s window, not just clicking its button', async () => {
+  await t.test('the "3" key also lands the re-press during Lacerate\'s window, not just clicking its button', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     // Level 6 unlocks stab(1)/chop(2)/slash(3) - Lacerate is slot 3.
     // No ATB gate to wait past anymore (see the ability-GCD rework) - a
     // fresh battle starts every ability off cooldown, so "3" lands on the
     // very first press.
     keydown('3');
-    await new Promise((resolve) => setTimeout(resolve, 1100));
+    t.mock.timers.tick(1100);
     keydown('3');
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
   });
 
-  // NOT converted - see this file's header.
-  await t.test('Lacerate\'s retrigger window still wins even after its own cooldown clears first (confirmed intentional, not a fresh re-cast)', async () => {
+  await t.test('Lacerate\'s retrigger window still wins even after its own cooldown clears first (confirmed intentional, not a fresh re-cast)', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     // speed: 22 pushes Lacerate's own cooldown (the bare speed-scaled GCD -
     // see abilityGcdMsForSpeed) down to its 500ms floor, well under the
     // 1200ms retrigger window - so by the time of the re-press below, a
@@ -1378,16 +1382,16 @@ test('battleScreen DOM', async (t) => {
     // By ~600ms in, Lacerate's own 500ms-floor cooldown has already ticked
     // down to 0 (tick() decrements every 300ms) - but the 1200ms retrigger
     // window opened by that first press is still open at this 1100ms mark
-    // (same wait the sweet-spot re-press tests above use), so this re-press
-    // lands squarely in the overlap between "cooldown cleared" and
+    // (same advance the sweet-spot re-press tests above use), so this
+    // re-press lands squarely in the overlap between "cooldown cleared" and
     // "retrigger window still open."
-    await new Promise((resolve) => setTimeout(resolve, 1100));
+    t.mock.timers.tick(1100);
     keydown('3');
     assert.match(root.querySelector('#battle-buff-indicator').textContent, /Buffed/);
   });
 
-  // NOT converted - see this file's header.
-  await t.test('missing the re-press window entirely (letting it lapse) grants no buff', async () => {
+  await t.test('missing the re-press window entirely (letting it lapse) grants no buff', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 6 } }) });
     click(root.querySelector('#btn-ability-slash'));
     // Past the 1200ms window plus one more full 300ms tick: tick() now
@@ -1398,15 +1402,15 @@ test('battleScreen DOM', async (t) => {
     // after that render. The glow doesn't actually clear from the DOM
     // until the following tick's own render, one 300ms tick later than it
     // used to.
-    await new Promise((resolve) => setTimeout(resolve, 1800));
+    t.mock.timers.tick(1800);
     assert.equal(root.querySelector('#battle-buff-indicator').textContent, '');
     // Re-query rather than reuse a pre-click reference - see the comment on
     // the first retrigger test above for why.
     assert.equal(root.querySelector('#btn-ability-slash').classList.contains('battle-ability-button-retrigger'), false);
   });
 
-  // NOT converted - see this file's header.
-  await t.test('landing the re-press while Super Scream\'s buff is already active refreshes it instead of stacking', async () => {
+  await t.test('landing the re-press while Super Scream\'s buff is already active refreshes it instead of stacking', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
     const { root } = await mountBattle(['boar'], { state: baseState({ player: { ...createNewGame().player, level: 10 } }) });
     click(root.querySelector('#btn-ability-superScream'));
     const buffTextAfterScream = root.querySelector('#battle-buff-indicator').textContent;
@@ -1419,7 +1423,7 @@ test('battleScreen DOM', async (t) => {
 
     const lacerateBtn = root.querySelector('#btn-ability-slash');
     click(lacerateBtn);
-    await new Promise((resolve) => setTimeout(resolve, 1100));
+    t.mock.timers.tick(1100);
     click(lacerateBtn);
     // Lacerate's own buffDurationMs (9s) is shorter than Super Scream's
     // remaining ~12s at this point, so a real stack would show >12s and a

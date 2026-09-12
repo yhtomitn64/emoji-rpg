@@ -215,7 +215,15 @@ function pickRandomOtherLivingIndices(excludeIndex, count) {
 
 function openLacerateRetriggerWindow() {
   lacerateRetriggerOpen = true;
-  lacerateRetriggerStartedAt = performance.now();
+  // Date.now(), not performance.now() - matches every other elapsed-time
+  // read in this file (windup start/complete in js/systems/parry.js, parry
+  // cooldown, buff durations). Switched 2026-09-12: performance.now()'s
+  // extra precision/clock-adjustment immunity buys nothing over a ~1.2s UI
+  // timing window, and the mismatch was the one thing blocking
+  // tests/battleScreenDom.test.js's Lacerate-retrigger tests from using the
+  // same t.mock.timers fake clock as everything else in this file - Node's
+  // mock.timers has no 'performance' entry in its supported apis.
+  lacerateRetriggerStartedAt = Date.now();
 }
 
 function closeLacerateRetriggerWindow() {
@@ -229,7 +237,7 @@ function closeLacerateRetriggerWindow() {
 // duration; missing it (early, late, or already expired) does nothing.
 function handleLacerateRetriggerPress() {
   const lacerate = ABILITIES.find((a) => a.id === 'slash');
-  const elapsedMs = performance.now() - lacerateRetriggerStartedAt;
+  const elapsedMs = Date.now() - lacerateRetriggerStartedAt;
   const elapsedPercent = Math.min(100, (elapsedMs / lacerate.retrigger.windowMs) * 100);
   closeLacerateRetriggerWindow();
   if (resolveTimingHit(elapsedPercent, lacerate.retrigger.sweetSpotStartPercent, lacerate.retrigger.sweetSpotEndPercent)) {
@@ -784,7 +792,7 @@ function abilityButtonEntries() {
       // updateMenu()) can measure real elapsed time a hair past windowMs
       // from ordinary setInterval jitter - still the same instant the
       // sweet spot's upper edge covers, not a new one past it.
-      const elapsedPercent = Math.min(100, ((performance.now() - lacerateRetriggerStartedAt) / ability.retrigger.windowMs) * 100);
+      const elapsedPercent = Math.min(100, ((Date.now() - lacerateRetriggerStartedAt) / ability.retrigger.windowMs) * 100);
       return elapsedPercent >= ability.retrigger.sweetSpotStartPercent && elapsedPercent <= ability.retrigger.sweetSpotEndPercent;
     })();
     // playerStunDebuff already blocks playerUseAbility itself (see its own
@@ -2041,7 +2049,7 @@ function tick() {
   // tick exactly at windowMs.
   if (lacerateRetriggerOpen) {
     const lacerate = ABILITIES.find((a) => a.id === 'slash');
-    if (performance.now() - lacerateRetriggerStartedAt >= lacerate.retrigger.windowMs) {
+    if (Date.now() - lacerateRetriggerStartedAt >= lacerate.retrigger.windowMs) {
       closeLacerateRetriggerWindow();
     }
   }

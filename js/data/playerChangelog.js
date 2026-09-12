@@ -5,6 +5,17 @@
 // or care about while playing. Keep it in sync manually: add a new entry
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
+  // Internal-only, same reason 0.34.1-0.34.3 got entries (see this file's
+  // header + those entries' own comments): a tiny internal clock-source
+  // change (Lacerate's retrigger window) with no player-visible timing
+  // difference, made only to finish the same test-suite cleanup.
+  {
+    version: '0.34.4',
+    date: '2026-09-12',
+    highlights: [
+      "Fixed: one more small internal timing cleanup - nothing to notice in-game, Lacerate's follow-through window still works exactly the same.",
+    ],
+  },
   // Same shape as 0.34.1/0.34.2 just below - the small remainder of that
   // same test suite cleanup.
   {
