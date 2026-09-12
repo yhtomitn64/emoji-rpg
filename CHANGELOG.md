@@ -24,6 +24,8 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-09-12
+
 ### Fixed
 - **`tests/battleScreenDom.test.js` converted from real wall-clock waits to
   `node:test`'s `t.mock.timers`**, the same fix 0.34.1 already applied to
