@@ -2157,7 +2157,18 @@ number). Confirmed live 2026-09-04 via a `?debug=level10` test character
 (`js/systems/debugCharacters.js`, added the same session) - Timothy
 played real battles against it and confirmed the fix looks right.
 
-### Player's own marker inherits the guardian's giant size when standing on a guardian tile, raised 2026-09-09
+### ~~Player's own marker inherits the guardian's giant size when standing on a guardian tile, raised 2026-09-09~~ - fixed 2026-09-12
+**Fixed** - by the time this was picked up, `js/screens/mapScreen.js` had
+already been split into `js/screens/mapDomRenderer.js` and
+`js/systems/mapDrawList.js` (the DOM-rendering and draw-list-building
+halves respectively), each with its own copy of the unconditional
+`GUARDIAN_PX` assignment this entry describes. Added the `&& !isPlayer`
+guard this entry called for in both places: `mapDomRenderer.js` line 269
+(`if ((tile === TILES.guardian || tile === TILES.boss) && !isPlayer)
+marker.style.fontSize = ...`) and `mapDrawList.js` line 213 (same guard on
+`sizePx = GUARDIAN_PX`). Original diagnosis (against the pre-split
+`mapScreen.js`) preserved below.
+
 Timothy: "when I go over a double size emoji my characters gets that big
 too which looks kind of silly." Root cause found by reading
 `js/screens/mapScreen.js`'s fullsize-marker branch (not reproduced live -

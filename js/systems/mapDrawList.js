@@ -210,7 +210,7 @@ function buildCellOps(ctx, gx, gy, signature, out) {
     // it never had it, unlike every tool guardian and the superboss
     // entrance/marker, which all read as more prominent landmarks than it
     // did at plain FULL_SQUARE_PX.
-    if (tile === TILES.guardian || tile === TILES.boss) sizePx = GUARDIAN_PX;
+    if ((tile === TILES.guardian || tile === TILES.boss) && !isPlayer) sizePx = GUARDIAN_PX;
     // Portal tiles crop the 🌌 emoji's own baked-in pale border by drawing it
     // oversized and clipping back to the tile. Excludes isPlayer: standing on
     // a portal draws the hero's emoji, which has no border to crop.

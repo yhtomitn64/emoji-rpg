@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.34.5] - 2026-09-12
+
+### Fixed
+- **The player's own marker no longer inherits guardian/boss scale when
+  standing on a guardian or boss tile.** `js/screens/mapDomRenderer.js`
+  (line 269) and `js/systems/mapDrawList.js` (line 213) each set the
+  marker to `GUARDIAN_PX` (2.2x tile size, "big and scary" per the
+  0.26.12 comment) whenever `tile === TILES.guardian || tile ===
+  TILES.boss`, with no guard excluding the player's own marker - unlike
+  the neighboring `PORTAL_ACTION_TILES` check a few lines below in both
+  files, which already carries `&& !isPlayer` for the same reason. Both
+  conditions now add `&& !isPlayer`, so walking onto (or fighting on) a
+  guardian/boss tile keeps the hero at normal `HERO_AND_LOOT_PX` size
+  instead of ballooning to guardian scale; the guardian/boss glyph
+  itself is unaffected when the player isn't standing on it. Diagnosed
+  pre-split against `js/screens/mapScreen.js` (see the now-fixed
+  `docs/superpowers/BACKLOG.md` entry raised 2026-09-09) - this applies
+  the same one-line-per-file fix to both files that split off from it.
+
 ## [0.34.4] - 2026-09-12
 
 ### Fixed

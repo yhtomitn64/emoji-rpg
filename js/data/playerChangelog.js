@@ -5,6 +5,13 @@
 // or care about while playing. Keep it in sync manually: add a new entry
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
+  {
+    version: '0.34.5',
+    date: '2026-09-12',
+    highlights: [
+      "Fixed: standing on a guardian or boss tile no longer makes your hero balloon up to giant size - your character now stays normal-sized there, same as everywhere else.",
+    ],
+  },
   // Internal-only, same reason 0.34.1-0.34.3 got entries (see this file's
   // header + those entries' own comments): a tiny internal clock-source
   // change (Lacerate's retrigger window) with no player-visible timing

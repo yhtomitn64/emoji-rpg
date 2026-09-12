@@ -266,7 +266,7 @@ function applyCellContent(ctx, cell, gx, gy, signature) {
     // "Big and scary" - see GUARDIAN_PX's own comment. The dragon boss
     // entrance gets the same treatment, raised 2026-09-12 - see the
     // matching comment in mapDrawList.js.
-    if (tile === TILES.guardian || tile === TILES.boss) marker.style.fontSize = `${GUARDIAN_PX.toFixed(1)}px`;
+    if ((tile === TILES.guardian || tile === TILES.boss) && !isPlayer) marker.style.fontSize = `${GUARDIAN_PX.toFixed(1)}px`;
     // Portal tiles: crop the emoji's own baked-in border rather than
     // appending it plain - see .map-tile-portal-crop's own comment in
     // css/styles.css. Excludes isPlayer: when the hero is standing on
