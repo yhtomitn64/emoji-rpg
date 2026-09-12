@@ -24,6 +24,25 @@ public API, no formal release process — commits land straight on
 
 ## [Unreleased]
 
+## [0.33.3] - 2026-09-12
+
+### Fixed
+- **The dragon boss entrance rendered on a black square at plain tile size**,
+  raised 2026-09-12 with a screenshot. `TILES.boss` (`js/tiles.js`) was the
+  one landmark tile missing from both `FULL_SQUARE_MARKERS` and
+  `GRASS_CONTEXT_MARKERS` (`js/systems/mapRenderModel.js`) - every tool
+  guardian and the superboss entrance/marker were already in both sets, so
+  it alone fell through to `.map-tile`'s bare default background
+  (`GROUND_COLOR_DEFAULT`, `#333333`) and the plain `FULL_SQUARE_PX` size
+  instead of grass and the "big and scary" `GUARDIAN_PX` (2.2x) treatment
+  guardians get. Timothy: "this dragon should not have a background and be
+  4x the size like the tool bosses." Added to both sets, plus the
+  `GUARDIAN_PX`-sizing check and the always-on-top z-index boost (needed
+  since the oversized sprite now bleeds into the row below, same as a
+  guardian) - all four spots, canvas and DOM renderers alike. New coverage
+  in `tests/mapDrawList.test.js` and `tests/mapScreenDom.test.js` against
+  `js/maps/dungeonMap.js`'s real boss tile.
+
 ## [0.33.2] - 2026-09-12
 
 ### Fixed

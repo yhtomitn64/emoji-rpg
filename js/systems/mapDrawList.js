@@ -206,7 +206,11 @@ function buildCellOps(ctx, gx, gy, signature, out) {
     if (isHeroOrLoot) sizePx = HERO_AND_LOOT_PX;
     // "Big and scary" - 220% bleeds into all four neighbors, reading as
     // roughly a 2x2 footprint while the walkable tile stays one cell.
-    if (tile === TILES.guardian) sizePx = GUARDIAN_PX;
+    // The dragon boss entrance gets the same treatment, raised 2026-09-12 -
+    // it never had it, unlike every tool guardian and the superboss
+    // entrance/marker, which all read as more prominent landmarks than it
+    // did at plain FULL_SQUARE_PX.
+    if (tile === TILES.guardian || tile === TILES.boss) sizePx = GUARDIAN_PX;
     // Portal tiles crop the 🌌 emoji's own baked-in pale border by drawing it
     // oversized and clipping back to the tile. Excludes isPlayer: standing on
     // a portal draws the hero's emoji, which has no border to crop.

@@ -263,8 +263,10 @@ function applyCellContent(ctx, cell, gx, gy, signature) {
     marker.style.fontSize = `${FULL_SQUARE_PX.toFixed(1)}px`;
     const isHeroOrLoot = isPlayer || hasTileCache || tile === TILES.miniDungeonTreasure;
     if (isHeroOrLoot) marker.style.fontSize = `${HERO_AND_LOOT_PX.toFixed(1)}px`;
-    // "Big and scary" - see GUARDIAN_PX's own comment.
-    if (tile === TILES.guardian) marker.style.fontSize = `${GUARDIAN_PX.toFixed(1)}px`;
+    // "Big and scary" - see GUARDIAN_PX's own comment. The dragon boss
+    // entrance gets the same treatment, raised 2026-09-12 - see the
+    // matching comment in mapDrawList.js.
+    if (tile === TILES.guardian || tile === TILES.boss) marker.style.fontSize = `${GUARDIAN_PX.toFixed(1)}px`;
     // Portal tiles: crop the emoji's own baked-in border rather than
     // appending it plain - see .map-tile-portal-crop's own comment in
     // css/styles.css. Excludes isPlayer: when the hero is standing on

@@ -143,6 +143,25 @@ test('mapDrawList - landmarks and markers', async (t) => {
     assert.equal(glyph.sizePx, 2.2 * TILE_SIZE_PX);
   });
 
+  // Raised 2026-09-12 with a screenshot: the dragon boss entrance rendered
+  // at plain FULL_SQUARE_PX on a black GROUND_COLOR_DEFAULT square instead
+  // of grass - it was the one landmark tile missing from GRASS_CONTEXT_MARKERS
+  // and never got the "big and scary" GUARDIAN_PX treatment guardians did.
+  await t.test('the dragon boss entrance renders oversized on grass, not a black square', async () => {
+    const { dungeonMap } = await import('../js/maps/dungeonMap.js');
+    const maps = { dungeon: dungeonMap };
+    const drawList = await mountMap(dungeonMap, maps, baseState({
+      position: { ...dungeonMap.startPosition }, map: 'dungeon',
+    }));
+    const { x, y } = findTile(dungeonMap, 'boss');
+    const ground = opsAt(drawList, x, y).find((op) => op.op === 'ground');
+    assert.equal(ground.color, GROUND_COLOR_GRASS);
+    assert.notEqual(ground.color, GROUND_COLOR_DEFAULT);
+    const glyph = glyphsAt(drawList, x, y).at(-1);
+    assert.equal(glyph.sizePx, GUARDIAN_PX);
+    assert.notEqual(glyph.sizePx, FULL_SQUARE_PX);
+  });
+
   await t.test('a guardian tile still paints grass underneath, not the bare default', async () => {
     const { axeDungeonMap } = await import('../js/maps/toolDungeons/axeDungeon.js');
     const maps = { axeDungeon: axeDungeonMap };

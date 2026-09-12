@@ -6,6 +6,13 @@
 // here alongside any CHANGELOG.md entry that's actually gameplay-facing.
 export const PLAYER_CHANGELOG = [
   {
+    version: '0.33.3',
+    date: '2026-09-12',
+    highlights: [
+      'Fixed: the dragon boss entrance now sits on grass like every other landmark, and renders big like the tool guardians - it used to show small on a plain black square.',
+    ],
+  },
+  {
     version: '0.33.2',
     date: '2026-09-12',
     highlights: [

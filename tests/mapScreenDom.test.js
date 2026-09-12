@@ -19,6 +19,7 @@ import { townMap } from '../js/maps/townMap.js';
 import { buildWorldGrid } from '../js/systems/worldGrid.js';
 import { isGateCleared } from '../js/systems/toolGates.js';
 import { TOWN_PORTAL_POSITION } from '../js/systems/portal.js';
+import { DEFAULT_VIEWPORT_TILES_WIDE, DEFAULT_VIEWPORT_TILES_TALL } from '../js/systems/mapRenderModel.js';
 
 function baseState(overrides = {}) {
   return { ...createNewGame(), position: { ...townMap.startPosition }, ...overrides };
@@ -808,6 +809,63 @@ test('mapScreen DOM - tool dungeon guardian rendering', async (t) => {
   });
 });
 
+// Raised 2026-09-12 with a screenshot: the dragon boss entrance rendered on
+// a black square at plain size - it was the one landmark tile that never
+// got the GRASS_CONTEXT_MARKERS/GUARDIAN_PX treatment every tool guardian
+// and the superboss entrance/marker already had.
+test('mapScreen DOM - dragon boss entrance rendering', async (t) => {
+  t.beforeEach(() => setupDom());
+  t.afterEach(async () => {
+    const { unmount } = await import('../js/screens/mapScreen.js');
+    unmount();
+    teardownDom();
+  });
+
+  async function mountDungeon() {
+    const { dungeonMap } = await import('../js/maps/dungeonMap.js');
+    const { mount } = await import('../js/screens/mapScreen.js');
+    const root = createRoot();
+    const maps = { dungeon: dungeonMap };
+    mount(root, {
+      renderer: 'dom',
+      state: baseState({ position: { ...dungeonMap.startPosition } }),
+      mapConfig: dungeonMap,
+      maps,
+      worldGrid: buildWorldGrid(maps),
+      callbacks: { onFirstVisit: () => {} },
+    });
+    return { root, dungeonMap };
+  }
+
+  await t.test('boss tile gets the grass background class, not the bare default', async () => {
+    const { root, dungeonMap } = await mountDungeon();
+    const { viewportX, viewportY } = findBossPosition(dungeonMap);
+    const cell = tileAtViewportPosition(root, dungeonMap, viewportX, viewportY);
+    assert.ok(cell.classList.contains('map-tile-grass'), 'expected the boss tile to carry map-tile-grass');
+  });
+
+  await t.test('boss renders oversized (GUARDIAN_PX), not the plain FULL_SQUARE_PX landmark size', async () => {
+    const { root, dungeonMap } = await mountDungeon();
+    const { viewportX, viewportY } = findBossPosition(dungeonMap);
+    const cell = tileAtViewportPosition(root, dungeonMap, viewportX, viewportY);
+    const marker = cell.querySelector('.map-tile-fullsize');
+    assert.ok(marker, 'expected a .map-tile-fullsize marker on the boss tile');
+    assert.equal(marker.style.fontSize, '105.6px');
+  });
+
+  // The CSS row driving z-index is world-relative (gy - bounds.minGy, i.e.
+  // the map's own y for a lone screen), which is NOT the same as the
+  // viewport-scan row used above to find the cell in DOM order whenever the
+  // map is smaller than the viewport and gets centered - see
+  // findBossPosition's own comment.
+  await t.test('boss tile gets the same always-on-top z-index boost as portals and guardians', async () => {
+    const { root, dungeonMap } = await mountDungeon();
+    const { worldY, viewportX, viewportY } = findBossPosition(dungeonMap);
+    const cell = tileAtViewportPosition(root, dungeonMap, viewportX, viewportY);
+    assert.equal(cell.style.zIndex, String(worldY + 1000));
+  });
+});
+
 function findGuardianPosition(map) {
   for (let y = 0; y < map.rows.length; y++) {
     for (let x = 0; x < map.rows[y].length; x++) {
@@ -815,6 +873,29 @@ function findGuardianPosition(map) {
     }
   }
   throw new Error(`${map.id} has no guardian tile`);
+}
+
+// Unlike the tool dungeons (exactly DEFAULT_VIEWPORT_TILES_WIDE/TALL, so a
+// map-local (x, y) needs no translation - see tileAtViewportPosition's own
+// comment), dungeonMap is 20x11 - smaller than the 21x13 default viewport
+// in both dimensions, so computeViewportOrigin (js/systems/world.js) centers
+// it, giving a nonzero origin. Reproduces that same centering math to get
+// both coordinate systems a caller might need: viewportX/Y (DOM append
+// order, what tileAtViewportPosition expects) and worldY (what the DOM
+// renderer's own z-index actually keys off - gy - bounds.minGy, i.e. the
+// map's own y for a lone screen - see applyCellPosition's caller).
+function findBossPosition(map) {
+  for (let y = 0; y < map.rows.length; y++) {
+    for (let x = 0; x < map.rows[y].length; x++) {
+      if (map.legend[map.rows[y][x]] !== 'boss') continue;
+      const worldWidth = map.rows[0].length;
+      const worldHeight = map.rows.length;
+      const originGx = -Math.floor((DEFAULT_VIEWPORT_TILES_WIDE - worldWidth) / 2);
+      const originGy = -Math.floor((DEFAULT_VIEWPORT_TILES_TALL - worldHeight) / 2);
+      return { worldX: x, worldY: y, viewportX: x - originGx, viewportY: y - originGy };
+    }
+  }
+  throw new Error(`${map.id} has no boss tile`);
 }
 
 // The tool dungeons are now exactly DEFAULT_VIEWPORT_TILES_WIDE/TALL

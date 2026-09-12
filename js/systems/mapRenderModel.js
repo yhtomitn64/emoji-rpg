@@ -130,6 +130,7 @@ export const FULL_SQUARE_MARKERS = new Set([
   TILES.well,
   TILES.exit,
   TILES.guardian,
+  TILES.boss,
 ]);
 
 // The subset of FULL_SQUARE_MARKERS above that always sit on a grass
@@ -152,6 +153,7 @@ export const GRASS_CONTEXT_MARKERS = new Set([
   TILES.canoeDungeonEntrance,
   TILES.superBossEntrance,
   TILES.superBossMarker,
+  TILES.boss,
   TILES.shop,
   TILES.smith,
   TILES.questBoard,
